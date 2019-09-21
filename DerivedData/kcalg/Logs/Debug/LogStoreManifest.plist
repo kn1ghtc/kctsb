@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>logFormatVersion</key>
+	<integer>10</integer>
+	<key>logs</key>
+	<dict>
+		<key>0CEECFE4-E5C4-41E8-AE77-3BF75FC6AC8B</key>
+		<dict>
+			<key>className</key>
+			<string>DBGConsoleLog</string>
+			<key>documentTypeString</key>
+			<string>com.apple.dt.IDE.DebuggerLogContentType</string>
+			<key>domainType</key>
+			<string>Xcode.IDEActivityLogDomainType.DebugLog</string>
+			<key>fileName</key>
+			<string>0CEECFE4-E5C4-41E8-AE77-3BF75FC6AC8B.xcactivitylog</string>
+			<key>primaryObservable</key>
+			<dict>
+				<key>highLevelStatus</key>
+				<string>S</string>
+			</dict>
+			<key>schemeIdentifier-containerName</key>
+			<string>kcalg project</string>
+			<key>schemeIdentifier-schemeName</key>
+			<string>kcalg</string>
+			<key>schemeIdentifier-sharedScheme</key>
+			<integer>1</integer>
+			<key>signature</key>
+			<string>Debug kcalg</string>
+			<key>timeStartedRecording</key>
+			<real>586088497.37336504</real>
+			<key>timeStoppedRecording</key>
+			<real>586088560.45590401</real>
+			<key>title</key>
+			<string>Debug kcalg</string>
+			<key>uniqueIdentifier</key>
+			<string>0CEECFE4-E5C4-41E8-AE77-3BF75FC6AC8B</string>
+		</dict>
+		<key>D058C8D2-72C8-480D-8782-34B79C1E4988</key>
+		<dict>
+			<key>className</key>
+			<string>DBGConsoleLog</string>
+			<key>documentTypeString</key>
+			<string>com.apple.dt.IDE.DebuggerLogContentType</string>
+			<key>domainType</key>
+			<string>Xcode.IDEActivityLogDomainType.DebugLog</string>
+			<key>fileName</key>
+			<string>D058C8D2-72C8-480D-8782-34B79C1E4988.xcactivitylog</string>
+			<key>primaryObservable</key>
+			<dict>
+				<key>highLevelStatus</key>
+				<string>S</string>
+			</dict>
+			<key>schemeIdentifier-containerName</key>
+			<string>kcalg project</string>
+			<key>schemeIdentifier-schemeName</key>
+			<string>kcalg</string>
+			<key>schemeIdentifier-sharedScheme</key>
+			<integer>1</integer>
+			<key>signature</key>
+			<string>Debug kcalg</string>
+			<key>timeStartedRecording</key>
+			<real>586088610.08608902</real>
+			<key>timeStoppedRecording</key>
+			<real>586088750.26044405</real>
+			<key>title</key>
+			<string>Debug kcalg</string>
+			<key>uniqueIdentifier</key>
+			<string>D058C8D2-72C8-480D-8782-34B79C1E4988</string>
+		</dict>
+	</dict>
+</dict>
+</plist>
