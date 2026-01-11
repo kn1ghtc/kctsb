@@ -1,0 +1,24 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+# Find required dependencies based on build configuration
+if(@KCTSB_ENABLE_NTL@)
+    find_dependency(NTL)
+endif()
+
+if(@KCTSB_ENABLE_GMP@)
+    find_dependency(GMP)
+endif()
+
+if(@KCTSB_ENABLE_OPENSSL@)
+    find_dependency(OpenSSL)
+endif()
+
+if(@KCTSB_ENABLE_SEAL@)
+    find_dependency(SEAL 4.1 CONFIG)
+endif()
+
+include("${CMAKE_CURRENT_LIST_DIR}/kctsbTargets.cmake")
+
+check_required_components(kctsb)

@@ -1,3 +1,8 @@
+# ============================================================================
+# kctsb - C/C++ Trusted Security Algorithm Library
+# .gitignore
+# ============================================================================
+
 # Prerequisites
 *.d
 
@@ -30,3 +35,56 @@
 *.exe
 *.out
 *.app
+
+# Build directories
+build/
+cmake-build-*/
+out/
+install/
+
+# IDE files
+.idea/
+*.xcodeproj/
+*.xcworkspace/
+
+# CMake generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+
+# Package files
+*.deb
+*.rpm
+*.tar.gz
+*.zip
+
+# Editor files
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Visual Studio
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+.vs/
+
+# Test output
+Testing/
+test_output/
+
+# Temporary files
+*.tmp
+*.temp
+
+# Debug files
+*.dSYM/
+
+# Coverage reports
+*.gcov
+*.gcno
+*.gcda
+coverage/
