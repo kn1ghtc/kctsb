@@ -114,32 +114,65 @@ file(GLOB_RECURSE KCTSB_CORE_SOURCES
     ${KCTSB_SRC_DIR}/core/*.c
 )
 
-file(GLOB_RECURSE KCTSB_CRYPTO_SOURCES
+# Core crypto sources (no external deps)
+# Note: Only include files that don't depend on external frameworks
+file(GLOB KCTSB_AES_SOURCES
     ${KCTSB_SRC_DIR}/crypto/aes/*.cpp
     ${KCTSB_SRC_DIR}/crypto/aes/*.c
-    ${KCTSB_SRC_DIR}/crypto/rsa/*.cpp
-    ${KCTSB_SRC_DIR}/crypto/ecc/*.cpp
+)
+
+# Hash module - only Keccak is self-contained
+set(KCTSB_HASH_SOURCES
+    ${KCTSB_SRC_DIR}/crypto/hash/Keccak.cpp
+)
+
+# SM module - check for self-contained files
+file(GLOB KCTSB_SM_SOURCES
     ${KCTSB_SRC_DIR}/crypto/sm/*.cpp
     ${KCTSB_SRC_DIR}/crypto/sm/*.c
-    ${KCTSB_SRC_DIR}/crypto/hash/*.cpp
-    ${KCTSB_SRC_DIR}/crypto/hash/*.c
-    ${KCTSB_SRC_DIR}/crypto/mac/*.cpp
-    ${KCTSB_SRC_DIR}/crypto/chacha/*.cpp
 )
 
-file(GLOB_RECURSE KCTSB_ADVANCED_SOURCES
-    ${KCTSB_SRC_DIR}/advanced/whitebox/*.cpp
-    ${KCTSB_SRC_DIR}/advanced/whitebox/*.c
-    ${KCTSB_SRC_DIR}/advanced/zk/*.cpp
-    ${KCTSB_SRC_DIR}/advanced/lattice/*.cpp
-    ${KCTSB_SRC_DIR}/advanced/sss/*.cpp
-    ${KCTSB_SRC_DIR}/advanced/fuzzy/*.cpp
-    ${KCTSB_SRC_DIR}/advanced/fe/*.cpp
+set(KCTSB_CRYPTO_SOURCES
+    ${KCTSB_AES_SOURCES}
+    ${KCTSB_HASH_SOURCES}
 )
 
-file(GLOB_RECURSE KCTSB_MATH_SOURCES
-    ${KCTSB_SRC_DIR}/math/*.cpp
-)
+# RSA module (may need GMP for large numbers)
+if(KCTSB_ENABLE_GMP OR NOT EXISTS "${KCTSB_SRC_DIR}/crypto/rsa")
+    file(GLOB KCTSB_RSA_SOURCES ${KCTSB_SRC_DIR}/crypto/rsa/*.cpp)
+    list(APPEND KCTSB_CRYPTO_SOURCES ${KCTSB_RSA_SOURCES})
+endif()
+
+# ECC module requires NTL
+if(KCTSB_ENABLE_NTL)
+    file(GLOB KCTSB_ECC_SOURCES ${KCTSB_SRC_DIR}/crypto/ecc/*.cpp)
+    list(APPEND KCTSB_CRYPTO_SOURCES ${KCTSB_ECC_SOURCES})
+endif()
+
+# Advanced modules (many require external deps)
+# Currently only include self-contained modules
+set(KCTSB_ADVANCED_SOURCES "")
+
+# ZK/Lattice/FE modules require NTL
+if(KCTSB_ENABLE_NTL)
+    file(GLOB_RECURSE KCTSB_ZK_SOURCES ${KCTSB_SRC_DIR}/advanced/zk/*.cpp)
+    file(GLOB_RECURSE KCTSB_LATTICE_SOURCES ${KCTSB_SRC_DIR}/advanced/lattice/*.cpp)
+    list(APPEND KCTSB_ADVANCED_SOURCES ${KCTSB_ZK_SOURCES} ${KCTSB_LATTICE_SOURCES})
+endif()
+
+# FE module requires HElib
+if(KCTSB_ENABLE_HELIB)
+    file(GLOB_RECURSE KCTSB_FE_SOURCES ${KCTSB_SRC_DIR}/advanced/fe/*.cpp)
+    list(APPEND KCTSB_ADVANCED_SOURCES ${KCTSB_FE_SOURCES})
+endif()
+
+# Math module requires NTL
+set(KCTSB_MATH_SOURCES "")
+if(KCTSB_ENABLE_NTL)
+    file(GLOB_RECURSE KCTSB_MATH_SOURCES
+        ${KCTSB_SRC_DIR}/math/*.cpp
+    )
+endif()
 
 file(GLOB_RECURSE KCTSB_UTIL_SOURCES
     ${KCTSB_SRC_DIR}/utils/*.cpp

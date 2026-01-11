@@ -40,63 +40,54 @@ kctsb/
 ├── AGENTS.md                   # AI开发指南
 ├── LICENSE                     # Apache 2.0 许可证
 │
-├── include/kctsb/              # 公共头文件
-│   ├── kctsb.h                 # 主入口头文件
-│   ├── core/                   # 核心定义
-│   │   ├── common.h            # 通用定义、错误码
-│   │   └── types.h             # 类型定义
-│   ├── crypto/                 # 标准密码算法
-│   │   ├── aes.h               # AES 加密
-│   │   ├── sha.h               # SHA 哈希
-│   │   ├── sm2.h               # 国密 SM2
-│   │   ├── sm3.h               # 国密 SM3
-│   │   └── sm4.h               # 国密 SM4
-│   ├── advanced/               # 高级密码学
-│   │   ├── whitebox.h          # 白盒密码
-│   │   ├── sss.h               # 秘密共享
-│   │   ├── zk.h                # 零知识证明
-│   │   └── lattice.h           # 格密码
-│   ├── math/                   # 数学工具
-│   │   └── bigint.h            # 大整数运算
-│   └── utils/                  # 实用工具
-│       ├── encoding.h          # 编码转换
-│       └── random.h            # 随机数生成
+├── include/
+│   ├── kctsb/                  # 公共头文件（新实现）
+│   │   ├── kctsb.h             # 主入口头文件
+│   │   ├── core/               # 核心定义
+│   │   ├── crypto/             # 标准密码算法
+│   │   ├── advanced/           # 高级密码学
+│   │   └── utils/              # 实用工具
+│   └── opentsb/                # 旧版头文件（已迁移）
+│       ├── aes.h, kc_common.h, kc_sec.h, kc_sm.h
+│       └── math.h, test.h, test_c.h
 │
 ├── src/                        # 源代码实现
-│   ├── core/                   # 核心功能
+│   ├── core/                   # 核心功能（export.cpp）
 │   ├── crypto/                 # 密码算法实现
+│   │   ├── aes/                # AES-128/192/256 (ECB/CBC/CTR)
+│   │   ├── sm/                 # SM2/SM3/SM4/ZUC (国密)
+│   │   ├── rsa/                # RSA/DH/DSA/ElGamal (需GMP)
+│   │   ├── ecc/                # ECC/ECDH/ECDSA (需NTL)
+│   │   └── hash/               # Keccak/Blake/ChaCha/MAC
 │   ├── advanced/               # 高级算法实现
-│   ├── math/                   # 数学库实现
-│   └── utils/                  # 工具函数实现
+│   │   ├── whitebox/           # 白盒AES (需修复)
+│   │   ├── zk/                 # 零知识证明 (需NTL)
+│   │   ├── lattice/            # 格密码 (需NTL)
+│   │   ├── sss/                # Shamir秘密共享
+│   │   ├── fe/                 # 功能加密 (需HElib)
+│   │   └── fuzzy/              # 模糊提取器
+│   └── math/                   # 数学库 (需NTL)
 │
-├── tests/                      # 测试代码
-│   ├── CMakeLists.txt          # 测试构建配置
-│   └── unit/                   # 单元测试
-│       └── crypto/             # 密码算法测试
-│
+├── tests/                      # 测试代码 (14测试已通过)
 ├── examples/                   # 示例代码
-│   ├── basic/                  # 基础示例
-│   ├── advanced/               # 高级示例
-│   └── demo/                   # 演示程序
-│
 ├── scripts/                    # 构建脚本
-│   ├── build.ps1               # Windows 构建脚本
-│   └── build.sh                # Unix 构建脚本
-│
 ├── cmake/                      # CMake 模块
-│   ├── FindNTL.cmake
-│   ├── FindGMP.cmake
-│   └── kctsbConfig.cmake.in
-│
-├── .vscode/                    # VS Code 配置
-│   ├── tasks.json              # 构建任务
-│   ├── launch.json             # 调试配置
-│   ├── settings.json           # 编辑器设置
-│   └── c_cpp_properties.json   # C/C++ 配置
-│
-└── kcalg/                      # 旧版代码（待迁移）
-    └── ...
+└── .vscode/                    # VS Code 配置
 ```
+
+### 模块依赖关系
+
+| 模块 | 依赖 | 状态 |
+|------|------|------|
+| AES | 无 | ✅ 可用 |
+| Hash (Keccak) | 无 | ✅ 可用 |
+| SM (SM2/3/4/ZUC) | 无* | ⚠️ 需头文件修复 |
+| RSA/DH/DSA | GMP | ⚠️ 可选启用 |
+| ECC/ECDSA | NTL | ❌ 需安装NTL |
+| Math | NTL | ❌ 需安装NTL |
+| ZK/Lattice | NTL | ❌ 需安装NTL |
+| Whitebox | 旧框架 | ❌ 需重构 |
+| FE (同态) | HElib | ❌ 可选启用 |
 
 ## 🚀 快速开始
 
