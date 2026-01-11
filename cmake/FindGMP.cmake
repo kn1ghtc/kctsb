@@ -18,6 +18,8 @@ find_path(GMP_INCLUDE_DIR
         /opt/homebrew/include
         $ENV{GMP_ROOT}/include
         ${GMP_ROOT}/include
+        # Windows Strawberry Perl
+        C:/Strawberry/c/include
     PATH_SUFFIXES gmp
 )
 
@@ -31,6 +33,8 @@ find_library(GMP_LIBRARY
         /opt/homebrew/lib
         $ENV{GMP_ROOT}/lib
         ${GMP_ROOT}/lib
+        # Windows Strawberry Perl
+        C:/Strawberry/c/lib
 )
 
 # Also find GMPXX for C++ support

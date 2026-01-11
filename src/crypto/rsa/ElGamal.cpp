@@ -13,7 +13,8 @@
 #include <iostream>
 #include <cstdio>
 
-#include <gmp/gmp.h>
+#ifdef KCTSB_USE_GMP
+#include <gmp.h>
 
 #include "opentsb/kc_common.h"
 
@@ -87,3 +88,7 @@ int test_eigamal_main()
     mpz_clears(p,q,a,f,m,K,k,X1,Y1,g,l,C1,C2,b,e,v,s,NULL);
     return 0;
 }
+#else
+// Stub when GMP is not available
+int test_eigamal_main() { return -1; }
+#endif // KCTSB_USE_GMP

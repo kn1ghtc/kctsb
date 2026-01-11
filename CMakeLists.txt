@@ -121,9 +121,11 @@ file(GLOB KCTSB_AES_SOURCES
     ${KCTSB_SRC_DIR}/crypto/aes/*.c
 )
 
-# Hash module - only Keccak is self-contained
+# Hash module - self-contained implementations
 set(KCTSB_HASH_SOURCES
     ${KCTSB_SRC_DIR}/crypto/hash/Keccak.cpp
+    ${KCTSB_SRC_DIR}/crypto/hash/blake2.c
+    ${KCTSB_SRC_DIR}/crypto/hash/chacha20.c
 )
 
 # SM module - check for self-contained files
@@ -132,9 +134,15 @@ file(GLOB KCTSB_SM_SOURCES
     ${KCTSB_SRC_DIR}/crypto/sm/*.c
 )
 
+# Whitebox module - self-contained implementation
+set(KCTSB_WHITEBOX_SOURCES
+    ${KCTSB_SRC_DIR}/advanced/whitebox/whitebox_aes.c
+)
+
 set(KCTSB_CRYPTO_SOURCES
     ${KCTSB_AES_SOURCES}
     ${KCTSB_HASH_SOURCES}
+    ${KCTSB_WHITEBOX_SOURCES}
 )
 
 # RSA module (may need GMP for large numbers)
@@ -191,22 +199,36 @@ set(KCTSB_ALL_SOURCES
 # Dependencies
 # ============================================================================
 
+# Third-party include directory
+set(KCTSB_THIRDPARTY_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty)
+
 # Find packages based on options
 if(KCTSB_ENABLE_NTL)
-    find_package(NTL QUIET)
-    if(NTL_FOUND)
-        message(STATUS "NTL found: ${NTL_INCLUDE_DIRS}")
+    # First check if we have NTL headers in thirdparty
+    if(EXISTS "${KCTSB_THIRDPARTY_DIR}/include/NTL")
+        message(STATUS "Using NTL headers from thirdparty/include/NTL")
+        set(NTL_INCLUDE_DIRS ${KCTSB_THIRDPARTY_DIR}/include)
         add_definitions(-DKCTSB_HAS_NTL)
+        # Note: NTL library needs to be built separately
+        # For now, just enable header-only features
     else()
-        message(WARNING "NTL not found, disabling NTL support")
-        set(KCTSB_ENABLE_NTL OFF)
+        find_package(NTL QUIET)
+        if(NTL_FOUND)
+            message(STATUS "NTL found: ${NTL_INCLUDE_DIRS}")
+            add_definitions(-DKCTSB_HAS_NTL)
+        else()
+            message(WARNING "NTL not found, disabling NTL support")
+            set(KCTSB_ENABLE_NTL OFF)
+        endif()
     endif()
 endif()
 
 if(KCTSB_ENABLE_GMP)
+    list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
     find_package(GMP QUIET)
     if(GMP_FOUND)
         message(STATUS "GMP found: ${GMP_INCLUDE_DIRS}")
+        message(STATUS "GMP library: ${GMP_LIBRARIES}")
         add_definitions(-DKCTSB_HAS_GMP)
     else()
         message(WARNING "GMP not found, disabling GMP support")
@@ -236,6 +258,17 @@ if(KCTSB_ENABLE_SEAL)
     endif()
 endif()
 
+if(KCTSB_ENABLE_HELIB)
+    find_package(helib QUIET CONFIG)
+    if(helib_FOUND)
+        message(STATUS "HElib found")
+        add_definitions(-DKCTSB_HAS_HELIB)
+    else()
+        message(WARNING "HElib not found, disabling HElib support")
+        set(KCTSB_ENABLE_HELIB OFF)
+    endif()
+endif()
+
 # ============================================================================
 # Library Targets
 # ============================================================================
@@ -255,8 +288,15 @@ if(KCTSB_BUILD_STATIC)
     add_library(kctsb_static STATIC ${KCTSB_ALL_SOURCES})
     target_include_directories(kctsb_static PUBLIC
         $<BUILD_INTERFACE:${KCTSB_INCLUDE_DIR}>
+        $<BUILD_INTERFACE:${KCTSB_SRC_DIR}>
         $<INSTALL_INTERFACE:include>
     )
+    # Add thirdparty includes if using NTL/GMP
+    if(KCTSB_ENABLE_NTL AND EXISTS "${KCTSB_THIRDPARTY_DIR}/include")
+        target_include_directories(kctsb_static PUBLIC
+            $<BUILD_INTERFACE:${KCTSB_THIRDPARTY_DIR}/include>
+        )
+    endif()
     set_target_properties(kctsb_static PROPERTIES
         OUTPUT_NAME kctsb
         ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
@@ -279,6 +319,9 @@ if(KCTSB_BUILD_STATIC)
     endif()
     if(KCTSB_ENABLE_SEAL AND SEAL_FOUND)
         target_link_libraries(kctsb_static PUBLIC SEAL::seal)
+    endif()
+    if(KCTSB_ENABLE_HELIB AND helib_FOUND)
+        target_link_libraries(kctsb_static PUBLIC helib)
     endif()
 endif()
 

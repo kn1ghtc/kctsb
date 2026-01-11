@@ -1,10 +1,13 @@
 //
 //  kc_rsa.cpp
-//  kcalg
+//  kctsb
 //
 //  Created by knightc on 2019/7/22.
-//  Copyright © 2019 knightc. All rights reserved.
+//  Copyright © 2019-2025 knightc. All rights reserved.
 //
+
+// This file requires NTL library
+#if defined(KCTSB_HAS_NTL) || defined(KCTSB_USE_NTL)
 
 #include "opentsb/kc_sec.h"
 #include "opentsb/kc_common.h"
@@ -135,3 +138,9 @@ int test_rsa() {
     
     return 0;
 }
+
+#else
+// Stubs when NTL is not available
+int rsa_getKey(void*, void*) { return -1; }
+int test_rsa() { return -1; }
+#endif // KCTSB_HAS_NTL

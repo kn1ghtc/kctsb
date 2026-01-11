@@ -1,34 +1,42 @@
 //
 //  kc_common.h
-//  kcalg
+//  kctsb - Refactored cross-platform cryptographic library
 //
 //  Created by knightc on 2019/7/16.
-//  Copyright © 2019 knightc. All rights reserved.
+//  Copyright © 2019-2025 knightc. All rights reserved.
 //
 
 #ifndef kc_common_h
 #define kc_common_h
 
+#include <iostream>
+#include <cstdint>
+#include <cstring>
+
+// Conditional NTL support
+#if defined(KCTSB_HAS_NTL) || defined(KCTSB_USE_NTL)
 #include <NTL/vec_ZZ.h>
+using namespace NTL;
+#endif
 
 using namespace std;
-using namespace NTL;
 
-#define kprint(X) (std::cout << X << std::endl) //快速打印，取代 cout
+// Quick print macro
+#define kprint(X) (std::cout << X << std::endl)
 
-//计算任意类型的一维数组的长度，如果是字符串数组，需要减去末尾，即长度减 1
+// Calculate array length for any type
 template <class T>
 long getArrayLen(T& array)
 {
     return (sizeof(array) / sizeof(array[0]));
-    
 }
 
-
+// Function declarations
 int test_eigamal_main();
 
-
-ZZ kc_crt(const vec_ZZ& vec_c,const vec_ZZ& vec_m);
-
+// NTL-dependent functions
+#if defined(KCTSB_HAS_NTL) || defined(KCTSB_USE_NTL)
+ZZ kc_crt(const vec_ZZ& vec_c, const vec_ZZ& vec_m);
+#endif
 
 #endif /* kc_common_h */
