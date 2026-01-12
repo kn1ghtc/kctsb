@@ -118,6 +118,21 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 # ============================================================================
+# Early Dependency Detection (before source collection)
+# ============================================================================
+# HElib detection must happen before FE source collection
+if(KCTSB_ENABLE_HELIB)
+    find_package(helib QUIET CONFIG)
+    if(helib_FOUND)
+        message(STATUS "HElib found (early detection)")
+        add_definitions(-DKCTSB_HAS_HELIB)
+    else()
+        message(WARNING "HElib not found, disabling HElib support")
+        set(KCTSB_ENABLE_HELIB OFF)
+    endif()
+endif()
+
+# ============================================================================
 # Source Files Collection
 # ============================================================================
 
@@ -367,16 +382,7 @@ if(KCTSB_ENABLE_SEAL)
     endif()
 endif()
 
-if(KCTSB_ENABLE_HELIB)
-    find_package(helib QUIET CONFIG)
-    if(helib_FOUND)
-        message(STATUS "HElib found")
-        add_definitions(-DKCTSB_HAS_HELIB)
-    else()
-        message(WARNING "HElib not found, disabling HElib support")
-        set(KCTSB_ENABLE_HELIB OFF)
-    endif()
-endif()
+# HElib detection already done earlier (before source collection)
 
 # ============================================================================
 # Library Targets

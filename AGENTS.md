@@ -15,8 +15,9 @@ kctsb (Knight's Cryptographic Trusted Security Base) 是一个**生产级**跨�
 1. **生产级代码质量**: 所有实现均通过标准测试向量验证，无mock/placeholder代码
 2. **跨平台兼容**: 支持 Windows/Linux/macOS，使用CMake构建
 3. **双语言接口**: 提供纯C和C++ API，便于集成
-4. **安全优先**: 实现遵循密码学最佳实践，包含适当的安全警告
-5. **性能验证**: 提供与OpenSSL的性能对比benchmark
+4. **C API优先**: 所有C库优先使用C API接入，不强制要求C++封装（如GMP使用mpz_t而非mpz_class）
+5. **安全优先**: 实现遵循密码学最佳实践，包含适当的安全警告
+6. **性能验证**: 提供与OpenSSL的性能对比benchmark
 
 ### 开源使用说明
 
