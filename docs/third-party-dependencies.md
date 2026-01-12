@@ -30,12 +30,12 @@ kctsb 密码学库支持多种可选依赖，用于增强性能和扩展功能�
 
 ### 依赖策略
 
-| 依赖 | 安装方式 | 必需性 | 用途 |
-|------|----------|--------|------|
-| NTL | **源码编译** | 推荐 | ECC/RSA加速、数论运算 |
-| GMP | vcpkg | 推荐 | NTL依赖、大整数运算 |
-| OpenSSL | vcpkg | 可选 | 性能对比测试 |
-| SEAL | vcpkg | 可选 | 同态加密 |
+| 依赖 | 安装方式 | 必需性 | 用途 | 状态 |
+|------|----------|--------|------|------|
+| NTL | **源码编译** | 推荐 | ECC/RSA加速、数论运算 | ⚠️ 头文件存在，需编译库 |
+| GMP | Strawberry Perl | 推荐 | NTL依赖、大整数运算 | ✅ 已安装 |
+| OpenSSL | vcpkg | 可选 | 性能对比测试 | ✅ 已安装 (3.6.0) |
+| SEAL | vcpkg | 可选 | 同态加密 | ✅ 已安装 (4.1.2) |
 
 ---
 
@@ -218,18 +218,28 @@ git pull
 # 使用环境变量定位 vcpkg
 cd $env:VCPKG_ROOT
 
-# GMP - 高精度算术 (NTL 依赖) - 注: Windows下可能编译失败
-.\vcpkg install gmp:x64-windows
-
 # OpenSSL - 性能对比测试 (已安装: 3.6.0)
 .\vcpkg install openssl:x64-windows
 
 # Microsoft SEAL - 同态加密 (已安装: 4.1.2)
 .\vcpkg install seal:x64-windows
 
-# 一次性安装所有推荐依赖 (跳过GMP)
+# 一次性安装所有推荐依赖
 .\vcpkg install openssl:x64-windows seal:x64-windows zlib:x64-windows zstd:x64-windows
 ```
+
+### GMP (已安装)
+
+GMP 库已通过 Strawberry Perl 安装，CMake 会自动检测：
+
+| 组件 | 路径 |
+|------|------|
+| 头文件 | `C:\Strawberry\c\include\gmp.h` |
+| 库文件 | `C:\Strawberry\c\lib\libgmp.a` (953 KB) |
+
+CMake FindGMP.cmake 模块已配置自动检测 Strawberry 路径。
+
+**注意**: vcpkg 的 GMP 包在 Windows 下编译常失败，建议使用 Strawberry 自带版本。
 
 ### vcpkg 与 CMake 集成
 

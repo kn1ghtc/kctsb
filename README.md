@@ -92,19 +92,25 @@ kctsb/
 
 ### 模块依赖关系
 
-| 模块 | 依赖 | 状态 |
-|------|------|------|
-| AES-CTR/GCM | 无 | ✅ 生产可用 |
-| ChaCha20-Poly1305 | 无 | ✅ 生产可用 (v3.0) |
-| Security Core | 无 | ✅ 生产可用 (v3.0) |
-| Hash (Keccak) | 无 | ✅ 可用 |
-| SM (SM2/3/4/ZUC) | 无* | ⚠️ 需头文件修复 |
-| RSA/DH/DSA | GMP | ⚠️ 可选启用 |
-| ECC/ECDSA | NTL | ❌ 需安装NTL |
-| Math | NTL | ❌ 需安装NTL |
-| ZK/Lattice | NTL | ❌ 需安装NTL |
-| Whitebox | 旧框架 | ❌ 需重构 |
-| FE (同态) | HElib | ❌ 可选启用 |
+| 模块 | 依赖 | 状态 | 代码状态 |
+|------|------|------|----------|
+| AES-CTR/GCM | 无 | ✅ 生产可用 | 完整实现 |
+| ChaCha20-Poly1305 | 无 | ✅ 生产可用 (v3.0) | 完整实现 |
+| Security Core | 无 | ✅ 生产可用 (v3.0) | 完整实现 |
+| Hash (Keccak/BLAKE2) | 无 | ✅ 可用 | 完整实现 |
+| SM (SM2/SM3/SM4) | 无 | ✅ 可用 | 完整实现 (8个源文件) |
+| Whitebox AES | 无 | ✅ 可用 | Chow方案 (230行) |
+| RSA/DH/DSA | NTL | ⚠️ 待NTL编译 | 代码存在 (kc_rsa.cpp) |
+| ECC/ECDSA | NTL | ⚠️ 待NTL编译 | 代码存在 (7个源文件) |
+| Shamir SSS | NTL | ⚠️ 待NTL编译 | 代码被注释 |
+| ZK/Lattice | NTL | 🔄 进行中 | 部分实现 |
+| FE (同态) | HElib | 📋 计划中 | 设计草稿 |
+
+**依赖安装状态** (2026-01-12):
+- ✅ OpenSSL 3.6.0 (via vcpkg at D:\vcpkg)
+- ✅ Microsoft SEAL 4.1.2 (via vcpkg)
+- ✅ GMP (Strawberry Perl: C:\Strawberry\c\lib\libgmp.a)
+- ⚠️ NTL: 头文件存在 (thirdparty/include/NTL/), 需编译libntl.a
 
 ## 🚀 快速开始
 
@@ -285,13 +291,15 @@ kctsb v3.0.0 提供与 OpenSSL 的性能对比基准测试：
 
 | 算法 | 数据大小 | 吞吐量 | 平均延迟 |
 |------|----------|--------|----------|
-| AES-256-GCM (加密) | 10 MB | 6538 MB/s | 1.53 ms |
-| AES-256-GCM (解密) | 10 MB | 6172 MB/s | 1.62 ms |
-| ChaCha20-Poly1305 (加密) | 10 MB | 2353 MB/s | 4.25 ms |
-| ChaCha20-Poly1305 (解密) | 10 MB | 2285 MB/s | 4.38 ms |
-| SHA-256 | 10 MB | 2104 MB/s | 4.75 ms |
-| SHA3-256 | 10 MB | 575 MB/s | 17.40 ms |
-| BLAKE2b-256 | 10 MB | 1068 MB/s | 9.36 ms |
+| AES-256-GCM (加密) | 10 MB | 6356 MB/s | 1.57 ms |
+| AES-256-GCM (解密) | 10 MB | 6541 MB/s | 1.53 ms |
+| ChaCha20-Poly1305 (加密) | 10 MB | 2387 MB/s | 4.19 ms |
+| ChaCha20-Poly1305 (解密) | 10 MB | 2216 MB/s | 4.51 ms |
+| SHA-256 | 10 MB | 2095 MB/s | 4.77 ms |
+| SHA3-256 | 10 MB | 579 MB/s | 17.26 ms |
+| BLAKE2b-256 | 10 MB | 1077 MB/s | 9.28 ms |
+
+**测试环境**: Windows 11, MinGW GCC 13.2.0, vcpkg OpenSSL 3.6.0
 
 详细基准测试代码见 [benchmarks/](benchmarks/) 目录。
 
@@ -310,8 +318,10 @@ kctsb v3.0.0 提供与 OpenSSL 的性能对比基准测试：
 
 - **vcpkg**: 统一安装目录 `D:\vcpkg` (环境变量: `VCPKG_ROOT`)
 - **NTL**: 从源码编译 (Windows需要MinGW/MSYS2)
-- **GMP**: vcpkg 安装 (Windows编译可能失败)
+  - 头文件已存在: `thirdparty/include/NTL/` (115个文件)
+- **GMP**: Strawberry Perl自带 (`C:\Strawberry\c\lib\libgmp.a`)
 - **OpenSSL**: vcpkg 安装 (已安装: 3.6.0)
+- **SEAL**: vcpkg 安装 (已安装: 4.1.2)
 - **SEAL**: vcpkg 安装 (已安装: 4.1.2)
 
 ## ⚠️ 安全声明

@@ -125,18 +125,25 @@ kctsb/
 - **安装命令**: `D:\vcpkg\vcpkg.exe install <package>:x64-windows`
 
 **依赖列表**:
-- **NTL** (可选): 数论库，用于ECC/RSA/格密码/ZK证明
+- **NTL** (需要): 数论库，用于ECC/RSA/格密码/ZK证明
   - Windows: 需从源码编译 (见 `docs/third-party-dependencies.md`)
+  - 头文件已存在: `thirdparty/include/NTL/` (115个文件)
+  - 需要编译库文件: `libntl.a`
   - Linux/macOS: `apt install libntl-dev` / `brew install ntl`
   
-- **GMP** (可选): 高精度整数运算，NTL的依赖
-  - vcpkg: `D:\vcpkg\vcpkg.exe install gmp:x64-windows` (Windows下可能编译失败)
+- **GMP** (已找到): 高精度整数运算，NTL的依赖
+  - **Windows已安装**: Strawberry Perl自带
+    - 头文件: `C:\Strawberry\c\include\gmp.h`
+    - 库文件: `C:\Strawberry\c\lib\libgmp.a` (953KB)
+  - CMake自动检测 (FindGMP.cmake)
   
 - **OpenSSL** (已安装): 用于性能benchmark对比
   - vcpkg: `D:\vcpkg\vcpkg.exe install openssl:x64-windows`
+  - 当前版本: 3.6.0
   
 - **SEAL** (已安装): Microsoft同态加密库
   - vcpkg: `D:\vcpkg\vcpkg.exe install seal:x64-windows`
+  - 当前版本: 4.1.2
 
 ### vcpkg 集成
 
@@ -183,27 +190,28 @@ cmake -B build -DNTL_ROOT="D:/libs/ntl"
 
 ### crypto/ - 标准密码算法
 
-| 模块 | 功能 | 实现状态 | 测试状态 |
-|------|------|----------|----------|
-| aes/ | AES-128/192/256-GCM AEAD | ✅ 完成 | ✅ 测试向量验证 |
-| chacha20/ | ChaCha20-Poly1305 AEAD | ✅ 完成 | ✅ RFC 7539 向量 |
-| hash/Keccak | SHA3-256/512 (Keccak) | ✅ 完成 | ✅ FIPS 202 向量 |
-| hash/blake2 | BLAKE2b/BLAKE2s | ✅ 完成 | ✅ RFC 7693 向量 |
-| sm/sm2 | 国密SM2椭圆曲线 | ✅ 完成 | ✅ GM/T 向量 |
-| sm/sm3 | 国密SM3哈希 | ✅ 完成 | ✅ GM/T 向量 |
-| sm/sm4 | 国密SM4分组密码 | ✅ 完成 | ✅ GM/T 向量 |
-| rsa/ | RSA加密签名 | 🔄 进行中 | 需要NTL/GMP |
-| ecc/ | 椭圆曲线密码 | 🔄 进行中 | 需要NTL |
+| 模块 | 功能 | 实现状态 | 测试状态 | 备注 |
+|------|------|----------|----------|------|
+| aes/ | AES-128/192/256-GCM AEAD | ✅ 完成 | ✅ 测试向量验证 | 生产就绪 |
+| chacha20/ | ChaCha20-Poly1305 AEAD | ✅ 完成 | ✅ RFC 7539 向量 | 生产就绪 |
+| hash/Keccak | SHA3-256/512 (Keccak) | ✅ 完成 | ✅ FIPS 202 向量 | 生产就绪 |
+| hash/blake2 | BLAKE2b/BLAKE2s | ✅ 完成 | ✅ RFC 7693 向量 | 生产就绪 |
+| sm/sm2 | 国密SM2椭圆曲线 | ✅ 完成 | ✅ GM/T 向量 | 完整实现 (sm2_enc.c) |
+| sm/sm3 | 国密SM3哈希 | ✅ 完成 | ✅ GM/T 向量 | 完整实现 (471行) |
+| sm/sm4 | 国密SM4分组密码 | ✅ 完成 | ✅ GM/T 向量 | 完整实现 (182行) |
+| rsa/ | RSA加密签名 | 🔄 代码存在 | ⏸️ 待NTL编译 | 依赖NTL::ZZ (kc_rsa.cpp 146行) |
+| ecc/ | 椭圆曲线密码 | 🔄 代码存在 | ⏸️ 待NTL编译 | 依赖NTL (eccEnc.cpp, ecdh.cpp等) |
 
 ### advanced/ - 高级密码学
 
-| 模块 | 功能 | 实现状态 | 依赖 |
-|------|------|----------|------|
-| whitebox/ | 白盒AES实现 | ✅ 完成 | 无 |
-| sss/ | Shamir秘密共享 | 📋 计划中 | GMP |
-| zk/ | 零知识证明 | 📋 计划中 | NTL |
-| lattice/ | 格密码 (NTRU/Kyber) | 📋 计划中 | NTL |
-| fe/ | 函数加密 | 📋 计划中 | HElib |
+| 模块 | 功能 | 实现状态 | 依赖 | 代码状态 |
+|------|------|----------|------|----------|
+| whitebox/ | 白盒AES实现 (Chow方案) | ✅ 完成 | 无 | 完整实现 (whitebox_aes.c 230行) |
+| sss/ | Shamir秘密共享 | 🔄 代码存在 | NTL | 被注释 (ShamirSSS.cpp 146行) |
+| zk/ffs/ | Feige-Fiat-Shamir证明 | 🔄 框架存在 | NTL | 部分实现 (kc_ffs.cpp) |
+| zk/snarks/ | zk-SNARKs | 📋 计划中 | - | 仅.DS_Store文件 |
+| lattice/ | 格密码 (LLL约简) | 🔄 代码存在 | NTL | 部分实现 (kc_latt.cpp) |
+| fe/ | 函数加密 (BGV方案) | 📋 框架存在 | HElib | 设计草稿 (gentryHE_int.cpp) |
 
 ### benchmarks/ - 性能对比
 
