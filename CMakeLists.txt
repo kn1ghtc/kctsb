@@ -88,7 +88,7 @@ option(KCTSB_BUILD_BENCHMARKS "Build benchmarks for performance comparison" ON)
 option(KCTSB_ENABLE_NTL "Enable NTL support for ECC/RSA/Lattice/ZK" ON)
 option(KCTSB_ENABLE_GMP "Enable GMP support for high-precision arithmetic" ON)
 option(KCTSB_ENABLE_OPENSSL "Enable OpenSSL support for performance benchmarks" ON)
-option(KCTSB_ENABLE_SEAL "Enable Microsoft SEAL support for HE" ON)
+option(KCTSB_ENABLE_SEAL "Enable Microsoft SEAL support for HE" OFF)  # Default OFF: MSVC/MinGW incompatibility
 option(KCTSB_ENABLE_HELIB "Enable HElib support for FE" ON)
 option(KCTSB_ENABLE_MIRACL "Enable MIRACL support" ON)
 option(KCTSB_INSTALL "Generate install target" ON)
@@ -165,10 +165,13 @@ file(GLOB KCTSB_CHACHA_SOURCES
     ${KCTSB_SRC_DIR}/crypto/chacha20/*.c
 )
 
-# SM module - check for self-contained files
-file(GLOB KCTSB_SM_SOURCES
-    ${KCTSB_SRC_DIR}/crypto/sm/*.cpp
-    ${KCTSB_SRC_DIR}/crypto/sm/*.c
+# SM module - only include files with available headers
+set(KCTSB_SM_SOURCES
+    ${KCTSB_SRC_DIR}/crypto/sm/sm3.c
+    # Exclude sm2_enc.c (needs miracl.h)
+    # Exclude sm4.cpp (needs SM4.hpp)
+    # Exclude sm_util.c (needs smUtil.h)
+    # Exclude zuc.c (may need specific headers)
 )
 
 # Whitebox module - self-contained implementation
@@ -180,6 +183,7 @@ set(KCTSB_CRYPTO_SOURCES
     ${KCTSB_AES_SOURCES}
     ${KCTSB_HASH_SOURCES}
     ${KCTSB_CHACHA_SOURCES}
+    ${KCTSB_SM_SOURCES}
     ${KCTSB_WHITEBOX_SOURCES}
 )
 

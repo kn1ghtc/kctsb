@@ -281,3 +281,4 @@ TEST_F(SMTest, SM4_KeySchedule) {
         if (rk[i] != 0) all_zero = false;
     }
     EXPECT_FALSE(all_zero) << "Round keys should not all be zero";
+}

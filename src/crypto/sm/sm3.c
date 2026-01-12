@@ -26,7 +26,7 @@
  Modification: 1)add notes to all the functions
  2)add SM3_SelfTest function
  **************************************************************************/
-#include "SM3.h"
+#include "sm3_impl.h"
 #include <string.h>
 
 
@@ -259,7 +259,7 @@ void SM3_compress(SM3_STATE * md)
  Return: null
  Others:
  *******************************************************************************/
-void SM3_process(SM3_STATE * md, unsigned char *buf, int len)
+void SM3_process(SM3_STATE * md, const unsigned char *buf, int len)
 {
     while (len--)
     {
@@ -342,7 +342,7 @@ void SM3_done(SM3_STATE *md, unsigned char hash[])
  Return: null
  Others:
  *******************************************************************************/
-void SM3_256(unsigned char buf[], int len, unsigned char hash[])
+void SM3_256(const unsigned char buf[], int len, unsigned char hash[])
 {
     SM3_STATE md;
     SM3_init(&md);

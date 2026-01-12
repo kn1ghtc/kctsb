@@ -41,10 +41,13 @@ add_executable(test_hash
 )
 target_link_libraries(test_hash
     PRIVATE
-        kctsb
+        kctsb_static
         GTest::gtest_main
 )
-target_include_directories(test_hash PRIVATE ${CMAKE_SOURCE_DIR}/include)
+target_include_directories(test_hash PRIVATE 
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/src
+)
 gtest_discover_tests(test_hash)
 
 # SM tests (Chinese National Standards)
@@ -53,10 +56,13 @@ add_executable(test_sm
 )
 target_link_libraries(test_sm
     PRIVATE
-        kctsb
+        kctsb_static
         GTest::gtest_main
 )
-target_include_directories(test_sm PRIVATE ${CMAKE_SOURCE_DIR}/include)
+target_include_directories(test_sm PRIVATE 
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/src
+)
 gtest_discover_tests(test_sm)
 
 # Math tests

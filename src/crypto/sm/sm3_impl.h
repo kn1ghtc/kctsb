@@ -72,9 +72,9 @@ void CF(unsigned int Wj[], unsigned int Wj1[], unsigned int V[]);
 void BigEndian(unsigned char src[], unsigned int bytelen, unsigned char des[]);
 void SM3_init(SM3_STATE *md);
 void SM3_compress(SM3_STATE * md);
-void SM3_process(SM3_STATE * md, unsigned char buf[], int len);
+void SM3_process(SM3_STATE * md, const unsigned char buf[], int len);
 void SM3_done(SM3_STATE *md, unsigned char *hash);
-void SM3_256(unsigned char buf[], int len, unsigned char hash[]);
+void SM3_256(const unsigned char buf[], int len, unsigned char hash[]);
 void SM3_KDF(unsigned char *Z ,unsigned short zlen,unsigned short klen,unsigned char *K);
 
 int SM3_SelfTest();
