@@ -18,8 +18,7 @@ private:
       long m;
 
       explicit Fixer(long _m) : m(_m) { }
-       void operator()(Vec<T>& v) { v.FixLength(m); }
-       
+      void operator()(Vec<T>& v) { v.FixLength(m); }
    };
 
 public:  

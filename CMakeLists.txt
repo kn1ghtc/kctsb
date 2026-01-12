@@ -273,6 +273,15 @@ if(KCTSB_ENABLE_NTL)
     if(NTL_FOUND)
         add_definitions(-DKCTSB_HAS_NTL)
         message(STATUS "NTL enabled: ${NTL_INCLUDE_DIRS}")
+        
+        # Create imported target if not already defined
+        if(NOT TARGET NTL::NTL)
+            add_library(NTL::NTL STATIC IMPORTED)
+            set_target_properties(NTL::NTL PROPERTIES
+                IMPORTED_LOCATION "${NTL_LIBRARY}"
+                INTERFACE_INCLUDE_DIRECTORIES "${NTL_INCLUDE_DIRS}"
+            )
+        endif()
     else()
         message(WARNING "NTL not found. Please compile from source or set NTL_ROOT.")
         message(STATUS "  See docs/third-party-dependencies.md for installation guide")
@@ -363,6 +372,12 @@ if(KCTSB_BUILD_STATIC)
             $<BUILD_INTERFACE:${KCTSB_THIRDPARTY_DIR}/include>
         )
     endif()
+    # Add NTL include path if available
+    if(KCTSB_ENABLE_NTL AND NTL_INCLUDE_DIRS)
+        target_include_directories(kctsb_static PUBLIC
+            $<BUILD_INTERFACE:${NTL_INCLUDE_DIRS}>
+        )
+    endif()
     set_target_properties(kctsb_static PROPERTIES
         OUTPUT_NAME kctsb
         ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
@@ -396,8 +411,21 @@ if(KCTSB_BUILD_SHARED)
     add_library(kctsb_shared SHARED ${KCTSB_ALL_SOURCES})
     target_include_directories(kctsb_shared PUBLIC
         $<BUILD_INTERFACE:${KCTSB_INCLUDE_DIR}>
+        $<BUILD_INTERFACE:${KCTSB_SRC_DIR}>
         $<INSTALL_INTERFACE:include>
     )
+    # Add thirdparty includes if using NTL/GMP
+    if(KCTSB_ENABLE_NTL AND EXISTS "${KCTSB_THIRDPARTY_DIR}/include")
+        target_include_directories(kctsb_shared PUBLIC
+            $<BUILD_INTERFACE:${KCTSB_THIRDPARTY_DIR}/include>
+        )
+    endif()
+    # Add NTL include path if available
+    if(KCTSB_ENABLE_NTL AND NTL_INCLUDE_DIRS)
+        target_include_directories(kctsb_shared PUBLIC
+            $<BUILD_INTERFACE:${NTL_INCLUDE_DIRS}>
+        )
+    endif()
     target_compile_definitions(kctsb_shared PRIVATE KCTSB_EXPORTS KCTSB_SHARED_LIBRARY KCTSB_BUILDING)
     set_target_properties(kctsb_shared PROPERTIES
         OUTPUT_NAME kctsb

@@ -16,8 +16,8 @@
 
 /*include header for system functions*/
 #include <vector>
-#include <gmp/gmpxx.h>
-#include <gmp/gmp.h>
+#include <gmpxx.h>
+#include <gmp.h>
 #include <stdint.h>
 
 

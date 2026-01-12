@@ -88,3 +88,9 @@ test_output/
 *.gcno
 *.gcda
 coverage/
+
+
+# deps source/build directories
+deps/
+deps/ntl-11.6.0
+deps/ntl-build

@@ -12,25 +12,29 @@
 find_path(NTL_INCLUDE_DIR
     NAMES NTL/ZZ.h
     PATHS
+        ${NTL_ROOT}/include
+        $ENV{NTL_ROOT}/include
+        ${CMAKE_SOURCE_DIR}/deps/ntl/include
+        ${CMAKE_SOURCE_DIR}/thirdparty/include
         /usr/local/include
         /usr/include
         /opt/local/include
         /opt/homebrew/include
-        $ENV{NTL_ROOT}/include
-        ${NTL_ROOT}/include
-    PATH_SUFFIXES NTL
+    NO_DEFAULT_PATH
 )
 
 find_library(NTL_LIBRARY
     NAMES ntl libntl
     PATHS
+        ${NTL_ROOT}/lib
+        $ENV{NTL_ROOT}/lib
+        ${CMAKE_SOURCE_DIR}/deps/ntl/lib
         /usr/local/lib
         /usr/lib
         /usr/lib64
         /opt/local/lib
         /opt/homebrew/lib
-        $ENV{NTL_ROOT}/lib
-        ${NTL_ROOT}/lib
+    NO_DEFAULT_PATH
 )
 
 include(FindPackageHandleStandardArgs)
