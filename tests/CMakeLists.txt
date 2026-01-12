@@ -65,6 +65,44 @@ target_include_directories(test_sha PRIVATE
 )
 gtest_discover_tests(test_sha)
 
+# RSA tests (requires NTL)
+if(KCTSB_ENABLE_NTL AND NTL_FOUND)
+    add_executable(test_rsa
+        unit/crypto/test_rsa.cpp
+    )
+    target_link_libraries(test_rsa
+        PRIVATE
+            kctsb_static
+            GTest::gtest_main
+            NTL::NTL
+    )
+    target_include_directories(test_rsa PRIVATE 
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/src
+        ${CMAKE_SOURCE_DIR}/src/crypto/rsa
+    )
+    gtest_discover_tests(test_rsa)
+endif()
+
+# ECC tests (requires NTL)
+if(KCTSB_ENABLE_NTL AND NTL_FOUND)
+    add_executable(test_ecc
+        unit/crypto/test_ecc.cpp
+    )
+    target_link_libraries(test_ecc
+        PRIVATE
+            kctsb_static
+            GTest::gtest_main
+            NTL::NTL
+    )
+    target_include_directories(test_ecc PRIVATE 
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/src
+        ${CMAKE_SOURCE_DIR}/src/crypto/ecc
+    )
+    gtest_discover_tests(test_ecc)
+endif()
+
 # SM tests (Chinese National Standards)
 add_executable(test_sm
     unit/crypto/test_sm.cpp
