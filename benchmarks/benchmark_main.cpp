@@ -146,9 +146,9 @@ void print_summary() {
 }
 
 /**
- * @brief Main benchmark entry point
+ * @brief Benchmark main logic (callable from CLI)
  */
-int main(int argc, char* argv[]) {
+extern "C" int benchmark_main_entry() {
     std::cout << "\n";
     std::cout << "╔════════════════════════════════════════════════════════════════════╗\n";
     std::cout << "║         kctsb vs OpenSSL Performance Benchmark Suite              ║\n";
@@ -176,4 +176,11 @@ int main(int argc, char* argv[]) {
     ERR_free_strings();
     
     return 0;
+}
+
+/**
+ * @brief Main benchmark entry point (standalone mode)
+ */
+int main(int argc, char* argv[]) {
+    return benchmark_main_entry();
 }

@@ -553,6 +553,17 @@ if(KCTSB_BUILD_BENCHMARKS AND KCTSB_ENABLE_OPENSSL AND OPENSSL_FOUND)
 endif()
 
 # ============================================================================
+# CLI Tool (kctsb.exe)
+# ============================================================================
+
+option(KCTSB_BUILD_CLI "Build kctsb command-line tool" ON)
+
+if(KCTSB_BUILD_CLI)
+    add_subdirectory(src/cli)
+    message(STATUS "CLI tool enabled: kctsb.exe")
+endif()
+
+# ============================================================================
 # Installation
 # ============================================================================
 
