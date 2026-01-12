@@ -26,17 +26,10 @@ int rsa_getKey(ZZ pubKey[],ZZ privKey[]) {
     ZZ p,q,n ,f_n;
     ZZ pubkey_e,privKey_d;
     
-   pubkey_e= 65537;
+    pubkey_e= 65537;
     
-       RandomPrime(p, 1024);
-       RandomPrime(q, 1024);
-    //    NextPrime(q, p );
-//    p= 37;
-//    q= 23;
-//    if (GCD(p , q )==1) {
-//        cout << "p and q is prime " << endl;
-//    }
-    
+    RandomPrime(p, 1024);
+    RandomPrime(q, 1024);
     
     n= p * q;
     oula(p, q, f_n);
@@ -60,7 +53,7 @@ int rsa_getKey(ZZ pubKey[],ZZ privKey[]) {
     << "欧拉 n = " << f_n << "\n"
     <<"私钥 d = " <<privKey_d<< endl;
     
-    return 1;
+    return 0;  // Return 0 on success
 }
 
 ZZ rsa_enc(const ZZ pubKey[],unsigned char *plaintext ,long plain_len) {
@@ -92,22 +85,23 @@ ZZ rsa_enc(const ZZ pubKey[],unsigned char *plaintext ,long plain_len) {
 int rsa_decy(ZZ cyperTxt_z,ZZ privKey[] , unsigned char *plaintext) {
     
     ZZ d,n,plaintx_z;
-//    long ctx_len;
-    
- //   ctx_len= getArrayLen(cyperTxt);
     
     d= privKey[0];
     n= privKey[1] * privKey[2];
-//    cout <<"私钥 d = "<< d <<"\n"
-//    << "共模 n = " << n << "\n"
-//      <<"密文 C = " <<cyperTxt_z<< endl;
-  //  ZZFromBytes(cyperTxt_z, cyperTxt, ctx_len);
     
-   plaintx_z= PowerMod(cyperTxt_z, d, n);
+    // Decrypt: M = C^d mod n
+    plaintx_z = PowerMod(cyperTxt_z, d, n);
     cout << "解密 M = " << plaintx_z << endl;
     
-//    BytesFromZZ(plaintext, plaintx_z,1);
-//    cout << "明文 M = " << plaintext << endl;
+    // Convert ZZ to bytes using NTL's BytesFromZZ function
+    // BytesFromZZ(unsigned char* buf, const ZZ& a, long n)
+    // For single byte: convert ZZ to long then to byte
+    if (plaintx_z <= 255) {
+        plaintext[0] = (unsigned char)to_long(plaintx_z);
+    } else {
+        // Multi-byte number - use NTL's conversion
+        BytesFromZZ(plaintext, plaintx_z, NumBytes(plaintx_z));
+    }
     
     return 0;
 }
