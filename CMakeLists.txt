@@ -84,13 +84,30 @@ option(KCTSB_BUILD_SHARED "Build shared library" ON)
 option(KCTSB_BUILD_STATIC "Build static library" ON)
 option(KCTSB_BUILD_TESTS "Build tests" ON)
 option(KCTSB_BUILD_EXAMPLES "Build examples" ON)
-option(KCTSB_ENABLE_NTL "Enable NTL support" OFF)
-option(KCTSB_ENABLE_GMP "Enable GMP support" OFF)
-option(KCTSB_ENABLE_OPENSSL "Enable OpenSSL support" OFF)
-option(KCTSB_ENABLE_SEAL "Enable Microsoft SEAL support" OFF)
-option(KCTSB_ENABLE_HELIB "Enable HElib support" OFF)
+option(KCTSB_BUILD_BENCHMARKS "Build benchmarks for performance comparison" ON)
+option(KCTSB_ENABLE_NTL "Enable NTL support for ECC/RSA/Lattice/ZK" ON)
+option(KCTSB_ENABLE_GMP "Enable GMP support for high-precision arithmetic" ON)
+option(KCTSB_ENABLE_OPENSSL "Enable OpenSSL support for performance benchmarks" ON)
+option(KCTSB_ENABLE_SEAL "Enable Microsoft SEAL support for HE" OFF)
+option(KCTSB_ENABLE_HELIB "Enable HElib support for FE" OFF)
 option(KCTSB_ENABLE_MIRACL "Enable MIRACL support" OFF)
 option(KCTSB_INSTALL "Generate install target" ON)
+
+# ============================================================================
+# vcpkg Integration (for GMP, OpenSSL, SEAL dependencies)
+# ============================================================================
+# vcpkg toolchain should be set via CMAKE_TOOLCHAIN_FILE
+# Example: cmake -DCMAKE_TOOLCHAIN_FILE=/path/to/vcpkg/scripts/buildsystems/vcpkg.cmake ..
+if(DEFINED ENV{VCPKG_ROOT} AND NOT CMAKE_TOOLCHAIN_FILE)
+    set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" CACHE STRING "")
+    message(STATUS "Using vcpkg from VCPKG_ROOT: $ENV{VCPKG_ROOT}")
+endif()
+
+# NTL installation path (source compiled, not vcpkg)
+set(NTL_ROOT "" CACHE PATH "Path to NTL installation (from source compilation)")
+if(NTL_ROOT AND EXISTS "${NTL_ROOT}/include/NTL")
+    message(STATUS "Using NTL from NTL_ROOT: ${NTL_ROOT}")
+endif()
 
 # ============================================================================
 # Output Directories
@@ -210,34 +227,76 @@ set(KCTSB_THIRDPARTY_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty)
 
 # Find packages based on options
 if(KCTSB_ENABLE_NTL)
-    # First check if we have NTL headers in thirdparty
-    if(EXISTS "${KCTSB_THIRDPARTY_DIR}/include/NTL")
-        message(STATUS "Using NTL headers from thirdparty/include/NTL")
-        set(NTL_INCLUDE_DIRS ${KCTSB_THIRDPARTY_DIR}/include)
-        add_definitions(-DKCTSB_HAS_NTL)
-        # Note: NTL library needs to be built separately
-        # For now, just enable header-only features
-    else()
-        find_package(NTL QUIET)
-        if(NTL_FOUND)
-            message(STATUS "NTL found: ${NTL_INCLUDE_DIRS}")
-            add_definitions(-DKCTSB_HAS_NTL)
-        else()
-            message(WARNING "NTL not found, disabling NTL support")
-            set(KCTSB_ENABLE_NTL OFF)
+    set(NTL_FOUND FALSE)
+    
+    # Priority 1: User-specified NTL_ROOT (source compiled)
+    if(NTL_ROOT AND EXISTS "${NTL_ROOT}/include/NTL/ZZ.h")
+        set(NTL_INCLUDE_DIRS ${NTL_ROOT}/include)
+        set(NTL_LIBRARY_DIRS ${NTL_ROOT}/lib)
+        find_library(NTL_LIBRARY NAMES ntl libntl 
+            HINTS ${NTL_ROOT}/lib ${NTL_ROOT}/lib64
+            NO_DEFAULT_PATH)
+        if(NTL_LIBRARY)
+            set(NTL_LIBRARIES ${NTL_LIBRARY})
+            set(NTL_FOUND TRUE)
+            message(STATUS "NTL found at NTL_ROOT: ${NTL_ROOT}")
         endif()
+    endif()
+    
+    # Priority 2: thirdparty directory
+    if(NOT NTL_FOUND AND EXISTS "${KCTSB_THIRDPARTY_DIR}/include/NTL/ZZ.h")
+        set(NTL_INCLUDE_DIRS ${KCTSB_THIRDPARTY_DIR}/include)
+        find_library(NTL_LIBRARY NAMES ntl libntl
+            HINTS ${KCTSB_THIRDPARTY_DIR}/lib ${KCTSB_THIRDPARTY_DIR}/lib64)
+        if(NTL_LIBRARY)
+            set(NTL_LIBRARIES ${NTL_LIBRARY})
+            set(NTL_FOUND TRUE)
+            message(STATUS "NTL found in thirdparty directory")
+        else()
+            # Header-only mode for development
+            set(NTL_FOUND TRUE)
+            message(STATUS "NTL headers found in thirdparty (header-only mode)")
+        endif()
+    endif()
+    
+    # Priority 3: System package manager / vcpkg
+    if(NOT NTL_FOUND)
+        find_package(NTL QUIET CONFIG)
+        if(NOT NTL_FOUND)
+            find_package(PkgConfig QUIET)
+            if(PKG_CONFIG_FOUND)
+                pkg_check_modules(NTL QUIET ntl)
+            endif()
+        endif()
+    endif()
+    
+    if(NTL_FOUND)
+        add_definitions(-DKCTSB_HAS_NTL)
+        message(STATUS "NTL enabled: ${NTL_INCLUDE_DIRS}")
+    else()
+        message(WARNING "NTL not found. Please compile from source or set NTL_ROOT.")
+        message(STATUS "  See docs/third-party-dependencies.md for installation guide")
+        set(KCTSB_ENABLE_NTL OFF)
     endif()
 endif()
 
 if(KCTSB_ENABLE_GMP)
     list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
     find_package(GMP QUIET)
+    if(NOT GMP_FOUND)
+        # Try vcpkg naming convention
+        find_package(gmp CONFIG QUIET)
+        if(gmp_FOUND)
+            set(GMP_FOUND TRUE)
+            set(GMP_LIBRARIES gmp::gmp)
+        endif()
+    endif()
     if(GMP_FOUND)
         message(STATUS "GMP found: ${GMP_INCLUDE_DIRS}")
         message(STATUS "GMP library: ${GMP_LIBRARIES}")
         add_definitions(-DKCTSB_HAS_GMP)
     else()
-        message(WARNING "GMP not found, disabling GMP support")
+        message(WARNING "GMP not found. Install via: vcpkg install gmp:x64-windows")
         set(KCTSB_ENABLE_GMP OFF)
     endif()
 endif()
@@ -246,9 +305,10 @@ if(KCTSB_ENABLE_OPENSSL)
     find_package(OpenSSL QUIET)
     if(OPENSSL_FOUND)
         message(STATUS "OpenSSL found: ${OPENSSL_VERSION}")
+        message(STATUS "OpenSSL includes: ${OPENSSL_INCLUDE_DIR}")
         add_definitions(-DKCTSB_HAS_OPENSSL)
     else()
-        message(WARNING "OpenSSL not found, disabling OpenSSL support")
+        message(WARNING "OpenSSL not found. Install via: vcpkg install openssl:x64-windows")
         set(KCTSB_ENABLE_OPENSSL OFF)
     endif()
 endif()
@@ -398,6 +458,15 @@ if(KCTSB_BUILD_EXAMPLES)
 endif()
 
 # ============================================================================
+# Benchmarks (OpenSSL Performance Comparison)
+# ============================================================================
+
+if(KCTSB_BUILD_BENCHMARKS AND KCTSB_ENABLE_OPENSSL AND OPENSSL_FOUND)
+    add_subdirectory(benchmarks)
+    message(STATUS "Benchmarks enabled: OpenSSL performance comparison")
+endif()
+
+# ============================================================================
 # Installation
 # ============================================================================
 
@@ -468,6 +537,7 @@ message(STATUS "  Shared lib:   ${KCTSB_BUILD_SHARED}")
 message(STATUS "  Static lib:   ${KCTSB_BUILD_STATIC}")
 message(STATUS "  Tests:        ${KCTSB_BUILD_TESTS}")
 message(STATUS "  Examples:     ${KCTSB_BUILD_EXAMPLES}")
+message(STATUS "  Benchmarks:   ${KCTSB_BUILD_BENCHMARKS}")
 message(STATUS "")
 message(STATUS "Dependencies:")
 message(STATUS "  NTL:          ${KCTSB_ENABLE_NTL}")

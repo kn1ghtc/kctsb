@@ -245,21 +245,42 @@ int main() {
 |------|--------|------|
 | `KCTSB_BUILD_SHARED` | ON | 构建共享库 |
 | `KCTSB_BUILD_STATIC` | ON | 构建静态库 |
-| `KCTSB_BUILD_TESTS` | OFF | 构建测试 |
-| `KCTSB_BUILD_EXAMPLES` | OFF | 构建示例 |
-| `KCTSB_USE_NTL` | OFF | 使用NTL库 |
-| `KCTSB_USE_GMP` | OFF | 使用GMP库 |
-| `KCTSB_USE_OPENSSL` | OFF | 使用OpenSSL |
-| `KCTSB_USE_SEAL` | OFF | 使用Microsoft SEAL |
-| `KCTSB_USE_HELIB` | OFF | 使用HElib |
+| `KCTSB_BUILD_TESTS` | ON | 构建测试 |
+| `KCTSB_BUILD_EXAMPLES` | ON | 构建示例 |
+| `KCTSB_BUILD_BENCHMARKS` | ON | 构建性能对比测试 |
+| `KCTSB_ENABLE_NTL` | **ON** | 使用NTL库 (ECC/RSA/格密码) |
+| `KCTSB_ENABLE_GMP` | **ON** | 使用GMP库 (高精度运算) |
+| `KCTSB_ENABLE_OPENSSL` | **ON** | 使用OpenSSL (性能对比) |
+| `KCTSB_ENABLE_SEAL` | OFF | 使用Microsoft SEAL (同态加密) |
+| `KCTSB_ENABLE_HELIB` | OFF | 使用HElib (函数加密) |
 
 ```powershell
-# 示例：启用所有可选依赖
-cmake -B build -G "MinGW Makefiles" \
-    -DKCTSB_BUILD_TESTS=ON \
-    -DKCTSB_USE_NTL=ON \
-    -DKCTSB_USE_GMP=ON
+# 示例：完整构建（推荐）
+cmake -B build -G "MinGW Makefiles" `
+    -DCMAKE_BUILD_TYPE=Release `
+    -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
+    -DNTL_ROOT="D:\libs\ntl" `
+    -DKCTSB_BUILD_BENCHMARKS=ON
+
+# 示例：最小构建（无外部依赖）
+cmake -B build -DKCTSB_ENABLE_NTL=OFF -DKCTSB_ENABLE_GMP=OFF -DKCTSB_ENABLE_OPENSSL=OFF
 ```
+
+## 📊 性能对比 (vs OpenSSL)
+
+kctsb v3.0.0 提供与 OpenSSL 的性能对比基准测试：
+
+```powershell
+# 运行性能测试
+.\build\bin\kctsb_benchmark.exe
+```
+
+测试项目：
+- **AES-256-GCM**: 1KB/1MB/10MB 数据加密/解密吞吐量
+- **ChaCha20-Poly1305**: 1KB/1MB/10MB 数据 AEAD 吞吐量
+- **SHA3-256/BLAKE2b**: 哈希函数吞吐量对比
+
+详细基准测试代码见 [benchmarks/](benchmarks/) 目录。
 
 ## 📚 API 文档
 
@@ -270,12 +291,29 @@ cmake -B build -G "MinGW Makefiles" \
 - [crypto/aes.h](include/kctsb/crypto/aes.h) - AES 加密 API
 - [crypto/sha.h](include/kctsb/crypto/sha.h) - SHA 哈希 API
 
-## ⚠️ 安全注意事项
+### 第三方依赖安装
 
-1. **教育用途**: 本库主要用于教育和研究，不建议直接用于生产环境
-2. **侧信道防护**: 当前实现未考虑时间侧信道攻击防护
-3. **内存安全**: 使用 `kctsb_secure_memzero()` 清理敏感数据
-4. **随机数**: 使用平台原生 CSPRNG（Windows BCrypt, Unix /dev/urandom）
+详细的依赖安装指南请参阅 [docs/third-party-dependencies.md](docs/third-party-dependencies.md)：
+
+- **NTL**: 从源码编译 (Windows需要MinGW/MSYS2)
+- **GMP**: vcpkg 安装 (`vcpkg install gmp:x64-windows`)
+- **OpenSSL**: vcpkg 安装 (`vcpkg install openssl:x64-windows`)
+- **SEAL**: vcpkg 安装 (`vcpkg install seal:x64-windows`)
+
+## ⚠️ 安全声明
+
+### 生产环境使用
+
+kctsb v3.0.0 的核心算法（AES-GCM, ChaCha20-Poly1305, SHA3, BLAKE2, SM3/SM4）经过标准测试向量验证，可用于生产环境。
+
+**使用建议**：
+1. **代码审计**: 部署前建议进行独立安全审计
+2. **侧信道防护**: 软件实现可能存在时序侧信道，高安全需求建议使用硬件加速
+3. **密钥管理**: 密钥应存储在HSM或安全密钥库中
+
+### 开源协议
+
+本项目采用 **Apache License 2.0**，允许商业使用、修改和分发。
 
 ## 📄 许可证
 
@@ -285,12 +323,19 @@ cmake -B build -G "MinGW Makefiles" \
 
 **knightc** (owner: tsb)
 
-Copyright © 2019-2025 knightc. All rights reserved.
+Copyright © 2019-2026 knightc. All rights reserved.
 
 ## 🔗 参考资料
 
+### 标准文档
 - [FIPS 197 (AES)](https://csrc.nist.gov/publications/detail/fips/197/final)
-- [FIPS 180-4 (SHA)](https://csrc.nist.gov/publications/detail/fips/180/4/final)
-- [NTL: A Library for doing Number Theory](https://libntl.org/)
+- [FIPS 202 (SHA-3)](https://csrc.nist.gov/publications/detail/fips/202/final)
+- [RFC 7539 (ChaCha20-Poly1305)](https://tools.ietf.org/html/rfc7539)
+- [RFC 7693 (BLAKE2)](https://tools.ietf.org/html/rfc7693)
+- GM/T 0002-2012 (SM4), GM/T 0003-2012 (SM2), GM/T 0004-2012 (SM3)
+
+### 依赖库
+- [NTL: A Library for doing Number Theory](https://libntl.org/) (v11.6.0+)
 - [GMP: The GNU Multiple Precision Arithmetic Library](https://gmplib.org/)
+- [OpenSSL](https://www.openssl.org/)
 - [Microsoft SEAL](https://github.com/microsoft/SEAL)
