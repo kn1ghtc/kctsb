@@ -11,29 +11,29 @@
 
 /*------------------------------------------------------------------------------
  * ffsa.h -- main header file containing the function prototypes, typedefs, etc.
+ * 
+ * Note: Uses GMP C API (mpz_t) directly.
+ * GMP provides its own C++ compatibility, no extern "C" wrapper needed.
  *------------------------------------------------------------------------------
  */
 
-/*include header for system functions*/
 #include <vector>
-#include <gmpxx.h>
-#include <gmp.h>
 #include <stdint.h>
-
+#include <gmp.h>
 
 /*typedefs for convenience with vectors*/
-typedef std::vector<mpz_class> mpz_vec_t;
+typedef std::vector<mpz_t*> mpz_vec_t;
 typedef std::vector<bool> bool_vec_t;
 
 /*function prototypes for distribution*/
-mpz_class ffsa_get_modulus(void);
+void ffsa_get_modulus(mpz_t result);
 bool_vec_t ffsa_get_bool_vector(int8_t k);
-mpz_vec_t ffsa_get_secrets(int8_t k, mpz_class n);
-mpz_vec_t ffsa_get_verifiers(mpz_vec_t s, mpz_class n);
-mpz_class ffsa_compute_x(mpz_class r, int8_t s, mpz_class n);
-mpz_class ffsa_compute_y(mpz_vec_t s, bool_vec_t a, mpz_class r, mpz_class n);
-bool ffsa_verify_values(mpz_class y, mpz_vec_t v, bool_vec_t a, mpz_class n, mpz_class x);
-bool ffsa_check_prime(mpz_class p);
+void ffsa_get_secrets(mpz_vec_t& s, int8_t k, const mpz_t n);
+void ffsa_get_verifiers(mpz_vec_t& v, const mpz_vec_t& s, const mpz_t n);
+void ffsa_compute_x(mpz_t x, const mpz_t r, int8_t sig, const mpz_t n);
+void ffsa_compute_y(mpz_t y, const mpz_vec_t& s, const bool_vec_t& a, const mpz_t r, const mpz_t n);
+bool ffsa_verify_values(const mpz_t y, const mpz_vec_t& v, const bool_vec_t& a, const mpz_t n, const mpz_t x);
+bool ffsa_check_prime(const mpz_t p);
 
 
 

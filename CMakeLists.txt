@@ -243,7 +243,20 @@ if(KCTSB_ENABLE_NTL)
         endif()
     endif()
     
-    # Priority 2: thirdparty directory
+    # Priority 2: deps/ntl directory (locally compiled)
+    if(NOT NTL_FOUND AND EXISTS "${CMAKE_SOURCE_DIR}/deps/ntl/include/NTL/ZZ.h")
+        set(NTL_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/deps/ntl/include)
+        find_library(NTL_LIBRARY NAMES ntl libntl
+            HINTS ${CMAKE_SOURCE_DIR}/deps/ntl/lib
+            NO_DEFAULT_PATH)
+        if(NTL_LIBRARY)
+            set(NTL_LIBRARIES ${NTL_LIBRARY})
+            set(NTL_FOUND TRUE)
+            message(STATUS "NTL found in deps/ntl directory: ${NTL_LIBRARY}")
+        endif()
+    endif()
+    
+    # Priority 3: thirdparty directory
     if(NOT NTL_FOUND AND EXISTS "${KCTSB_THIRDPARTY_DIR}/include/NTL/ZZ.h")
         set(NTL_INCLUDE_DIRS ${KCTSB_THIRDPARTY_DIR}/include)
         find_library(NTL_LIBRARY NAMES ntl libntl
@@ -252,14 +265,10 @@ if(KCTSB_ENABLE_NTL)
             set(NTL_LIBRARIES ${NTL_LIBRARY})
             set(NTL_FOUND TRUE)
             message(STATUS "NTL found in thirdparty directory")
-        else()
-            # Header-only mode for development
-            set(NTL_FOUND TRUE)
-            message(STATUS "NTL headers found in thirdparty (header-only mode)")
         endif()
     endif()
     
-    # Priority 3: System package manager / vcpkg
+    # Priority 4: System package manager / vcpkg
     if(NOT NTL_FOUND)
         find_package(NTL QUIET CONFIG)
         if(NOT NTL_FOUND)
@@ -291,15 +300,40 @@ endif()
 
 if(KCTSB_ENABLE_GMP)
     list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
-    find_package(GMP QUIET)
-    if(NOT GMP_FOUND)
-        # Try vcpkg naming convention
-        find_package(gmp CONFIG QUIET)
-        if(gmp_FOUND)
+    
+    # Priority 1: Check thirdparty directory first (our simplified gmpxx.h)
+    if(EXISTS "${KCTSB_THIRDPARTY_DIR}/include/gmp.h")
+        set(GMP_INCLUDE_DIRS ${KCTSB_THIRDPARTY_DIR}/include)
+        find_library(GMP_LIBRARY NAMES gmp libgmp
+            HINTS ${KCTSB_THIRDPARTY_DIR}/lib)
+        if(GMP_LIBRARY)
+            set(GMP_LIBRARIES ${GMP_LIBRARY})
             set(GMP_FOUND TRUE)
-            set(GMP_LIBRARIES gmp::gmp)
+            message(STATUS "GMP found in thirdparty: ${GMP_LIBRARY}")
+            # Create imported target
+            if(NOT TARGET GMP::GMP)
+                add_library(GMP::GMP STATIC IMPORTED)
+                set_target_properties(GMP::GMP PROPERTIES
+                    IMPORTED_LOCATION "${GMP_LIBRARY}"
+                    INTERFACE_INCLUDE_DIRECTORIES "${GMP_INCLUDE_DIRS}"
+                )
+            endif()
         endif()
     endif()
+    
+    # Priority 2: Try system package manager
+    if(NOT GMP_FOUND)
+        find_package(GMP QUIET)
+        if(NOT GMP_FOUND)
+            # Try vcpkg naming convention
+            find_package(gmp CONFIG QUIET)
+            if(gmp_FOUND)
+                set(GMP_FOUND TRUE)
+                set(GMP_LIBRARIES gmp::gmp)
+            endif()
+        endif()
+    endif()
+    
     if(GMP_FOUND)
         message(STATUS "GMP found: ${GMP_INCLUDE_DIRS}")
         message(STATUS "GMP library: ${GMP_LIBRARIES}")
@@ -367,7 +401,7 @@ if(KCTSB_BUILD_STATIC)
         $<INSTALL_INTERFACE:include>
     )
     # Add thirdparty includes if using NTL/GMP
-    if(KCTSB_ENABLE_NTL AND EXISTS "${KCTSB_THIRDPARTY_DIR}/include")
+    if((KCTSB_ENABLE_NTL OR KCTSB_ENABLE_GMP) AND EXISTS "${KCTSB_THIRDPARTY_DIR}/include")
         target_include_directories(kctsb_static PUBLIC
             $<BUILD_INTERFACE:${KCTSB_THIRDPARTY_DIR}/include>
         )
@@ -376,6 +410,12 @@ if(KCTSB_BUILD_STATIC)
     if(KCTSB_ENABLE_NTL AND NTL_INCLUDE_DIRS)
         target_include_directories(kctsb_static PUBLIC
             $<BUILD_INTERFACE:${NTL_INCLUDE_DIRS}>
+        )
+    endif()
+    # Add GMP include path if available
+    if(KCTSB_ENABLE_GMP AND GMP_INCLUDE_DIRS)
+        target_include_directories(kctsb_static PUBLIC
+            $<BUILD_INTERFACE:${GMP_INCLUDE_DIRS}>
         )
     endif()
     set_target_properties(kctsb_static PROPERTIES
@@ -415,7 +455,7 @@ if(KCTSB_BUILD_SHARED)
         $<INSTALL_INTERFACE:include>
     )
     # Add thirdparty includes if using NTL/GMP
-    if(KCTSB_ENABLE_NTL AND EXISTS "${KCTSB_THIRDPARTY_DIR}/include")
+    if((KCTSB_ENABLE_NTL OR KCTSB_ENABLE_GMP) AND EXISTS "${KCTSB_THIRDPARTY_DIR}/include")
         target_include_directories(kctsb_shared PUBLIC
             $<BUILD_INTERFACE:${KCTSB_THIRDPARTY_DIR}/include>
         )
@@ -424,6 +464,12 @@ if(KCTSB_BUILD_SHARED)
     if(KCTSB_ENABLE_NTL AND NTL_INCLUDE_DIRS)
         target_include_directories(kctsb_shared PUBLIC
             $<BUILD_INTERFACE:${NTL_INCLUDE_DIRS}>
+        )
+    endif()
+    # Add GMP include path if available
+    if(KCTSB_ENABLE_GMP AND GMP_INCLUDE_DIRS)
+        target_include_directories(kctsb_shared PUBLIC
+            $<BUILD_INTERFACE:${GMP_INCLUDE_DIRS}>
         )
     endif()
     target_compile_definitions(kctsb_shared PRIVATE KCTSB_EXPORTS KCTSB_SHARED_LIBRARY KCTSB_BUILDING)

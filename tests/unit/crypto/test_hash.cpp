@@ -288,3 +288,4 @@ TEST_F(HashTest, AvalancheEffect) {
     // Expect significant difference (avalanche effect)
     EXPECT_GT(diff_count, 16) 
         << "Avalanche effect: small input change should cause large output change";
+}
