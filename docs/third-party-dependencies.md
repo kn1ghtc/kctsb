@@ -200,51 +200,61 @@ g++ -o test_ntl test_ntl.cpp -I d:\pyproject\kctsb\deps\ntl\include \
 
 ### vcpkg 初始化
 
-```powershell
-# 1. 克隆 vcpkg (如果尚未安装)
-cd d:\pyproject\kctsb
-git clone https://github.com/microsoft/vcpkg.git
-cd vcpkg
-.\bootstrap-vcpkg.bat
+vcpkg 已统一安装到 `D:\vcpkg`，环境变量 `VCPKG_ROOT` 已配置。
 
-# 2. 设置环境变量 (可选)
-$env:VCPKG_ROOT = "d:\pyproject\kctsb\vcpkg"
+```powershell
+# 确认环境变量
+$env:VCPKG_ROOT   # 应输出 D:\vcpkg
+
+# 更新 vcpkg (可选)
+cd D:\vcpkg
+git pull
+.\bootstrap-vcpkg.bat
 ```
 
 ### 安装依赖
 
 ```powershell
-cd d:\pyproject\kctsb\vcpkg
+# 使用环境变量定位 vcpkg
+cd $env:VCPKG_ROOT
 
-# GMP - 高精度算术 (NTL 依赖)
+# GMP - 高精度算术 (NTL 依赖) - 注: Windows下可能编译失败
 .\vcpkg install gmp:x64-windows
 
-# OpenSSL - 性能对比测试
+# OpenSSL - 性能对比测试 (已安装: 3.6.0)
 .\vcpkg install openssl:x64-windows
 
-# Microsoft SEAL - 同态加密 (可选)
+# Microsoft SEAL - 同态加密 (已安装: 4.1.2)
 .\vcpkg install seal:x64-windows
 
-# 一次性安装所有推荐依赖
-.\vcpkg install gmp:x64-windows openssl:x64-windows
+# 一次性安装所有推荐依赖 (跳过GMP)
+.\vcpkg install openssl:x64-windows seal:x64-windows zlib:x64-windows zstd:x64-windows
 ```
 
 ### vcpkg 与 CMake 集成
 
 ```powershell
-# 配置项目时指定 vcpkg 工具链
-cmake -B build -G "MinGW Makefiles" \
-    -DCMAKE_TOOLCHAIN_FILE="d:/pyproject/kctsb/vcpkg/scripts/buildsystems/vcpkg.cmake" \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DKCTSB_USE_NTL=ON \
-    -DKCTSB_USE_GMP=ON \
-    -DKCTSB_USE_OPENSSL=ON
+# 配置项目时指定 vcpkg 工具链 (使用环境变量)
+cmake -B build -G "MinGW Makefiles" `
+    -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
+    -DCMAKE_BUILD_TYPE=Release `
+    -DKCTSB_ENABLE_NTL=ON `
+    -DKCTSB_ENABLE_GMP=ON `
+    -DKCTSB_ENABLE_OPENSSL=ON `
+    -DKCTSB_BUILD_BENCHMARKS=ON
 ```
 
 ### 已安装包查看
 
 ```powershell
-.\vcpkg list
+# 使用环境变量
+& "$env:VCPKG_ROOT\vcpkg.exe" list
+
+# 当前已安装包 (2026-01-12):
+# - openssl:x64-windows     3.6.0
+# - seal:x64-windows        4.1.2 (ms-gsl, zlib, zstd)
+# - zlib:x64-windows        1.3.1
+# - zstd:x64-windows        1.5.7
 ```
 
 ---

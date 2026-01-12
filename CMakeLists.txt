@@ -88,9 +88,9 @@ option(KCTSB_BUILD_BENCHMARKS "Build benchmarks for performance comparison" ON)
 option(KCTSB_ENABLE_NTL "Enable NTL support for ECC/RSA/Lattice/ZK" ON)
 option(KCTSB_ENABLE_GMP "Enable GMP support for high-precision arithmetic" ON)
 option(KCTSB_ENABLE_OPENSSL "Enable OpenSSL support for performance benchmarks" ON)
-option(KCTSB_ENABLE_SEAL "Enable Microsoft SEAL support for HE" OFF)
-option(KCTSB_ENABLE_HELIB "Enable HElib support for FE" OFF)
-option(KCTSB_ENABLE_MIRACL "Enable MIRACL support" OFF)
+option(KCTSB_ENABLE_SEAL "Enable Microsoft SEAL support for HE" ON)
+option(KCTSB_ENABLE_HELIB "Enable HElib support for FE" ON)
+option(KCTSB_ENABLE_MIRACL "Enable MIRACL support" ON)
 option(KCTSB_INSTALL "Generate install target" ON)
 
 # ============================================================================

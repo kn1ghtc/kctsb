@@ -18,6 +18,7 @@
 #include <cstring>
 #include <algorithm>
 #include <numeric>
+#include <functional>
 
 // OpenSSL headers
 #include <openssl/evp.h>

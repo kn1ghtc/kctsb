@@ -119,26 +119,35 @@ kctsb/
 
 ### 依赖管理
 
-- **NTL** (默认启用): 数论库，用于ECC/RSA/格密码/ZK证明
+**vcpkg 统一环境** (必须):
+- **安装目录**: `D:\vcpkg` (环境变量: `$env:VCPKG_ROOT`)
+- **已安装包** (2026-01-12): OpenSSL 3.6.0, SEAL 4.1.2, zlib 1.3.1, zstd 1.5.7
+- **安装命令**: `D:\vcpkg\vcpkg.exe install <package>:x64-windows`
+
+**依赖列表**:
+- **NTL** (可选): 数论库，用于ECC/RSA/格密码/ZK证明
   - Windows: 需从源码编译 (见 `docs/third-party-dependencies.md`)
   - Linux/macOS: `apt install libntl-dev` / `brew install ntl`
   
-- **GMP** (默认启用): 高精度整数运算，NTL的依赖
-  - vcpkg: `vcpkg install gmp:x64-windows`
+- **GMP** (可选): 高精度整数运算，NTL的依赖
+  - vcpkg: `D:\vcpkg\vcpkg.exe install gmp:x64-windows` (Windows下可能编译失败)
   
-- **OpenSSL** (默认启用): 用于性能benchmark对比
-  - vcpkg: `vcpkg install openssl:x64-windows`
+- **OpenSSL** (已安装): 用于性能benchmark对比
+  - vcpkg: `D:\vcpkg\vcpkg.exe install openssl:x64-windows`
   
-- **SEAL** (可选): Microsoft同态加密库
-  - vcpkg: `vcpkg install seal:x64-windows`
+- **SEAL** (已安装): Microsoft同态加密库
+  - vcpkg: `D:\vcpkg\vcpkg.exe install seal:x64-windows`
 
 ### vcpkg 集成
 
 ```powershell
-# 设置 VCPKG_ROOT 环境变量
-$env:VCPKG_ROOT = "C:\vcpkg"
+# 确认 VCPKG_ROOT 环境变量已设置
+$env:VCPKG_ROOT   # 应输出 D:\vcpkg
 
-# CMake 自动检测 vcpkg
+# 查看已安装包
+D:\vcpkg\vcpkg.exe list
+
+# CMake 构建时使用 vcpkg 工具链
 cmake -B build -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake"
 ```
 

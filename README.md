@@ -251,11 +251,17 @@ int main() {
 | `KCTSB_ENABLE_NTL` | **ON** | 使用NTL库 (ECC/RSA/格密码) |
 | `KCTSB_ENABLE_GMP` | **ON** | 使用GMP库 (高精度运算) |
 | `KCTSB_ENABLE_OPENSSL` | **ON** | 使用OpenSSL (性能对比) |
-| `KCTSB_ENABLE_SEAL` | OFF | 使用Microsoft SEAL (同态加密) |
+| `KCTSB_ENABLE_SEAL` | **ON** | 使用Microsoft SEAL (同态加密) |
 | `KCTSB_ENABLE_HELIB` | OFF | 使用HElib (函数加密) |
 
 ```powershell
-# 示例：完整构建（推荐）
+# 示例：完整构建（推荐）- 使用 VCPKG_ROOT 环境变量
+cmake -B build -G "MinGW Makefiles" `
+    -DCMAKE_BUILD_TYPE=Release `
+    -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
+    -DKCTSB_BUILD_BENCHMARKS=ON
+
+# 示例：完整构建带NTL（需要先编译NTL）
 cmake -B build -G "MinGW Makefiles" `
     -DCMAKE_BUILD_TYPE=Release `
     -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
@@ -275,10 +281,17 @@ kctsb v3.0.0 提供与 OpenSSL 的性能对比基准测试：
 .\build\bin\kctsb_benchmark.exe
 ```
 
-测试项目：
-- **AES-256-GCM**: 1KB/1MB/10MB 数据加密/解密吞吐量
-- **ChaCha20-Poly1305**: 1KB/1MB/10MB 数据 AEAD 吞吐量
-- **SHA3-256/BLAKE2b**: 哈希函数吞吐量对比
+### 性能测试结果 (2026-01-12, OpenSSL 3.6.0)
+
+| 算法 | 数据大小 | 吞吐量 | 平均延迟 |
+|------|----------|--------|----------|
+| AES-256-GCM (加密) | 10 MB | 6538 MB/s | 1.53 ms |
+| AES-256-GCM (解密) | 10 MB | 6172 MB/s | 1.62 ms |
+| ChaCha20-Poly1305 (加密) | 10 MB | 2353 MB/s | 4.25 ms |
+| ChaCha20-Poly1305 (解密) | 10 MB | 2285 MB/s | 4.38 ms |
+| SHA-256 | 10 MB | 2104 MB/s | 4.75 ms |
+| SHA3-256 | 10 MB | 575 MB/s | 17.40 ms |
+| BLAKE2b-256 | 10 MB | 1068 MB/s | 9.36 ms |
 
 详细基准测试代码见 [benchmarks/](benchmarks/) 目录。
 
@@ -295,10 +308,11 @@ kctsb v3.0.0 提供与 OpenSSL 的性能对比基准测试：
 
 详细的依赖安装指南请参阅 [docs/third-party-dependencies.md](docs/third-party-dependencies.md)：
 
+- **vcpkg**: 统一安装目录 `D:\vcpkg` (环境变量: `VCPKG_ROOT`)
 - **NTL**: 从源码编译 (Windows需要MinGW/MSYS2)
-- **GMP**: vcpkg 安装 (`vcpkg install gmp:x64-windows`)
-- **OpenSSL**: vcpkg 安装 (`vcpkg install openssl:x64-windows`)
-- **SEAL**: vcpkg 安装 (`vcpkg install seal:x64-windows`)
+- **GMP**: vcpkg 安装 (Windows编译可能失败)
+- **OpenSSL**: vcpkg 安装 (已安装: 3.6.0)
+- **SEAL**: vcpkg 安装 (已安装: 4.1.2)
 
 ## ⚠️ 安全声明
 
