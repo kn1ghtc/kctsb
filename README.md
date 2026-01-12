@@ -98,19 +98,20 @@ kctsb/
 | ChaCha20-Poly1305 | 无 | ✅ 生产可用 (v3.0) | 完整实现 |
 | Security Core | 无 | ✅ 生产可用 (v3.0) | 完整实现 |
 | Hash (Keccak/BLAKE2) | 无 | ✅ 可用 | 完整实现 |
-| SM (SM2/SM3/SM4) | 无 | ✅ 可用 | 完整实现 (8个源文件) |
+| SM (SM3/SM4/ZUC) | 无 | ✅ 可用 (v3.0.1) | 完整实现 (9/9测试通过) |
 | Whitebox AES | 无 | ✅ 可用 | Chow方案 (230行) |
-| RSA/DH/DSA | NTL | ⚠️ 待NTL编译 | 代码存在 (kc_rsa.cpp) |
-| ECC/ECDSA | NTL | ⚠️ 待NTL编译 | 代码存在 (7个源文件) |
-| Shamir SSS | NTL | ⚠️ 待NTL编译 | 代码被注释 |
+| RSA/DH/DSA | NTL | ✅ 可用 | 完整实现 (NTL已编译) |
+| ECC/ECDSA | NTL | ✅ 可用 | 完整实现 (NTL已编译) |
+| Shamir SSS | NTL | ⚠️ 需NTL | 代码存在 |
 | ZK/Lattice | NTL | 🔄 进行中 | 部分实现 |
 | FE (同态) | HElib | 📋 计划中 | 设计草稿 |
 
-**依赖安装状态** (2026-01-12):
+**依赖安装状态** (2026-01-12 17:30):
 - ✅ OpenSSL 3.6.0 (via vcpkg at D:\vcpkg)
-- ✅ Microsoft SEAL 4.1.2 (via vcpkg)
-- ✅ GMP (Strawberry Perl: C:\Strawberry\c\lib\libgmp.a)
-- ⚠️ NTL: 头文件存在 (thirdparty/include/NTL/), 需编译libntl.a
+- ⚠️ Microsoft SEAL 4.1.2 (vcpkg MSVC版，需MSYS2重编译为MinGW版)
+- ✅ GMP (Strawberry Perl: C:\Strawberry\c\lib\libgmp.a, 仅C API)
+- ✅ NTL 11.6.0 (完整编译: deps/ntl/lib/libntl.a, 5.09MB, 78个模块)
+- ❌ HElib (未安装，需GMP C++支持+NTL)
 
 ## 🚀 快速开始
 
