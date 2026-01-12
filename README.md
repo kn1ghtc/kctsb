@@ -4,15 +4,22 @@
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](.)
 [![C++](https://img.shields.io/badge/C++-17-blue.svg)](.)
 [![CMake](https://img.shields.io/badge/CMake-3.20+-green.svg)](.)
+[![Version](https://img.shields.io/badge/Version-3.0.0-brightgreen.svg)](.)
 
-**kctsb** (Knight's Cryptographic Trusted Security Base) 是一个跨平台的 C/C++ 密码学和安全算法库，专为安全研究和教育用途设计。提供纯 C 和 C++ 两套 API 接口。
+**kctsb** (Knight's Cryptographic Trusted Security Base) 是一个跨平台的 C/C++ 密码学和安全算法库，专为生产环境和安全研究设计。提供纯 C 和 C++ 两套 API 接口。
+
+> **v3.0.0 新特性**: 完整的 AES-GCM 和 ChaCha20-Poly1305 AEAD 支持，侧信道防护，移除不安全模式。
 
 ## ✨ 特性
 
 ### 对称加密算法
-- **AES** - AES-128/192/256，支持 ECB/CBC/CTR/GCM 模式
+- **AES** - AES-128/192/256，支持 **CTR/GCM** 模式（v3.0 移除 ECB/CBC）
+- **ChaCha20-Poly1305** - RFC 8439 AEAD 流密码 (v3.0 新增)
 - **SM4** - 国密 SM4 分组密码
-- **ChaCha20** - 流密码
+
+### AEAD 认证加密 (v3.0 强化)
+- **AES-GCM** - Galois/Counter Mode，128-bit 认证标签
+- **ChaCha20-Poly1305** - 256-bit 密钥，128-bit 标签
 
 ### 非对称加密算法
 - **RSA** - RSA-2048/4096 加密签名
@@ -23,6 +30,11 @@
 - **SHA** - SHA-1/256/384/512
 - **SM3** - 国密 SM3 哈希
 - **BLAKE2/3** - 高性能哈希
+
+### 安全原语 (v3.0 新增)
+- **常量时间操作** - 防止时序攻击
+- **安全内存** - 自动安全清零
+- **CSPRNG** - 跨平台安全随机数
 
 ### 高级密码学原语
 - **白盒密码** - Chow 白盒 AES/SM4 实现
@@ -41,45 +53,50 @@ kctsb/
 ├── LICENSE                     # Apache 2.0 许可证
 │
 ├── include/
-│   ├── kctsb/                  # 公共头文件（新实现）
-│   │   ├── kctsb.h             # 主入口头文件
+│   ├── kctsb/                  # 公共头文件
+│   │   ├── kctsb.h             # 主入口头文件 (v3.0.0)
 │   │   ├── core/               # 核心定义
+│   │   │   ├── common.h        # 通用类型和错误码
+│   │   │   ├── security.h      # 安全原语 (v3.0 新增)
+│   │   │   └── types.h         # 类型定义
 │   │   ├── crypto/             # 标准密码算法
+│   │   │   ├── aes.h           # AES-CTR/GCM (v3.0 移除ECB/CBC)
+│   │   │   ├── chacha20_poly1305.h  # ChaCha20-Poly1305 AEAD
+│   │   │   └── ...
 │   │   ├── advanced/           # 高级密码学
 │   │   └── utils/              # 实用工具
-│   └── opentsb/                # 旧版头文件（已迁移）
-│       ├── aes.h, kc_common.h, kc_sec.h, kc_sm.h
-│       └── math.h, test.h, test_c.h
+│   └── opentsb/                # 旧版头文件（兼容）
 │
 ├── src/                        # 源代码实现
-│   ├── core/                   # 核心功能（export.cpp）
+│   ├── core/                   # 核心功能
+│   │   ├── export.cpp          # 库导出函数
+│   │   └── security.c          # 安全原语实现 (v3.0 新增)
 │   ├── crypto/                 # 密码算法实现
-│   │   ├── aes/                # AES-128/192/256 (ECB/CBC/CTR)
+│   │   ├── aes/                # AES 实现 (GCM完整支持)
+│   │   ├── chacha20/           # ChaCha20-Poly1305 (v3.0 新增)
 │   │   ├── sm/                 # SM2/SM3/SM4/ZUC (国密)
-│   │   ├── rsa/                # RSA/DH/DSA/ElGamal (需GMP)
-│   │   ├── ecc/                # ECC/ECDH/ECDSA (需NTL)
+│   │   ├── rsa/                # RSA/DH/DSA/ElGamal
+│   │   ├── ecc/                # ECC/ECDH/ECDSA
 │   │   └── hash/               # Keccak/Blake/ChaCha/MAC
 │   ├── advanced/               # 高级算法实现
-│   │   ├── whitebox/           # 白盒AES (需修复)
-│   │   ├── zk/                 # 零知识证明 (需NTL)
-│   │   ├── lattice/            # 格密码 (需NTL)
-│   │   ├── sss/                # Shamir秘密共享
-│   │   ├── fe/                 # 功能加密 (需HElib)
-│   │   └── fuzzy/              # 模糊提取器
-│   └── math/                   # 数学库 (需NTL)
+│   └── math/                   # 数学库
 │
-├── tests/                      # 测试代码 (14测试已通过)
+├── tests/                      # 测试代码
 ├── examples/                   # 示例代码
+├── docs/                       # 文档
+│   └── releases/               # 版本发布说明
+│       └── v3.0.0-release.md   # v3.0.0 发布说明
 ├── scripts/                    # 构建脚本
-├── cmake/                      # CMake 模块
-└── .vscode/                    # VS Code 配置
+└── cmake/                      # CMake 模块
 ```
 
 ### 模块依赖关系
 
 | 模块 | 依赖 | 状态 |
 |------|------|------|
-| AES | 无 | ✅ 可用 |
+| AES-CTR/GCM | 无 | ✅ 生产可用 |
+| ChaCha20-Poly1305 | 无 | ✅ 生产可用 (v3.0) |
+| Security Core | 无 | ✅ 生产可用 (v3.0) |
 | Hash (Keccak) | 无 | ✅ 可用 |
 | SM (SM2/3/4/ZUC) | 无* | ⚠️ 需头文件修复 |
 | RSA/DH/DSA | GMP | ⚠️ 可选启用 |
@@ -149,7 +166,7 @@ cd build && ctest --output-on-failure
 
 ## 📖 使用示例
 
-### C API
+### C API - AES-GCM 认证加密
 
 ```c
 #include <kctsb/kctsb.h>
@@ -158,18 +175,42 @@ int main() {
     // 初始化库
     kctsb_init();
     
-    // AES 加密
-    uint8_t key[16] = {0x00, 0x01, ...};
-    uint8_t plaintext[16] = "Hello, World!!!";
-    uint8_t ciphertext[16];
+    // AES-GCM 加密 (推荐 v3.0+)
+    uint8_t key[16] = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+                       0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f};
+    uint8_t iv[12] = {0};  // 12 bytes for GCM
+    uint8_t plaintext[32] = "Hello, World! kctsb v3.0";
+    uint8_t ciphertext[32];
+    uint8_t tag[16];
     
     kctsb_aes_ctx_t ctx;
-    kctsb_aes_init(&ctx, key, KCTSB_AES_128);
-    kctsb_aes_encrypt_ecb(&ctx, plaintext, ciphertext, 16);
-    kctsb_aes_cleanup(&ctx);
+    kctsb_aes_init(&ctx, key, 16);
+    kctsb_aes_gcm_encrypt(&ctx, iv, 12, NULL, 0, 
+                          plaintext, 32, ciphertext, tag);
+    kctsb_aes_clear(&ctx);
     
-    // 清理
     kctsb_cleanup();
+    return 0;
+}
+```
+
+### C API - ChaCha20-Poly1305 AEAD
+
+```c
+#include <kctsb/kctsb.h>
+
+int main() {
+    uint8_t key[32] = { /* 256-bit key */ };
+    uint8_t nonce[12] = { /* 96-bit nonce */ };
+    uint8_t aad[] = "Additional authenticated data";
+    uint8_t plaintext[] = "Secret message";
+    uint8_t ciphertext[sizeof(plaintext)];
+    uint8_t tag[16];
+    
+    kctsb_chacha20_poly1305_encrypt(key, nonce, 
+                                     aad, sizeof(aad)-1,
+                                     plaintext, sizeof(plaintext)-1,
+                                     ciphertext, tag);
     return 0;
 }
 ```
@@ -182,13 +223,17 @@ int main() {
 int main() {
     using namespace kctsb;
     
-    // AES 加密
-    std::array<uint8_t, 16> key = {0x00, 0x01, ...};
+    // 安全随机数
+    auto random_bytes = randomBytes(32);
+    
+    // AES-GCM 加密
+    std::array<uint8_t, 16> key = {0x00, 0x01, /* ... */};
     std::vector<uint8_t> plaintext = {'H', 'e', 'l', 'l', 'o'};
     
-    AES aes(key);
-    auto ciphertext = aes.encrypt(plaintext);
-    auto decrypted = aes.decrypt(ciphertext);
+    // 使用安全比较
+    std::vector<uint8_t> a = {1, 2, 3};
+    std::vector<uint8_t> b = {1, 2, 3};
+    bool equal = kctsb_secure_compare(a.data(), b.data(), 3) == 1;
     
     return 0;
 }

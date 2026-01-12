@@ -9,17 +9,17 @@
  * @author knightc
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
  * @license Apache License 2.0
- * @version 2.0.0
+ * @version 3.0.0
  */
 
 #ifndef KCTSB_H
 #define KCTSB_H
 
 // Version information
-#define KCTSB_VERSION_MAJOR 2
+#define KCTSB_VERSION_MAJOR 3
 #define KCTSB_VERSION_MINOR 0
 #define KCTSB_VERSION_PATCH 0
-#define KCTSB_VERSION_STRING "2.0.0"
+#define KCTSB_VERSION_STRING "3.0.0"
 
 // Core headers (must be included first - defines KCTSB_API and platform macros)
 #include "kctsb/core/common.h"

@@ -109,17 +109,19 @@ TEST_F(AESTest, AES256_Test) {
     kctsb_aes_clear(&ctx);
 }
 
-// CBC mode test
-TEST_F(AESTest, AES128_CBC_Test) {
+// GCM mode test (replaces CBC - CBC has been removed as insecure in v3.0.0)
+TEST_F(AESTest, AES128_GCM_Test) {
     uint8_t key[16] = {
         0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6,
         0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c
     };
     
-    uint8_t iv[16] = {
+    uint8_t iv[12] = {
         0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-        0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f
+        0x08, 0x09, 0x0a, 0x0b
     };
+    
+    uint8_t aad[] = "Additional authenticated data";
     
     uint8_t plaintext[32] = {
         0x6b, 0xc1, 0xbe, 0xe2, 0x2e, 0x40, 0x9f, 0x96,
@@ -132,12 +134,13 @@ TEST_F(AESTest, AES128_CBC_Test) {
     ASSERT_EQ(kctsb_aes_init(&ctx, key, 16), KCTSB_SUCCESS);
     
     uint8_t ciphertext[32];
-    size_t out_len = 32;
-    ASSERT_EQ(kctsb_aes_cbc_encrypt(&ctx, iv, plaintext, 32, ciphertext, &out_len), KCTSB_SUCCESS);
+    uint8_t tag[16];
+    ASSERT_EQ(kctsb_aes_gcm_encrypt(&ctx, iv, 12, aad, sizeof(aad)-1, 
+                                     plaintext, 32, ciphertext, tag), KCTSB_SUCCESS);
     
     uint8_t decrypted[32];
-    out_len = 32;
-    ASSERT_EQ(kctsb_aes_cbc_decrypt(&ctx, iv, ciphertext, 32, decrypted, &out_len), KCTSB_SUCCESS);
+    ASSERT_EQ(kctsb_aes_gcm_decrypt(&ctx, iv, 12, aad, sizeof(aad)-1,
+                                     ciphertext, 32, tag, decrypted), KCTSB_SUCCESS);
     
     EXPECT_EQ(memcmp(decrypted, plaintext, 32), 0);
     

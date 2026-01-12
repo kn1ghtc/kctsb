@@ -7,6 +7,7 @@
  */
 
 #include "kctsb/kctsb.h"
+#include "kctsb/core/security.h"
 #include <cstring>
 
 #ifdef KCTSB_PLATFORM_WINDOWS
@@ -80,59 +81,18 @@ const char* kctsb_error_string(kctsb_error_t error) {
             return "Not implemented";
         case KCTSB_ERROR_INTERNAL:
             return "Internal error";
+        case KCTSB_ERROR_AUTH_FAILED:
+            return "Authentication failed";
+        case KCTSB_ERROR_RANDOM_FAILED:
+            return "Random generation failed";
+        case KCTSB_ERROR_SECURITY_CHECK:
+            return "Security check failed";
         default:
             return "Unknown error";
     }
 }
 
-void kctsb_secure_zero(void* ptr, size_t size) {
-    if (ptr && size > 0) {
-        volatile unsigned char* p = (volatile unsigned char*)ptr;
-        while (size--) {
-            *p++ = 0;
-        }
-    }
-}
-
-int kctsb_secure_compare(const void* a, const void* b, size_t size) {
-    const volatile unsigned char* pa = (const volatile unsigned char*)a;
-    const volatile unsigned char* pb = (const volatile unsigned char*)b;
-    unsigned char diff = 0;
-    
-    for (size_t i = 0; i < size; i++) {
-        diff |= pa[i] ^ pb[i];
-    }
-    
-    return diff;
-}
-
-// Secure random bytes implementation
-kctsb_error_t kctsb_random_bytes(uint8_t* buffer, size_t len) {
-    if (!buffer || len == 0) {
-        return KCTSB_ERROR_INVALID_PARAM;
-    }
-    
-#ifdef KCTSB_PLATFORM_WINDOWS
-    NTSTATUS status = BCryptGenRandom(NULL, buffer, (ULONG)len, BCRYPT_USE_SYSTEM_PREFERRED_RNG);
-    if (!BCRYPT_SUCCESS(status)) {
-        return KCTSB_ERROR_INTERNAL;
-    }
-#else
-    int fd = open("/dev/urandom", O_RDONLY);
-    if (fd < 0) {
-        return KCTSB_ERROR_INTERNAL;
-    }
-    
-    ssize_t bytes_read = read(fd, buffer, len);
-    close(fd);
-    
-    if (bytes_read != (ssize_t)len) {
-        return KCTSB_ERROR_INTERNAL;
-    }
-#endif
-    
-    return KCTSB_SUCCESS;
-}
+// Security functions are now in security.c - only define random helpers here
 
 uint32_t kctsb_random_u32(void) {
     uint32_t value;

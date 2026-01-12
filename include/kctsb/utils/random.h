@@ -9,18 +9,13 @@
 #define KCTSB_UTILS_RANDOM_H
 
 #include "kctsb/core/common.h"
+#include "kctsb/core/security.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/**
- * @brief Generate cryptographically secure random bytes
- * @param buffer Output buffer
- * @param len Number of bytes to generate
- * @return KCTSB_SUCCESS or error code
- */
-KCTSB_API kctsb_error_t kctsb_random_bytes(uint8_t* buffer, size_t len);
+// kctsb_random_bytes is now declared in security.h
 
 /**
  * @brief Generate random 32-bit integer

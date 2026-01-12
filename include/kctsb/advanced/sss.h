@@ -15,6 +15,7 @@
 
 #include "kctsb/core/common.h"
 #include "kctsb/core/types.h"
+#include "kctsb/core/security.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -63,13 +64,7 @@ KCTSB_API kctsb_error_t kctsb_sss_reconstruct(
     size_t secret_len
 );
 
-/**
- * @brief Generate random bytes using secure RNG
- * @param buffer Output buffer
- * @param len Number of bytes to generate
- * @return KCTSB_SUCCESS or error code
- */
-KCTSB_API kctsb_error_t kctsb_random_bytes(uint8_t* buffer, size_t len);
+// kctsb_random_bytes is declared in security.h, included via common.h
 
 #ifdef __cplusplus
 }

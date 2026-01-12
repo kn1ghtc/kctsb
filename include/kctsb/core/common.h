@@ -69,18 +69,22 @@ typedef enum {
     KCTSB_ERROR_DECRYPTION_FAILED = -7,
     KCTSB_ERROR_VERIFICATION_FAILED = -8,
     KCTSB_ERROR_NOT_IMPLEMENTED = -9,
-    KCTSB_ERROR_INTERNAL = -10
+    KCTSB_ERROR_INTERNAL = -10,
+    KCTSB_ERROR_AUTH_FAILED = -11,      // AEAD authentication failed
+    KCTSB_ERROR_RANDOM_FAILED = -12,    // CSPRNG failure
+    KCTSB_ERROR_SECURITY_CHECK = -13    // Security check failed
 } kctsb_error_t;
 
 
-// Block cipher modes
+// Block cipher modes - v3.0 only supports secure modes
 typedef enum {
-    KCTSB_MODE_ECB = 0,
-    KCTSB_MODE_CBC = 1,
-    KCTSB_MODE_CTR = 2,
-    KCTSB_MODE_GCM = 3,
-    KCTSB_MODE_CFB = 4,
-    KCTSB_MODE_OFB = 5
+    // DEPRECATED: ECB and CBC are insecure and not supported
+    // KCTSB_MODE_ECB = 0,  // NOT SUPPORTED - deterministic encryption
+    // KCTSB_MODE_CBC = 1,  // NOT SUPPORTED - padding oracle attacks
+    KCTSB_MODE_CTR = 2,     // Counter mode - secure streaming
+    KCTSB_MODE_GCM = 3,     // Galois/Counter Mode - AEAD
+    KCTSB_MODE_CFB = 4,     // Cipher Feedback - streaming
+    KCTSB_MODE_OFB = 5      // Output Feedback - streaming
 } kctsb_cipher_mode_t;
 
 // Padding modes

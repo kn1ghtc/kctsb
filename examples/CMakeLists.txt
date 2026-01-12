@@ -48,12 +48,18 @@ target_include_directories(example_whitebox PRIVATE ${CMAKE_SOURCE_DIR}/include)
 add_executable(example_sss
     advanced/sss_example.cpp
 )
-target_link_libraries(example_sss PRIVATE kctsb)
+target_link_libraries(example_sss PRIVATE kctsb_static)
+if(WIN32)
+    target_link_libraries(example_sss PRIVATE bcrypt)
+endif()
 target_include_directories(example_sss PRIVATE ${CMAKE_SOURCE_DIR}/include)
 
 # Combined demo
 add_executable(kctsb_demo
     demo/main.cpp
 )
-target_link_libraries(kctsb_demo PRIVATE kctsb)
+target_link_libraries(kctsb_demo PRIVATE kctsb_static)
+if(WIN32)
+    target_link_libraries(kctsb_demo PRIVATE bcrypt)
+endif()
 target_include_directories(kctsb_demo PRIVATE ${CMAKE_SOURCE_DIR}/include)

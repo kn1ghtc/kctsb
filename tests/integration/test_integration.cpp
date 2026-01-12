@@ -11,7 +11,7 @@ TEST(IntegrationTest, LibraryInitialization) {
     
     const char* version = kctsb_version();
     EXPECT_NE(version, nullptr);
-    EXPECT_STREQ(version, "2.0.0");
+    EXPECT_STREQ(version, "3.0.0");
     
     const char* platform = kctsb_platform();
     EXPECT_NE(platform, nullptr);
@@ -46,8 +46,10 @@ TEST(IntegrationTest, SecureCompare) {
     uint8_t c[16] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
                     0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x11};
     
-    EXPECT_EQ(kctsb_secure_compare(a, b, 16), 0);
-    EXPECT_NE(kctsb_secure_compare(a, c, 16), 0);
+    // kctsb_secure_compare returns 1 if equal (true), 0 if different (false)
+    // This is opposite to memcmp but more intuitive for boolean comparison
+    EXPECT_EQ(kctsb_secure_compare(a, b, 16), 1);  // Equal -> returns 1 (true)
+    EXPECT_EQ(kctsb_secure_compare(a, c, 16), 0);  // Different -> returns 0 (false)
 }
 
 TEST(IntegrationTest, ErrorStrings) {

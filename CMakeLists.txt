@@ -10,8 +10,8 @@ cmake_minimum_required(VERSION 3.20)
 
 # Project definition
 project(kctsb 
-    VERSION 2.0.0
-    DESCRIPTION "Cross-platform cryptographic algorithms library"
+    VERSION 3.0.0
+    DESCRIPTION "Production-grade cryptographic algorithms library"
     LANGUAGES C CXX
 )
 
@@ -125,7 +125,12 @@ file(GLOB KCTSB_AES_SOURCES
 set(KCTSB_HASH_SOURCES
     ${KCTSB_SRC_DIR}/crypto/hash/Keccak.cpp
     ${KCTSB_SRC_DIR}/crypto/hash/blake2.c
-    ${KCTSB_SRC_DIR}/crypto/hash/chacha20.c
+)
+
+# ChaCha20-Poly1305 AEAD - production-grade stream cipher
+file(GLOB KCTSB_CHACHA_SOURCES
+    ${KCTSB_SRC_DIR}/crypto/chacha20/*.cpp
+    ${KCTSB_SRC_DIR}/crypto/chacha20/*.c
 )
 
 # SM module - check for self-contained files
@@ -142,6 +147,7 @@ set(KCTSB_WHITEBOX_SOURCES
 set(KCTSB_CRYPTO_SOURCES
     ${KCTSB_AES_SOURCES}
     ${KCTSB_HASH_SOURCES}
+    ${KCTSB_CHACHA_SOURCES}
     ${KCTSB_WHITEBOX_SOURCES}
 )
 

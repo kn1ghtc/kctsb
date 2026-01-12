@@ -80,9 +80,12 @@ add_executable(test_integration
 )
 target_link_libraries(test_integration
     PRIVATE
-        kctsb
+        kctsb_static
         GTest::gtest_main
 )
+if(WIN32)
+    target_link_libraries(test_integration PRIVATE bcrypt)
+endif()
 target_include_directories(test_integration PRIVATE ${CMAKE_SOURCE_DIR}/include)
 gtest_discover_tests(test_integration)
 
@@ -95,7 +98,7 @@ add_executable(test_benchmark
 )
 target_link_libraries(test_benchmark
     PRIVATE
-        kctsb
+        kctsb_static
         GTest::gtest_main
 )
 target_include_directories(test_benchmark PRIVATE ${CMAKE_SOURCE_DIR}/include)
