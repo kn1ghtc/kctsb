@@ -97,7 +97,7 @@ kctsb/
 | AES-CTR/GCM | 无 | ✅ 生产可用 | 完整实现 |
 | ChaCha20-Poly1305 | 无 | ✅ 生产可用 (v3.0) | 完整实现 |
 | Security Core | 无 | ✅ 生产可用 (v3.0) | 完整实现 |
-| Hash (Keccak/BLAKE2) | 无 | ✅ 可用 | 完整实现 |
+| Hash (SHA-256/384/512, Keccak, BLAKE2) | 无 | ✅ 可用 (v3.0.1) | 完整实现 (SHA-2: 14/14测试通过) |
 | SM (SM3/SM4/ZUC) | 无 | ✅ 可用 (v3.0.1) | 完整实现 (9/9测试通过) |
 | Whitebox AES | 无 | ✅ 可用 | Chow方案 (230行) |
 | RSA/DH/DSA | NTL | ✅ 可用 | 完整实现 (NTL已编译) |
@@ -329,7 +329,7 @@ kctsb v3.0.0 提供与 OpenSSL 的性能对比基准测试：
 
 ### 生产环境使用
 
-kctsb v3.0.0 的核心算法（AES-GCM, ChaCha20-Poly1305, SHA3, BLAKE2, SM3/SM4）经过标准测试向量验证，可用于生产环境。
+kctsb v3.0.0 的核心算法（AES-GCM, ChaCha20-Poly1305, **SHA-256/384/512**, SHA3, BLAKE2, SM3/SM4）经过标准测试向量验证，可用于生产环境。
 
 **使用建议**：
 1. **代码审计**: 部署前建议进行独立安全审计
@@ -353,6 +353,7 @@ Copyright © 2019-2026 knightc. All rights reserved.
 ## 🔗 参考资料
 
 ### 标准文档
+- [FIPS 180-4 (SHA-256/384/512)](https://csrc.nist.gov/publications/detail/fips/180/4/final)
 - [FIPS 197 (AES)](https://csrc.nist.gov/publications/detail/fips/197/final)
 - [FIPS 202 (SHA-3)](https://csrc.nist.gov/publications/detail/fips/202/final)
 - [RFC 7539 (ChaCha20-Poly1305)](https://tools.ietf.org/html/rfc7539)

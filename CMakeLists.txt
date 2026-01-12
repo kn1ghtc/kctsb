@@ -153,10 +153,12 @@ file(GLOB KCTSB_AES_SOURCES
     ${KCTSB_SRC_DIR}/crypto/aes/*.c
 )
 
-# Hash module - self-contained implementations
+# Hash module - self-contained implementations (SHA-256/384/512, BLAKE2, Keccak/SHA3)
 set(KCTSB_HASH_SOURCES
     ${KCTSB_SRC_DIR}/crypto/hash/Keccak.cpp
     ${KCTSB_SRC_DIR}/crypto/hash/blake2.c
+    ${KCTSB_SRC_DIR}/crypto/hash/sha256.c   # FIPS 180-4 compliant SHA-256
+    ${KCTSB_SRC_DIR}/crypto/hash/sha512.c   # FIPS 180-4 compliant SHA-384/512
 )
 
 # ChaCha20-Poly1305 AEAD - production-grade stream cipher

@@ -50,6 +50,21 @@ target_include_directories(test_hash PRIVATE
 )
 gtest_discover_tests(test_hash)
 
+# SHA family tests (SHA-256/384/512)
+add_executable(test_sha
+    unit/crypto/test_sha.cpp
+)
+target_link_libraries(test_sha
+    PRIVATE
+        kctsb_static
+        GTest::gtest_main
+)
+target_include_directories(test_sha PRIVATE 
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/src
+)
+gtest_discover_tests(test_sha)
+
 # SM tests (Chinese National Standards)
 add_executable(test_sm
     unit/crypto/test_sm.cpp
