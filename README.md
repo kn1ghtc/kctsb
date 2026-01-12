@@ -1,14 +1,14 @@
-# kctsb - C/C++ 可信安全算法库
+# kctsb - Knight's Cryptographic Trusted Security Base
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](.)
 [![C++](https://img.shields.io/badge/C++-17-blue.svg)](.)
 [![CMake](https://img.shields.io/badge/CMake-3.20+-green.svg)](.)
-[![Version](https://img.shields.io/badge/Version-3.0.0-brightgreen.svg)](.)
+[![Version](https://img.shields.io/badge/Version-3.1.0-brightgreen.svg)](.)
 
-**kctsb** (Knight's Cryptographic Trusted Security Base) 是一个跨平台的 C/C++ 密码学和安全算法库，专为生产环境和安全研究设计。提供纯 C 和 C++ 两套 API 接口。
+**kctsb** 是一个跨平台的 C/C++ 密码学和安全算法库，专为生产环境和安全研究设计。目标是成为 **OpenSSL 的现代替代品**。
 
-> **v3.0.0 新特性**: 完整的 AES-GCM 和 ChaCha20-Poly1305 AEAD 支持，侧信道防护，移除不安全模式。
+> **v3.1.0 新特性**: 移除MIRACL依赖，椭圆曲线算法使用NTL原生实现；源码中完全移除OpenSSL依赖；所有头文件统一到include/目录。
 
 ## ✨ 特性
 
@@ -22,8 +22,8 @@
 - **ChaCha20-Poly1305** - 256-bit 密钥，128-bit 标签
 
 ### 非对称加密算法
-- **RSA** - RSA-2048/4096 加密签名
-- **ECC** - 椭圆曲线密码（P-256, P-384, P-521）
+- **RSA** - RSA-2048/4096 加密签名 (NTL实现)
+- **ECC** - 椭圆曲线密码（secp256k1, P-256, SM2曲线）**NTL原生实现**
 - **SM2** - 国密 SM2 椭圆曲线
 
 ### 哈希算法
@@ -47,103 +47,112 @@
 
 ```
 kctsb/
-├── CMakeLists.txt              # 主构建配置
+├── CMakeLists.txt              # 主构建配置 (CMake 3.20+, Ninja推荐)
 ├── README.md                   # 项目文档
 ├── AGENTS.md                   # AI开发指南
 ├── LICENSE                     # Apache 2.0 许可证
 │
-├── include/
-│   ├── kctsb/                  # 公共头文件
-│   │   ├── kctsb.h             # 主入口头文件 (v3.0.0)
-│   │   ├── core/               # 核心定义
-│   │   │   ├── common.h        # 通用类型和错误码
-│   │   │   ├── security.h      # 安全原语 (v3.0 新增)
-│   │   │   └── types.h         # 类型定义
-│   │   ├── crypto/             # 标准密码算法
-│   │   │   ├── aes.h           # AES-CTR/GCM (v3.0 移除ECB/CBC)
-│   │   │   ├── chacha20_poly1305.h  # ChaCha20-Poly1305 AEAD
-│   │   │   └── ...
-│   │   ├── advanced/           # 高级密码学
-│   │   └── utils/              # 实用工具
-│   └── opentsb/                # 旧版头文件（兼容）
+├── include/                    # ★所有头文件在这里★
+│   └── kctsb/
+│       ├── kctsb.h             # 主入口头文件
+│       ├── core/               # 核心定义
+│       ├── crypto/             # 标准密码算法公共头
+│       │   ├── aes.h, blake.h, chacha.h, etc.
+│       │   ├── hash/           # 哈希算法实现头
+│       │   ├── ecc/, rsa/      # 非对称算法头
+│       │   └── sm/             # 国密算法头
+│       ├── advanced/           # 高级密码学
+│       ├── internal/           # 内部实现头文件
+│       │   ├── blake2_impl.h
+│       │   ├── keccak_impl.h
+│       │   └── ecc_impl.h      # NTL ECC实现
+│       ├── math/               # 数学工具
+│       └── utils/              # 实用工具
 │
-├── src/                        # 源代码实现
+├── src/                        # ★源代码实现 (禁止放头文件)★
 │   ├── core/                   # 核心功能
-│   │   ├── export.cpp          # 库导出函数
-│   │   └── security.c          # 安全原语实现 (v3.0 新增)
 │   ├── crypto/                 # 密码算法实现
-│   │   ├── aes/                # AES 实现 (GCM完整支持)
-│   │   ├── chacha20/           # ChaCha20-Poly1305 (v3.0 新增)
-│   │   ├── sm/                 # SM2/SM3/SM4/ZUC (国密)
-│   │   ├── rsa/                # RSA/DH/DSA/ElGamal
-│   │   ├── ecc/                # ECC/ECDH/ECDSA
-│   │   └── hash/               # Keccak/Blake/ChaCha/MAC
+│   │   ├── aes/                # AES 实现
+│   │   ├── chacha20/           # ChaCha20-Poly1305
+│   │   ├── hash/               # 哈希算法 (原生实现)
+│   │   ├── ecc/                # 椭圆曲线 (NTL实现)
+│   │   ├── rsa/                # RSA (NTL实现)
+│   │   └── sm/                 # 国密算法 (原生实现)
 │   ├── advanced/               # 高级算法实现
+│   ├── cli/                    # 命令行工具
 │   └── math/                   # 数学库
 │
-├── tests/                      # 测试代码
-├── examples/                   # 示例代码
+├── tests/                      # GoogleTest测试代码
+├── benchmarks/                 # 性能对比测试 (vs OpenSSL)
+├── thirdparty/                 # ★第三方库统一目录★
+│   ├── include/                # NTL/, gf2x/, gmp.h, SEAL-4.1/, helib/
+│   └── lib/                    # libntl.a, libgf2x.a, libgmp.a, etc.
 ├── docs/                       # 文档
-│   └── releases/               # 版本发布说明
-│       └── v3.0.0-release.md   # v3.0.0 发布说明
+│   ├── releases/               # 版本发布说明
+│   └── third-party-dependencies.md  # 源码安装指南
 ├── scripts/                    # 构建脚本
 └── cmake/                      # CMake 模块
 ```
 
 ### 模块依赖关系
 
-| 模块 | 依赖 | 状态 | 代码状态 |
-|------|------|------|----------|
-| AES-CTR/GCM | 无 | ✅ 生产可用 | 完整实现 |
-| ChaCha20-Poly1305 | 无 | ✅ 生产可用 (v3.0) | 完整实现 |
-| Security Core | 无 | ✅ 生产可用 (v3.0) | 完整实现 |
-| Hash (SHA-256/384/512, Keccak, BLAKE2) | 无 | ✅ 可用 (v3.0.1) | 完整实现 (SHA-2: 14/14测试通过) |
-| SM (SM3/SM4/ZUC) | 无 | ✅ 可用 (v3.0.1) | 完整实现 (9/9测试通过) |
-| Whitebox AES | 无 | ✅ 可用 | Chow方案 (230行) |
-| RSA/DH/DSA | NTL | ✅ 可用 | 完整实现 (NTL已编译, 10/10测试通过) |
-| ECC/ECDSA | NTL | ✅ 可用 | 基础实现 (NTL已编译, 4个测试待完善) |
-| Shamir SSS | NTL | ⚠️ 需NTL | 代码存在 |
-| ZK/Lattice | NTL | 🔄 进行中 | 部分实现 |
-| FE (同态) | HElib | ✅ 库已安装 | HElib v2.3.0 API迁移中 |
+| 模块 | 依赖 | 状态 | 说明 |
+|------|------|------|------|
+| AES-CTR/GCM | 无 | ✅ 生产可用 | 原生C实现 |
+| ChaCha20-Poly1305 | 无 | ✅ 生产可用 | 原生C实现 |
+| Hash (SHA-3/BLAKE2) | 无 | ✅ 生产可用 | Keccak/BLAKE2原生 |
+| SM3/SM4/ZUC | 无 | ✅ 生产可用 | 国密原生实现 |
+| RSA | NTL | ✅ 生产可用 | NTL大数运算 |
+| ECC/ECDSA | NTL | ✅ 生产可用 | **NTL原生实现** |
+| Whitebox AES | 无 | ✅ 可用 | Chow方案 |
+| Shamir SSS | NTL | ✅ 可用 | 秘密共享 |
+| ZK (FFS) | NTL | ✅ 可用 | 零知识证明 |
+| Lattice | NTL | ✅ 可用 | 格密码 |
+| FE (同态) | HElib | ⚠️ 可选 | HElib v2.3.0 |
 
-**依赖安装状态** (2026-01-13更新):
-- ✅ NTL 11.6.0 (deps/ntl: libntl.a 5.09MB)
-- ✅ GMP 6.3.0 (thirdparty: libgmp.a + libgmpxx.a, C++支持)
-- ✅ Microsoft SEAL 4.1.2 (thirdparty: libseal-4.1.a)
-- ✅ HElib v2.3.0 (thirdparty: libhelib.a 8.7MB)
-- ⚠️ OpenSSL 3.6.0 (仅benchmark使用, vcpkg可选)
+**核心依赖** (thirdparty/):
+- ✅ GMP 6.3.0+ (必需)
+- ✅ gf2x 1.3.0+ (必需)
+- ✅ NTL 11.6.0+ (必需)
+- ⚠️ SEAL 4.1.2 (可选)
+- ⚠️ HElib v2.3.0 (可选)
 
-**测试状态**: 68/72 通过 (100%), 4个ECC测试待完善
+**测试状态**: 72/72 通过 (100%)
 
 ## 🚀 快速开始
 
 ### 系统要求
 
 - **CMake**: 3.20 或更高版本
+- **构建工具**: Ninja (推荐) 或 Make
 - **编译器**: 
-  - Windows: MinGW-w64 GCC 9+ 或 MSVC 2019+
+  - Windows: MinGW-w64 GCC 13+ 或 MSVC 2022+
   - Linux: GCC 9+ 或 Clang 10+
   - macOS: Clang 10+ 或 GCC 9+
 - **C++ 标准**: C++17
+- **C 标准**: C11
 
-### Windows 构建 (推荐 VS Code)
+### Windows 构建 (推荐 Ninja)
 
 ```powershell
-# 1. 克隆项目
-cd d:\pyproject\kctsb
+# 进入项目目录
+cd D:\pyproject\kctsb
 
-# 2. 使用构建脚本
-.\scripts\build.ps1 -BuildType Release -Test
+# 配置 (使用Ninja构建)
+cmake -B build -G Ninja `
+    -DCMAKE_BUILD_TYPE=Release `
+    -DKCTSB_BUILD_CLI=ON `
+    -DKCTSB_BUILD_TESTS=ON
 
-# 或手动构建
-cmake -B build -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release
+# 构建
 cmake --build build --parallel
 
-# 3. 运行测试
-cd build; ctest --output-on-failure
+# 运行测试
+ctest --test-dir build --output-on-failure
 
-# 4. 运行示例
-.\build\bin\kctsb_demo.exe
+# 使用CLI工具
+.\build\bin\kctsb.exe version
+.\build\bin\kctsb.exe hash --sha3-256 "Hello, World!"
 ```
 
 ### Linux/macOS 构建

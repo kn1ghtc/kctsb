@@ -1,8 +1,8 @@
 # AGENTS.md - kctsb AI Development Guidelines
 
-> **项目**: kctsb - C/C++ 可信安全算法库
-> **版本**: 3.0.0
-> **更新时间**: 2026-01-19 (Beijing Time, UTC+8)
+> **项目**: kctsb - Knight's Cryptographic Trusted Security Base  
+> **版本**: 3.1.0  
+> **更新时间**: 2026-01-12 (Beijing Time, UTC+8)
 
 ---
 
@@ -13,20 +13,22 @@ kctsb (Knight's Cryptographic Trusted Security Base) 是一个**生产级**跨�
 ### 核心设计原则
 
 1. **生产级代码质量**: 所有实现均通过标准测试向量验证，无mock/placeholder代码
-2. **跨平台兼容**: 支持 Windows/Linux/macOS，使用CMake构建
+2. **跨平台兼容**: 支持 Windows/Linux/macOS，使用CMake + Ninja构建
 3. **双语言接口**: 提供纯C和C++ API，便于集成
 4. **C API优先**: 所有C库优先使用C API接入，不强制要求C++封装（如GMP使用mpz_t而非mpz_class）
 5. **安全优先**: 实现遵循密码学最佳实践，包含适当的安全警告
-6. **性能验证**: 提供与OpenSSL的性能对比benchmark
+6. **性能验证**: 提供与OpenSSL的性能对比benchmark（仅benchmark可用OpenSSL）
 7. **原生实现**: 核心算法必须原生实现，仅benchmark可引用OpenSSL进行对比
+8. **NTL-based ECC**: 椭圆曲线算法使用NTL原生实现，已移除MIRACL依赖
 
 ### 设计目标
 
 本项目的目标是**替代OpenSSL**成为更现代、更安全的密码学库：
 - ⚠️ **src/目录禁止引用OpenSSL**: 所有核心算法必须原生C/C++实现
+- ⚠️ **已移除MIRACL**: ECC使用NTL实现（Montgomery ladder常量时间标量乘法）
 - ✅ **benchmark/目录可以引用OpenSSL**: 仅用于性能对比测试
 - ✅ **参考实现允许**: 可参考OpenSSL/MIRACL等开源实现，但必须重写为原生代码
-- ✅ **性能目标**: 追求超越OpenSSL的性能表现
+- ✅ **性能目标**: 追求超越OpenSSL的性能表现（-O3, -march=native, -flto）
 
 ### 开源使用说明
 
@@ -47,70 +49,89 @@ kctsb (Knight's Cryptographic Trusted Security Base) 是一个**生产级**跨�
 
 ```
 kctsb/
-├── CMakeLists.txt          # 主构建配置
-├── include/                # 公共头文件
+├── CMakeLists.txt          # 主构建配置 (CMake 3.20+, Ninja推荐)
+├── include/                # 公共头文件 ★所有.h/.hpp放这里★
 │   └── kctsb/
 │       ├── kctsb.h         # 主入口头文件
 │       ├── core/           # 核心定义
+│       │   ├── common.h
+│       │   ├── security.h
+│       │   └── types.h
 │       ├── crypto/         # 标准密码算法
+│       │   ├── aes.h, blake.h, chacha.h, etc.
+│       │   ├── hash/       # BLAKE2, ChaCha20, Keccak实现头
+│       │   ├── ecc/        # ecc_group.hpp, ecc_util.hpp
+│       │   ├── rsa/        # rsa_util.hpp
+│       │   └── sm/         # SM3/SM4实现头, zuc.h
 │       ├── advanced/       # 高级密码学
+│       │   ├── fe/, sss/, whitebox/, zk/
+│       │   └── fe.h, fuzzy.h, lattice.h, sss.h, whitebox.h, zk.h
+│       ├── internal/       # 内部实现头文件
+│       │   ├── blake2_impl.h
+│       │   ├── keccak_impl.h
+│       │   └── ecc_impl.h  # NTL ECC实现
 │       ├── math/           # 数学工具 (NTL封装)
 │       └── utils/          # 实用工具
-├── src/                    # 源代码实现
+├── src/                    # 源代码实现 ★禁止放.h/.hpp★
 │   ├── core/               # 核心功能实现
 │   ├── crypto/             # 密码算法实现
 │   │   ├── aes/            # AES-128/192/256-GCM
-│   │   ├── chacha20/       # ChaCha20-Poly1305 AEAD
-│   │   ├── hash/           # SHA3/BLAKE2b/BLAKE2s
-│   │   ├── sm/             # SM2/SM3/SM4 国密算法
+│   │   ├── chacha20/       # ChaCha20-Poly1305 AEAD (原生实现)
+│   │   ├── hash/           # SHA3/BLAKE2b/BLAKE2s (原生实现)
+│   │   ├── sm/             # SM2/SM3/SM4 国密算法 (原生实现)
 │   │   ├── rsa/            # RSA (NTL实现)
-│   │   └── ecc/            # 椭圆曲线 (待移除MIRACL)
+│   │   └── ecc/            # 椭圆曲线 (NTL实现, ecc_ntl.cpp)
 │   ├── advanced/           # 高级算法实现
 │   │   ├── whitebox/       # 白盒AES
 │   │   ├── sss/            # Shamir秘密共享
 │   │   ├── zk/             # 零知识证明
 │   │   └── lattice/        # 格密码
+│   ├── cli/                # 命令行工具 (kctsb.exe)
+│   │   ├── main.cpp
+│   │   ├── cmd_hash.cpp
+│   │   ├── cmd_encrypt.cpp
+│   │   ├── cmd_sign.cpp
+│   │   └── cmd_keygen.cpp
 │   ├── math/               # 数学库实现（NTL封装）
 │   └── utils/              # 工具函数实现
 ├── tests/                  # GoogleTest测试代码
-│   ├── unit/               # 单元测试
-│   └── integration/        # 集成测试
-├── benchmarks/             # 性能对比测试（vs OpenSSL）
-├── examples/               # 示例代码
+├── benchmarks/             # 性能对比测试（vs OpenSSL, 仅此可用OpenSSL）
 ├── scripts/                # 构建脚本
 ├── cmake/                  # CMake模块 (Find*.cmake)
 ├── thirdparty/             # 第三方库 ★统一目录★
 │   ├── include/            # 头文件
 │   │   ├── NTL/            # NTL 11.6.0
+│   │   ├── gf2x/           # gf2x 1.3.0
 │   │   ├── gmp.h, gmpxx.h  # GMP 6.3.0
-│   │   ├── SEAL-4.1/       # SEAL 4.1.2
-│   │   └── helib/          # HElib v2.3.0
+│   │   ├── SEAL-4.1/       # SEAL 4.1.2 (可选)
+│   │   └── helib/          # HElib v2.3.0 (可选)
 │   └── lib/                # 库文件
 │       ├── libntl.a        # NTL静态库 (5.09MB)
+│       ├── libgf2x.a       # gf2x静态库
 │       ├── libgmp.a        # GMP静态库
-│       ├── libseal-4.1.a   # SEAL静态库
-│       └── libhelib.a      # HElib静态库 (8.7MB)
+│       ├── libseal-4.1.a   # SEAL静态库 (可选)
+│       └── libhelib.a      # HElib静态库 (可选)
 ├── deps/                   # 第三方源码 (构建临时目录)
-│   └── ntl/                # NTL源码编译目录
 └── docs/                   # 文档
     ├── releases/           # 版本发布说明
-    └── third-party-dependencies.md  # 依赖安装指南
+    └── third-party-dependencies.md  # 源码安装指南
 ```
 
 ### 目录规范
 
-1. **thirdparty/**: 所有第三方库的**编译产物**统一放置于此
-   - `thirdparty/include/`: 头文件
-   - `thirdparty/lib/`: 静态库 (.a) 和动态库 (.dll)
+1. **include/**: 所有头文件 (.h, .hpp) 必须放在此目录
+   - src/ 目录禁止放置头文件
+   - 公共API: `include/kctsb/crypto/*.h`
+   - 内部实现: `include/kctsb/internal/*.h`
+
+2. **thirdparty/**: 所有第三方库的**编译产物**统一放置于此
+   - `thirdparty/include/`: 第三方头文件
+   - `thirdparty/lib/`: 静态库 (.a)
    - CMake优先从此目录搜索依赖
 
-2. **deps/**: 第三方库**源码和编译中间产物**
-   - 用于需要从源码编译的库 (如NTL)
-   - 编译完成后将产物复制到thirdparty/
+3. **deps/**: 第三方库**源码和编译中间产物** (临时目录)
 
-3. **build/**: CMake构建目录
-   - 不提交到Git仓库
-   - 包含编译产物和CMake缓存
+4. **build/**: CMake构建目录 (不提交Git)
 
 ---
 
@@ -169,37 +190,42 @@ kctsb/
 
 **thirdparty 统一目录** (优先):
 - **位置**: `kctsb/thirdparty/`
-- **结构**: `include/` 放头文件，`lib/` 放库文件
-- **CMake**: 优先从thirdparty搜索，其次vcpkg/系统路径
+- **结构**: `include/` 放头文件，`lib/` 放静态库
+- **CMake**: 优先从thirdparty搜索，不再使用vcpkg（除benchmark）
 
-**已安装依赖** (2026-01-19):
-| 依赖 | 版本 | 位置 | 状态 |
+**核心依赖** (2026-01-12):
+| 依赖 | 版本 | 位置 | 状态 | 用途 |
+|------|------|------|------|------|
+| GMP | 6.3.0+ | thirdparty | ✅ 必需 | 高精度整数 |
+| gf2x | 1.3.0+ | thirdparty | ✅ 必需 | NTL依赖 |
+| NTL | 11.6.0+ | thirdparty | ✅ 必需 | 数论、ECC |
+| SEAL | 4.1.2 | thirdparty | ⚠️ 可选 | 同态加密 |
+| HElib | v2.3.0 | thirdparty | ⚠️ 可选 | 函数加密 |
+
+**Benchmark专用依赖** (仅benchmarks/可用):
+| 依赖 | 版本 | 来源 | 用途 |
 |------|------|------|------|
-| NTL | 11.6.0 | thirdparty + deps/ntl | ✅ 可用 |
-| GMP | 6.3.0 | thirdparty | ✅ 可用 |
-| SEAL | 4.1.2 | thirdparty | ✅ 可用 |
-| HElib | v2.3.0 | thirdparty | ✅ 可用 |
-
-**vcpkg 辅助** (可选):
-- **安装目录**: `D:\vcpkg` (环境变量: `$env:VCPKG_ROOT`)
-- **已安装包**: OpenSSL 3.6.0 (仅benchmark使用), zlib 1.3.1, zstd 1.5.7
-- **用途**: 用于benchmark中与OpenSSL性能对比
+| OpenSSL | 3.x | vcpkg | 性能对比 |
+| zlib | 1.3.1 | vcpkg | 压缩支持 |
+| zstd | 1.5.7 | vcpkg | 压缩支持 |
 
 ### 依赖约束 ⚠️
 
 1. **核心依赖** (src/目录可用):
-   - NTL 11.6.0+: 数论运算
-   - GMP 6.3.0+: 高精度整数
-   - SEAL 4.1.2 (可选): 同态加密
-   - HElib v2.3.0 (可选): 同态加密
+   - ✅ NTL 11.6.0+: 数论运算、椭圆曲线
+   - ✅ GMP 6.3.0+: 高精度整数
+   - ✅ gf2x 1.3.0+: NTL的GF(2)多项式运算
+   - ⚠️ SEAL 4.1.2 (可选): 同态加密
+   - ⚠️ HElib v2.3.0 (可选): 函数加密
 
 2. **禁止依赖** (src/目录禁用):
-   - ❌ OpenSSL: 目标是替代它，不能依赖
-   - ❌ MIRACL: 计划移除，使用NTL原生实现ECC
+   - ❌ OpenSSL: 目标是替代它
+   - ❌ MIRACL: 已移除，使用NTL实现ECC
    - ❌ 其他外部库: 使用纯C/C++原生实现
 
 3. **benchmark依赖** (仅benchmarks/目录可用):
-   - ✅ OpenSSL: 用于性能对比测试
+   - ✅ OpenSSL: 性能对比测试
+   - ✅ zlib/zstd: 压缩benchmark
 
 ### 测试要求
 
@@ -211,7 +237,7 @@ kctsb/
 3. 代码覆盖率目标: 80%+
 4. 测试集成: ctest + GoogleTest
 
-### 当前测试状态 (2026-01-19)
+### 当前测试状态 (2026-01-12)
 
 | 类别 | 测试数 | 通过 | 失败 | 状态 |
 |------|--------|------|------|------|
@@ -225,8 +251,8 @@ kctsb/
 | SSS | 4 | 4 | 0 | ✅ |
 | Lattice | 8 | 8 | 0 | ✅ |
 | Math | 4 | 4 | 0 | ✅ |
-| ECC | 4 | 0 | 4 | ⏸️ 禁用 (待移除MIRACL) |
-| **总计** | **72** | **68** | **4** | **94.4%** |
+| ECC (NTL) | 4 | 4 | 0 | ✅ 已使用NTL重写 |
+| **总计** | **72** | **72** | **0** | **100%** |
 
 ---
 
@@ -244,7 +270,7 @@ kctsb/
 | sm/sm3 | 国密SM3哈希 | ✅ 完成 | ✅ GM/T 向量 | 完整实现 |
 | sm/sm4 | 国密SM4分组密码 | ✅ 完成 | ✅ GM/T 向量 | 完整实现 |
 | rsa/ | RSA加密签名 | ✅ 完成 | ✅ NTL实现 | kc_rsa.cpp |
-| ecc/ | 椭圆曲线密码 | ⏸️ 待重构 | ❌ 禁用 | 依赖MIRACL，计划移除 |
+| ecc/ | 椭圆曲线密码 | ✅ 完成 | ✅ NTL实现 | ecc_ntl.cpp (Montgomery ladder) |
 
 ### advanced/ - 高级密码学
 
@@ -275,18 +301,26 @@ kctsb/
 # 进入项目目录
 cd D:\pyproject\kctsb
 
-# 完整构建（使用thirdparty目录依赖）
-cmake -B build -G "MinGW Makefiles" `
+# 完整构建（使用thirdparty目录依赖, Ninja推荐）
+cmake -B build -G Ninja `
     -DCMAKE_BUILD_TYPE=Release `
-    -DKCTSB_BUILD_BENCHMARKS=ON `
-    -DKCTSB_BUILD_TESTS=ON
+    -DCMAKE_C_FLAGS="-O3 -march=native -mtune=native -fomit-frame-pointer" `
+    -DCMAKE_CXX_FLAGS="-O3 -march=native -mtune=native -fomit-frame-pointer" `
+    -DKCTSB_BUILD_CLI=ON `
+    -DKCTSB_BUILD_TESTS=ON `
+    -DKCTSB_BUILD_BENCHMARKS=ON
+
 cmake --build build --parallel
 
 # 运行测试
-cd build; ctest --output-on-failure
+ctest --test-dir build --output-on-failure
 
-# 运行性能对比（需要OpenSSL）
-cmake -B build -G "MinGW Makefiles" `
+# 运行CLI工具
+.\build\bin\kctsb.exe version
+.\build\bin\kctsb.exe hash --sha3-256 "Hello, World!"
+
+# 运行性能对比（需要vcpkg的OpenSSL）
+cmake -B build -G Ninja `
     -DCMAKE_BUILD_TYPE=Release `
     -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
     -DKCTSB_BUILD_BENCHMARKS=ON
@@ -296,17 +330,21 @@ cmake -B build -G "MinGW Makefiles" `
 ### Linux/macOS
 
 ```bash
-# 安装依赖
-sudo apt install libntl-dev libgmp-dev libssl-dev  # Ubuntu/Debian
-brew install ntl gmp openssl                        # macOS
+# 安装依赖（从源码编译到thirdparty/）
+# 参见 docs/third-party-dependencies.md
 
-# 配置并构建
-cmake -B build -DCMAKE_BUILD_TYPE=Release -DKCTSB_BUILD_BENCHMARKS=ON
+# 配置并构建（Ninja推荐）
+cmake -B build -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_C_FLAGS="-O3 -march=native" \
+    -DCMAKE_CXX_FLAGS="-O3 -march=native" \
+    -DKCTSB_BUILD_CLI=ON \
+    -DKCTSB_BUILD_TESTS=ON
 cmake --build build --parallel $(nproc)
 
 # 运行测试和benchmark
-cd build && ctest --output-on-failure
-./bin/kctsb_benchmark
+ctest --test-dir build --output-on-failure
+./build/bin/kctsb version
 ```
 
 ### 构建产物
@@ -314,12 +352,11 @@ cd build && ctest --output-on-failure
 ```
 build/
 ├── lib/
-│   ├── libkctsb.a          # 静态库
-│   └── libkctsb.dll        # 动态库 (Windows)
+│   └── libkctsb.a          # 静态库
 ├── bin/
+│   ├── kctsb               # CLI工具 (类似openssl命令)
 │   ├── kctsb_tests         # GoogleTest测试可执行文件
-│   ├── kctsb_benchmark     # 性能测试可执行文件
-│   └── kctsb_demo          # 示例程序
+│   └── kctsb_benchmark     # 性能测试可执行文件
 └── ...
 ```
 
@@ -329,39 +366,38 @@ build/
 
 ### 高优先级
 
-1. **移除MIRACL依赖**
-   - 文件: `src/crypto/ecc/eccEnc.cpp`, `src/crypto/sm/sm2_enc.c`, `src/crypto/sm/sm_util.c`
-   - 目标: 使用NTL原生实现椭圆曲线
-   - 参考: MIRACL GitHub实现，但需完全重写
+1. **性能优化**
+   - 目标: 核心算法性能超越OpenSSL
+   - 方法: SIMD优化 (AVX2/AVX-512)、内存布局优化
+   - 文件: `src/crypto/aes/*.c`, `src/crypto/hash/*.c`
 
-2. **移除src/中的OpenSSL引用**
-   - 文件: `src/crypto/hash/chacha.cpp`
-   - 目标: 原生实现ChaCha20，不依赖OpenSSL
-
-3. **修复中文注释**
-   - 范围: src/目录下所有源文件
-   - 目标: 所有注释和变量名使用英文
+2. **完善CLI工具**
+   - 目标: kctsb.exe支持所有加密操作
+   - 参考: OpenSSL CLI设计
+   - 子命令: hash, enc, dec, sign, verify, keygen, bench
 
 ### 中优先级
 
-4. **完成CLI工具**
-   - 目标: 实现kctsb.exe命令行工具
-   - 参考: OpenSSL CLI设计
-   - 约束: 必须使用原生实现，不调用OpenSSL
+3. **zk-SNARKs实现**
+   - 目标: 完成零知识证明的SNARK实现
+   - 依赖: NTL多项式运算
+   - 位置: `src/advanced/zk/snarks/`
 
-5. **启用ECC测试**
-   - 前提: 完成MIRACL移除
-   - 目标: 4个ECC测试全部通过
+4. **函数加密完善**
+   - 目标: 完成BGV方案的FE实现
+   - 依赖: HElib v2.3.0
+   - 位置: `src/advanced/fe/`
 
 ### 低优先级
 
-6. **性能优化**
-   - 目标: 核心算法性能超越OpenSSL
-   - 方法: SIMD优化、内存布局优化
-
-7. **文档完善**
+5. **文档完善**
    - 更新API文档 (Doxygen)
    - 完善安全使用指南
+   - 中英文双语README
+
+6. **跨平台测试**
+   - Linux CI/CD集成
+   - macOS兼容性测试
 
 ---
 
