@@ -6,7 +6,7 @@
  */
 
 #include "ffsa.h"
-#include "opentsb/kc_sec.h"
+#include "kctsb/core/security.h"
 #include <iostream>
 #include <cstdlib>
 #include <ctime>

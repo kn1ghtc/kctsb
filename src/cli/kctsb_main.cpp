@@ -30,14 +30,8 @@
 #include <cstring>
 #include <algorithm>
 
-// kctsb core headers
+// kctsb core headers - kctsb.h includes all crypto headers
 #include "kctsb/kctsb.h"
-#include "kctsb/core/error.h"
-#include "kctsb/crypto/aes/kc_aes.h"
-#include "kctsb/crypto/hash/kc_hash.h"
-#include "kctsb/crypto/rsa/kc_rsa.h"
-#include "kctsb/crypto/ecc/eccGroup.hpp"
-#include "kctsb/crypto/chacha20/chacha20_poly1305.h"
 
 // Subcommand handlers (forward declarations)
 int cmd_aes(int argc, char* argv[]);

@@ -10,15 +10,14 @@
 #include <iostream>
 
 
-#include "opentsb/math.h"
+#include "kctsb/math/math.h"
 
-//strtol、itoa、sprintf、stringstream
-void test_convert(const unsigned int v1,const unsigned int d1,const unsigned int d2) {
-    
-    
-    for(int i = 16; i >= 0; i--)
-    {
-        if(v1 & (1 << i))
+using namespace std;
+
+// Convert and display binary representation
+void test_convert(const unsigned int v1, const unsigned int d1, const unsigned int d2) {
+    for (int i = 16; i >= 0; i--) {
+        if (v1 & (1 << i))
             cout << "1";
         else
             cout << "0";

@@ -105,11 +105,11 @@ $cmakeCmd = @"
 export PATH=/mingw64/bin:`$PATH
 mkdir -p '$buildPathMsys'
 cd '$buildPathMsys'
-cmake -G "MinGW Makefiles" \
+/mingw64/bin/cmake -G 'Unix Makefiles' \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX='$installPathMsys' \
-    -DCMAKE_C_COMPILER=gcc \
-    -DCMAKE_CXX_COMPILER=g++ \
+    -DCMAKE_C_COMPILER=/mingw64/bin/gcc \
+    -DCMAKE_CXX_COMPILER=/mingw64/bin/g++ \
     -DSEAL_USE_INTEL_HEXL=OFF \
     -DSEAL_USE_MSGSL=OFF \
     -DSEAL_USE_ZLIB=OFF \
@@ -135,7 +135,7 @@ Write-Host "[5/6] Building SEAL (this may take several minutes)..." -ForegroundC
 $buildCmd = @"
 export PATH=/mingw64/bin:`$PATH
 cd '$buildPathMsys'
-mingw32-make -j`$(nproc)
+make -j`$(nproc)
 "@
 
 & $msysBash -lc $buildCmd
@@ -153,7 +153,7 @@ Write-Host "[6/6] Installing SEAL to $InstallDir..." -ForegroundColor Yellow
 $installCmd = @"
 export PATH=/mingw64/bin:`$PATH
 cd '$buildPathMsys'
-mingw32-make install
+make install
 "@
 
 & $msysBash -lc $installCmd

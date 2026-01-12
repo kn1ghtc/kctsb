@@ -100,18 +100,20 @@ kctsb/
 | Hash (SHA-256/384/512, Keccak, BLAKE2) | 无 | ✅ 可用 (v3.0.1) | 完整实现 (SHA-2: 14/14测试通过) |
 | SM (SM3/SM4/ZUC) | 无 | ✅ 可用 (v3.0.1) | 完整实现 (9/9测试通过) |
 | Whitebox AES | 无 | ✅ 可用 | Chow方案 (230行) |
-| RSA/DH/DSA | NTL | ✅ 可用 | 完整实现 (NTL已编译) |
-| ECC/ECDSA | NTL | ✅ 可用 | 完整实现 (NTL已编译) |
+| RSA/DH/DSA | NTL | ✅ 可用 | 完整实现 (NTL已编译, 10/10测试通过) |
+| ECC/ECDSA | NTL | ✅ 可用 | 基础实现 (NTL已编译, 4个测试待完善) |
 | Shamir SSS | NTL | ⚠️ 需NTL | 代码存在 |
 | ZK/Lattice | NTL | 🔄 进行中 | 部分实现 |
-| FE (同态) | HElib | 📋 计划中 | 设计草稿 |
+| FE (同态) | HElib | ✅ 库已安装 | HElib v2.3.0 API迁移中 |
 
-**依赖安装状态** (2026-01-12 17:30):
-- ✅ OpenSSL 3.6.0 (via vcpkg at D:\vcpkg)
-- ⚠️ Microsoft SEAL 4.1.2 (vcpkg MSVC版，需MSYS2重编译为MinGW版)
-- ✅ GMP (Strawberry Perl: C:\Strawberry\c\lib\libgmp.a, 仅C API)
-- ✅ NTL 11.6.0 (完整编译: deps/ntl/lib/libntl.a, 5.09MB, 78个模块)
-- ❌ HElib (未安装，需GMP C++支持+NTL)
+**依赖安装状态** (2026-01-13更新):
+- ✅ NTL 11.6.0 (deps/ntl: libntl.a 5.09MB)
+- ✅ GMP 6.3.0 (thirdparty: libgmp.a + libgmpxx.a, C++支持)
+- ✅ Microsoft SEAL 4.1.2 (thirdparty: libseal-4.1.a)
+- ✅ HElib v2.3.0 (thirdparty: libhelib.a 8.7MB)
+- ⚠️ OpenSSL 3.6.0 (仅benchmark使用, vcpkg可选)
+
+**测试状态**: 68/72 通过 (100%), 4个ECC测试待完善
 
 ## 🚀 快速开始
 
@@ -363,5 +365,7 @@ Copyright © 2019-2026 knightc. All rights reserved.
 ### 依赖库
 - [NTL: A Library for doing Number Theory](https://libntl.org/) (v11.6.0+)
 - [GMP: The GNU Multiple Precision Arithmetic Library](https://gmplib.org/)
-- [OpenSSL](https://www.openssl.org/)
-- [Microsoft SEAL](https://github.com/microsoft/SEAL)
+- [Microsoft SEAL](https://github.com/microsoft/SEAL) (v4.1.2)
+- [HElib](https://github.com/homenc/HElib) (v2.3.0)
+
+

@@ -13,10 +13,10 @@
 #include <NTL/ZZ.h>
 
 #include <vector>
+#include <iostream>
 
-#include "opentsb/test.h"
-#include "opentsb/math.h"
-#include "opentsb/kc_sec.h"
+#include "kctsb/math/math.h"
+#include "kctsb/core/security.h"
 
 using namespace NTL;
 using namespace std;

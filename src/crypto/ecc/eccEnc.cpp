@@ -8,9 +8,9 @@
 
 #include <stdio.h>
 
-#include "opentsb/kc_sec.h"
+#include "kctsb/core/security.h"
 
-#include <ntl/ZZ.h>
+#include <NTL/ZZ.h>
 
 
 using namespace std;

@@ -8,7 +8,7 @@
 
 #include <stdio.h>
 
-#include "opentsb/math.h"
+#include "kctsb/math/math.h"
 #include <NTL/GF2X.h>
 #include <NTL/ZZX.h>
 

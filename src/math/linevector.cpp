@@ -7,14 +7,18 @@
 //
 
 #include <stdio.h>
-#include "opentsb/math.h"
-#include "opentsb/kc_common.h"
+#include "kctsb/math/math.h"
+#include "kctsb/core/common.h"
 
 #include <vector>
 #include <NTL/GF2X.h>
 
 using namespace NTL;
 using namespace std;
+
+// Helper template to get array length at compile time
+template<typename T, size_t N>
+constexpr size_t getArrayLen(T (&)[N]) { return N; }
 
 
 //(a^e) mod n;

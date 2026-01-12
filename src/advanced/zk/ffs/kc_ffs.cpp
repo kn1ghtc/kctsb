@@ -10,7 +10,7 @@
 
 #include <NTL/ZZ.h>
 
-#include "opentsb/kc_sec.h"
+#include "kctsb/core/security.h"
 
 using namespace std;
 using namespace NTL;

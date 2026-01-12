@@ -16,7 +16,7 @@
 #ifdef KCTSB_USE_GMP
 #include <gmp.h>
 
-#include "opentsb/kc_common.h"
+#include "kctsb/core/common.h"
 
 using namespace std;
 

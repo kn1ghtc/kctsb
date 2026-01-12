@@ -33,7 +33,7 @@ param(
     [string]$HElibVersion = "v2.3.0",
     [string]$MSYS2Root = "C:\msys64",
     [string]$NTLRoot = "D:\pyproject\kctsb\deps\ntl",
-    [string]$GMPRoot = "D:\pyproject\kctsb\thirdparty"
+    [string]$GMPRoot = "D:\libs\gmp"
 )
 
 $ErrorActionPreference = "Stop"

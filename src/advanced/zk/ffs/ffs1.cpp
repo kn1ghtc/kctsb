@@ -5,7 +5,7 @@
 #include <cmath> // pow()
 #include <cstdint> // int32_t
 
-#include "opentsb/kc_sec.h"
+#include "kctsb/core/security.h"
 
 #define p(X) (std::cout << X << std::endl)
 // Uncomment to have the user calculate value of y

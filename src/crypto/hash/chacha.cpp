@@ -9,7 +9,7 @@
 #include "tsbUtility.h"
 
 
-#include "opentsb/kc_sec.h"
+#include "kctsb/core/security.h"
 
 namespace ALG {
 //#define CHACHA_KEY_SIZE        32

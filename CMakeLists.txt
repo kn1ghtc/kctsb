@@ -88,7 +88,7 @@ option(KCTSB_BUILD_BENCHMARKS "Build benchmarks for performance comparison" ON)
 option(KCTSB_ENABLE_NTL "Enable NTL support for ECC/RSA/Lattice/ZK" ON)
 option(KCTSB_ENABLE_GMP "Enable GMP support for high-precision arithmetic" ON)
 option(KCTSB_ENABLE_OPENSSL "Enable OpenSSL support for performance benchmarks" ON)
-option(KCTSB_ENABLE_SEAL "Enable Microsoft SEAL support for HE" OFF)  # Default OFF: MSVC/MinGW incompatibility
+option(KCTSB_ENABLE_SEAL "Enable Microsoft SEAL support for HE" ON)  # SEAL 4.1.2 available at D:\libs\seal
 option(KCTSB_ENABLE_HELIB "Enable HElib support for FE" ON)
 option(KCTSB_ENABLE_MIRACL "Enable MIRACL support" ON)
 option(KCTSB_INSTALL "Generate install target" ON)
@@ -117,16 +117,47 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
+# Third-party include directory (defined early for dependency detection)
+set(KCTSB_THIRDPARTY_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty)
+
 # ============================================================================
 # Early Dependency Detection (before source collection)
 # ============================================================================
-# HElib detection must happen before FE source collection
+# HElib detection (before source collection)
 if(KCTSB_ENABLE_HELIB)
-    find_package(helib QUIET CONFIG)
-    if(helib_FOUND)
-        message(STATUS "HElib found (early detection)")
-        add_definitions(-DKCTSB_HAS_HELIB)
-    else()
+    set(helib_FOUND FALSE)
+    
+    # Priority 1: Check thirdparty directory (unified dependency location)
+    if(EXISTS "${KCTSB_THIRDPARTY_DIR}/include/helib/helib.h")
+        set(HELIB_INCLUDE_DIRS "${KCTSB_THIRDPARTY_DIR}/include")
+        find_library(HELIB_LIBRARY NAMES helib libhelib
+            HINTS "${KCTSB_THIRDPARTY_DIR}/lib"
+            NO_DEFAULT_PATH)
+        if(HELIB_LIBRARY)
+            set(helib_FOUND TRUE)
+            message(STATUS "HElib found in thirdparty: ${HELIB_LIBRARY}")
+            add_definitions(-DKCTSB_HAS_HELIB)
+            # Create imported target
+            if(NOT TARGET helib)
+                add_library(helib STATIC IMPORTED)
+                set_target_properties(helib PROPERTIES
+                    IMPORTED_LOCATION "${HELIB_LIBRARY}"
+                    INTERFACE_INCLUDE_DIRECTORIES "${HELIB_INCLUDE_DIRS}"
+                )
+            endif()
+        endif()
+    endif()
+    
+    # Priority 2: Try system config package
+    if(NOT helib_FOUND)
+        find_package(helib QUIET CONFIG)
+        if(helib_FOUND)
+            message(STATUS "HElib found via config (early detection)")
+            add_definitions(-DKCTSB_HAS_HELIB)
+        endif()
+    endif()
+    
+    if(NOT helib_FOUND)
         message(WARNING "HElib not found, disabling HElib support")
         set(KCTSB_ENABLE_HELIB OFF)
     endif()
@@ -322,7 +353,42 @@ endif()
 if(KCTSB_ENABLE_GMP)
     list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
     
-    # Priority 1: Check thirdparty directory first (our simplified gmpxx.h)
+    # Priority 1: Check thirdparty directory (unified dependency location)
+    if(EXISTS "${KCTSB_THIRDPARTY_DIR}/include/gmpxx.h")
+        set(GMP_INCLUDE_DIRS "${KCTSB_THIRDPARTY_DIR}/include")
+        find_library(GMPXX_LIBRARY NAMES gmpxx libgmpxx
+            HINTS "${KCTSB_THIRDPARTY_DIR}/lib"
+            NO_DEFAULT_PATH)
+        find_library(GMP_LIBRARY NAMES gmp libgmp
+            HINTS "${KCTSB_THIRDPARTY_DIR}/lib"
+            NO_DEFAULT_PATH)
+        if(GMPXX_LIBRARY AND GMP_LIBRARY)
+            set(GMP_LIBRARIES ${GMPXX_LIBRARY} ${GMP_LIBRARY})
+            set(GMP_FOUND TRUE)
+            message(STATUS "GMP with C++ support found in thirdparty")
+            message(STATUS "  gmpxx: ${GMPXX_LIBRARY}")
+            message(STATUS "  gmp: ${GMP_LIBRARY}")
+            add_definitions(-DKCTSB_HAS_GMP)
+            add_definitions(-DKCTSB_HAS_GMPXX)
+            # Create imported targets
+            if(NOT TARGET GMP::GMPXX)
+                add_library(GMP::GMPXX STATIC IMPORTED)
+                set_target_properties(GMP::GMPXX PROPERTIES
+                    IMPORTED_LOCATION "${GMPXX_LIBRARY}"
+                    INTERFACE_INCLUDE_DIRECTORIES "${GMP_INCLUDE_DIRS}"
+                )
+            endif()
+            if(NOT TARGET GMP::GMP)
+                add_library(GMP::GMP STATIC IMPORTED)
+                set_target_properties(GMP::GMP PROPERTIES
+                    IMPORTED_LOCATION "${GMP_LIBRARY}"
+                    INTERFACE_INCLUDE_DIRECTORIES "${GMP_INCLUDE_DIRS}"
+                )
+            endif()
+        endif()
+    endif()
+    
+    # Priority 2: Check thirdparty directory (C only, no gmpxx)
     if(EXISTS "${KCTSB_THIRDPARTY_DIR}/include/gmp.h")
         set(GMP_INCLUDE_DIRS ${KCTSB_THIRDPARTY_DIR}/include)
         find_library(GMP_LIBRARY NAMES gmp libgmp
@@ -378,11 +444,37 @@ if(KCTSB_ENABLE_OPENSSL)
 endif()
 
 if(KCTSB_ENABLE_SEAL)
-    find_package(SEAL 4.1 QUIET CONFIG)
-    if(SEAL_FOUND)
-        message(STATUS "Microsoft SEAL found: ${SEAL_VERSION}")
-        add_definitions(-DKCTSB_HAS_SEAL)
-    else()
+    # Priority 1: Check thirdparty directory (unified dependency location)
+    if(EXISTS "${KCTSB_THIRDPARTY_DIR}/include/SEAL-4.1/seal/seal.h")
+        set(SEAL_INCLUDE_DIRS "${KCTSB_THIRDPARTY_DIR}/include/SEAL-4.1")
+        find_library(SEAL_LIBRARY NAMES seal-4.1 libseal-4.1
+            HINTS "${KCTSB_THIRDPARTY_DIR}/lib"
+            NO_DEFAULT_PATH)
+        if(SEAL_LIBRARY)
+            set(SEAL_FOUND TRUE)
+            message(STATUS "Microsoft SEAL found in thirdparty: ${SEAL_LIBRARY}")
+            add_definitions(-DKCTSB_HAS_SEAL)
+            # Create imported target
+            if(NOT TARGET SEAL::seal)
+                add_library(SEAL::seal STATIC IMPORTED)
+                set_target_properties(SEAL::seal PROPERTIES
+                    IMPORTED_LOCATION "${SEAL_LIBRARY}"
+                    INTERFACE_INCLUDE_DIRECTORIES "${SEAL_INCLUDE_DIRS}"
+                )
+            endif()
+        endif()
+    endif()
+    
+    # Priority 2: Try system/vcpkg SEAL
+    if(NOT SEAL_FOUND)
+        find_package(SEAL 4.1 QUIET CONFIG)
+        if(SEAL_FOUND)
+            message(STATUS "Microsoft SEAL found via config: ${SEAL_VERSION}")
+            add_definitions(-DKCTSB_HAS_SEAL)
+        endif()
+    endif()
+    
+    if(NOT SEAL_FOUND)
         message(WARNING "Microsoft SEAL not found, disabling SEAL support")
         set(KCTSB_ENABLE_SEAL OFF)
     endif()
@@ -428,6 +520,18 @@ if(KCTSB_BUILD_STATIC)
     if(KCTSB_ENABLE_GMP AND GMP_INCLUDE_DIRS)
         target_include_directories(kctsb_static PUBLIC
             $<BUILD_INTERFACE:${GMP_INCLUDE_DIRS}>
+        )
+    endif()
+    # Add HElib include path if available
+    if(KCTSB_ENABLE_HELIB AND HELIB_INCLUDE_DIRS)
+        target_include_directories(kctsb_static PUBLIC
+            $<BUILD_INTERFACE:${HELIB_INCLUDE_DIRS}>
+        )
+    endif()
+    # Add SEAL include path if available
+    if(KCTSB_ENABLE_SEAL AND SEAL_INCLUDE_DIRS)
+        target_include_directories(kctsb_static PUBLIC
+            $<BUILD_INTERFACE:${SEAL_INCLUDE_DIRS}>
         )
     endif()
     set_target_properties(kctsb_static PROPERTIES
@@ -482,6 +586,18 @@ if(KCTSB_BUILD_SHARED)
     if(KCTSB_ENABLE_GMP AND GMP_INCLUDE_DIRS)
         target_include_directories(kctsb_shared PUBLIC
             $<BUILD_INTERFACE:${GMP_INCLUDE_DIRS}>
+        )
+    endif()
+    # Add HElib include path if available
+    if(KCTSB_ENABLE_HELIB AND HELIB_INCLUDE_DIRS)
+        target_include_directories(kctsb_shared PUBLIC
+            $<BUILD_INTERFACE:${HELIB_INCLUDE_DIRS}>
+        )
+    endif()
+    # Add SEAL include path if available
+    if(KCTSB_ENABLE_SEAL AND SEAL_INCLUDE_DIRS)
+        target_include_directories(kctsb_shared PUBLIC
+            $<BUILD_INTERFACE:${SEAL_INCLUDE_DIRS}>
         )
     endif()
     target_compile_definitions(kctsb_shared PRIVATE KCTSB_EXPORTS KCTSB_SHARED_LIBRARY KCTSB_BUILDING)
@@ -556,7 +672,7 @@ endif()
 # CLI Tool (kctsb.exe)
 # ============================================================================
 
-option(KCTSB_BUILD_CLI "Build kctsb command-line tool" ON)
+option(KCTSB_BUILD_CLI "Build kctsb command-line tool" OFF)  # Temporarily disabled: header fixes needed
 
 if(KCTSB_BUILD_CLI)
     add_subdirectory(src/cli)

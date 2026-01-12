@@ -17,44 +17,48 @@ set(CLI_SOURCES
     cmd_benchmark.cpp
 )
 
-add_executable(kctsb ${CLI_SOURCES})
+# Use kctsb_cli as internal target name, rename to kctsb at install
+add_executable(kctsb_cli ${CLI_SOURCES})
+
+# Set output name to kctsb.exe
+set_target_properties(kctsb_cli PROPERTIES
+    OUTPUT_NAME kctsb
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+)
 
 # Include directories
-target_include_directories(kctsb PRIVATE
+target_include_directories(kctsb_cli PRIVATE
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/src
 )
 
 # Link kctsb static library
-target_link_libraries(kctsb PRIVATE kctsb_static)
+target_link_libraries(kctsb_cli PRIVATE kctsb_static)
 
 # Link NTL if available (for RSA/ECC)
 if(KCTSB_ENABLE_NTL AND NTL_FOUND)
-    target_link_libraries(kctsb PRIVATE NTL::NTL)
+    target_link_libraries(kctsb_cli PRIVATE NTL::NTL)
 endif()
 
 # Link OpenSSL for benchmarks
 if(OPENSSL_FOUND)
-    target_link_libraries(kctsb PRIVATE OpenSSL::SSL OpenSSL::Crypto)
-    target_compile_definitions(kctsb PRIVATE KCTSB_ENABLE_OPENSSL)
+    target_link_libraries(kctsb_cli PRIVATE OpenSSL::SSL OpenSSL::Crypto)
+    target_compile_definitions(kctsb_cli PRIVATE KCTSB_ENABLE_OPENSSL)
 endif()
 
 # Link SEAL if available
 if(KCTSB_ENABLE_SEAL AND SEAL_FOUND)
-    target_link_libraries(kctsb PRIVATE SEAL::seal)
-    target_compile_definitions(kctsb PRIVATE KCTSB_ENABLE_SEAL)
+    target_link_libraries(kctsb_cli PRIVATE SEAL::seal)
+    target_compile_definitions(kctsb_cli PRIVATE KCTSB_ENABLE_SEAL)
 endif()
 
 # Link benchmark library (for cmd_benchmark.cpp)
 if(TARGET kctsb_benchmark)
-    # If benchmark target exists, link it
-    # Note: This creates a circular dependency issue
-    # Better approach: Extract benchmark logic into a library
     message(STATUS "Note: Benchmark functionality will be linked separately")
 endif()
 
 # Install target
-install(TARGETS kctsb
+install(TARGETS kctsb_cli
     RUNTIME DESTINATION bin
     COMPONENT runtime
 )

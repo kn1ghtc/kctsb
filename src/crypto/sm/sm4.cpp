@@ -11,7 +11,7 @@
  3. SM4_Decrypt //Decryption fuction
  ************************************************************/
 #include "SM4.hpp"
-#include "opentsb/kc_sm.h"
+#include "kctsb/crypto/sm4.h"
 
 // SM4 constant tables definitions
 unsigned int SM4_CK[32] = {

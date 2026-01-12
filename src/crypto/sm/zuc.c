@@ -26,7 +26,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "opentsb/test_c.h"
+// Test utilities removed - use standard assertions for testing
 
 
 /************************************************************

@@ -9,12 +9,12 @@
 #include <stdio.h>
 #include <fstream>
 
-#include "opentsb/math.h"
+#include "kctsb/math/math.h"
 
-#include <NTL/ZZXFactoring.h> //单 x 的整数系数的多项式因式分解
-#include <NTL/ZZX.h>  //单 x 的 整数系数函数/多项式
-#include <NTL/ZZ_pX.h> //单 x 的 模 p 的整数系数函数/多项式
-#include <NTL/ZZ_pXFactoring.h> //单 x 的 模 p 的整数系数多项式因式分解
+#include <NTL/ZZXFactoring.h>  // Polynomial factorization over integers
+#include <NTL/ZZX.h>           // Univariate polynomial over integers
+#include <NTL/ZZ_pX.h>         // Univariate polynomial over Z/pZ
+#include <NTL/ZZ_pXFactoring.h>
 #include <NTL/GF2X.h>
 #include <NTL/GF2XFactoring.h>
 #include <NTL/GF2EX.h>

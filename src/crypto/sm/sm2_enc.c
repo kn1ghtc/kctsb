@@ -23,7 +23,7 @@ Notes:
 #include "SM3.h"
 #include "smUtil.h"
 #include "smGroup.h"
-#include "opentsb/test_c.h"
+// Test utilities removed - use standard assertions for testing
 
 
 

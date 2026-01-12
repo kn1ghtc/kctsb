@@ -9,11 +9,12 @@
 // This file requires NTL library
 #if defined(KCTSB_HAS_NTL) || defined(KCTSB_USE_NTL)
 
-#include "opentsb/kc_sec.h"
-#include "opentsb/kc_common.h"
+#include "kctsb/core/security.h"
+#include "kctsb/core/common.h"
 #include "rsaUtil.hpp"
 
-#include "opentsb/test.h"
+// Test utilities - only for internal testing
+#include <iostream>
 
 #include <cstdio>
 #include <vector>
@@ -113,22 +114,25 @@ int test_rsa() {
 //        0x64,0x61,0x72,0x64};
     unsigned char std_Message[1]={0x65};
 
-
-    unsigned char *plaintx={0};
-   // unsigned char *cypertx= {0};
+    // Allocate proper buffer for decrypted plaintext
+    unsigned char plaintx[256] = {0};
     ZZ cypertx;
     
     long plain_len;
     ZZ pubKey[2],privKey[3];
     ZZ e,d,n;
     
-    plain_len= getArrayLen(std_Message);
+    plain_len = sizeof(std_Message);  // Use sizeof instead of getArrayLen
     rsa_getKey(pubKey, privKey);
     
     cypertx= rsa_enc(pubKey,std_Message, plain_len);
     
     rsa_decy(cypertx, privKey, plaintx);
     
+    // Verify the decryption result
+    if (plaintx[0] != std_Message[0]) {
+        return -1;  // Decryption failed
+    }
     
     return 0;
 }
