@@ -21,8 +21,8 @@
 // Include actual SM implementations
 extern "C" {
 #include "crypto/sm/sm3_impl.h"
-#include "crypto/sm/sm4_impl.hpp"
 }
+#include "crypto/sm/sm4_impl.hpp"
 
 /**
  * @brief Convert byte array to hex string

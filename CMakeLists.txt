@@ -168,10 +168,10 @@ file(GLOB KCTSB_CHACHA_SOURCES
 # SM module - only include files with available headers
 set(KCTSB_SM_SOURCES
     ${KCTSB_SRC_DIR}/crypto/sm/sm3.c
+    ${KCTSB_SRC_DIR}/crypto/sm/sm4.cpp
+    ${KCTSB_SRC_DIR}/crypto/sm/zuc.c
     # Exclude sm2_enc.c (needs miracl.h)
-    # Exclude sm4.cpp (needs SM4.hpp)
-    # Exclude sm_util.c (needs smUtil.h)
-    # Exclude zuc.c (may need specific headers)
+    # Exclude sm_util.c (needs smUtil.h and miracl.h)
 )
 
 # Whitebox module - self-contained implementation
