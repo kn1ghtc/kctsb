@@ -20,6 +20,13 @@
 #include <random>
 #include <algorithm>
 
+using namespace NTL;
+
+// Helper function for NTL compatibility
+inline long IsEven(const ZZ& a) {
+    return !IsOdd(a);
+}
+
 namespace kctsb {
 namespace rsa {
 

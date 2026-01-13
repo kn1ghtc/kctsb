@@ -12,11 +12,13 @@
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
  */
 
-#include "kctsb/crypto/zkp/zkp.h"
+#include "kctsb/advanced/zk/zkp.h"
 #include <cstring>
 #include <stdexcept>
 #include <random>
 #include <algorithm>
+
+using namespace NTL;
 
 namespace kctsb {
 namespace zkp {
@@ -432,6 +434,23 @@ bool ConstraintSystem::is_satisfied(const std::vector<ZZ>& witness) const {
 Circuit::Circuit() : cs_(std::make_unique<ConstraintSystem>()) {}
 
 Circuit::~Circuit() = default;
+
+Circuit::Circuit(Circuit&& other) noexcept
+    : cs_(std::move(other.cs_)),
+      named_wires_(std::move(other.named_wires_)),
+      finalized_(other.finalized_) {
+    other.finalized_ = false;
+}
+
+Circuit& Circuit::operator=(Circuit&& other) noexcept {
+    if (this != &other) {
+        cs_ = std::move(other.cs_);
+        named_wires_ = std::move(other.named_wires_);
+        finalized_ = other.finalized_;
+        other.finalized_ = false;
+    }
+    return *this;
+}
 
 Wire Circuit::public_input(const std::string& name) {
     Wire w = cs_->allocate_wire(true);
@@ -990,7 +1009,7 @@ Circuit build_cubic_circuit() {
     circuit.assert_equal(sum2, y);
     
     circuit.finalize();
-    return circuit;
+    return std::move(circuit);
 }
 
 Circuit build_merkle_circuit(size_t depth) {
@@ -1023,7 +1042,7 @@ Circuit build_merkle_circuit(size_t depth) {
     circuit.assert_equal(current, root);
     circuit.finalize();
     
-    return circuit;
+    return std::move(circuit);
 }
 
 Circuit build_hash_preimage_circuit(const std::string& hash_type) {
@@ -1043,7 +1062,7 @@ Circuit build_hash_preimage_circuit(const std::string& hash_type) {
     circuit.assert_equal(h3, hash);
     circuit.finalize();
     
-    return circuit;
+    return std::move(circuit);
 }
 
 } // namespace zkp

@@ -42,8 +42,21 @@ target_link_libraries(kctsb_benchmark PRIVATE
 # Link kctsb if available
 if(TARGET kctsb_static)
     target_link_libraries(kctsb_benchmark PRIVATE kctsb_static)
+    # Define macros to enable kctsb implementations in benchmarks
+    target_compile_definitions(kctsb_benchmark PRIVATE
+        KCTSB_HAS_AES_GCM=1
+        KCTSB_HAS_CHACHA20_POLY1305=1
+        KCTSB_HAS_SHA3=1
+        KCTSB_HAS_BLAKE2=1
+    )
 elseif(TARGET kctsb_shared)
     target_link_libraries(kctsb_benchmark PRIVATE kctsb_shared)
+    target_compile_definitions(kctsb_benchmark PRIVATE
+        KCTSB_HAS_AES_GCM=1
+        KCTSB_HAS_CHACHA20_POLY1305=1
+        KCTSB_HAS_SHA3=1
+        KCTSB_HAS_BLAKE2=1
+    )
 endif()
 
 # Platform-specific

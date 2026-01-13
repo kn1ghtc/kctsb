@@ -26,7 +26,7 @@
  Modification: 1)add notes to all the functions
  2)add SM3_SelfTest function
  **************************************************************************/
-#include "sm3_impl.h"
+#include "kctsb/crypto/sm/sm3_core.h"
 #include <string.h>
 
 

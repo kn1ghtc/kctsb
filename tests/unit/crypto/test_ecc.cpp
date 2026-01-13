@@ -19,7 +19,7 @@
 using namespace NTL;
 
 // ECC Group class from eccGroup.hpp
-#include "eccGroup.hpp"
+#include "kctsb/crypto/ecc/ecc_group.hpp"
 
 // ============================================================================
 // ECC Group Tests

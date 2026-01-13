@@ -10,7 +10,7 @@
  2. SM4_Encrypt //Encryption fuction
  3. SM4_Decrypt //Decryption fuction
  ************************************************************/
-#include "SM4.hpp"
+#include "kctsb/crypto/sm/sm4_core.hpp"
 #include "kctsb/crypto/sm4.h"
 
 // SM4 constant tables definitions

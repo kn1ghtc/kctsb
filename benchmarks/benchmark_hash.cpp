@@ -25,9 +25,9 @@
 #include <openssl/rand.h>
 
 // kctsb headers (conditional)
-#ifdef KCTSB_HAS_HASH
-#include "kctsb/crypto/hash/Keccak.h"
-#include "kctsb/crypto/hash/blake2.h"
+#if defined(KCTSB_HAS_SHA3) || defined(KCTSB_HAS_BLAKE2)
+#include "kctsb/crypto/hash/keccak.h"
+#include "kctsb/crypto/blake.h"
 #endif
 
 // Benchmark configuration

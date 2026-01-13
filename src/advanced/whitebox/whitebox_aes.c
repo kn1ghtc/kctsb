@@ -10,7 +10,7 @@
  * This is an educational implementation demonstrating white-box concepts.
  */
 
-#include "whitebox_aes.h"
+#include "kctsb/advanced/whitebox/whitebox_aes.h"
 #include <string.h>
 #include <stdlib.h>
 

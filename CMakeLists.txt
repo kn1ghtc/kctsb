@@ -302,9 +302,10 @@ if(KCTSB_ENABLE_NTL)
     
     # ECC - NTL-based (replaces MIRACL)
     set(KCTSB_ECC_SOURCES
-        ${KCTSB_SRC_DIR}/crypto/ecc/ecc_ntl.cpp
+        ${KCTSB_SRC_DIR}/crypto/ecc/ecc_curve.cpp
         ${KCTSB_SRC_DIR}/crypto/ecc/ecdh.cpp
-        ${KCTSB_SRC_DIR}/crypto/ecc/kc_ecdsa.cpp
+        ${KCTSB_SRC_DIR}/crypto/ecc/ecdsa.cpp
+        ${KCTSB_SRC_DIR}/crypto/ecc/ecies.cpp
     )
     list(APPEND KCTSB_CRYPTO_SOURCES ${KCTSB_ECC_SOURCES})
     

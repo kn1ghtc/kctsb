@@ -25,7 +25,7 @@
 #include <openssl/rand.h>
 
 // kctsb headers (conditional)
-#ifdef KCTSB_HAS_CHACHA20
+#ifdef KCTSB_HAS_CHACHA20_POLY1305
 #include "kctsb/crypto/chacha20_poly1305.h"
 #endif
 

@@ -27,7 +27,7 @@
 
 // kctsb headers (conditional)
 #ifdef KCTSB_HAS_AES_GCM
-#include "kctsb/crypto/aes_gcm.h"
+#include "kctsb/crypto/aes.h"
 #endif
 
 // Benchmark configuration

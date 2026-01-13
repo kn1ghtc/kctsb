@@ -22,7 +22,7 @@
  14.ZUC_Confidentiality // the ZUC-based condifentiality algorithm
  15.ZUC_Integrity // the ZUC-based integrity algorithm
  **************************************************************************/
-#include "zuc.h"
+#include "kctsb/crypto/sm/zuc.h"
 #include <stdlib.h>
 #include <string.h>
 

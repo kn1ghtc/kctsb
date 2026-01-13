@@ -257,6 +257,12 @@ public:
     Circuit();
     ~Circuit();
     
+    // Move operations (disable copy)
+    Circuit(Circuit&& other) noexcept;
+    Circuit& operator=(Circuit&& other) noexcept;
+    Circuit(const Circuit&) = delete;
+    Circuit& operator=(const Circuit&) = delete;
+    
     // ========================================================================
     // Wire Management
     // ========================================================================

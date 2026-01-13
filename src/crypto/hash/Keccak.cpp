@@ -70,7 +70,7 @@ This file uses UTF-8 encoding, as some comments use Greek letters.
   * @pre    One must have r+c=1600 and the rate a multiple of 8 bits in this implementation.
   */
 
-#include "Keccak.h"
+#include "kctsb/crypto/hash/keccak.h"
 /**
   *  Function to compute SHAKE128 on the input message with any output length.
   */

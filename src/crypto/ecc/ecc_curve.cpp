@@ -16,6 +16,8 @@
 #include <stdexcept>
 #include <algorithm>
 
+using namespace NTL;
+
 namespace kctsb {
 namespace ecc {
 

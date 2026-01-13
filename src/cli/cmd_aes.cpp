@@ -23,9 +23,8 @@
 #include <cstring>
 #include <algorithm>
 
-#include "kctsb/crypto/aes/kc_aes.h"
-#include "kctsb/crypto/aes/kc_aes_gcm.h"
-#include "kctsb/utils/hex.h"
+#include "kctsb/crypto/aes.h"
+// #include "kctsb/utils/hex.h"  // TODO: create hex utility
 
 /**
  * @brief Print AES subcommand help

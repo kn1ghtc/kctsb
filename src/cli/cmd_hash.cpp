@@ -23,7 +23,9 @@
 #include <algorithm>
 #include <iomanip>
 
-#include "kctsb/crypto/hash/kc_hash.h"
+#include "kctsb/crypto/sha.h"
+#include "kctsb/crypto/blake.h"
+#include "kctsb/crypto/hash/keccak.h"
 
 /**
  * @brief Print hash subcommand help

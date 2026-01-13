@@ -9,7 +9,7 @@
 // This file requires NTL library
 #if defined(KCTSB_HAS_NTL) || defined(KCTSB_USE_NTL)
 
-#include "rsaUtil.hpp"
+#include "kctsb/crypto/rsa/rsa_util.hpp"
 #include <fstream>
 
 

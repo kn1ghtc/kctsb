@@ -20,8 +20,8 @@
 
 #include "kctsb/kctsb.h"
 // Include actual hash implementations
-#include "crypto/hash/Keccak.h"
-#include "crypto/hash/blake2.h"
+#include "kctsb/crypto/hash/keccak.h"
+#include "kctsb/crypto/blake.h"
 
 /**
  * @brief Convert hex string to byte array

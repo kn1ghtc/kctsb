@@ -22,6 +22,8 @@
 #include <random>
 #include <algorithm>
 
+using namespace NTL;
+
 namespace kctsb {
 namespace ecc {
 

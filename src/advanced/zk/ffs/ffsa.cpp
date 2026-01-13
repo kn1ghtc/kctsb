@@ -5,7 +5,7 @@
  * All mpz_t operations use standard GMP C functions.
  */
 
-#include "ffsa.h"
+#include "kctsb/advanced/zk/ffsa.h"
 #include "kctsb/core/security.h"
 #include <iostream>
 #include <cstdlib>

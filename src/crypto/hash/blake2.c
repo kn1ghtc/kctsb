@@ -8,8 +8,31 @@
  * Based on RFC 7693 specification.
  */
 
-#include "blake2.h"
+#include "kctsb/crypto/blake.h"
 #include <string.h>
+
+/* BLAKE2b constants */
+#define BLAKE2B_BLOCKBYTES    128
+#define BLAKE2B_OUTBYTES      64
+#define BLAKE2B_KEYBYTES      64
+
+/* BLAKE2s constants */
+#define BLAKE2S_BLOCKBYTES    64
+#define BLAKE2S_OUTBYTES      32
+#define BLAKE2S_KEYBYTES      32
+
+/* Internal type aliases for implementation */
+typedef kctsb_blake2b_ctx_t blake2b_ctx_t;
+
+/* BLAKE2s internal context */
+typedef struct {
+    uint32_t h[8];
+    uint32_t t[2];
+    uint32_t f[2];
+    uint8_t buf[64];
+    size_t buflen;
+    size_t outlen;
+} blake2s_ctx_t;
 
 /* ============================================================================
  * BLAKE2b Implementation

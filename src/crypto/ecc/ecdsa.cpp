@@ -17,11 +17,13 @@
  */
 
 #include "kctsb/crypto/ecc/ecdsa.h"
-#include "kctsb/hash/sha.h"  // For HMAC-SHA256
+#include "kctsb/crypto/sha.h"  // For HMAC-SHA256
 #include <cstring>
 #include <stdexcept>
 #include <random>
 #include <algorithm>
+
+using namespace NTL;
 
 namespace kctsb {
 namespace ecc {
