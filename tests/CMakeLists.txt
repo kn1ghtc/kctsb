@@ -118,6 +118,57 @@ target_include_directories(test_sm PRIVATE
 )
 gtest_discover_tests(test_sm)
 
+# PQC tests (Post-Quantum Cryptography - Kyber, Dilithium)
+if(KCTSB_ENABLE_NTL AND NTL_FOUND)
+    add_executable(test_pqc
+        unit/crypto/test_pqc.cpp
+    )
+    target_link_libraries(test_pqc
+        PRIVATE
+            kctsb_static
+            GTest::gtest_main
+            NTL::NTL
+    )
+    target_include_directories(test_pqc PRIVATE 
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/src
+    )
+    gtest_discover_tests(test_pqc)
+endif()
+
+# ZKP tests (Zero-Knowledge Proofs - Groth16)
+if(KCTSB_ENABLE_NTL AND NTL_FOUND)
+    add_executable(test_zkp
+        unit/crypto/test_zkp.cpp
+    )
+    target_link_libraries(test_zkp
+        PRIVATE
+            kctsb_static
+            GTest::gtest_main
+            NTL::NTL
+    )
+    target_include_directories(test_zkp PRIVATE 
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/src
+    )
+    gtest_discover_tests(test_zkp)
+endif()
+
+# SIMD tests (Hardware Acceleration)
+add_executable(test_simd
+    unit/crypto/test_simd.cpp
+)
+target_link_libraries(test_simd
+    PRIVATE
+        kctsb_static
+        GTest::gtest_main
+)
+target_include_directories(test_simd PRIVATE 
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/src
+)
+gtest_discover_tests(test_simd)
+
 # Math tests
 add_executable(test_math
     unit/math/test_math.cpp

@@ -5,6 +5,8 @@
 # - AES-256-GCM: AEAD encryption/decryption throughput
 # - ChaCha20-Poly1305: Stream cipher AEAD throughput
 # - SHA3-256/BLAKE2b: Hash function throughput
+# - ECC: ECDSA/ECDH/Key Generation
+# - RSA: OAEP/PSS/Key Generation
 # ============================================================================
 
 cmake_minimum_required(VERSION 3.20)
@@ -21,6 +23,8 @@ add_executable(kctsb_benchmark
     benchmark_aes_gcm.cpp
     benchmark_chacha20.cpp
     benchmark_hash.cpp
+    benchmark_ecc.cpp
+    benchmark_rsa.cpp
 )
 
 target_include_directories(kctsb_benchmark PRIVATE

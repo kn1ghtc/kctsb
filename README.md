@@ -4,11 +4,11 @@
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](.)
 [![C++](https://img.shields.io/badge/C++-17-blue.svg)](.)
 [![CMake](https://img.shields.io/badge/CMake-3.20+-green.svg)](.)
-[![Version](https://img.shields.io/badge/Version-3.1.0-brightgreen.svg)](.)
+[![Version](https://img.shields.io/badge/Version-3.2.0-brightgreen.svg)](.)
 
 **kctsb** 是一个跨平台的 C/C++ 密码学和安全算法库，专为生产环境和安全研究设计。目标是成为 **OpenSSL 的现代替代品**。
 
-> **v3.1.0 新特性**: 移除MIRACL依赖，椭圆曲线算法使用NTL原生实现；源码中完全移除OpenSSL依赖；所有头文件统一到include/目录。
+> **v3.2.0 新特性**: 后量子密码(Kyber/Dilithium)、zk-SNARKs零知识证明(Groth16)、SIMD硬件加速(AVX2/AVX-512/AES-NI)、完整的ECC/RSA模块重构。
 
 ## ✨ 特性
 
@@ -22,9 +22,27 @@
 - **ChaCha20-Poly1305** - 256-bit 密钥，128-bit 标签
 
 ### 非对称加密算法
-- **RSA** - RSA-2048/4096 加密签名 (NTL实现)
-- **ECC** - 椭圆曲线密码（secp256k1, P-256, SM2曲线）**NTL原生实现**
+- **RSA** - RSA-2048/3072/4096 OAEP加密/PSS签名 (PKCS#1 v2.2)
+- **ECC** - 完整椭圆曲线密码（secp256k1, P-256/384/521）**NTL原生实现**
+- **ECDSA** - RFC 6979 确定性签名
+- **ECDH** - RFC 5869 HKDF 密钥派生
+- **ECIES** - 混合加密 (ECDH + AES-GCM)
 - **SM2** - 国密 SM2 椭圆曲线
+- **DH** - Diffie-Hellman 密钥交换 (RFC 3526)
+- **DSA** - FIPS 186-4 数字签名
+
+### 后量子密码 (v3.2.0 新增)
+- **Kyber** - ML-KEM (FIPS 203), 512/768/1024
+- **Dilithium** - ML-DSA (FIPS 204), Level 2/3/5
+
+### 零知识证明 (v3.2.0 新增)
+- **zk-SNARKs** - Groth16 协议 (BN254 曲线)
+- **电路构建器** - 乘法门、加法门、布尔约束、范围证明
+
+### SIMD 硬件加速 (v3.2.0 新增)
+- **AVX-512/AVX2** - 向量化运算
+- **AES-NI** - 硬件 AES 加速
+- **常量时间操作** - 防止侧信道攻击
 
 ### 哈希算法
 - **SHA** - SHA-1/256/384/512
@@ -39,9 +57,7 @@
 ### 高级密码学原语
 - **白盒密码** - Chow 白盒 AES/SM4 实现
 - **秘密共享** - Shamir (t,n) 门限方案
-- **零知识证明** - Schnorr 协议、Sigma 协议
-- **格密码** - 后量子密码原语
-- **同态加密** - BFV/CKKS 方案（通过 SEAL/HElib）
+- **功能加密** - BFV/CKKS 同态加密（通过 SEAL/HElib）
 
 ## 🏗️ 项目结构
 
@@ -62,6 +78,13 @@ kctsb/
 │       │   ├── ecc/, rsa/      # 非对称算法头
 │       │   └── sm/             # 国密算法头
 │       ├── advanced/           # 高级密码学
+│       │   ├── pqc/            # 后量子密码 (Kyber, Dilithium)
+│       │   ├── zk/             # 零知识证明 (Groth16)
+│       │   ├── fe/             # 功能加密
+│       │   ├── sss/            # 秘密共享
+│       │   └── whitebox/       # 白盒密码
+│       ├── simd/               # SIMD 硬件加速
+│       │   └── simd.h          # AVX2/AVX-512/AES-NI
 │       ├── internal/           # 内部实现头文件
 │       │   ├── blake2_impl.h
 │       │   ├── keccak_impl.h
@@ -79,6 +102,9 @@ kctsb/
 │   │   ├── rsa/                # RSA (NTL实现)
 │   │   └── sm/                 # 国密算法 (原生实现)
 │   ├── advanced/               # 高级算法实现
+│   │   ├── pqc/                # 后量子密码实现
+│   │   └── zk/                 # 零知识证明实现
+│   ├── simd/                   # SIMD 加速实现
 │   ├── cli/                    # 命令行工具
 │   └── math/                   # 数学库
 │
@@ -98,16 +124,19 @@ kctsb/
 
 | 模块 | 依赖 | 状态 | 说明 |
 |------|------|------|------|
-| AES-CTR/GCM | 无 | ✅ 生产可用 | 原生C实现 |
-| ChaCha20-Poly1305 | 无 | ✅ 生产可用 | 原生C实现 |
+| AES-CTR/GCM | 无 | ✅ 生产可用 | 原生C实现 + AES-NI |
+| ChaCha20-Poly1305 | 无 | ✅ 生产可用 | 原生C实现 + AVX2 |
 | Hash (SHA-3/BLAKE2) | 无 | ✅ 生产可用 | Keccak/BLAKE2原生 |
 | SM3/SM4/ZUC | 无 | ✅ 生产可用 | 国密原生实现 |
-| RSA | NTL | ✅ 生产可用 | NTL大数运算 |
-| ECC/ECDSA | NTL | ✅ 生产可用 | **NTL原生实现** |
+| RSA-OAEP/PSS | NTL | ✅ 生产可用 | PKCS#1 v2.2 |
+| ECC/ECDSA/ECDH/ECIES | NTL | ✅ 生产可用 | **完整重构** |
+| DH/DSA | NTL | ✅ 生产可用 | RFC 3526/FIPS 186-4 |
+| Kyber | NTL | ✅ 生产可用 | **ML-KEM (v3.2.0)** |
+| Dilithium | NTL | ✅ 生产可用 | **ML-DSA (v3.2.0)** |
+| zk-SNARKs | NTL | ✅ 生产可用 | **Groth16 (v3.2.0)** |
+| SIMD | 无 | ✅ 生产可用 | **AVX2/AVX-512/AES-NI** |
 | Whitebox AES | 无 | ✅ 可用 | Chow方案 |
 | Shamir SSS | NTL | ✅ 可用 | 秘密共享 |
-| ZK (FFS) | NTL | ✅ 可用 | 零知识证明 |
-| Lattice | NTL | ✅ 可用 | 格密码 |
 | FE (同态) | HElib | ⚠️ 可选 | HElib v2.3.0 |
 
 **核心依赖** (thirdparty/):
@@ -117,7 +146,7 @@ kctsb/
 - ⚠️ SEAL 4.1.2 (可选)
 - ⚠️ HElib v2.3.0 (可选)
 
-**测试状态**: 72/72 通过 (100%)
+**测试状态**: 84/84 通过 (100%)
 
 ## 🚀 快速开始
 

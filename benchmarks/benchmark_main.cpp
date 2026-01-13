@@ -37,6 +37,8 @@
 void benchmark_aes_gcm();
 void benchmark_chacha20_poly1305();
 void benchmark_hash_functions();
+void benchmark_ecc();
+void benchmark_rsa();
 
 /**
  * @brief High-resolution timer for benchmarking
@@ -167,6 +169,8 @@ extern "C" int benchmark_main_entry() {
     benchmark_aes_gcm();
     benchmark_chacha20_poly1305();
     benchmark_hash_functions();
+    benchmark_ecc();
+    benchmark_rsa();
     
     // Print summary
     print_summary();
