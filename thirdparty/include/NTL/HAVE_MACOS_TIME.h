@@ -1,2 +1,3 @@
-// Disabled on Windows - no mach/mach.h
-// #define NTL_HAVE_MACOS_TIME
+#ifndef NTL_HAVE_MACOS_TIME
+#define NTL_HAVE_MACOS_TIME
+#endif

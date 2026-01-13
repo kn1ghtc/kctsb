@@ -3,7 +3,7 @@
  * @brief BLAKE2 hash function implementation
  * @author knightc
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
- * 
+ *
  * Pure C implementation of BLAKE2b and BLAKE2s.
  * Based on RFC 7693 specification.
  */
@@ -33,6 +33,10 @@ typedef struct {
     size_t buflen;
     size_t outlen;
 } blake2s_ctx_t;
+
+/* Forward declarations for functions called before definition */
+int blake2b_update(blake2b_ctx_t *ctx, const void *in, size_t inlen);
+int blake2s_update(blake2s_ctx_t *ctx, const void *in, size_t inlen);
 
 /* ============================================================================
  * BLAKE2b Implementation
@@ -96,21 +100,21 @@ static inline void store64(void *dst, uint64_t w) {
 
 static void blake2b_compress(blake2b_ctx_t *ctx, const uint8_t block[128]) {
     uint64_t m[16], v[16];
-    
+
     for (int i = 0; i < 16; i++) {
         m[i] = load64(block + i * 8);
     }
-    
+
     for (int i = 0; i < 8; i++) {
         v[i] = ctx->h[i];
         v[i + 8] = blake2b_IV[i];
     }
-    
+
     v[12] ^= ctx->t[0];
     v[13] ^= ctx->t[1];
     v[14] ^= ctx->f[0];
     v[15] ^= ctx->f[1];
-    
+
     for (int i = 0; i < 12; i++) {
         B2B_G(v[0], v[4], v[ 8], v[12], m[blake2b_sigma[i][ 0]], m[blake2b_sigma[i][ 1]]);
         B2B_G(v[1], v[5], v[ 9], v[13], m[blake2b_sigma[i][ 2]], m[blake2b_sigma[i][ 3]]);
@@ -121,7 +125,7 @@ static void blake2b_compress(blake2b_ctx_t *ctx, const uint8_t block[128]) {
         B2B_G(v[2], v[7], v[ 8], v[13], m[blake2b_sigma[i][12]], m[blake2b_sigma[i][13]]);
         B2B_G(v[3], v[4], v[ 9], v[14], m[blake2b_sigma[i][14]], m[blake2b_sigma[i][15]]);
     }
-    
+
     for (int i = 0; i < 8; i++) {
         ctx->h[i] ^= v[i] ^ v[i + 8];
     }
@@ -129,43 +133,43 @@ static void blake2b_compress(blake2b_ctx_t *ctx, const uint8_t block[128]) {
 
 int blake2b_init(blake2b_ctx_t *ctx, size_t outlen) {
     if (!ctx || outlen == 0 || outlen > BLAKE2B_OUTBYTES) return -1;
-    
+
     memset(ctx, 0, sizeof(blake2b_ctx_t));
     for (int i = 0; i < 8; i++) ctx->h[i] = blake2b_IV[i];
     ctx->h[0] ^= 0x01010000 ^ outlen;
     ctx->outlen = outlen;
-    
+
     return 0;
 }
 
 int blake2b_init_key(blake2b_ctx_t *ctx, size_t outlen, const void *key, size_t keylen) {
     if (!ctx || outlen == 0 || outlen > BLAKE2B_OUTBYTES) return -1;
     if (keylen > BLAKE2B_KEYBYTES) return -1;
-    
+
     memset(ctx, 0, sizeof(blake2b_ctx_t));
     for (int i = 0; i < 8; i++) ctx->h[i] = blake2b_IV[i];
     ctx->h[0] ^= 0x01010000 ^ (keylen << 8) ^ outlen;
     ctx->outlen = outlen;
-    
+
     if (keylen > 0) {
         uint8_t block[BLAKE2B_BLOCKBYTES] = {0};
         memcpy(block, key, keylen);
         blake2b_update(ctx, block, BLAKE2B_BLOCKBYTES);
         memset(block, 0, sizeof(block));
     }
-    
+
     return 0;
 }
 
 int blake2b_update(blake2b_ctx_t *ctx, const void *in, size_t inlen) {
     if (!ctx || (!in && inlen > 0)) return -1;
-    
+
     const uint8_t *pin = (const uint8_t *)in;
-    
+
     while (inlen > 0) {
         size_t left = ctx->buflen;
         size_t fill = BLAKE2B_BLOCKBYTES - left;
-        
+
         if (inlen > fill) {
             memcpy(ctx->buf + left, pin, fill);
             ctx->t[0] += BLAKE2B_BLOCKBYTES;
@@ -180,39 +184,39 @@ int blake2b_update(blake2b_ctx_t *ctx, const void *in, size_t inlen) {
             break;
         }
     }
-    
+
     return 0;
 }
 
 int blake2b_final(blake2b_ctx_t *ctx, void *out, size_t outlen) {
     if (!ctx || !out || outlen < ctx->outlen) return -1;
-    
+
     ctx->t[0] += ctx->buflen;
     if (ctx->t[0] < ctx->buflen) ctx->t[1]++;
     ctx->f[0] = (uint64_t)-1;
-    
+
     memset(ctx->buf + ctx->buflen, 0, BLAKE2B_BLOCKBYTES - ctx->buflen);
     blake2b_compress(ctx, ctx->buf);
-    
+
     uint8_t buffer[BLAKE2B_OUTBYTES];
     for (int i = 0; i < 8; i++) {
         store64(buffer + i * 8, ctx->h[i]);
     }
     memcpy(out, buffer, ctx->outlen);
-    
+
     return 0;
 }
 
 int blake2b(void *out, size_t outlen, const void *in, size_t inlen,
             const void *key, size_t keylen) {
     blake2b_ctx_t ctx;
-    
+
     if (key && keylen > 0) {
         if (blake2b_init_key(&ctx, outlen, key, keylen) < 0) return -1;
     } else {
         if (blake2b_init(&ctx, outlen) < 0) return -1;
     }
-    
+
     if (blake2b_update(&ctx, in, inlen) < 0) return -1;
     return blake2b_final(&ctx, out, outlen);
 }
@@ -269,21 +273,21 @@ static inline void store32(void *dst, uint32_t w) {
 
 static void blake2s_compress(blake2s_ctx_t *ctx, const uint8_t block[64]) {
     uint32_t m[16], v[16];
-    
+
     for (int i = 0; i < 16; i++) {
         m[i] = load32(block + i * 4);
     }
-    
+
     for (int i = 0; i < 8; i++) {
         v[i] = ctx->h[i];
         v[i + 8] = blake2s_IV[i];
     }
-    
+
     v[12] ^= ctx->t[0];
     v[13] ^= ctx->t[1];
     v[14] ^= ctx->f[0];
     v[15] ^= ctx->f[1];
-    
+
     for (int i = 0; i < 10; i++) {
         B2S_G(v[0], v[4], v[ 8], v[12], m[blake2s_sigma[i][ 0]], m[blake2s_sigma[i][ 1]]);
         B2S_G(v[1], v[5], v[ 9], v[13], m[blake2s_sigma[i][ 2]], m[blake2s_sigma[i][ 3]]);
@@ -294,7 +298,7 @@ static void blake2s_compress(blake2s_ctx_t *ctx, const uint8_t block[64]) {
         B2S_G(v[2], v[7], v[ 8], v[13], m[blake2s_sigma[i][12]], m[blake2s_sigma[i][13]]);
         B2S_G(v[3], v[4], v[ 9], v[14], m[blake2s_sigma[i][14]], m[blake2s_sigma[i][15]]);
     }
-    
+
     for (int i = 0; i < 8; i++) {
         ctx->h[i] ^= v[i] ^ v[i + 8];
     }
@@ -302,43 +306,43 @@ static void blake2s_compress(blake2s_ctx_t *ctx, const uint8_t block[64]) {
 
 int blake2s_init(blake2s_ctx_t *ctx, size_t outlen) {
     if (!ctx || outlen == 0 || outlen > BLAKE2S_OUTBYTES) return -1;
-    
+
     memset(ctx, 0, sizeof(blake2s_ctx_t));
     for (int i = 0; i < 8; i++) ctx->h[i] = blake2s_IV[i];
     ctx->h[0] ^= 0x01010000 ^ outlen;
     ctx->outlen = outlen;
-    
+
     return 0;
 }
 
 int blake2s_init_key(blake2s_ctx_t *ctx, size_t outlen, const void *key, size_t keylen) {
     if (!ctx || outlen == 0 || outlen > BLAKE2S_OUTBYTES) return -1;
     if (keylen > BLAKE2S_KEYBYTES) return -1;
-    
+
     memset(ctx, 0, sizeof(blake2s_ctx_t));
     for (int i = 0; i < 8; i++) ctx->h[i] = blake2s_IV[i];
     ctx->h[0] ^= 0x01010000 ^ (keylen << 8) ^ outlen;
     ctx->outlen = outlen;
-    
+
     if (keylen > 0) {
         uint8_t block[BLAKE2S_BLOCKBYTES] = {0};
         memcpy(block, key, keylen);
         blake2s_update(ctx, block, BLAKE2S_BLOCKBYTES);
         memset(block, 0, sizeof(block));
     }
-    
+
     return 0;
 }
 
 int blake2s_update(blake2s_ctx_t *ctx, const void *in, size_t inlen) {
     if (!ctx || (!in && inlen > 0)) return -1;
-    
+
     const uint8_t *pin = (const uint8_t *)in;
-    
+
     while (inlen > 0) {
         size_t left = ctx->buflen;
         size_t fill = BLAKE2S_BLOCKBYTES - left;
-        
+
         if (inlen > fill) {
             memcpy(ctx->buf + left, pin, fill);
             ctx->t[0] += BLAKE2S_BLOCKBYTES;
@@ -353,39 +357,59 @@ int blake2s_update(blake2s_ctx_t *ctx, const void *in, size_t inlen) {
             break;
         }
     }
-    
+
     return 0;
 }
 
 int blake2s_final(blake2s_ctx_t *ctx, void *out, size_t outlen) {
     if (!ctx || !out || outlen < ctx->outlen) return -1;
-    
+
     ctx->t[0] += ctx->buflen;
     if (ctx->t[0] < ctx->buflen) ctx->t[1]++;
     ctx->f[0] = (uint32_t)-1;
-    
+
     memset(ctx->buf + ctx->buflen, 0, BLAKE2S_BLOCKBYTES - ctx->buflen);
     blake2s_compress(ctx, ctx->buf);
-    
+
     uint8_t buffer[BLAKE2S_OUTBYTES];
     for (int i = 0; i < 8; i++) {
         store32(buffer + i * 4, ctx->h[i]);
     }
     memcpy(out, buffer, ctx->outlen);
-    
+
     return 0;
 }
 
 int blake2s(void *out, size_t outlen, const void *in, size_t inlen,
             const void *key, size_t keylen) {
     blake2s_ctx_t ctx;
-    
+
     if (key && keylen > 0) {
         if (blake2s_init_key(&ctx, outlen, key, keylen) < 0) return -1;
     } else {
         if (blake2s_init(&ctx, outlen) < 0) return -1;
     }
-    
+
     if (blake2s_update(&ctx, in, inlen) < 0) return -1;
     return blake2s_final(&ctx, out, outlen);
+}
+
+/* ============================================================================
+ * Public API wrappers (kctsb_* prefix)
+ * ============================================================================ */
+
+void kctsb_blake2b_init(kctsb_blake2b_ctx_t* ctx, size_t outlen) {
+    blake2b_init(ctx, outlen);
+}
+
+void kctsb_blake2b_update(kctsb_blake2b_ctx_t* ctx, const uint8_t* data, size_t len) {
+    blake2b_update(ctx, data, len);
+}
+
+void kctsb_blake2b_final(kctsb_blake2b_ctx_t* ctx, uint8_t* out) {
+    blake2b_final(ctx, out, ctx->outlen);
+}
+
+void kctsb_blake2b(const uint8_t* data, size_t len, uint8_t* out, size_t outlen) {
+    blake2b(out, outlen, data, len, NULL, 0);
 }

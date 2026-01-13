@@ -1,16 +1,16 @@
 /**
  * @file cmd_hash.cpp
  * @brief Hash subcommand implementation for kctsb CLI
- * 
+ *
  * Supports:
  *   - SHA-256 (OpenSSL compatibility)
  *   - SHA3-256 (NIST FIPS 202)
  *   - BLAKE2b (high performance)
- * 
+ *
  * Usage:
  *   kctsb hash -algorithm sha3-256 -in file.txt
  *   kctsb hash -algorithm blake2b -in data.bin -hex
- * 
+ *
  * @author kctsb Development Team
  * @date 2026-01-12
  */
@@ -22,6 +22,7 @@
 #include <cstring>
 #include <algorithm>
 #include <iomanip>
+#include <sstream>
 
 #include "kctsb/crypto/sha.h"
 #include "kctsb/crypto/blake.h"
@@ -48,31 +49,10 @@ void print_hash_help() {
     std::cout << "  kctsb hash -algorithm sha256 -in data.txt -hex\n\n";
 }
 
-/**
- * @brief Read file into byte vector
- */
-std::vector<unsigned char> read_file(const std::string& filename) {
-    std::ifstream file(filename, std::ios::binary);
-    if (!file.is_open()) {
-        throw std::runtime_error("Failed to open input file: " + filename);
-    }
-    return std::vector<unsigned char>(
-        std::istreambuf_iterator<char>(file),
-        std::istreambuf_iterator<char>()
-    );
-}
-
-/**
- * @brief Convert bytes to hex string
- */
-std::string bytes_to_hex(const unsigned char* data, size_t len) {
-    std::stringstream ss;
-    ss << std::hex << std::setfill('0');
-    for (size_t i = 0; i < len; ++i) {
-        ss << std::setw(2) << static_cast<int>(data[i]);
-    }
-    return ss.str();
-}
+// Use shared CLI utilities
+#include "cli_utils.h"
+using kctsb::cli::read_file;
+using kctsb::cli::bytes_to_hex;
 
 /**
  * @brief Hash subcommand handler
@@ -84,7 +64,7 @@ int cmd_hash(int argc, char* argv[]) {
 
     for (int i = 1; i < argc; ++i) {
         std::string arg(argv[i]);
-        
+
         if ((arg == "-algorithm" || arg == "-algo") && i + 1 < argc) {
             algorithm = argv[++i];
             std::transform(algorithm.begin(), algorithm.end(), algorithm.begin(), ::tolower);
@@ -124,25 +104,21 @@ int cmd_hash(int argc, char* argv[]) {
             // TODO: Implement SHA-256 (currently requires OpenSSL)
             std::cerr << "Error: SHA-256 not yet implemented (requires OpenSSL integration)\n";
             return 1;
-        } 
+        }
         else if (algorithm == "sha3-256" || algorithm == "sha3") {
             std::cout << "Algorithm: SHA3-256\n";
-            
-            // Call kctsb SHA3-256 implementation
-            int result = kc_sha3_256(input_data.data(), input_data.size(), hash);
-            if (result != 0) {
-                throw std::runtime_error("SHA3-256 computation failed");
-            }
-        } 
+
+            // Call kctsb SHA3-256 implementation (FIPS 202)
+            FIPS202_SHA3_256(input_data.data(),
+                             static_cast<unsigned int>(input_data.size()),
+                             hash);
+        }
         else if (algorithm == "blake2b") {
             std::cout << "Algorithm: BLAKE2b-256\n";
-            
+
             // Call kctsb BLAKE2b implementation
-            int result = kc_blake2b(hash, 32, input_data.data(), input_data.size(), nullptr, 0);
-            if (result != 0) {
-                throw std::runtime_error("BLAKE2b computation failed");
-            }
-        } 
+            kctsb_blake2b(input_data.data(), input_data.size(), hash, 32);
+        }
         else {
             std::cerr << "Error: Unknown algorithm '" << algorithm << "'\n";
             std::cerr << "Supported: sha256, sha3-256, blake2b\n";

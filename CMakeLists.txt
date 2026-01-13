@@ -2,7 +2,7 @@
 # kctsb - Knight's Cryptographic Trusted Security Base
 # Cross-platform cryptographic algorithms library
 #
-# Version: 3.1.0
+# Version: 3.2.0
 # Copyright (c) 2019-2026 knightc. All rights reserved.
 # Licensed under Apache License 2.0
 #
@@ -11,8 +11,8 @@
 
 cmake_minimum_required(VERSION 3.20)
 
-project(kctsb 
-    VERSION 3.1.0
+project(kctsb
+    VERSION 3.2.0
     DESCRIPTION "Production-grade cryptographic algorithms library - OpenSSL replacement"
     LANGUAGES C CXX
 )
@@ -102,6 +102,7 @@ elseif(APPLE)
         -Werror=return-type
         -Werror=uninitialized
         -Wno-unused-parameter
+        -Wno-deprecated-copy       # Suppress NTL GF2.h implicit copy warning
         -finput-charset=UTF-8
         -fexec-charset=UTF-8
     )
@@ -151,40 +152,68 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 # ============================================================================
-# Third-Party Dependencies (Unified: thirdparty/)
+# Third-Party Dependencies (Cross-Platform: thirdparty/ first, then system)
 # ============================================================================
 
 set(KCTSB_THIRDPARTY_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty)
 set(KCTSB_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 set(KCTSB_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
-# NTL Detection
+# Platform-specific library paths
+if(APPLE)
+    set(KCTSB_SYSTEM_LIB_HINTS "/usr/local/lib" "/opt/homebrew/lib" "/usr/lib")
+    set(KCTSB_SYSTEM_INC_HINTS "/usr/local/include" "/opt/homebrew/include" "/usr/include")
+elseif(UNIX)
+    set(KCTSB_SYSTEM_LIB_HINTS "/usr/local/lib" "/usr/lib" "/usr/lib/x86_64-linux-gnu")
+    set(KCTSB_SYSTEM_INC_HINTS "/usr/local/include" "/usr/include")
+else()
+    set(KCTSB_SYSTEM_LIB_HINTS "")
+    set(KCTSB_SYSTEM_INC_HINTS "")
+endif()
+
+# NTL Detection (thirdparty first, then system)
 if(KCTSB_ENABLE_NTL)
     set(NTL_FOUND FALSE)
+
+    # Try thirdparty first
     if(EXISTS "${KCTSB_THIRDPARTY_DIR}/include/NTL/ZZ.h")
         set(NTL_INCLUDE_DIRS "${KCTSB_THIRDPARTY_DIR}/include")
         find_library(NTL_LIBRARY NAMES ntl libntl
             HINTS "${KCTSB_THIRDPARTY_DIR}/lib" NO_DEFAULT_PATH)
         if(NTL_LIBRARY)
             set(NTL_FOUND TRUE)
-            message(STATUS "✓ NTL found: ${NTL_LIBRARY}")
-            add_definitions(-DKCTSB_HAS_NTL)
-            if(NOT TARGET NTL::NTL)
-                add_library(NTL::NTL STATIC IMPORTED)
-                set_target_properties(NTL::NTL PROPERTIES
-                    IMPORTED_LOCATION "${NTL_LIBRARY}"
-                    INTERFACE_INCLUDE_DIRECTORIES "${NTL_INCLUDE_DIRS}")
-            endif()
+            message(STATUS "✓ NTL found (thirdparty): ${NTL_LIBRARY}")
         endif()
     endif()
+
+    # Fallback to system paths
     if(NOT NTL_FOUND)
-        message(FATAL_ERROR "NTL not found. Install to thirdparty/")
+        find_path(NTL_INCLUDE_DIRS NTL/ZZ.h HINTS ${KCTSB_SYSTEM_INC_HINTS})
+        find_library(NTL_LIBRARY NAMES ntl libntl HINTS ${KCTSB_SYSTEM_LIB_HINTS})
+        if(NTL_INCLUDE_DIRS AND NTL_LIBRARY)
+            set(NTL_FOUND TRUE)
+            message(STATUS "✓ NTL found (system): ${NTL_LIBRARY}")
+        endif()
+    endif()
+
+    if(NTL_FOUND)
+        add_definitions(-DKCTSB_HAS_NTL)
+        if(NOT TARGET NTL::NTL)
+            add_library(NTL::NTL STATIC IMPORTED)
+            set_target_properties(NTL::NTL PROPERTIES
+                IMPORTED_LOCATION "${NTL_LIBRARY}"
+                INTERFACE_INCLUDE_DIRECTORIES "${NTL_INCLUDE_DIRS}")
+        endif()
+    else()
+        message(FATAL_ERROR "NTL not found. Install via: brew install ntl (macOS) or to thirdparty/")
     endif()
 endif()
 
-# GMP Detection
+# GMP Detection (thirdparty first, then system)
 if(KCTSB_ENABLE_GMP)
     set(GMP_FOUND FALSE)
+
+    # Try thirdparty first
     if(EXISTS "${KCTSB_THIRDPARTY_DIR}/include/gmp.h")
         set(GMP_INCLUDE_DIRS "${KCTSB_THIRDPARTY_DIR}/include")
         find_library(GMP_LIBRARY NAMES gmp libgmp
@@ -193,76 +222,127 @@ if(KCTSB_ENABLE_GMP)
             HINTS "${KCTSB_THIRDPARTY_DIR}/lib" NO_DEFAULT_PATH)
         if(GMP_LIBRARY)
             set(GMP_FOUND TRUE)
-            set(GMP_LIBRARIES ${GMP_LIBRARY})
-            if(GMPXX_LIBRARY)
-                list(APPEND GMP_LIBRARIES ${GMPXX_LIBRARY})
-                add_definitions(-DKCTSB_HAS_GMPXX)
-            endif()
-            message(STATUS "✓ GMP found: ${GMP_LIBRARY}")
-            add_definitions(-DKCTSB_HAS_GMP)
-            if(NOT TARGET GMP::GMP)
-                add_library(GMP::GMP STATIC IMPORTED)
-                set_target_properties(GMP::GMP PROPERTIES
-                    IMPORTED_LOCATION "${GMP_LIBRARY}"
-                    INTERFACE_INCLUDE_DIRECTORIES "${GMP_INCLUDE_DIRS}")
-            endif()
+            message(STATUS "✓ GMP found (thirdparty): ${GMP_LIBRARY}")
         endif()
     endif()
+
+    # Fallback to system paths
     if(NOT GMP_FOUND)
-        message(FATAL_ERROR "GMP not found. Install to thirdparty/")
+        find_path(GMP_INCLUDE_DIRS gmp.h HINTS ${KCTSB_SYSTEM_INC_HINTS})
+        find_library(GMP_LIBRARY NAMES gmp libgmp HINTS ${KCTSB_SYSTEM_LIB_HINTS})
+        find_library(GMPXX_LIBRARY NAMES gmpxx libgmpxx HINTS ${KCTSB_SYSTEM_LIB_HINTS})
+        if(GMP_INCLUDE_DIRS AND GMP_LIBRARY)
+            set(GMP_FOUND TRUE)
+            message(STATUS "✓ GMP found (system): ${GMP_LIBRARY}")
+        endif()
+    endif()
+
+    if(GMP_FOUND)
+        set(GMP_LIBRARIES ${GMP_LIBRARY})
+        if(GMPXX_LIBRARY)
+            list(APPEND GMP_LIBRARIES ${GMPXX_LIBRARY})
+            add_definitions(-DKCTSB_HAS_GMPXX)
+        endif()
+        add_definitions(-DKCTSB_HAS_GMP)
+        if(NOT TARGET GMP::GMP)
+            add_library(GMP::GMP STATIC IMPORTED)
+            set_target_properties(GMP::GMP PROPERTIES
+                IMPORTED_LOCATION "${GMP_LIBRARY}"
+                INTERFACE_INCLUDE_DIRECTORIES "${GMP_INCLUDE_DIRS}")
+        endif()
+    else()
+        message(FATAL_ERROR "GMP not found. Install via: brew install gmp (macOS) or to thirdparty/")
     endif()
 endif()
 
-# SEAL Detection
+# SEAL Detection (thirdparty first, then system)
 if(KCTSB_ENABLE_SEAL)
+    set(SEAL_FOUND FALSE)
+
+    # Try thirdparty first
     if(EXISTS "${KCTSB_THIRDPARTY_DIR}/include/SEAL-4.1/seal/seal.h")
         set(SEAL_INCLUDE_DIRS "${KCTSB_THIRDPARTY_DIR}/include/SEAL-4.1")
         find_library(SEAL_LIBRARY NAMES seal-4.1 libseal-4.1
             HINTS "${KCTSB_THIRDPARTY_DIR}/lib" NO_DEFAULT_PATH)
         if(SEAL_LIBRARY)
             set(SEAL_FOUND TRUE)
-            message(STATUS "✓ SEAL found: ${SEAL_LIBRARY}")
-            add_definitions(-DKCTSB_HAS_SEAL)
-            if(NOT TARGET SEAL::seal)
-                add_library(SEAL::seal STATIC IMPORTED)
-                set_target_properties(SEAL::seal PROPERTIES
-                    IMPORTED_LOCATION "${SEAL_LIBRARY}"
-                    INTERFACE_INCLUDE_DIRECTORIES "${SEAL_INCLUDE_DIRS}")
-            endif()
+            message(STATUS "✓ SEAL found (thirdparty): ${SEAL_LIBRARY}")
         endif()
     endif()
+
+    # Fallback to system paths
     if(NOT SEAL_FOUND)
-        message(STATUS "⚠ SEAL not found")
+        find_path(SEAL_INCLUDE_DIRS seal/seal.h
+            HINTS ${KCTSB_SYSTEM_INC_HINTS}
+            PATH_SUFFIXES SEAL-4.1)
+        find_library(SEAL_LIBRARY NAMES seal-4.1 seal
+            HINTS ${KCTSB_SYSTEM_LIB_HINTS})
+        if(SEAL_INCLUDE_DIRS AND SEAL_LIBRARY)
+            set(SEAL_FOUND TRUE)
+            message(STATUS "✓ SEAL found (system): ${SEAL_LIBRARY}")
+        endif()
+    endif()
+
+    if(SEAL_FOUND)
+        add_definitions(-DKCTSB_HAS_SEAL)
+        if(NOT TARGET SEAL::seal)
+            add_library(SEAL::seal STATIC IMPORTED)
+            set_target_properties(SEAL::seal PROPERTIES
+                IMPORTED_LOCATION "${SEAL_LIBRARY}"
+                INTERFACE_INCLUDE_DIRECTORIES "${SEAL_INCLUDE_DIRS}")
+        endif()
+    else()
+        message(STATUS "⚠ SEAL not found (optional)")
         set(KCTSB_ENABLE_SEAL OFF)
     endif()
 endif()
 
-# HElib Detection
+# HElib Detection (thirdparty first, then system)
 if(KCTSB_ENABLE_HELIB)
+    set(HELIB_FOUND FALSE)
+
+    # Try thirdparty first
     if(EXISTS "${KCTSB_THIRDPARTY_DIR}/include/helib/helib.h")
+        set(HELIB_INCLUDE_DIRS "${KCTSB_THIRDPARTY_DIR}/include")
         find_library(HELIB_LIBRARY NAMES helib libhelib
             HINTS "${KCTSB_THIRDPARTY_DIR}/lib" NO_DEFAULT_PATH)
         if(HELIB_LIBRARY)
             set(HELIB_FOUND TRUE)
-            set(HELIB_INCLUDE_DIRS "${KCTSB_THIRDPARTY_DIR}/include")
-            message(STATUS "✓ HElib found: ${HELIB_LIBRARY}")
-            add_definitions(-DKCTSB_HAS_HELIB)
-            if(NOT TARGET helib)
-                add_library(helib STATIC IMPORTED)
-                set_target_properties(helib PROPERTIES
-                    IMPORTED_LOCATION "${HELIB_LIBRARY}"
-                    INTERFACE_INCLUDE_DIRECTORIES "${HELIB_INCLUDE_DIRS}")
-            endif()
+            message(STATUS "✓ HElib found (thirdparty): ${HELIB_LIBRARY}")
         endif()
     endif()
+
+    # Fallback to system paths
     if(NOT HELIB_FOUND)
-        message(STATUS "⚠ HElib not found")
+        find_path(HELIB_INCLUDE_DIRS helib/helib.h HINTS ${KCTSB_SYSTEM_INC_HINTS})
+        find_library(HELIB_LIBRARY NAMES helib HINTS ${KCTSB_SYSTEM_LIB_HINTS})
+        if(HELIB_INCLUDE_DIRS AND HELIB_LIBRARY)
+            set(HELIB_FOUND TRUE)
+            message(STATUS "✓ HElib found (system): ${HELIB_LIBRARY}")
+        endif()
+    endif()
+
+    if(HELIB_FOUND)
+        add_definitions(-DKCTSB_HAS_HELIB)
+        if(NOT TARGET helib)
+            add_library(helib STATIC IMPORTED)
+            set_target_properties(helib PROPERTIES
+                IMPORTED_LOCATION "${HELIB_LIBRARY}"
+                INTERFACE_INCLUDE_DIRECTORIES "${HELIB_INCLUDE_DIRS}")
+        endif()
+    else()
+        message(STATUS "⚠ HElib not found (optional)")
         set(KCTSB_ENABLE_HELIB OFF)
     endif()
 endif()
 
 # OpenSSL for benchmarks ONLY
 if(KCTSB_BUILD_BENCHMARKS AND KCTSB_ENABLE_OPENSSL)
+    # macOS: Use Homebrew OpenSSL
+    if(APPLE)
+        set(OPENSSL_ROOT_DIR "/usr/local/opt/openssl@3")
+        set(OPENSSL_INCLUDE_DIR "/usr/local/opt/openssl@3/include")
+    endif()
     find_package(OpenSSL QUIET)
     if(OPENSSL_FOUND)
         message(STATUS "✓ OpenSSL for benchmarks: ${OPENSSL_VERSION}")
@@ -320,19 +400,25 @@ set(KCTSB_WHITEBOX_SOURCES
     ${KCTSB_SRC_DIR}/advanced/whitebox/whitebox_aes.c
 )
 
+# SIMD acceleration sources
+set(KCTSB_SIMD_SOURCES
+    ${KCTSB_SRC_DIR}/simd/simd.cpp
+)
+
 set(KCTSB_CRYPTO_SOURCES
     ${KCTSB_AES_SOURCES}
     ${KCTSB_HASH_SOURCES}
     ${KCTSB_CHACHA_SOURCES}
     ${KCTSB_SM_SOURCES}
     ${KCTSB_WHITEBOX_SOURCES}
+    ${KCTSB_SIMD_SOURCES}
 )
 
 # NTL-dependent modules
 if(KCTSB_ENABLE_NTL)
     file(GLOB KCTSB_RSA_SOURCES ${KCTSB_SRC_DIR}/crypto/rsa/*.cpp)
     list(APPEND KCTSB_CRYPTO_SOURCES ${KCTSB_RSA_SOURCES})
-    
+
     # ECC - NTL-based (replaces MIRACL)
     set(KCTSB_ECC_SOURCES
         ${KCTSB_SRC_DIR}/crypto/ecc/ecc_curve.cpp
@@ -341,12 +427,12 @@ if(KCTSB_ENABLE_NTL)
         ${KCTSB_SRC_DIR}/crypto/ecc/ecies.cpp
     )
     list(APPEND KCTSB_CRYPTO_SOURCES ${KCTSB_ECC_SOURCES})
-    
+
     file(GLOB_RECURSE KCTSB_MATH_SOURCES ${KCTSB_SRC_DIR}/math/*.cpp)
     file(GLOB_RECURSE KCTSB_ZK_SOURCES ${KCTSB_SRC_DIR}/advanced/zk/*.cpp)
     file(GLOB_RECURSE KCTSB_LATTICE_SOURCES ${KCTSB_SRC_DIR}/advanced/lattice/*.cpp)
     file(GLOB_RECURSE KCTSB_SSS_SOURCES ${KCTSB_SRC_DIR}/advanced/sss/*.cpp)
-    
+
     set(KCTSB_ADVANCED_SOURCES ${KCTSB_ZK_SOURCES} ${KCTSB_LATTICE_SOURCES} ${KCTSB_SSS_SOURCES})
 endif()
 
@@ -377,9 +463,12 @@ if(KCTSB_BUILD_STATIC)
         $<INSTALL_INTERFACE:include>
     )
     set_target_properties(kctsb_static PROPERTIES OUTPUT_NAME kctsb)
-    
+
     if(WIN32)
         target_link_libraries(kctsb_static PRIVATE bcrypt)
+    elseif(APPLE)
+        # Link Security framework for SecRandomCopyBytes
+        target_link_libraries(kctsb_static PRIVATE "-framework Security")
     endif()
     if(KCTSB_ENABLE_NTL AND NTL_FOUND)
         target_link_libraries(kctsb_static PUBLIC NTL::NTL)
@@ -411,9 +500,12 @@ if(KCTSB_BUILD_SHARED)
     target_compile_definitions(kctsb_shared PRIVATE KCTSB_EXPORTS KCTSB_SHARED_LIBRARY)
     set_target_properties(kctsb_shared PROPERTIES
         OUTPUT_NAME kctsb VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR})
-    
+
     if(WIN32)
         target_link_libraries(kctsb_shared PRIVATE bcrypt)
+    elseif(APPLE)
+        # Link Security framework for SecRandomCopyBytes
+        target_link_libraries(kctsb_shared PRIVATE "-framework Security")
     endif()
     if(KCTSB_ENABLE_NTL AND NTL_FOUND)
         target_link_libraries(kctsb_shared PUBLIC NTL::NTL)
@@ -443,17 +535,17 @@ if(KCTSB_BUILD_CLI)
         ${KCTSB_THIRDPARTY_DIR}/include
     )
     set_target_properties(kctsb_cli PROPERTIES OUTPUT_NAME kctsb)
-    
+
     if(KCTSB_BUILD_STATIC)
         target_link_libraries(kctsb_cli PRIVATE kctsb_static)
     else()
         target_link_libraries(kctsb_cli PRIVATE kctsb_shared)
     endif()
-    
+
     if(KCTSB_ENABLE_OPENSSL AND OPENSSL_FOUND)
         target_link_libraries(kctsb_cli PRIVATE OpenSSL::SSL OpenSSL::Crypto)
     endif()
-    
+
     message(STATUS "✓ CLI tool: kctsb.exe")
 endif()
 

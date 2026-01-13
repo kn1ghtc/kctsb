@@ -1,13 +1,13 @@
 /**
  * @file benchmark_ecc.cpp
  * @brief ECC Performance Benchmark: kctsb vs OpenSSL
- * 
+ *
  * Benchmarks elliptic curve operations:
  * - Key generation (secp256k1, secp256r1, secp384r1)
  * - ECDSA sign/verify operations
  * - ECDH key agreement
  * - Point multiplication
- * 
+ *
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
  * @license Apache License 2.0
  */
@@ -69,20 +69,20 @@ static const CurveConfig TEST_CURVES[] = {
  */
 static double benchmark_openssl_ec_keygen(int nid) {
     auto start = Clock::now();
-    
+
     EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_EC, nullptr);
     EVP_PKEY* pkey = nullptr;
-    
+
     EVP_PKEY_keygen_init(ctx);
     EVP_PKEY_CTX_set_ec_paramgen_curve_nid(ctx, nid);
     EVP_PKEY_keygen(ctx, &pkey);
-    
+
     auto end = Clock::now();
     Duration elapsed = end - start;
-    
+
     EVP_PKEY_free(pkey);
     EVP_PKEY_CTX_free(ctx);
-    
+
     return elapsed.count();
 }
 
@@ -92,19 +92,19 @@ static double benchmark_openssl_ec_keygen(int nid) {
 static double benchmark_openssl_ecdsa_sign(EVP_PKEY* pkey, const uint8_t* hash) {
     EVP_MD_CTX* md_ctx = EVP_MD_CTX_new();
     size_t sig_len = 0;
-    
+
     auto start = Clock::now();
-    
+
     EVP_DigestSignInit(md_ctx, nullptr, EVP_sha256(), nullptr, pkey);
     EVP_DigestSignUpdate(md_ctx, hash, HASH_SIZE);
     EVP_DigestSignFinal(md_ctx, nullptr, &sig_len);
-    
+
     std::vector<uint8_t> signature(sig_len);
     EVP_DigestSignFinal(md_ctx, signature.data(), &sig_len);
-    
+
     auto end = Clock::now();
     Duration elapsed = end - start;
-    
+
     EVP_MD_CTX_free(md_ctx);
     return elapsed.count();
 }
@@ -113,23 +113,23 @@ static double benchmark_openssl_ecdsa_sign(EVP_PKEY* pkey, const uint8_t* hash) 
  * @brief OpenSSL ECDSA verify benchmark
  */
 static double benchmark_openssl_ecdsa_verify(
-    EVP_PKEY* pkey, 
+    EVP_PKEY* pkey,
     const uint8_t* hash,
-    const uint8_t* sig, 
+    const uint8_t* sig,
     size_t sig_len
 ) {
     EVP_MD_CTX* md_ctx = EVP_MD_CTX_new();
-    
+
     auto start = Clock::now();
-    
+
     EVP_DigestVerifyInit(md_ctx, nullptr, EVP_sha256(), nullptr, pkey);
     EVP_DigestVerifyUpdate(md_ctx, hash, HASH_SIZE);
     int ret = EVP_DigestVerifyFinal(md_ctx, sig, sig_len);
     (void)ret;  // Suppress unused warning
-    
+
     auto end = Clock::now();
     Duration elapsed = end - start;
-    
+
     EVP_MD_CTX_free(md_ctx);
     return elapsed.count();
 }
@@ -140,19 +140,19 @@ static double benchmark_openssl_ecdsa_verify(
 static double benchmark_openssl_ecdh(EVP_PKEY* priv_key, EVP_PKEY* peer_pub) {
     EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new(priv_key, nullptr);
     size_t secret_len = 0;
-    
+
     auto start = Clock::now();
-    
+
     EVP_PKEY_derive_init(ctx);
     EVP_PKEY_derive_set_peer(ctx, peer_pub);
     EVP_PKEY_derive(ctx, nullptr, &secret_len);
-    
+
     std::vector<uint8_t> secret(secret_len);
     EVP_PKEY_derive(ctx, secret.data(), &secret_len);
-    
+
     auto end = Clock::now();
     Duration elapsed = end - start;
-    
+
     EVP_PKEY_CTX_free(ctx);
     return elapsed.count();
 }
@@ -167,23 +167,23 @@ static void run_benchmark(
 ) {
     std::vector<double> times;
     times.reserve(BENCHMARK_ITERATIONS);
-    
+
     // Warmup
     for (size_t i = 0; i < WARMUP_ITERATIONS; ++i) {
         benchmark_func();
     }
-    
+
     // Benchmark
     for (size_t i = 0; i < BENCHMARK_ITERATIONS; ++i) {
         times.push_back(benchmark_func());
     }
-    
+
     // Calculate statistics
     double avg = std::accumulate(times.begin(), times.end(), 0.0) / times.size();
     double min_time = *std::min_element(times.begin(), times.end());
-    double max_time = *std::max_element(times.begin(), times.end());
+    (void)*std::max_element(times.begin(), times.end()); // max_time for future use
     double ops_per_sec = 1000.0 / avg;
-    
+
     std::cout << std::left << std::setw(30) << name
               << std::setw(12) << impl
               << std::right << std::fixed << std::setprecision(3)
@@ -215,14 +215,14 @@ void benchmark_ecc() {
     std::cout << "\n" << std::string(75, '=') << std::endl;
     std::cout << "  Elliptic Curve Cryptography (ECC) Benchmark" << std::endl;
     std::cout << std::string(75, '=') << std::endl;
-    
+
     // Generate test hash
     uint8_t hash[HASH_SIZE];
     generate_random(hash, HASH_SIZE);
-    
+
     for (const auto& curve : TEST_CURVES) {
         print_header(curve.name);
-        
+
         // ================================================================
         // Key Generation Benchmark
         // ================================================================
@@ -231,7 +231,7 @@ void benchmark_ecc() {
             "OpenSSL",
             [&]() { return benchmark_openssl_ec_keygen(curve.nid); }
         );
-        
+
         // Generate persistent key pair for sign/verify tests
         EVP_PKEY_CTX* keygen_ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_EC, nullptr);
         EVP_PKEY* pkey = nullptr;
@@ -239,7 +239,7 @@ void benchmark_ecc() {
         EVP_PKEY_CTX_set_ec_paramgen_curve_nid(keygen_ctx, curve.nid);
         EVP_PKEY_keygen(keygen_ctx, &pkey);
         EVP_PKEY_CTX_free(keygen_ctx);
-        
+
         // ================================================================
         // ECDSA Sign Benchmark
         // ================================================================
@@ -248,7 +248,7 @@ void benchmark_ecc() {
             "OpenSSL",
             [&]() { return benchmark_openssl_ecdsa_sign(pkey, hash); }
         );
-        
+
         // Generate a signature for verify benchmark
         EVP_MD_CTX* sign_ctx = EVP_MD_CTX_new();
         size_t sig_len = 0;
@@ -258,19 +258,19 @@ void benchmark_ecc() {
         std::vector<uint8_t> signature(sig_len);
         EVP_DigestSignFinal(sign_ctx, signature.data(), &sig_len);
         EVP_MD_CTX_free(sign_ctx);
-        
+
         // ================================================================
         // ECDSA Verify Benchmark
         // ================================================================
         run_benchmark(
             "ECDSA Verify",
             "OpenSSL",
-            [&]() { 
-                return benchmark_openssl_ecdsa_verify(pkey, hash, 
-                    signature.data(), sig_len); 
+            [&]() {
+                return benchmark_openssl_ecdsa_verify(pkey, hash,
+                    signature.data(), sig_len);
             }
         );
-        
+
         // ================================================================
         // ECDH Key Agreement Benchmark
         // ================================================================
@@ -281,20 +281,20 @@ void benchmark_ecc() {
         EVP_PKEY_CTX_set_ec_paramgen_curve_nid(peer_ctx, curve.nid);
         EVP_PKEY_keygen(peer_ctx, &peer_pkey);
         EVP_PKEY_CTX_free(peer_ctx);
-        
+
         run_benchmark(
             "ECDH Key Agreement",
             "OpenSSL",
             [&]() { return benchmark_openssl_ecdh(pkey, peer_pkey); }
         );
-        
+
         // Cleanup
         EVP_PKEY_free(pkey);
         EVP_PKEY_free(peer_pkey);
-        
+
         std::cout << std::endl;
     }
-    
+
     // Summary
     std::cout << "\n  Note: kctsb ECC implementation uses NTL backend.\n";
     std::cout << "  OpenSSL results shown as baseline reference.\n";

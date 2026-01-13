@@ -1,15 +1,15 @@
 /**
  * @file test_math.cpp
  * @brief Math utilities unit tests
- * 
+ *
  * Tests for mathematical operations including:
  * - Polynomial operations (when NTL is available)
  * - Linear algebra utilities
  * - Probability/statistics functions
  * - Big integer arithmetic
- * 
+ *
  * Note: Some tests require KCTSB_HAS_NTL to be defined (NTL library available).
- * 
+ *
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
  * @license Apache License 2.0
  */
@@ -54,10 +54,10 @@ TEST_F(MathTest, ModularExponentiation) {
         }
         return result;
     };
-    
-    EXPECT_EQ(mod_exp(2, 10, 1000), 24);
-    EXPECT_EQ(mod_exp(3, 5, 7), 5);  // 3^5 = 243 mod 7 = 5
-    EXPECT_EQ(mod_exp(7, 2, 13), 10); // 49 mod 13 = 10
+
+    EXPECT_EQ(mod_exp(2, 10, 1000), 24ULL);
+    EXPECT_EQ(mod_exp(3, 5, 7), 5ULL);  // 3^5 = 243 mod 7 = 5
+    EXPECT_EQ(mod_exp(7, 2, 13), 10ULL); // 49 mod 13 = 10
 }
 
 /**
@@ -72,7 +72,7 @@ TEST_F(MathTest, GCD) {
         }
         return a;
     };
-    
+
     EXPECT_EQ(gcd(48, 18), 6);
     EXPECT_EQ(gcd(101, 103), 1);  // Coprime
     EXPECT_EQ(gcd(100, 25), 25);
@@ -83,7 +83,7 @@ TEST_F(MathTest, GCD) {
  * @brief Test Extended GCD
  */
 TEST_F(MathTest, ExtendedGCD) {
-    std::function<int64_t(int64_t, int64_t, int64_t&, int64_t&)> extended_gcd = 
+    std::function<int64_t(int64_t, int64_t, int64_t&, int64_t&)> extended_gcd =
         [&extended_gcd](int64_t a, int64_t b, int64_t& x, int64_t& y) -> int64_t {
         if (b == 0) {
             x = 1;
@@ -96,10 +96,10 @@ TEST_F(MathTest, ExtendedGCD) {
         y = x1 - (a / b) * y1;
         return d;
     };
-    
+
     int64_t x, y;
     int64_t d = extended_gcd(35, 15, x, y);
-    
+
     EXPECT_EQ(d, 5);
     EXPECT_EQ(35 * x + 15 * y, d);  // Bezout's identity
 }
@@ -117,7 +117,7 @@ TEST_F(MathTest, IsPrime) {
         }
         return true;
     };
-    
+
     EXPECT_FALSE(is_prime(0));
     EXPECT_FALSE(is_prime(1));
     EXPECT_TRUE(is_prime(2));
@@ -148,10 +148,10 @@ TEST_F(MathTest, ModularInverse) {
         if (x1 < 0) x1 += m0;
         return x1;
     };
-    
+
     // 3 * 5 = 15 ≡ 1 (mod 7)
     EXPECT_EQ(mod_inverse(3, 7), 5);
-    
+
     // Verify: a * a^(-1) ≡ 1 (mod m)
     int64_t a = 17, m = 43;
     int64_t inv = mod_inverse(a, m);
@@ -169,15 +169,15 @@ TEST_F(MathTest, ModularInverse) {
  */
 TEST_F(MathTest, NTL_BigInteger) {
     NTL::ZZ a, b, c;
-    
+
     // Large number arithmetic
     a = NTL::conv<NTL::ZZ>("123456789012345678901234567890");
     b = NTL::conv<NTL::ZZ>("987654321098765432109876543210");
-    
+
     c = a + b;
     EXPECT_GT(c, a);
     EXPECT_GT(c, b);
-    
+
     c = a * b;
     EXPECT_EQ(c / a, b);
     EXPECT_EQ(c / b, a);
@@ -188,16 +188,16 @@ TEST_F(MathTest, NTL_BigInteger) {
  */
 TEST_F(MathTest, NTL_Polynomial) {
     NTL::ZZX f, g, h;
-    
+
     // f(x) = x^2 + 2x + 1 = (x+1)^2
     NTL::SetCoeff(f, 0, 1);  // constant term
     NTL::SetCoeff(f, 1, 2);  // x coefficient
     NTL::SetCoeff(f, 2, 1);  // x^2 coefficient
-    
+
     // g(x) = x + 1
     NTL::SetCoeff(g, 0, 1);
     NTL::SetCoeff(g, 1, 1);
-    
+
     // h = g * g should equal f
     h = g * g;
     EXPECT_EQ(f, h);
@@ -210,16 +210,16 @@ TEST_F(MathTest, NTL_Polynomial) {
 /*
 TEST_F(MathTest, NTL_PolynomialFactorization) {
     NTL::ZZX f;
-    
+
     // f(x) = x^2 - 1 = (x-1)(x+1)
     NTL::SetCoeff(f, 0, -1);
     NTL::SetCoeff(f, 2, 1);
-    
+
     // TODO: Fix NTL factorization API usage
     // NTL::vec_pair_ZZX_long factors;
     // NTL::ZZ c;
     // NTL::factor(c, factors, f);
-    
+
     // Should have 2 factors
     // EXPECT_EQ(factors.length(), 2);
 }
@@ -230,15 +230,15 @@ TEST_F(MathTest, NTL_PolynomialFactorization) {
  */
 TEST_F(MathTest, NTL_GF2Polynomial) {
     NTL::GF2X f, g, h;
-    
+
     // f(x) = x^3 + x + 1 (irreducible over GF(2), AES polynomial)
     NTL::SetCoeff(f, 0, 1);
     NTL::SetCoeff(f, 1, 1);
     NTL::SetCoeff(f, 3, 1);
-    
+
     // Test that it's non-zero
     EXPECT_NE(NTL::IsZero(f), 1);
-    
+
     // Test degree
     EXPECT_EQ(NTL::deg(f), 3);
 }
@@ -248,14 +248,14 @@ TEST_F(MathTest, NTL_GF2Polynomial) {
  */
 TEST_F(MathTest, NTL_MillerRabin) {
     NTL::ZZ n;
-    
+
     // Test with known primes
     n = 7919;  // 1000th prime
     EXPECT_NE(NTL::ProbPrime(n), 0);
-    
+
     n = 104729;  // 10000th prime
     EXPECT_NE(NTL::ProbPrime(n), 0);
-    
+
     // Test with composite
     n = 100;
     EXPECT_EQ(NTL::ProbPrime(n), 0);
@@ -282,11 +282,11 @@ TEST_F(MathTest, NTL_NotAvailable) {
  */
 TEST_F(MathTest, Statistics_Mean) {
     std::vector<double> data = {1.0, 2.0, 3.0, 4.0, 5.0};
-    
+
     double sum = 0;
     for (double x : data) sum += x;
     double mean = sum / data.size();
-    
+
     EXPECT_DOUBLE_EQ(mean, 3.0);
 }
 
@@ -295,17 +295,17 @@ TEST_F(MathTest, Statistics_Mean) {
  */
 TEST_F(MathTest, Statistics_Variance) {
     std::vector<double> data = {2.0, 4.0, 4.0, 4.0, 5.0, 5.0, 7.0, 9.0};
-    
+
     // Mean = 5
     double mean = 5.0;
-    
+
     // Variance = E[(X - μ)^2]
     double variance = 0;
     for (double x : data) {
         variance += (x - mean) * (x - mean);
     }
     variance /= data.size();
-    
+
     EXPECT_DOUBLE_EQ(variance, 4.0);
 }
 
@@ -315,6 +315,6 @@ TEST_F(MathTest, Statistics_Variance) {
 TEST_F(MathTest, Statistics_StdDev) {
     std::vector<double> data = {2.0, 4.0, 4.0, 4.0, 5.0, 5.0, 7.0, 9.0};
     double stddev = 2.0;  // sqrt(4.0)
-    
+
     EXPECT_DOUBLE_EQ(std::sqrt(4.0), stddev);
 }
