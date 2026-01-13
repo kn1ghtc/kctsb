@@ -66,23 +66,56 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release")
     endif()
 endif()
 
+# ============================================================================
+# Warning Flags and UTF-8 Encoding
+# ============================================================================
+
 # Platform detection
 if(WIN32)
     set(KCTSB_PLATFORM "windows")
     add_definitions(-DKCTSB_PLATFORM_WINDOWS -D_CRT_SECURE_NO_WARNINGS -DNOMINMAX -DWIN32_LEAN_AND_MEAN)
     if(MSVC)
-        add_compile_options(/W4 /utf-8)
+        # MSVC warning flags
+        add_compile_options(
+            /W4                     # Warning level 4
+            /utf-8                  # UTF-8 source and execution charset
+            /permissive-            # Standards conformance
+        )
+        # Treat specific warnings as errors
+        add_compile_options(/we4715)  # Not all control paths return a value
     else()
-        add_compile_options(-Wall -Wextra -Wpedantic)
+        # MinGW/GCC on Windows
+        add_compile_options(
+            -Wall -Wextra -Wpedantic
+            -Werror=return-type
+            -Werror=uninitialized
+            -Wno-unused-parameter      # Allow unused params in interface functions
+            -finput-charset=UTF-8      # Input encoding
+            -fexec-charset=UTF-8       # Output encoding
+        )
     endif()
 elseif(APPLE)
     set(KCTSB_PLATFORM "macos")
     add_definitions(-DKCTSB_PLATFORM_MACOS)
-    add_compile_options(-Wall -Wextra -Wpedantic)
+    add_compile_options(
+        -Wall -Wextra -Wpedantic
+        -Werror=return-type
+        -Werror=uninitialized
+        -Wno-unused-parameter
+        -finput-charset=UTF-8
+        -fexec-charset=UTF-8
+    )
 elseif(UNIX)
     set(KCTSB_PLATFORM "linux")
     add_definitions(-DKCTSB_PLATFORM_LINUX)
-    add_compile_options(-Wall -Wextra -Wpedantic)
+    add_compile_options(
+        -Wall -Wextra -Wpedantic
+        -Werror=return-type
+        -Werror=uninitialized
+        -Wno-unused-parameter
+        -finput-charset=UTF-8
+        -fexec-charset=UTF-8
+    )
 endif()
 
 # ============================================================================
