@@ -71,9 +71,13 @@ set_target_properties(kctsb_benchmark PROPERTIES
 
 # Compiler flags for performance
 if(MSVC)
-    target_compile_options(kctsb_benchmark PRIVATE /O2 /fp:fast)
+    target_compile_options(kctsb_benchmark PRIVATE /O2 /fp:fast /utf-8)
 else()
-    target_compile_options(kctsb_benchmark PRIVATE -O3 -march=native)
+    target_compile_options(kctsb_benchmark PRIVATE 
+        -O3 -march=native
+        -finput-charset=UTF-8
+        -fexec-charset=UTF-8
+    )
 endif()
 
 message(STATUS "Benchmarks configured: kctsb vs OpenSSL comparison")
