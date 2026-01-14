@@ -70,9 +70,7 @@
                 "${workspaceFolder}/build/_deps/*/include",
                 "/usr/local/opt/openssl@3/include",
                 "/usr/local/include",
-                "/usr/local/share/vcpkg/installed/arm64-osx/include",
-                "/opt/homebrew/include",
-                "/opt/homebrew/opt/openssl@3/include",
+                "/usr/local/share/vcpkg/installed/x64-osx/include",
                 "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include"
             ],
             "defines": [
@@ -83,13 +81,18 @@
                 "KCTSB_HAS_SEAL",
                 "KCTSB_HAS_HELIB",
                 "KCTSB_HAS_ZLIB",
-                "KCTSB_BENCHMARK_HAS_OPENSSL"
+                "KCTSB_BENCHMARK_HAS_OPENSSL",
+                "KCTSB_HAS_AES_GCM",
+                "KCTSB_HAS_CHACHA20_POLY1305",
+                "KCTSB_HAS_SHA3",
+                "KCTSB_HAS_BLAKE2"
             ],
             "compilerPath": "/usr/bin/clang",
             "cStandard": "c17",
             "cppStandard": "c++17",
             "intelliSenseMode": "macos-clang-arm64",
-            "compileCommands": "${workspaceFolder}/build/compile_commands.json"
+            "compileCommands": "${workspaceFolder}/build/compile_commands.json",
+            "configurationProvider": "ms-vscode.cmake-tools"
         }
     ],
     "version": 4
