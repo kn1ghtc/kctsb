@@ -18,6 +18,7 @@
 
 #include "kctsb/crypto/ecc/ecdsa.h"
 #include "kctsb/crypto/sha.h"  // For HMAC-SHA256
+#include <array>
 #include <cstring>
 #include <stdexcept>
 #include <random>
@@ -481,61 +482,63 @@ ZZ ECDSA::generate_k_rfc6979(const ZZ& e, const ZZ& private_key) const {
 void ECDSA::hmac_drbg(const uint8_t* key, size_t key_len,
                       const uint8_t* data, size_t data_len,
                       uint8_t* output, size_t output_len) const {
-    // Simple HMAC-SHA256 implementation
-    // For production, use a proper crypto library
-
+    // RFC 2104 HMAC-SHA256 implementation
     const size_t block_size = 64;
     const size_t hash_size = 32;
 
-    std::vector<uint8_t> k_padded(block_size);
+    std::array<uint8_t, block_size> k_block{};
 
-    // If key is longer than block size, hash it first
     if (key_len > block_size) {
-        // Use SHA-256 to hash the key (simplified)
-        std::memcpy(k_padded.data(), key, std::min(key_len, block_size));
+        // Hash long keys to block size
+        kctsb_sha256(key, key_len, k_block.data());
     } else {
-        std::memcpy(k_padded.data(), key, key_len);
+        std::memcpy(k_block.data(), key, key_len);
     }
 
-    // XOR key with ipad (0x36)
-    std::vector<uint8_t> i_key_pad(block_size);
+    std::array<uint8_t, block_size> ipad{};
+    std::array<uint8_t, block_size> opad{};
     for (size_t i = 0; i < block_size; ++i) {
-        i_key_pad[i] = k_padded[i] ^ 0x36;
+        ipad[i] = static_cast<uint8_t>(k_block[i] ^ 0x36);
+        opad[i] = static_cast<uint8_t>(k_block[i] ^ 0x5c);
     }
 
-    // XOR key with opad (0x5c)
-    std::vector<uint8_t> o_key_pad(block_size);
-    for (size_t i = 0; i < block_size; ++i) {
-        o_key_pad[i] = k_padded[i] ^ 0x5c;
-    }
+    auto hmac_once = [&](const uint8_t* msg, size_t msg_len, uint8_t out[hash_size]) {
+        kctsb_sha256_ctx_t ctx;
 
-    // Compute inner hash: SHA256(i_key_pad || data)
-    std::vector<uint8_t> inner_msg(block_size + data_len);
-    std::memcpy(inner_msg.data(), i_key_pad.data(), block_size);
-    std::memcpy(inner_msg.data() + block_size, data, data_len);
+        kctsb_sha256_init(&ctx);
+        kctsb_sha256_update(&ctx, ipad.data(), ipad.size());
+        if (msg_len > 0) {
+            kctsb_sha256_update(&ctx, msg, msg_len);
+        }
+        uint8_t inner[hash_size];
+        kctsb_sha256_final(&ctx, inner);
 
-    // For now, use a simplified hash (in production, use proper SHA-256)
-    // This is a placeholder - the actual implementation would call kctsb::hash::sha256
-    uint8_t inner_hash[32];
+        kctsb_sha256_init(&ctx);
+        kctsb_sha256_update(&ctx, opad.data(), opad.size());
+        kctsb_sha256_update(&ctx, inner, sizeof(inner));
+        kctsb_sha256_final(&ctx, out);
+    };
 
-    // Simplified hash (XOR-based, NOT cryptographically secure)
-    // In production, replace with: kctsb::hash::sha256(inner_msg.data(), inner_msg.size(), inner_hash);
-    std::memset(inner_hash, 0, 32);
-    for (size_t i = 0; i < inner_msg.size(); ++i) {
-        inner_hash[i % 32] ^= inner_msg[i];
-        inner_hash[(i + 17) % 32] ^= inner_msg[i] << 3;
-    }
+    size_t generated = 0;
+    uint32_t counter = 0;
+    while (generated < output_len) {
+        std::vector<uint8_t> msg;
+        msg.reserve(data_len + sizeof(counter));
+        msg.insert(msg.end(), data, data + data_len);
+        uint32_t be_counter = ((counter & 0xFF000000u) >> 24) |
+                      ((counter & 0x00FF0000u) >> 8)  |
+                      ((counter & 0x0000FF00u) << 8)  |
+                      ((counter & 0x000000FFu) << 24);
+        msg.insert(msg.end(), reinterpret_cast<uint8_t*>(&be_counter),
+               reinterpret_cast<uint8_t*>(&be_counter) + sizeof(be_counter));
 
-    // Compute outer hash: SHA256(o_key_pad || inner_hash)
-    std::vector<uint8_t> outer_msg(block_size + hash_size);
-    std::memcpy(outer_msg.data(), o_key_pad.data(), block_size);
-    std::memcpy(outer_msg.data() + block_size, inner_hash, hash_size);
+        uint8_t block[hash_size];
+        hmac_once(msg.data(), msg.size(), block);
 
-    // Simplified outer hash
-    std::memset(output, 0, output_len);
-    for (size_t i = 0; i < outer_msg.size(); ++i) {
-        output[i % output_len] ^= outer_msg[i];
-        output[(i + 13) % output_len] ^= outer_msg[i] << 5;
+        size_t to_copy = std::min(hash_size, output_len - generated);
+        std::memcpy(output + generated, block, to_copy);
+        generated += to_copy;
+        ++counter;
     }
 }
 

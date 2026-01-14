@@ -26,6 +26,13 @@ from pathlib import Path
 from typing import Dict, List, Tuple, Any
 import matplotlib.pyplot as plt
 import pandas as pd
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
 
 class SecureComputationDemo:
     """Comprehensive demo for all secure computation protocols"""
@@ -38,18 +45,18 @@ class SecureComputationDemo:
             'piano_psi': self.base_dir / 'build' / 'Release' / 'Release' / 'piano_psi.exe'
         }
         
-        print("🔐 Secure Computation Demo Suite Initialized")
-        print("=" * 60)
-        print(f"Base directory: {self.base_dir}")
+        logger.info("🔐 Secure Computation Demo Suite Initialized")
+        logger.info("=" * 60)
+        logger.info("Base directory: %s", self.base_dir)
         for name, path in self.executables.items():
             status = "✅ Available" if path.exists() else "❌ Missing"
-            print(f"{name.upper()}: {status}")
-        print("=" * 60)
+            logger.info("%s: %s", name.upper(), status)
+        logger.info("=" * 60)
     
     def run_apsi_psi_demo(self, client_size: int = 50, server_size: int = 75) -> Dict[str, Any]:
         """Run Microsoft APSI PSI demo"""
-        print(f"\n🔧 Running APSI-PSI Demo ({client_size}×{server_size})")
-        print("-" * 50)
+        logger.info("🔧 Running APSI-PSI Demo (%d×%d)", client_size, server_size)
+        logger.info("-" * 50)
         
         if not self.executables['apsi_psi'].exists():
             return {"error": "APSI executable not found"}
@@ -106,8 +113,8 @@ class SecureComputationDemo:
     
     def run_seal_pir_demo(self, db_size: int = 100, query_index: int = 42) -> Dict[str, Any]:
         """Run Microsoft SEAL PIR demo"""
-        print(f"\n🔐 Running SEAL-PIR Demo (DB size: {db_size}, Query: {query_index})")
-        print("-" * 50)
+        logger.info("🔐 Running SEAL-PIR Demo (DB size: %d, Query: %d)", db_size, query_index)
+        logger.info("-" * 50)
         
         if not self.executables['seal_pir'].exists():
             return {"error": "SEAL-PIR executable not found"}
@@ -168,8 +175,8 @@ class SecureComputationDemo:
     
     def run_piano_psi_demo(self, client_size: int = 50, server_size: int = 75) -> Dict[str, Any]:
         """Run Piano-PSI demo"""
-        print(f"\n🎹 Running Piano-PSI Demo ({client_size}×{server_size})")
-        print("-" * 50)
+        logger.info("🎹 Running Piano-PSI Demo (%d×%d)", client_size, server_size)
+        logger.info("-" * 50)
         
         if not self.executables['piano_psi'].exists():
             return {"error": "Piano-PSI executable not found"}
@@ -220,8 +227,8 @@ class SecureComputationDemo:
     
     def comprehensive_benchmark(self) -> Dict[str, Any]:
         """Run comprehensive benchmark across all protocols"""
-        print("\n📊 COMPREHENSIVE SECURE COMPUTATION BENCHMARK")
-        print("=" * 60)
+        logger.info("📊 COMPREHENSIVE SECURE COMPUTATION BENCHMARK")
+        logger.info("=" * 60)
         
         test_sizes = [(50, 75), (100, 150), (200, 300)]
         results = {
@@ -232,7 +239,7 @@ class SecureComputationDemo:
         
         for client_size, server_size in test_sizes:
             size_key = f"{client_size}x{server_size}"
-            print(f"\nTesting {size_key} sets...")
+            logger.info("Testing %s sets...", size_key)
             
             # APSI PSI
             apsi_result = self.run_apsi_psi_demo(client_size, server_size)
@@ -394,49 +401,49 @@ class SecureComputationDemo:
         with open(output_path, 'w', encoding='utf-8') as f:
             f.write(html_content)
         
-        print(f"\n📄 HTML report saved: {output_path}")
+        logger.info("📄 HTML report saved: %s", output_path)
         return output_path
 
 def main():
     """Main demo function"""
     demo = SecureComputationDemo()
     
-    print("\n🚀 Starting Comprehensive Secure Computation Demo")
-    print("This demo showcases production-ready cryptographic protocols")
-    print("with real security guarantees and performance validation.")
+    logger.info("🚀 Starting Comprehensive Secure Computation Demo")
+    logger.info("This demo showcases production-ready cryptographic protocols")
+    logger.info("with real security guarantees and performance validation.")
     
     # Run individual demos
-    print("\n" + "="*60)
-    print("INDIVIDUAL PROTOCOL DEMONSTRATIONS")
-    print("="*60)
+    logger.info("=" * 60)
+    logger.info("INDIVIDUAL PROTOCOL DEMONSTRATIONS")
+    logger.info("=" * 60)
     
     # APSI PSI Demo
     apsi_result = demo.run_apsi_psi_demo(50, 75)
     if apsi_result.get("success"):
-        print("✅ APSI-PSI Demo: SUCCESS")
+        logger.info("✅ APSI-PSI Demo: SUCCESS")
     else:
-        print(f"❌ APSI-PSI Demo: {apsi_result.get('error', 'Failed')}")
+        logger.error("❌ APSI-PSI Demo: %s", apsi_result.get('error', 'Failed'))
     
     # SEAL PIR Demo  
     pir_result = demo.run_seal_pir_demo(100, 42)
     if pir_result.get("success"):
-        print("✅ SEAL-PIR Demo: SUCCESS")
+        logger.info("✅ SEAL-PIR Demo: SUCCESS")
         if "query_time_ms" in pir_result:
-            print(f"   Query time: {pir_result['query_time_ms']:.2f} ms")
+            logger.info("   Query time: %.2f ms", pir_result['query_time_ms'])
     else:
-        print(f"❌ SEAL-PIR Demo: {pir_result.get('error', 'Failed')}")
+        logger.error("❌ SEAL-PIR Demo: %s", pir_result.get('error', 'Failed'))
     
     # Piano PSI Demo (may have Cuckoo hashing issues)
     piano_result = demo.run_piano_psi_demo(30, 40)  # Smaller sizes to avoid hash issues
     if piano_result.get("success"):
-        print("✅ Piano-PSI Demo: SUCCESS")
+        logger.info("✅ Piano-PSI Demo: SUCCESS")
     else:
-        print(f"⚠️ Piano-PSI Demo: {piano_result.get('error', 'Failed')} (Note: Cuckoo hashing needs tuning)")
+        logger.warning("⚠️ Piano-PSI Demo: %s (Note: Cuckoo hashing needs tuning)", piano_result.get('error', 'Failed'))
     
     # Comprehensive Benchmark
-    print("\n" + "="*60)
-    print("COMPREHENSIVE BENCHMARK")
-    print("="*60)
+    logger.info("=" * 60)
+    logger.info("COMPREHENSIVE BENCHMARK")
+    logger.info("=" * 60)
     
     benchmark_results = demo.comprehensive_benchmark()
     
@@ -444,22 +451,22 @@ def main():
     report_path = demo.generate_html_report(benchmark_results)
     
     # Final Summary
-    print("\n" + "="*60)
-    print("DEMO COMPLETE - SUMMARY")
-    print("="*60)
+    logger.info("=" * 60)
+    logger.info("DEMO COMPLETE - SUMMARY")
+    logger.info("=" * 60)
     
     protocols_tested = len(benchmark_results.get("protocols", {}))
     successful_protocols = sum(1 for p in benchmark_results.get("protocols", {}).values() if p.get("success", False))
     
-    print(f"📊 Protocols tested: {protocols_tested}")
-    print(f"✅ Successful runs: {successful_protocols}")
-    print(f"📄 Report generated: {report_path}")
-    print(f"🔐 Security level: Post-quantum (128-bit)")
-    print(f"⚡ Best PIR time: ~27ms (SEAL-PIR)")
-    print(f"🎯 Production ready: YES")
+    logger.info("📊 Protocols tested: %d", protocols_tested)
+    logger.info("✅ Successful runs: %d", successful_protocols)
+    logger.info("📄 Report generated: %s", report_path)
+    logger.info("🔐 Security level: Post-quantum (128-bit)")
+    logger.info("⚡ Best PIR time: ~27ms (SEAL-PIR)")
+    logger.info("🎯 Production ready: YES")
     
-    print("\n🎉 Secure Computation Demo Suite Complete!")
-    print("All protocols successfully demonstrate real cryptographic capabilities.")
+    logger.info("🎉 Secure Computation Demo Suite Complete!")
+    logger.info("All protocols successfully demonstrate real cryptographic capabilities.")
 
 if __name__ == "__main__":
     main()

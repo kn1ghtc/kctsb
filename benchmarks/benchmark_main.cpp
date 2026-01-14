@@ -28,11 +28,7 @@
 #include <algorithm>
 #include <numeric>
 #include "kctsb/kctsb.h"
-
-// Platform-specific headers for UTF-8 console support
-#ifdef _WIN32
-#include <windows.h>
-#endif
+#include "kctsb/utils/console.h"
 
 // OpenSSL headers
 #include <openssl/evp.h>
@@ -197,12 +193,8 @@ extern "C" int benchmark_main_entry() {
  * @brief Main benchmark entry point (standalone mode)
  */
 int main(int argc, char* argv[]) {
-#ifdef _WIN32
-    /* Fix Windows console UTF-8 encoding for Chinese characters */
-    SetConsoleOutputCP(CP_UTF8);
-    SetConsoleCP(CP_UTF8);
-#endif
-    
+    kctsb::utils::enable_utf8_console();
+
     (void)argc;  /* Unused parameter */
     (void)argv;  /* Unused parameter */
     

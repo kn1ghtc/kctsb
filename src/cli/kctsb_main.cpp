@@ -32,6 +32,7 @@
 
 // kctsb core headers - kctsb.h includes all crypto headers
 #include "kctsb/kctsb.h"
+#include "kctsb/utils/console.h"
 
 // Subcommand handlers (forward declarations)
 int cmd_aes(int argc, char* argv[]);
@@ -113,6 +114,8 @@ void cmd_help() {
  * @brief Main entry point
  */
 int main(int argc, char* argv[]) {
+    kctsb::utils::enable_utf8_console();
+
     // No arguments - print help
     if (argc < 2) {
         print_usage();

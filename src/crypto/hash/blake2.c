@@ -25,14 +25,7 @@
 typedef kctsb_blake2b_ctx_t blake2b_ctx_t;
 
 /* BLAKE2s internal context */
-typedef struct {
-    uint32_t h[8];
-    uint32_t t[2];
-    uint32_t f[2];
-    uint8_t buf[64];
-    size_t buflen;
-    size_t outlen;
-} blake2s_ctx_t;
+typedef kctsb_blake2s_ctx_t blake2s_ctx_t;
 
 /* Forward declarations for functions called before definition */
 static int kctsb_blake2b_update_internal(blake2b_ctx_t *ctx, const void *in, size_t inlen);
@@ -418,4 +411,20 @@ void kctsb_blake2b(const uint8_t* data, size_t len, uint8_t* out, size_t outlen)
 int kctsb_blake2b_init_key_extended(kctsb_blake2b_ctx_t *ctx, size_t outlen, 
                                      const void *key, size_t keylen) {
     return kctsb_blake2b_init_key_internal(ctx, outlen, key, keylen);
+}
+
+void kctsb_blake2s_init(kctsb_blake2s_ctx_t* ctx, size_t outlen) {
+    (void)kctsb_blake2s_init_internal(ctx, outlen);
+}
+
+void kctsb_blake2s_update(kctsb_blake2s_ctx_t* ctx, const uint8_t* data, size_t len) {
+    (void)kctsb_blake2s_update_internal(ctx, data, len);
+}
+
+void kctsb_blake2s_final(kctsb_blake2s_ctx_t* ctx, uint8_t* out) {
+    (void)kctsb_blake2s_final_internal(ctx, out, ctx->outlen);
+}
+
+void kctsb_blake2s(const uint8_t* data, size_t len, uint8_t* out, size_t outlen) {
+    (void)kctsb_blake2s_internal(out, outlen, data, len, NULL, 0);
 }

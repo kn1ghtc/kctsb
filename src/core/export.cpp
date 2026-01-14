@@ -13,7 +13,9 @@
 #ifdef KCTSB_PLATFORM_WINDOWS
     #include <windows.h>
     #include <bcrypt.h>
-    #pragma comment(lib, "bcrypt.lib")
+    #ifdef _MSC_VER
+        #pragma comment(lib, "bcrypt.lib")
+    #endif
 #else
     #include <fcntl.h>
     #include <unistd.h>

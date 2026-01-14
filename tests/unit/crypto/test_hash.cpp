@@ -237,6 +237,45 @@ TEST_F(HashTest, BLAKE2b_Stream_Empty) {
 }
 
 // ============================================================================
+// BLAKE2s Tests (public API)
+// ============================================================================
+
+/**
+ * @brief Test BLAKE2s-256 empty input using public stream API
+ */
+TEST_F(HashTest, BLAKE2s_Empty) {
+    kctsb_blake2s_ctx_t ctx;
+    uint8_t output[32];
+
+    kctsb_blake2s_init(&ctx, 32);
+    kctsb_blake2s_final(&ctx, output);
+
+    const char* expected_hex =
+        "69217a3079908094e11121d042354a7c"
+        "1f55b6482ca1a51e1b250dfd1ed0eef9";
+
+    std::string result_hex = bytes_to_hex(output, 32);
+    EXPECT_EQ(result_hex, expected_hex);
+}
+
+/**
+ * @brief Test BLAKE2s-256 with "abc" using one-shot API
+ */
+TEST_F(HashTest, BLAKE2s_ABC) {
+    uint8_t output[32];
+    const uint8_t input[] = "abc";
+
+    kctsb_blake2s(input, 3, output, 32);
+
+    const char* expected_hex =
+        "508c5e8c327c14e2e1a72ba34eeb452f"
+        "37458b209ed63a294d999b4c86675982";
+
+    std::string result_hex = bytes_to_hex(output, 32);
+    EXPECT_EQ(result_hex, expected_hex);
+}
+
+// ============================================================================
 // Hash Consistency Tests
 // ============================================================================
 

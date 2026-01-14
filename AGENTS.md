@@ -154,6 +154,17 @@ kctsb/
    - ✅ OpenSSL: 性能对比测试
    - ✅ zlib/zstd: 压缩benchmark
 
+### Windows 工具链与构建策略 (2026-01-14)
+- **首选工具链**: `C:\msys64\mingw64` 下的 gcc/g++；`scripts/build.ps1` 已默认设置 `CC/CXX` 和 `-DCMAKE_C_COMPILER/-DCMAKE_CXX_COMPILER` 指向该路径。
+- **禁止优先使用 Strawberry Perl 工具链**: 若 PATH 中存在 `C:\Strawberry\c\bin`，需主动切换至 MSYS2；仅在 MSYS2 缺失且确认风险时才退回。
+- **VCPKG 使用原则**: 默认不启用；仅在 `-Benchmark` 且显式传入 `-UseVcpkg` 后才加载 `$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake`。优先从 thirdparty/ 及源码构建。
+- **三方库独立脚本**: 每个依赖使用 scripts/ 下独立 build 脚本（例如 `build_helib.ps1`、`build_ntl.ps1`），保持 build/ 和 thirdparty/ 的分离与可复现。
+- **HElib 为默认开启的必选项**: `KCTSB_ENABLE_HELIB=ON` 并在缺失时终止配置，按脚本编译后放置于 thirdparty/include|lib。
+
+### 算法文件布局与共享工具
+- 单一算法尽量使用单个 C/C++ 翻译单元实现；共用逻辑抽取到 `src/utils/`，并在 `include/kctsb/utils/` 暴露对应头文件。
+- 统一使用 `kctsb::utils::enable_utf8_console()` / `kctsb_enable_utf8_console()` 处理 CLI、benchmark 等可执行程序的 UTF-8 输出，避免中文/框线字符乱码及重定向问题。
+
 ### 代码语言政策
 
 - **src/目录**: 所有注释和变量名必须使用**英文**

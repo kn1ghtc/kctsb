@@ -14,6 +14,7 @@ param(
     [int]$Jobs = 0,
     [switch]$All,
     [switch]$NoVcpkg,
+    [switch]$UseVcpkg,
     [string]$Generator
 )
 
@@ -70,7 +71,8 @@ try {
         "..",
         "-DCMAKE_BUILD_TYPE=$BuildType",
         "-DKCTSB_BUILD_TESTS=ON",
-        "-DKCTSB_BUILD_EXAMPLES=ON"
+        "-DKCTSB_BUILD_EXAMPLES=ON",
+        "-DKCTSB_ENABLE_HELIB=ON"
     )
 
     if ($Benchmark) {
@@ -96,13 +98,37 @@ try {
         Write-Host "  Using generator: $selectedGenerator" -ForegroundColor Green
     }
 
-    # Auto-add VCPKG toolchain when available (needed for OpenSSL benchmarks)
-    if (-not $NoVcpkg -and $env:VCPKG_ROOT) {
+    # Prefer MSYS2 MinGW toolchain over Strawberry Perl toolchain
+    $msysGcc = "C:\\msys64\\mingw64\\bin\\gcc.exe"
+    $msysGxx = "C:\\msys64\\mingw64\\bin\\g++.exe"
+    if ((Test-Path $msysGcc) -and (Test-Path $msysGxx)) {
+        $CMakeArgs += "-DCMAKE_C_COMPILER=$msysGcc"
+        $CMakeArgs += "-DCMAKE_CXX_COMPILER=$msysGxx"
+        $env:CC = $msysGcc
+        $env:CXX = $msysGxx
+        if (-not ($env:PATH -like "C:\\msys64\\mingw64\\bin*")) {
+            $env:PATH = "C:\\msys64\\mingw64\\bin;C:\\msys64\\usr\\bin;" + $env:PATH
+        }
+        Write-Host "  Using MSYS2 MinGW64 toolchain: $msysGcc" -ForegroundColor Green
+    } else {
+        Write-Warning "MSYS2 MinGW64 toolchain not found at C:\\msys64\\mingw64\\bin; falling back to environment compilers"
+        if ($env:PATH -match "Strawberry") {
+            Write-Warning "Strawberry toolchain detected in PATH; prefer MSYS2 for consistency."
+        }
+    }
+
+    # Auto-add VCPKG toolchain only when explicitly requested and benchmarking
+    $enableVcpkg = $Benchmark -and (-not $NoVcpkg) -and $UseVcpkg -and $env:VCPKG_ROOT
+    if ($enableVcpkg) {
         $toolchain = Join-Path $env:VCPKG_ROOT "scripts\buildsystems\vcpkg.cmake"
         if (Test-Path $toolchain) {
             $CMakeArgs += "-DCMAKE_TOOLCHAIN_FILE=$toolchain"
-            Write-Host "  Using VCPKG toolchain: $toolchain" -ForegroundColor Green
+            Write-Host "  Using VCPKG toolchain (explicitly enabled): $toolchain" -ForegroundColor Green
+        } else {
+            Write-Warning "VCPKG toolchain requested but not found; proceeding without it."
         }
+    } else {
+        Write-Host "  Skipping VCPKG toolchain (Use -UseVcpkg with -Benchmark after MSYS2/thirdparty attempts)." -ForegroundColor Yellow
     }
 
     cmake @CMakeArgs
@@ -161,12 +187,12 @@ finally {
 $elapsed = Get-Date -Date $startTime
 $duration = New-TimeSpan -Start $startTime -End (Get-Date)
 
-Write-Host "" 
+Write-Host ""
 Write-Host "============================================" -ForegroundColor Cyan
 Write-Host "   Build completed successfully!" -ForegroundColor Green
 Write-Host "============================================" -ForegroundColor Cyan
-Write-Host "" 
-Write-Host "Elapsed:      {0:00}m {1:00}s" -f $duration.Minutes, $duration.Seconds
-Write-Host "Build outputs: $BuildDir" 
+Write-Host ""
+Write-Host ("Elapsed:      {0:00}m {1:00}s" -f $duration.Minutes, $duration.Seconds)
+Write-Host "Build outputs: $BuildDir"
 Write-Host "  Libraries:   $BuildDir\lib"
 Write-Host "  Binaries:    $BuildDir\bin"

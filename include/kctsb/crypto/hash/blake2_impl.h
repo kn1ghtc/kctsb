@@ -36,18 +36,7 @@ extern "C" {
 
 /* Type aliases for compatibility */
 typedef kctsb_blake2b_ctx_t blake2b_ctx_t;
-
-/**
- * @brief BLAKE2s context structure (internal use only)
- */
-typedef struct {
-    uint32_t h[8];                      /**< State */
-    uint32_t t[2];                      /**< Counter */
-    uint32_t f[2];                      /**< Finalization flags */
-    uint8_t  buf[BLAKE2S_BLOCKBYTES];   /**< Buffer */
-    size_t   buflen;                    /**< Buffer length */
-    size_t   outlen;                    /**< Output length */
-} blake2s_ctx_t;
+typedef kctsb_blake2s_ctx_t blake2s_ctx_t;
 
 /* Extended keyed initialization - requires internal implementation */
 KCTSB_API int kctsb_blake2b_init_key_extended(kctsb_blake2b_ctx_t *ctx, size_t outlen, 
@@ -87,13 +76,32 @@ static inline int blake2b(void *out, size_t outlen, const void *in, size_t inlen
 }
 
 /* ============================================================================
- * BLAKE2s API declarations (not yet implemented in public API)
- * These currently link to SEAL library's implementation
+ * BLAKE2s API wrappers (public implementation)
  * ============================================================================ */
 
-/* Note: BLAKE2s functions are not yet wrapped. Tests using blake2s_* 
- * will link against SEAL's implementation, which may have different behavior.
- * TODO: Add kctsb_blake2s_* API if BLAKE2s support is needed. */
+static inline int blake2s_init(blake2s_ctx_t *ctx, size_t outlen) {
+    kctsb_blake2s_init(ctx, outlen);
+    return 0;
+}
+
+static inline int blake2s_update(blake2s_ctx_t *ctx, const void *in, size_t inlen) {
+    kctsb_blake2s_update(ctx, (const uint8_t*)in, inlen);
+    return 0;
+}
+
+static inline int blake2s_final(blake2s_ctx_t *ctx, void *out, size_t outlen) {
+    (void)outlen;
+    kctsb_blake2s_final(ctx, (uint8_t*)out);
+    return 0;
+}
+
+static inline int blake2s(void *out, size_t outlen, const void *in, size_t inlen,
+                          const void *key, size_t keylen) {
+    (void)key;
+    (void)keylen;
+    kctsb_blake2s((const uint8_t*)in, inlen, (uint8_t*)out, outlen);
+    return 0;
+}
 
 #ifdef __cplusplus
 }

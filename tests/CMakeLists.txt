@@ -9,10 +9,30 @@ if(NOT GTest_FOUND)
     message(STATUS "System GoogleTest not found, using FetchContent")
     include(FetchContent)
 
+    set(_kctsb_gtest_repo "https://github.com/google/googletest.git")
+    if(DEFINED ENV{KCTSB_GTEST_MIRROR} AND NOT "$ENV{KCTSB_GTEST_MIRROR}" STREQUAL "")
+        set(_kctsb_gtest_repo "$ENV{KCTSB_GTEST_MIRROR}")
+        message(STATUS "Using GoogleTest mirror: ${_kctsb_gtest_repo}")
+    endif()
+
+    set(_kctsb_gtest_local "")
+    if(EXISTS "${CMAKE_SOURCE_DIR}/thirdparty/googletest/CMakeLists.txt")
+        set(_kctsb_gtest_local "${CMAKE_SOURCE_DIR}/thirdparty/googletest")
+    elseif(DEFINED ENV{KCTSB_GTEST_SOURCE_DIR} AND EXISTS "$ENV{KCTSB_GTEST_SOURCE_DIR}/CMakeLists.txt")
+        file(TO_CMAKE_PATH "$ENV{KCTSB_GTEST_SOURCE_DIR}" _kctsb_gtest_local)
+    endif()
+
+    if(_kctsb_gtest_local)
+        message(STATUS "Using local GoogleTest source: ${_kctsb_gtest_local}")
+        set(FETCHCONTENT_SOURCE_DIR_GOOGLETEST "${_kctsb_gtest_local}")
+        set(FETCHCONTENT_UPDATES_DISCONNECTED ON)
+    endif()
+
     FetchContent_Declare(
         googletest
-        GIT_REPOSITORY https://github.com/google/googletest.git
+        GIT_REPOSITORY ${_kctsb_gtest_repo}
         GIT_TAG v1.14.0
+        GIT_SHALLOW TRUE
     )
 
     # For Windows: Prevent overriding the parent project's compiler/linker settings

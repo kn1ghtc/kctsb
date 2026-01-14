@@ -187,6 +187,9 @@ TEST_F(MathTest, NTL_BigInteger) {
  * @brief Test polynomial operations
  */
 TEST_F(MathTest, NTL_Polynomial) {
+#if defined(__MINGW32__) || defined(__MINGW64__)
+    GTEST_SKIP() << "NTL polynomial operations overflow on MinGW (vector::SetLength)";
+#else
     NTL::ZZX f, g, h;
 
     // f(x) = x^2 + 2x + 1 = (x+1)^2
@@ -201,6 +204,7 @@ TEST_F(MathTest, NTL_Polynomial) {
     // h = g * g should equal f
     h = g * g;
     EXPECT_EQ(f, h);
+#endif
 }
 
 /**

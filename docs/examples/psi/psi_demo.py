@@ -316,10 +316,10 @@ def run_cli_demo() -> None:
         cli_path = project_root / "build" / "bin" / "kctsb"
     
     if not cli_path.exists():
-        logger.warning(f"CLI tool not found at {cli_path}")
+        logger.warning("CLI tool not found at %s", cli_path)
         return
     
-    logger.info(f"Running CLI tool: {cli_path}")
+    logger.info("Running CLI tool: %s", cli_path)
     
     # Run version command
     result = subprocess.run(
@@ -327,60 +327,52 @@ def run_cli_demo() -> None:
         capture_output=True,
         text=True
     )
-    print(result.stdout)
+    logger.info(result.stdout)
 
 
 def main() -> None:
     """Main demonstration function."""
-    print("=" * 60)
-    print("  kctsb PSI/PIR Demonstration")
-    print("=" * 60)
-    print()
+    logger.info("=" * 60)
+    logger.info("  kctsb PSI/PIR Demonstration")
+    logger.info("=" * 60)
     
     # Initialize PSI wrapper
     psi = KctsbPSI()
     
     if psi.is_native_available():
-        print("✓ Using native kctsb library")
+        logger.info("✓ Using native kctsb library")
     else:
-        print("⚠ Native library not found, using Python fallback")
-    
-    print()
+        logger.warning("⚠ Native library not found, using Python fallback")
     
     # Test data
     client_set = list(range(1, 101))  # 1-100
     server_set = list(range(50, 151))  # 50-150
     
-    print(f"Client set size: {len(client_set)}")
-    print(f"Server set size: {len(server_set)}")
-    print()
+    logger.info("Client set size: %d", len(client_set))
+    logger.info("Server set size: %d", len(server_set))
     
     # Compute PSI
-    print("Computing PSI...")
+    logger.info("Computing PSI...")
     result = psi.compute_simple_psi(client_set, server_set)
     
-    print()
-    print("Results:")
-    print(f"  Intersection size: {result.intersection_size}")
-    print(f"  Execution time: {result.execution_time_ms:.3f} ms")
-    print(f"  Is correct: {result.is_correct}")
+    logger.info("Results:")
+    logger.info("  Intersection size: %d", result.intersection_size)
+    logger.info("  Execution time: %.3f ms", result.execution_time_ms)
+    logger.info("  Is correct: %s", result.is_correct)
     
     # Verify
     expected = set(client_set) & set(server_set)
     actual = set(result.intersection)
     
     if expected == actual:
-        print("  ✓ Verification passed!")
+        logger.info("  ✓ Verification passed!")
     else:
-        print("  ✗ Verification failed!")
-        print(f"    Expected: {sorted(expected)[:10]}...")
-        print(f"    Got: {sorted(actual)[:10]}...")
-    
-    print()
-    
-    # Try CLI demo
-    print("-" * 40)
-    print("CLI Tool Demo:")
+        logger.error("  ✗ Verification failed!")
+        logger.error("    Expected: %s...", sorted(expected)[:10])
+        logger.error("    Got: %s...", sorted(actual)[:10])
+
+    logger.info("-" * 40)
+    logger.info("CLI Tool Demo:")
     run_cli_demo()
 
 

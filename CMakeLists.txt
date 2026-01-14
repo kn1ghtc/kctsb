@@ -34,10 +34,10 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 message(STATUS "")
-message(STATUS "╔════════════════════════════════════════════════════════════════╗")
-message(STATUS "║  kctsb - Knight's Cryptographic Trusted Security Base         ║")
-message(STATUS "║  Version: ${PROJECT_VERSION}                                          ║")
-message(STATUS "╚════════════════════════════════════════════════════════════════╝")
+message(STATUS "====================================================================")
+message(STATUS "kctsb - Knight's Cryptographic Trusted Security Base")
+message(STATUS "Version: ${PROJECT_VERSION}")
+message(STATUS "====================================================================")
 message(STATUS "")
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "Platform: ${CMAKE_SYSTEM_NAME}")
@@ -100,6 +100,8 @@ if(WIN32)
             -Werror=return-type
             -Werror=uninitialized
             -Wno-unused-parameter      # Allow unused params in interface functions
+            -Wno-array-bounds          # Suppress NTL false positives on vector bounds
+            -Wno-stringop-overflow     # Suppress NTL vec memset false positives
             -finput-charset=UTF-8      # Input encoding
             -fexec-charset=UTF-8       # Output encoding
         )
@@ -112,6 +114,7 @@ elseif(APPLE)
         -Werror=return-type
         -Werror=uninitialized
         -Wno-unused-parameter
+        -Wno-array-bounds          # Suppress NTL false positives on vector bounds
         -Wno-deprecated-copy       # Suppress NTL GF2.h implicit copy warning
         -finput-charset=UTF-8
         -fexec-charset=UTF-8
@@ -124,6 +127,9 @@ elseif(UNIX)
         -Werror=return-type
         -Werror=uninitialized
         -Wno-unused-parameter
+        -Wno-array-bounds          # Suppress NTL false positives on vector bounds
+        -Wno-stringop-overflow     # Suppress NTL vec memset false positives
+        -Wno-stringop-overflow     # Suppress NTL vec memset false positives
         -finput-charset=UTF-8
         -fexec-charset=UTF-8
     )
@@ -138,6 +144,7 @@ option(KCTSB_BUILD_STATIC "Build static library" ON)
 option(KCTSB_BUILD_TESTS "Build tests" ON)
 option(KCTSB_BUILD_BENCHMARKS "Build benchmarks (requires OpenSSL)" ON)
 option(KCTSB_BUILD_CLI "Build kctsb.exe CLI tool" ON)
+option(KCTSB_BUILD_EXAMPLES "Build C++ examples" ON)
 option(KCTSB_INSTALL "Generate install target" ON)
 
 # Core dependencies (always required)
@@ -146,7 +153,7 @@ option(KCTSB_ENABLE_GMP "Enable GMP (required for NTL)" ON)
 
 # Optional dependencies
 option(KCTSB_ENABLE_SEAL "Enable Microsoft SEAL for HE" ON)
-option(KCTSB_ENABLE_HELIB "Enable HElib for FE" OFF)
+option(KCTSB_ENABLE_HELIB "Enable HElib for FE" ON)
 option(KCTSB_ENABLE_ZLIB "Enable zlib compression" ON)
 option(KCTSB_ENABLE_ZSTD "Enable zstd compression" ON)
 
@@ -341,8 +348,7 @@ if(KCTSB_ENABLE_HELIB)
                 INTERFACE_INCLUDE_DIRECTORIES "${HELIB_INCLUDE_DIRS}")
         endif()
     else()
-        message(STATUS "⚠ HElib not found (optional)")
-        set(KCTSB_ENABLE_HELIB OFF)
+        message(FATAL_ERROR "HElib not found. Build thirdparty dependency via scripts/build_helib.ps1 (MSYS2 MinGW) or scripts/build_helib.sh, or disable explicitly with -DKCTSB_ENABLE_HELIB=OFF if you acknowledge the risk.")
     endif()
 endif()
 
@@ -484,6 +490,7 @@ if(KCTSB_BUILD_STATIC)
         $<BUILD_INTERFACE:${KCTSB_THIRDPARTY_DIR}/include>
         $<INSTALL_INTERFACE:include>
     )
+    target_compile_definitions(kctsb_static PRIVATE KCTSB_BUILDING)
     # Add SEAL include directory explicitly if available
     if(KCTSB_ENABLE_SEAL AND SEAL_FOUND)
         target_include_directories(kctsb_static PUBLIC ${SEAL_INCLUDE_DIRS})
@@ -527,7 +534,7 @@ if(KCTSB_BUILD_SHARED)
     if(KCTSB_ENABLE_SEAL AND SEAL_FOUND)
         target_include_directories(kctsb_shared PUBLIC ${SEAL_INCLUDE_DIRS})
     endif()
-    target_compile_definitions(kctsb_shared PRIVATE KCTSB_EXPORTS KCTSB_SHARED_LIBRARY)
+    target_compile_definitions(kctsb_shared PRIVATE KCTSB_BUILDING KCTSB_SHARED_LIBRARY)
     set_target_properties(kctsb_shared PROPERTIES
         OUTPUT_NAME kctsb VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR})
 
@@ -545,6 +552,9 @@ if(KCTSB_BUILD_SHARED)
     endif()
     if(KCTSB_ENABLE_SEAL AND SEAL_FOUND)
         target_link_libraries(kctsb_shared PUBLIC SEAL::seal)
+    endif()
+    if(KCTSB_ENABLE_HELIB AND HELIB_FOUND)
+        target_link_libraries(kctsb_shared PUBLIC helib)
     endif()
 endif()
 

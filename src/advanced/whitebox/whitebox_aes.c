@@ -71,7 +71,7 @@ static void key_expansion(const u8 key[16], u8 round_keys[11][16]) {
 }
 
 /* Generate T-Box tables */
-static void generate_tbox(wbox_aes_ctx_t *ctx, const u8 round_keys[11][16]) {
+static void generate_tbox(wbox_aes_ctx_t *ctx, u8 round_keys[11][16]) {
     /* T-Box: T_i(x) = S-box(x XOR k_i) */
     for (int round = 0; round < 10; round++) {
         for (int byte_idx = 0; byte_idx < 16; byte_idx++) {
@@ -98,7 +98,7 @@ static void generate_tyi_tables(wbox_aes_ctx_t *ctx) {
 }
 
 /* Generate TyiBox tables (T-Box + MixColumns) */
-static void generate_tyibox(wbox_aes_ctx_t *ctx, const u8 round_keys[11][16]) {
+static void generate_tyibox(wbox_aes_ctx_t *ctx, u8 round_keys[11][16]) {
     /* TyiBox combines T-Box with Tyi for rounds 1-9 */
     for (int round = 0; round < 9; round++) {
         for (int col = 0; col < 4; col++) {

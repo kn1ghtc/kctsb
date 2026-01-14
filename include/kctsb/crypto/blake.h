@@ -23,10 +23,24 @@ typedef struct {
     size_t outlen;
 } kctsb_blake2b_ctx_t;
 
+typedef struct {
+    uint32_t h[8];
+    uint32_t t[2];
+    uint32_t f[2];
+    uint8_t buf[64];
+    size_t buflen;
+    size_t outlen;
+} kctsb_blake2s_ctx_t;
+
 KCTSB_API void kctsb_blake2b_init(kctsb_blake2b_ctx_t* ctx, size_t outlen);
 KCTSB_API void kctsb_blake2b_update(kctsb_blake2b_ctx_t* ctx, const uint8_t* data, size_t len);
 KCTSB_API void kctsb_blake2b_final(kctsb_blake2b_ctx_t* ctx, uint8_t* out);
 KCTSB_API void kctsb_blake2b(const uint8_t* data, size_t len, uint8_t* out, size_t outlen);
+
+KCTSB_API void kctsb_blake2s_init(kctsb_blake2s_ctx_t* ctx, size_t outlen);
+KCTSB_API void kctsb_blake2s_update(kctsb_blake2s_ctx_t* ctx, const uint8_t* data, size_t len);
+KCTSB_API void kctsb_blake2s_final(kctsb_blake2s_ctx_t* ctx, uint8_t* out);
+KCTSB_API void kctsb_blake2s(const uint8_t* data, size_t len, uint8_t* out, size_t outlen);
 
 #ifdef __cplusplus
 }

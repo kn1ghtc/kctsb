@@ -145,11 +145,12 @@ unsigned int GetWord(unsigned int k[], unsigned int i) //获取字串中的从�
     unsigned int word;
     j = i >> 5;
     m = i & 0x1f;
-    if(m == 0)
+    if (m == 0) {
         word = k[j];
-        else
-            word = (k[j] << m) | (k[j+1] >> (32 - m));
-            return word;
+    } else {
+        word = (k[j] << m) | (k[j + 1] >> (32 - m));
+    }
+    return word;
 }
 
 
