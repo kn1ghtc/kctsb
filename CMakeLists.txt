@@ -400,12 +400,10 @@ set(KCTSB_CHACHA_SOURCES
 )
 
 set(KCTSB_HASH_SOURCES
-    ${KCTSB_SRC_DIR}/crypto/hash/Keccak.cpp
+    ${KCTSB_SRC_DIR}/crypto/hash/keccak.cpp
     ${KCTSB_SRC_DIR}/crypto/hash/blake2.c
-    ${KCTSB_SRC_DIR}/crypto/hash/sha256.c
+    ${KCTSB_SRC_DIR}/crypto/hash/sha256.cpp
     ${KCTSB_SRC_DIR}/crypto/hash/sha512.c
-    ${KCTSB_SRC_DIR}/crypto/hash/sha256_shani.cpp
-    ${KCTSB_SRC_DIR}/crypto/hash/keccak_avx2.cpp
 )
 
 set(KCTSB_SM_SOURCES
