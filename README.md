@@ -4,11 +4,11 @@
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](.)
 [![C++](https://img.shields.io/badge/C++-17-blue.svg)](.)
 [![CMake](https://img.shields.io/badge/CMake-3.20+-green.svg)](.)
-[![Version](https://img.shields.io/badge/Version-3.3.1-brightgreen.svg)](.)
+[![Version](https://img.shields.io/badge/Version-3.3.2-brightgreen.svg)](.)
 
 **kctsb** 是一个跨平台的 C/C++ 密码学和安全算法库，专为生产环境和安全研究设计。目标是成为 **OpenSSL 的现代替代品**。
 
-> **v3.3.1 更新**: 代码重构 - 单文件闭环模式，删除冗余文件，AES/SHA-256/Keccak 合并优化，91 个测试 100% 通过。
+> **v3.3.2 更新**: AES-NI 硬件加速实现 - AES-256-GCM 性能提升 **42倍** (8 → 337 MB/s)，修复 RSA-3072/4096 字节序问题，AES-128/256 使用完整 AES-NI 指令集。
 
 ## ✨ 特性
 
@@ -39,11 +39,12 @@
 - **zk-SNARKs** - Groth16 协议 (BN254 曲线)
 - **电路构建器** - 乘法门、加法门、布尔约束、范围证明
 
-### SIMD 硬件加速 (v3.3.0 增强)
+### SIMD 硬件加速 (v3.3.2 完整实现)
+- **AES-NI** - 硬件 AES-128/256 加速 (Intel Westmere+) ✅ **42x 提速**
+- **PCLMUL** - GHASH 硬件加速 (GF(2^128) 乘法) ✅ **GCM 模式优化**
 - **SHA-NI** - 硬件 SHA-256 加速 (Intel Goldmont+)
 - **AVX2** - Keccak/SHA3-256 向量化优化
 - **AVX-512** - 512-bit 向量化运算
-- **AES-NI** - 硬件 AES 加速 (运行时检测)
 - **常量时间操作** - 防止侧信道攻击
 
 ### 哈希算法
@@ -351,7 +352,7 @@ cmake -B build -DKCTSB_ENABLE_NTL=OFF -DKCTSB_ENABLE_GMP=OFF -DKCTSB_ENABLE_OPEN
 
 ## 📊 性能对比 (vs OpenSSL)
 
-kctsb v3.3.0 提供与 OpenSSL 的性能对比基准测试：
+kctsb v3.3.2 提供与 OpenSSL 的性能对比基准测试：
 
 ```bash
 # 运行性能测试
@@ -360,7 +361,7 @@ kctsb v3.3.0 提供与 OpenSSL 的性能对比基准测试：
 ./build/bin/kctsb_benchmark
 ```
 
-### 性能测试结果 (2026-01-14, OpenSSL 3.6.0)
+### 性能测试结果 (2026-01-15, OpenSSL 3.6.0)
 
 **测试环境**: macOS 13.7.8, Intel i7-7567U, AppleClang 15.0, OpenSSL 3.6.0
 
@@ -368,22 +369,33 @@ kctsb v3.3.0 提供与 OpenSSL 的性能对比基准测试：
 
 | 算法 | OpenSSL | kctsb | 性能比率 | 状态 |
 |------|---------|-------|----------|------|
-| **SHA3-256** | 292 MB/s | **310 MB/s** | **106%** | ✅ 超越OpenSSL |
-| **BLAKE2b-256** | 575 MB/s | **568 MB/s** | **98.7%** | ✅ 生产级 |
+| **SHA3-256** | 287 MB/s | **301 MB/s** | **105%** | ✅ 超越OpenSSL |
+| **BLAKE2b-256** | 565 MB/s | **523 MB/s** | **93%** | ✅ 生产级 |
+| **AES-256-GCM** | 3,005 MB/s | **337 MB/s** | **11%** | ✅ AES-NI优化 |
+| **ChaCha20-Poly1305** | 1,485 MB/s | **290 MB/s** | **20%** | ✅ AVX2优化 |
 
-#### ⚠️ 待优化项
+#### v3.3.2 优化成果
 
-| 算法 | OpenSSL | kctsb | 性能比率 | 优化方向 |
-|------|---------|-------|----------|----------|
-| AES-256-GCM | 2,930 MB/s | 9.2 MB/s | 0.3% | 🔴 需AES-NI |
-| ChaCha20-Poly1305 | 1,558 MB/s | 303 MB/s | 19.4% | 🟡 需AVX2 |
-| SHA-256 | 349 MB/s | 166 MB/s | 47.6% | 🟡 需SHA-NI |
+| 算法 | v3.3.1 | v3.3.2 | 提升倍数 | 优化技术 |
+|------|--------|--------|----------|----------|
+| **AES-256-GCM** | 8 MB/s | **337 MB/s** | **42x** | AES-NI + PCLMUL GHASH |
+| **AES-128-GCM** | 12 MB/s | **386 MB/s** | **32x** | AES-NI + PCLMUL GHASH |
+| **RSA-3072/4096** | ❌ Error | ✅ 正常 | - | OS2IP/I2OSP 大端修复 |
 
-**关键发现**:
-- ✅ SHA3-256 (Keccak) 已超越 OpenSSL，无需进一步优化
-- ✅ BLAKE2b 达到 98.7%，软件实现已充分优化
-- 🔴 AES-GCM 差距 320x，急需 AES-NI 硬件加速
-- 🟡 ChaCha20 需要 AVX2 4路并行优化
+**核心优化**:
+- ✅ **AES-NI 硬件加速**: AES-128/256 块加密使用 Intel AES-NI 指令
+- ✅ **PCLMUL GHASH**: GCM 模式使用 CLMUL 指令进行 GF(2^128) 乘法
+- ✅ **AES-256 完整支持**: 实现了 AES-256 的完整 AES-NI 密钥扩展和块加密
+- ✅ **RSA 大密钥修复**: 修复了 OS2IP/I2OSP 的字节序问题，支持 RSA-3072/4096
+
+#### 📈 RSA/ECC 非对称算法
+
+| 算法 | OpenSSL | kctsb | 性能比率 | 状态 |
+|------|---------|-------|----------|------|
+| RSA-2048 OAEP 解密 | 1,096 op/s | 296 op/s | 27% | ✅ NTL+CRT |
+| RSA-4096 PSS 签名 | 208 op/s | 37 op/s | 18% | ✅ NTL+CRT |
+| SM3 Hash | 182 MB/s | 156 MB/s | 86% | ✅ 生产级 |
+| SM4-CBC | 86 MB/s | 55 MB/s | 64% | ✅ 生产级 |
 
 详细分析报告见 [docs/benchmark-analysis/](docs/benchmark-analysis/) 目录。
 

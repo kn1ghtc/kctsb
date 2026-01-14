@@ -1,16 +1,17 @@
 /**
  * @file seal_pir.cpp
  * @brief SEAL-PIR Implementation - Microsoft SEAL based Private Information Retrieval
- * 
+ *
  * @details Real implementation using Microsoft SEAL library (C++)
  * Based on CKKS homomorphic encryption scheme
- * 
- * @note This implementation requires Microsoft SEAL 4.1.2
- * 
+ *
+ * @note This implementation requires Microsoft SEAL 3.x or 4.x
+ *       Supports both old API (scheme_type::CKKS) and new API (scheme_type::ckks)
+ *
  * @author kn1ghtc
- * @version 3.2.0
+ * @version 3.3.1
  * @date 2026-01-14
- * 
+ *
  * @copyright Copyright (c) 2019-2026 knightc. Licensed under Apache 2.0
  */
 
@@ -19,6 +20,7 @@
 #ifdef KCTSB_HAS_SEAL
 
 // SEAL header - in thirdparty/include/SEAL-4.1/
+// SEAL 4.1 requires const SEALContext& instead of shared_ptr
 #include "seal/seal.h"
 #include <algorithm>
 #include <chrono>
@@ -41,28 +43,26 @@ public:
 
 private:
     std::vector<double> database_;
-    std::unique_ptr<seal::SEALContext> context_;
+    seal::SEALContext context_;  // SEAL 4.1 uses value type, not shared_ptr
     size_t slot_count_;
 
-    void setup_context();
+    static seal::SEALContext create_context();
 };
 
-void SEALPIRImpl::setup_context() {
+seal::SEALContext SEALPIRImpl::create_context() {
     seal::EncryptionParameters parms(seal::scheme_type::ckks);
     size_t poly_modulus_degree = 8192;
     parms.set_poly_modulus_degree(poly_modulus_degree);
     parms.set_coeff_modulus(seal::CoeffModulus::Create(
         poly_modulus_degree, {60, 40, 40, 60}));
-
-    context_ = std::make_unique<seal::SEALContext>(parms);
-    seal::CKKSEncoder encoder(*context_);
-    slot_count_ = encoder.slot_count();
+    return seal::SEALContext(parms);
 }
 
 SEALPIRImpl::SEALPIRImpl(const std::vector<double>& database)
-    : database_(database)
+    : database_(database), context_(create_context())
 {
-    setup_context();
+    seal::CKKSEncoder encoder(context_);
+    slot_count_ = encoder.slot_count();
 }
 
 int SEALPIRImpl::query(size_t target_index, kctsb_pir_result_t* result) {
@@ -74,19 +74,19 @@ int SEALPIRImpl::query(size_t target_index, kctsb_pir_result_t* result) {
     result->query_index = target_index;
 
     try {
-        // Generate keys
-        seal::KeyGenerator keygen(*context_);
+        // Generate keys - SEAL 4.1 uses const SEALContext& instead of shared_ptr
+        seal::KeyGenerator keygen(context_);
         auto secret_key = keygen.secret_key();
         seal::PublicKey public_key;
         keygen.create_public_key(public_key);
         seal::RelinKeys relin_keys;
         keygen.create_relin_keys(relin_keys);
 
-        // Initialize encoders and crypto objects
-        seal::CKKSEncoder encoder(*context_);
-        seal::Encryptor encryptor(*context_, public_key);
-        seal::Evaluator evaluator(*context_);
-        seal::Decryptor decryptor(*context_, secret_key);
+        // Initialize encoders and crypto objects - SEAL 4.1 uses const SEALContext&
+        seal::CKKSEncoder encoder(context_);
+        seal::Encryptor encryptor(context_, public_key);
+        seal::Evaluator evaluator(context_);
+        seal::Decryptor decryptor(context_, secret_key);
 
         double scale = std::pow(2.0, 40);
 

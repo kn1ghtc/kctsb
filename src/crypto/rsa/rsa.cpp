@@ -372,12 +372,22 @@ ZZ RSA::rsadp(const ZZ& c, const RSAPrivateKey& private_key) {
         throw std::invalid_argument("Ciphertext representative out of range");
     }
 
-    // Use CRT for efficiency if parameters are available
-    if (!IsZero(private_key.dp) && !IsZero(private_key.dq) && !IsZero(private_key.qinv)) {
+    // Validate key parameters
+    if (IsZero(private_key.n) || IsZero(private_key.d)) {
+        throw std::invalid_argument("Invalid private key: n or d is zero");
+    }
+
+    // Use CRT for efficiency if parameters are available and valid
+    if (!IsZero(private_key.dp) && !IsZero(private_key.dq) &&
+        !IsZero(private_key.qinv) && !IsZero(private_key.p) && !IsZero(private_key.q)) {
         return rsadp_crt(c, private_key);
     }
 
-    return PowerMod(c, private_key.d, private_key.n);
+    // Non-CRT path: ensure base is in valid range
+    ZZ c_mod_n = c % private_key.n;
+    if (c_mod_n < ZZ(0)) c_mod_n += private_key.n;
+
+    return PowerMod(c_mod_n, private_key.d, private_key.n);
 }
 
 ZZ RSA::rsadp_crt(const ZZ& c, const RSAPrivateKey& key) {
@@ -387,8 +397,22 @@ ZZ RSA::rsadp_crt(const ZZ& c, const RSAPrivateKey& key) {
     // h = qinv * (m1 - m2) mod p
     // m = m2 + h * q
 
-    ZZ m1 = PowerMod(c, key.dp, key.p);
-    ZZ m2 = PowerMod(c, key.dq, key.q);
+    // Validate parameters before PowerMod calls
+    if (IsZero(key.p) || IsZero(key.q)) {
+        throw std::invalid_argument("CRT parameters p or q cannot be zero");
+    }
+    if (key.dp < ZZ(0) || key.dq < ZZ(0)) {
+        throw std::invalid_argument("CRT exponents dp or dq cannot be negative");
+    }
+
+    // Reduce c modulo p and q first to ensure non-negative base
+    ZZ c_mod_p = c % key.p;
+    ZZ c_mod_q = c % key.q;
+    if (c_mod_p < ZZ(0)) c_mod_p += key.p;
+    if (c_mod_q < ZZ(0)) c_mod_q += key.q;
+
+    ZZ m1 = PowerMod(c_mod_p, key.dp, key.p);
+    ZZ m2 = PowerMod(c_mod_q, key.dq, key.q);
 
     ZZ diff = m1 - m2;
     if (diff < ZZ(0)) {
@@ -428,15 +452,28 @@ std::vector<uint8_t> RSA::i2osp(const ZZ& x, size_t x_len) {
             throw std::invalid_argument("Integer too large for specified length");
         }
 
-        // Write bytes in big-endian order at the end
-        BytesFromZZ(result.data() + (x_len - static_cast<size_t>(num_bytes)), x, num_bytes);
+        // NTL BytesFromZZ outputs in little-endian, but RSA I2OSP requires big-endian
+        std::vector<uint8_t> le_bytes(num_bytes);
+        BytesFromZZ(le_bytes.data(), x, num_bytes);
+        
+        // Reverse to big-endian and place at the end (with leading zeros if needed)
+        size_t offset = x_len - static_cast<size_t>(num_bytes);
+        for (long i = 0; i < num_bytes; ++i) {
+            result[offset + i] = le_bytes[num_bytes - 1 - i];
+        }
     }
 
     return result;
 }
 
 ZZ RSA::os2ip(const uint8_t* x, size_t x_len) {
-    return ZZFromBytes(x, static_cast<long>(x_len));
+    // RSA OS2IP uses big-endian, but NTL ZZFromBytes expects little-endian
+    // Need to reverse the bytes
+    std::vector<uint8_t> le_bytes(x_len);
+    for (size_t i = 0; i < x_len; ++i) {
+        le_bytes[i] = x[x_len - 1 - i];
+    }
+    return ZZFromBytes(le_bytes.data(), static_cast<long>(x_len));
 }
 
 // ============================================================================

@@ -31,6 +31,13 @@
 #include <cstring>
 #include <stdexcept>
 
+// CPUID for PCLMUL detection
+#if defined(_MSC_VER)
+#include <intrin.h>
+#else
+#include <cpuid.h>
+#endif
+
 // ============================================================================
 // Runtime Feature Detection
 // ============================================================================
@@ -496,7 +503,38 @@ static void ghash_mult(const uint8_t x[16], const uint8_t h[16], uint8_t result[
     memcpy(result, z, 16);
 }
 
+// Runtime flag for PCLMUL detection
+static bool g_pclmul_detected = false;
+static bool g_pclmul_available = false;
+
+static inline bool check_pclmul() {
+#if defined(KCTSB_HAS_PCLMUL) || defined(__PCLMUL__)
+    if (!g_pclmul_detected) {
+        // Check CPUID for PCLMUL support (bit 1 of ECX)
+        int info[4] = {0};
+        #if defined(_MSC_VER)
+        __cpuid(info, 1);
+        #elif defined(__GNUC__) || defined(__clang__)
+        __cpuid(1, info[0], info[1], info[2], info[3]);
+        #endif
+        g_pclmul_available = (info[2] & (1 << 1)) != 0;
+        g_pclmul_detected = true;
+    }
+    return g_pclmul_available;
+#else
+    return false;
+#endif
+}
+
 static void ghash_update(uint8_t tag[16], const uint8_t h[16], const uint8_t* data, size_t len) {
+#if defined(KCTSB_HAS_PCLMUL) || defined(__PCLMUL__)
+    if (check_pclmul()) {
+        kctsb::simd::ghash_pclmul(tag, h, data, len);
+        return;
+    }
+#endif
+    
+    // Software fallback
     uint8_t block[16];
     while (len >= 16) {
         xor_block(block, tag, data);
@@ -529,12 +567,18 @@ kctsb_error_t kctsb_aes_init(kctsb_aes_ctx_t* ctx, const uint8_t* key, size_t ke
     }
 
 #if defined(KCTSB_HAS_AESNI)
-    if (check_aesni() && key_len == 16) {
+    if (check_aesni()) {
         kctsb_secure_zero(ctx->round_keys, sizeof(ctx->round_keys));
         uint8_t* rk = reinterpret_cast<uint8_t*>(ctx->round_keys);
-        kctsb::simd::aes128_expand_key_ni(key, rk);
-        ctx->rounds |= AESNI_FORMAT_FLAG;
-        return KCTSB_SUCCESS;
+        if (key_len == 16) {
+            kctsb::simd::aes128_expand_key_ni(key, rk);
+            ctx->rounds |= AESNI_FORMAT_FLAG;
+            return KCTSB_SUCCESS;
+        } else if (key_len == 32) {
+            kctsb::simd::aes256_expand_key_ni(key, rk);
+            ctx->rounds |= AESNI_FORMAT_FLAG;
+            return KCTSB_SUCCESS;
+        }
     }
 #endif
 
@@ -553,9 +597,12 @@ kctsb_error_t kctsb_aes_encrypt_block(const kctsb_aes_ctx_t* ctx,
 #if defined(KCTSB_HAS_AESNI)
     bool uses_aesni_format = (ctx->rounds & AESNI_FORMAT_FLAG) != 0;
     if (uses_aesni_format && check_aesni()) {
+        const uint8_t* rk = reinterpret_cast<const uint8_t*>(ctx->round_keys);
         if (ctx->key_bits == 128) {
-            const uint8_t* rk = reinterpret_cast<const uint8_t*>(ctx->round_keys);
             kctsb::simd::aes128_encrypt_block_ni(input, output, rk);
+            return KCTSB_SUCCESS;
+        } else if (ctx->key_bits == 256) {
+            kctsb::simd::aes256_encrypt_block_ni(input, output, rk);
             return KCTSB_SUCCESS;
         }
     }

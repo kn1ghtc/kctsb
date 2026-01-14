@@ -210,8 +210,12 @@ void chacha20_blocks_parallel(uint8_t* output, const ChaChaState& input, size_t 
 // AES Operations (AES-NI)
 // ============================================================================
 
-#if defined(__AES__) || defined(_MSC_VER)
-#define KCTSB_HAS_AESNI 1
+// AES-NI detection - check both compiler intrinsic and CMake-defined macro
+#if defined(__AES__) || defined(_MSC_VER) || defined(KCTSB_HAS_AESNI)
+    #ifndef KCTSB_HAS_AESNI
+        #define KCTSB_HAS_AESNI 1
+    #endif
+    #include <wmmintrin.h>  // AES-NI intrinsics
 #endif
 
 /**
@@ -256,10 +260,27 @@ void aes128_ecb_encrypt_ni(const uint8_t* in, uint8_t* out,
                             size_t num_blocks, const uint8_t round_keys[176]);
 
 /**
+ * @brief AES-256 ECB encryption of multiple blocks (parallel)
+ */
+void aes256_ecb_encrypt_ni(const uint8_t* in, uint8_t* out,
+                            size_t num_blocks, const uint8_t round_keys[240]);
+
+/**
  * @brief AES-128 CTR mode using AES-NI with parallel processing
  */
 void aes128_ctr_ni(const uint8_t* in, uint8_t* out, size_t len,
                    const uint8_t round_keys[176], uint8_t nonce[16]);
+
+/**
+ * @brief GHASH using PCLMUL instruction for GCM mode
+ * @param tag Running GHASH tag (16 bytes, in/out)
+ * @param h GHASH subkey (16 bytes)
+ * @param data Input data
+ * @param len Data length
+ */
+#if defined(KCTSB_HAS_PCLMUL) || defined(__PCLMUL__)
+void ghash_pclmul(uint8_t tag[16], const uint8_t h[16], const uint8_t* data, size_t len);
+#endif
 
 // ============================================================================
 // Polynomial Operations (for NTT/FFT)

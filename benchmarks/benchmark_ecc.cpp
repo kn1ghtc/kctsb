@@ -31,6 +31,13 @@
 #include <openssl/bn.h>
 #include <openssl/obj_mac.h>
 
+// kctsb ECC headers (conditional)
+#ifdef KCTSB_HAS_ECC
+#include "kctsb/crypto/ecc/ecdsa.h"
+#include "kctsb/crypto/ecc/ecdh.h"
+#include "kctsb/crypto/ecc/ecc_curve.h"
+#endif
+
 // Benchmark configuration
 constexpr size_t WARMUP_ITERATIONS = 5;
 constexpr size_t BENCHMARK_ITERATIONS = 50;
@@ -56,12 +63,21 @@ struct CurveConfig {
     int nid;
     const char* name;
     size_t key_bits;
+#ifdef KCTSB_HAS_ECC
+    kctsb::ecc::CurveType kctsb_type;
+#endif
 };
 
 static const CurveConfig TEST_CURVES[] = {
+#ifdef KCTSB_HAS_ECC
+    {NID_secp256k1, "secp256k1", 256, kctsb::ecc::CurveType::SECP256K1},
+    {NID_X9_62_prime256v1, "secp256r1 (P-256)", 256, kctsb::ecc::CurveType::SECP256R1},
+    {NID_secp384r1, "secp384r1 (P-384)", 384, kctsb::ecc::CurveType::SECP384R1},
+#else
     {NID_secp256k1, "secp256k1", 256},
     {NID_X9_62_prime256v1, "secp256r1 (P-256)", 256},
     {NID_secp384r1, "secp384r1 (P-384)", 384},
+#endif
 };
 
 /**
@@ -232,6 +248,19 @@ void benchmark_ecc() {
             [&]() { return benchmark_openssl_ec_keygen(curve.nid); }
         );
 
+#ifdef KCTSB_HAS_ECC
+        // kctsb ECDSA Key Generation
+        run_benchmark(
+            "Key Generation",
+            "kctsb",
+            [&curve]() {
+                kctsb::ecc::ECDSA ecdsa(curve.kctsb_type);
+                auto keypair = ecdsa.generate_keypair();
+                return keypair.is_valid(ecdsa.get_curve()) ? 1.0 : 0.0;
+            }
+        );
+#endif
+
         // Generate persistent key pair for sign/verify tests
         EVP_PKEY_CTX* keygen_ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_EC, nullptr);
         EVP_PKEY* pkey = nullptr;
@@ -248,6 +277,22 @@ void benchmark_ecc() {
             "OpenSSL",
             [&]() { return benchmark_openssl_ecdsa_sign(pkey, hash); }
         );
+
+#ifdef KCTSB_HAS_ECC
+        // kctsb ECDSA Sign
+        {
+            kctsb::ecc::ECDSA ecdsa(curve.kctsb_type);
+            auto kctsb_keypair = ecdsa.generate_keypair();
+            run_benchmark(
+                "ECDSA Sign",
+                "kctsb",
+                [&ecdsa, &kctsb_keypair, &hash]() {
+                    auto sig = ecdsa.sign(hash, HASH_SIZE, kctsb_keypair.private_key);
+                    return sig.is_valid(ecdsa.get_curve().get_order()) ? 1.0 : 0.0;
+                }
+            );
+        }
+#endif
 
         // Generate a signature for verify benchmark
         EVP_MD_CTX* sign_ctx = EVP_MD_CTX_new();
@@ -271,6 +316,24 @@ void benchmark_ecc() {
             }
         );
 
+#ifdef KCTSB_HAS_ECC
+        // kctsb ECDSA Verify
+        {
+            kctsb::ecc::ECDSA ecdsa(curve.kctsb_type);
+            auto kctsb_keypair = ecdsa.generate_keypair();
+            auto kctsb_sig = ecdsa.sign(hash, HASH_SIZE, kctsb_keypair.private_key);
+            run_benchmark(
+                "ECDSA Verify",
+                "kctsb",
+                [&ecdsa, &kctsb_keypair, &kctsb_sig, &hash]() {
+                    bool valid = ecdsa.verify(hash, HASH_SIZE,
+                                             kctsb_sig, kctsb_keypair.public_key);
+                    return valid ? 1.0 : 0.0;
+                }
+            );
+        }
+#endif
+
         // ================================================================
         // ECDH Key Agreement Benchmark
         // ================================================================
@@ -287,6 +350,24 @@ void benchmark_ecc() {
             "OpenSSL",
             [&]() { return benchmark_openssl_ecdh(pkey, peer_pkey); }
         );
+
+#ifdef KCTSB_HAS_ECC
+        // kctsb ECDH Key Agreement
+        {
+            kctsb::ecc::ECDH ecdh(curve.kctsb_type);
+            auto our_keypair = ecdh.generate_keypair();
+            auto peer_keypair = ecdh.generate_keypair();
+            run_benchmark(
+                "ECDH Key Agreement",
+                "kctsb",
+                [&ecdh, &our_keypair, &peer_keypair]() {
+                    auto secret = ecdh.compute_shared_secret(
+                        our_keypair.private_key, peer_keypair.public_key);
+                    return secret.empty() ? 0.0 : 1.0;
+                }
+            );
+        }
+#endif
 
         // Cleanup
         EVP_PKEY_free(pkey);

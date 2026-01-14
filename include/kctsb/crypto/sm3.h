@@ -52,8 +52,9 @@ KCTSB_API void kctsb_sm3_final(kctsb_sm3_ctx_t* ctx, uint8_t digest[32]);
  * @param data Input data
  * @param len Data length
  * @param digest 32-byte output buffer
+ * @return KCTSB_SUCCESS on success
  */
-KCTSB_API void kctsb_sm3(const uint8_t* data, size_t len, uint8_t digest[32]);
+KCTSB_API kctsb_error_t kctsb_sm3(const uint8_t* data, size_t len, uint8_t digest[32]);
 
 /**
  * @brief SM3 self test

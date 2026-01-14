@@ -1,11 +1,11 @@
 # kctsb vs OpenSSL 性能基线分析报告
 
-**Version**: 3.3.0  
-**Date**: 2026-01-14 (Beijing Time, UTC+8)  
-**Platform**: macOS 13.7.8 (Darwin x86_64)  
-**CPU**: Intel Core i7-7567U @ 3.50GHz  
-**Compiler**: AppleClang 15.0.0.15000100  
-**OpenSSL Version**: 3.6.0 (1 Oct 2025)  
+**Version**: 3.3.0
+**Date**: 2026-01-14 (Beijing Time, UTC+8)
+**Platform**: macOS 13.7.8 (Darwin x86_64)
+**CPU**: Intel Core i7-7567U @ 3.50GHz
+**Compiler**: AppleClang 15.0.0.15000100
+**OpenSSL Version**: 3.6.0 (1 Oct 2025)
 
 ---
 
@@ -327,7 +327,7 @@ Throughput (MB/s) = (DataSize / 1024 / 1024) / (AvgTime / 1000)
 
 ---
 
-**Report Prepared By**: kctsb Security Research Team  
-**License**: Apache License 2.0  
+**Report Prepared By**: kctsb Security Research Team
+**License**: Apache License 2.0
 
 *Last Updated: 2026-01-14 UTC+8*

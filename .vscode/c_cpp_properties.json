@@ -64,6 +64,7 @@
                 "${workspaceFolder}/include",
                 "${workspaceFolder}/include/kctsb",
                 "${workspaceFolder}/thirdparty/include",
+                "${workspaceFolder}/thirdparty/include/SEAL-4.1",
                 "${workspaceFolder}/thirdparty/googletest/googletest/include",
                 "${workspaceFolder}/thirdparty/googletest/googlemock/include",
                 "${workspaceFolder}/src",
@@ -85,7 +86,12 @@
                 "KCTSB_HAS_AES_GCM",
                 "KCTSB_HAS_CHACHA20_POLY1305",
                 "KCTSB_HAS_SHA3",
-                "KCTSB_HAS_BLAKE2"
+                "KCTSB_HAS_BLAKE2",
+                "KCTSB_HAS_RSA",
+                "KCTSB_HAS_ECC",
+                "KCTSB_HAS_SM2",
+                "KCTSB_HAS_SM3",
+                "KCTSB_HAS_SM4"
             ],
             "compilerPath": "/usr/bin/clang",
             "cStandard": "c17",

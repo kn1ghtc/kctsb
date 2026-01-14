@@ -2,7 +2,7 @@
 # kctsb - Knight's Cryptographic Trusted Security Base
 # Cross-platform cryptographic algorithms library
 #
-# Version: 3.3.0
+# Version: 3.3.2
 # Copyright (c) 2019-2026 knightc. All rights reserved.
 # Licensed under Apache License 2.0
 #
@@ -12,7 +12,7 @@
 cmake_minimum_required(VERSION 3.20)
 
 project(kctsb
-    VERSION 3.3.0
+    VERSION 3.3.2
     DESCRIPTION "Production-grade cryptographic algorithms library - OpenSSL replacement"
     LANGUAGES C CXX
 )
@@ -69,11 +69,34 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release")
                 -ffast-math -funroll-loops -fomit-frame-pointer
                 -flto -fPIC
                 -fstack-protector-strong
+                # Hardware acceleration instructions
+                -maes -mpclmul -msse4.1 -msse4.2 -mavx2
             )
             add_link_options(-flto)
         endif()
         add_compile_definitions(_FORTIFY_SOURCE=2)
     endif()
+endif()
+
+# ============================================================================
+# Hardware Feature Detection and Defines
+# ============================================================================
+
+# Check for AES-NI support
+include(CheckCXXCompilerFlag)
+check_cxx_compiler_flag("-maes" COMPILER_SUPPORTS_AESNI)
+if(COMPILER_SUPPORTS_AESNI)
+    message(STATUS "AES-NI: Enabled")
+    add_compile_definitions(KCTSB_HAS_AESNI=1)
+else()
+    message(STATUS "AES-NI: Not available")
+endif()
+
+# Check for PCLMUL (for GCM/GHASH)
+check_cxx_compiler_flag("-mpclmul" COMPILER_SUPPORTS_PCLMUL)
+if(COMPILER_SUPPORTS_PCLMUL)
+    message(STATUS "PCLMUL: Enabled")
+    add_compile_definitions(KCTSB_HAS_PCLMUL=1)
 endif()
 
 # ============================================================================
@@ -409,6 +432,7 @@ set(KCTSB_HASH_SOURCES
 set(KCTSB_SM_SOURCES
     ${KCTSB_SRC_DIR}/crypto/sm/sm3.c
     ${KCTSB_SRC_DIR}/crypto/sm/sm4.cpp
+    ${KCTSB_SRC_DIR}/crypto/sm/sm_api.cpp
     ${KCTSB_SRC_DIR}/crypto/sm/zuc.c
 )
 
