@@ -2,7 +2,7 @@
  * @file kc_fe.cpp
  * @brief Functional Encryption (FE) module implementation
  * @note Currently a placeholder - HElib BGV integration pending
- * 
+ *
  * Original: Created by knightc on 2019/7/19.
  * Copyright © 2019 knightc. All rights reserved.
  */

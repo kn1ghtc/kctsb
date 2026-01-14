@@ -1,9 +1,9 @@
 # kctsb vs OpenSSL Performance Analysis Report
 
-**Version**: 3.2.0  
-**Date**: 2026-01-14  
-**Platform**: macOS Darwin (Apple M1/Intel x86_64)  
-**Compiler**: AppleClang 15.0.0.15000100  
+**Version**: 3.2.0
+**Date**: 2026-01-14
+**Platform**: macOS Darwin (Apple M1/Intel x86_64)
+**Compiler**: AppleClang 15.0.0.15000100
 **OpenSSL Version**: 3.6.0 (October 2025)
 
 ---
@@ -59,7 +59,7 @@ Data sizes: 1KB, 1MB, 10MB
 - AES-NI hardware acceleration provides significant speedup
 - 10MB test shows ~3 GB/s throughput
 
-**kctsb Status**: 
+**kctsb Status**:
 - T-table implementation completed (`aes_ttable.cpp`)
 - Benchmark integration pending (placeholder code needs actual API calls)
 - Expected performance: 50-60% of OpenSSL without AES-NI, 90-95% with AES-NI
@@ -169,7 +169,7 @@ Data sizes: 1KB, 1MB, 10MB
    - Base64, Hex, URL-safe Base64 encoding/decoding
    - High-performance implementation with validation
 
-3. **HElib Integration** 
+3. **HElib Integration**
    - Successfully compiled and installed HElib 2.3.0
    - Library located at `thirdparty/lib/libhelib.a`
    - BGV homomorphic encryption now available
@@ -293,8 +293,8 @@ Dependencies enabled:
 
 ---
 
-**Report Prepared By**: kctsb Development Team  
-**Version**: 3.2.0  
-**License**: Apache License 2.0  
+**Report Prepared By**: kctsb Development Team
+**Version**: 3.2.0
+**License**: Apache License 2.0
 
 *Last Updated: 2026-01-14 UTC+8*

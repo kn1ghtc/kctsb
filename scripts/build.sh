@@ -179,7 +179,7 @@ fi
 if [ "$RUN_TEST" = true ]; then
     echo -e "${YELLOW}[4/5] Running tests...${NC}"
     ctest --output-on-failure --parallel "$JOBS"
-    
+
     # Summary
     TEST_RESULT=$?
     if [ $TEST_RESULT -eq 0 ]; then
@@ -195,7 +195,7 @@ fi
 # Benchmark
 if [ "$BENCHMARK" = true ]; then
     echo -e "${YELLOW}[5/5] Running benchmarks...${NC}"
-    
+
     BENCH_BIN="$BUILD_DIR/bin/kctsb_benchmark"
     if [ -f "$BENCH_BIN" ]; then
         $BENCH_BIN --benchmark_out="$PROJECT_DIR/benchmark_results.json" \

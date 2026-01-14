@@ -154,7 +154,7 @@ kctsb/
 
 - **CMake**: 3.20 或更高版本
 - **构建工具**: Ninja (推荐) 或 Make
-- **编译器**: 
+- **编译器**:
   - Windows: MinGW-w64 GCC 13+ 或 MSVC 2022+
   - Linux: GCC 9+ 或 Clang 10+
   - macOS: Clang 10+ 或 GCC 9+
@@ -221,7 +221,7 @@ cd build && ctest --output-on-failure
 int main() {
     // 初始化库
     kctsb_init();
-    
+
     // AES-GCM 加密 (推荐 v3.0+)
     uint8_t key[16] = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
                        0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f};
@@ -229,13 +229,13 @@ int main() {
     uint8_t plaintext[32] = "Hello, World! kctsb v3.0";
     uint8_t ciphertext[32];
     uint8_t tag[16];
-    
+
     kctsb_aes_ctx_t ctx;
     kctsb_aes_init(&ctx, key, 16);
-    kctsb_aes_gcm_encrypt(&ctx, iv, 12, NULL, 0, 
+    kctsb_aes_gcm_encrypt(&ctx, iv, 12, NULL, 0,
                           plaintext, 32, ciphertext, tag);
     kctsb_aes_clear(&ctx);
-    
+
     kctsb_cleanup();
     return 0;
 }
@@ -253,8 +253,8 @@ int main() {
     uint8_t plaintext[] = "Secret message";
     uint8_t ciphertext[sizeof(plaintext)];
     uint8_t tag[16];
-    
-    kctsb_chacha20_poly1305_encrypt(key, nonce, 
+
+    kctsb_chacha20_poly1305_encrypt(key, nonce,
                                      aad, sizeof(aad)-1,
                                      plaintext, sizeof(plaintext)-1,
                                      ciphertext, tag);
@@ -269,19 +269,19 @@ int main() {
 
 int main() {
     using namespace kctsb;
-    
+
     // 安全随机数
     auto random_bytes = randomBytes(32);
-    
+
     // AES-GCM 加密
     std::array<uint8_t, 16> key = {0x00, 0x01, /* ... */};
     std::vector<uint8_t> plaintext = {'H', 'e', 'l', 'l', 'o'};
-    
+
     // 使用安全比较
     std::vector<uint8_t> a = {1, 2, 3};
     std::vector<uint8_t> b = {1, 2, 3};
     bool equal = kctsb_secure_compare(a.data(), b.data(), 3) == 1;
-    
+
     return 0;
 }
 ```
@@ -417,7 +417,7 @@ todo：
 -- CLI tool:     OFF
 -- Tests:        OFF
 -- Benchmarks:   ON
--- 
+--
 -- Dependencies (thirdparty/):
 --   NTL:    ON
 --   GMP:    ON
