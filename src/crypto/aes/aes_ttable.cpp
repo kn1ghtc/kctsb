@@ -288,7 +288,7 @@ void aes_encrypt_block_ttable(const uint8_t in[16], uint8_t out[16],
     s3 ^= round_keys[3];
 
     // Main rounds (combine SubBytes + ShiftRows + MixColumns via T-tables)
-    uint32_t t0, t1, t2, t3;
+    uint32_t t0 = 0, t1 = 0, t2 = 0, t3 = 0;
     int rk_idx = 4;
 
     for (int round = 1; round < rounds; round++) {

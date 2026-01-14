@@ -184,6 +184,10 @@ ctest --test-dir build --output-on-failure
 .\build\bin\kctsb.exe hash --sha3-256 "Hello, World!"
 ```
 
+> Windows 编译提示（MinGW-w64 GCC 13+）：
+> - 已对 `src/utils/encoding.cpp` 的 uint64 解码路径进行显式初始化，避免 `-Werror=uninitialized` 在 Release 模式下拦截构建。
+> - NTL 头文件在 GCC 下可能输出 `-Warray-bounds` 告警，保持当前编译标志（未开启全局 `-Werror`）即可安全通过；如需零告警，可改用 MSVC。
+
 ### Linux/macOS 构建
 
 ```bash

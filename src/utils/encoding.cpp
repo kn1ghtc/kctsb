@@ -649,8 +649,10 @@ uint64_t bytesToUint64BE(const ByteVec& bytes) {
     if (bytes.size() != 8) {
         throw EncodingError("Expected 8 bytes for uint64, got " + std::to_string(bytes.size()));
     }
-    uint64_t value;
-    kctsb_bytes_to_uint64_be(bytes.data(), bytes.size(), &value);
+    uint64_t value = 0;
+    if (kctsb_bytes_to_uint64_be(bytes.data(), bytes.size(), &value) != 1) {
+        throw EncodingError("Failed to parse big-endian uint64");
+    }
     return value;
 }
 
@@ -658,8 +660,10 @@ uint64_t bytesToUint64LE(const ByteVec& bytes) {
     if (bytes.size() != 8) {
         throw EncodingError("Expected 8 bytes for uint64, got " + std::to_string(bytes.size()));
     }
-    uint64_t value;
-    kctsb_bytes_to_uint64_le(bytes.data(), bytes.size(), &value);
+    uint64_t value = 0;
+    if (kctsb_bytes_to_uint64_le(bytes.data(), bytes.size(), &value) != 1) {
+        throw EncodingError("Failed to parse little-endian uint64");
+    }
     return value;
 }
 
@@ -667,8 +671,10 @@ uint64_t bytesToUint64BEVar(const ByteVec& bytes) {
     if (bytes.size() == 0 || bytes.size() > 8) {
         throw EncodingError("Expected 1-8 bytes for uint64, got " + std::to_string(bytes.size()));
     }
-    uint64_t value;
-    kctsb_bytes_to_uint64_be_var(bytes.data(), bytes.size(), &value);
+    uint64_t value = 0;
+    if (kctsb_bytes_to_uint64_be_var(bytes.data(), bytes.size(), &value) != 1) {
+        throw EncodingError("Failed to parse variable-length big-endian uint64");
+    }
     return value;
 }
 

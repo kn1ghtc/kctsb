@@ -44,8 +44,8 @@ void cmd_version();
 void cmd_help();
 
 // Version information
-constexpr const char* KCTSB_VERSION = "3.0.0";
-constexpr const char* KCTSB_BUILD_DATE = "2026-01-12";
+constexpr const char* KCTSB_VERSION_CLI = KCTSB_VERSION_STRING;
+constexpr const char* KCTSB_BUILD_DATE = "2026-01-14";
 
 /**
  * @brief Print general usage information
@@ -78,7 +78,7 @@ void cmd_version() {
     std::cout << "║  kctsb - Knight's Cryptographic Trusted Security Base         ║\n";
     std::cout << "╚════════════════════════════════════════════════════════════════╝\n";
     std::cout << "\n";
-    std::cout << "Version:      " << KCTSB_VERSION << "\n";
+    std::cout << "Version:      " << KCTSB_VERSION_CLI << "\n";
     std::cout << "Build Date:   " << KCTSB_BUILD_DATE << " (Beijing Time, UTC+8)\n";
     std::cout << "License:      Apache License 2.0\n";
     std::cout << "Author:       kctsb Development Team\n";

@@ -29,6 +29,7 @@
 #include "kctsb/crypto/hash/keccak.h"
 #include "kctsb/crypto/blake.h"
 #endif
+#include "kctsb/crypto/sha.h"
 
 // Benchmark configuration
 constexpr size_t WARMUP_ITERATIONS = 10;
@@ -157,6 +158,19 @@ void benchmark_hash_functions() {
             }
         );
 
+        // kctsb SHA-256
+        run_benchmark_iterations(
+            "SHA-256", "kctsb", data_size,
+            [&]() {
+                uint8_t kctsb_digest[32];
+                auto start = Clock::now();
+                kctsb_sha256(data.data(), data_size, kctsb_digest);
+                auto end = Clock::now();
+                Duration elapsed = end - start;
+                return elapsed.count();
+            }
+        );
+
         // SHA3-256
         run_benchmark_iterations(
             "SHA3-256", "OpenSSL", data_size,
@@ -165,7 +179,7 @@ void benchmark_hash_functions() {
             }
         );
 
-#ifdef KCTSB_HAS_HASH
+#ifdef KCTSB_HAS_SHA3
         // kctsb SHA3-256 (Keccak)
         run_benchmark_iterations(
             "SHA3-256", "kctsb", data_size,
@@ -173,8 +187,7 @@ void benchmark_hash_functions() {
                 auto start = Clock::now();
                 // Using kctsb Keccak implementation
                 uint8_t kctsb_digest[32];
-                // TODO: Call actual kctsb Keccak SHA3-256
-                // kctsb::sha3_256(data.data(), data.size(), kctsb_digest);
+                FIPS202_SHA3_256(data.data(), static_cast<unsigned int>(data.size()), kctsb_digest);
                 auto end = Clock::now();
                 Duration elapsed = end - start;
                 return elapsed.count();
@@ -192,15 +205,14 @@ void benchmark_hash_functions() {
             }
         );
 
-#ifdef KCTSB_HAS_HASH
+#ifdef KCTSB_HAS_BLAKE2
         // kctsb BLAKE2b
         run_benchmark_iterations(
             "BLAKE2b-256", "kctsb", data_size,
             [&]() {
                 auto start = Clock::now();
                 uint8_t kctsb_digest[32];
-                // TODO: Call actual kctsb BLAKE2b-256
-                // kctsb::blake2b(data.data(), data.size(), kctsb_digest, 32);
+                kctsb_blake2b(data.data(), data.size(), kctsb_digest, 32);
                 auto end = Clock::now();
                 Duration elapsed = end - start;
                 return elapsed.count();

@@ -27,6 +27,7 @@
 #include <cstring>
 #include <algorithm>
 #include <numeric>
+#include "kctsb/kctsb.h"
 
 // Platform-specific headers for UTF-8 console support
 #ifdef _WIN32
@@ -159,10 +160,14 @@ extern "C" int benchmark_main_entry() {
     std::cout << "\n";
     std::cout << "╔════════════════════════════════════════════════════════════════════╗\n";
     std::cout << "║         kctsb vs OpenSSL Performance Benchmark Suite              ║\n";
-    std::cout << "║                     Version 3.0.0                                  ║\n";
+    std::cout << "║                    Version " << KCTSB_VERSION_STRING << "                                 ║\n";
     std::cout << "╚════════════════════════════════════════════════════════════════════╝\n";
     
-    // Initialize OpenSSL
+    // Initialize kctsb/OpenSSL
+    if (kctsb_init() != 0) {
+        std::cerr << "kctsb initialization failed" << std::endl;
+        return 1;
+    }
     OpenSSL_add_all_algorithms();
     ERR_load_crypto_strings();
     
@@ -180,9 +185,10 @@ extern "C" int benchmark_main_entry() {
     // Print summary
     print_summary();
     
-    // Cleanup OpenSSL
+    // Cleanup
     EVP_cleanup();
     ERR_free_strings();
+    kctsb_cleanup();
     
     return 0;
 }

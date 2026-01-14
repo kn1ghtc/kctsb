@@ -10,8 +10,14 @@
  */
 
 #include "kctsb/simd/simd.h"
+#include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <new>
+
+#if defined(_MSC_VER) || defined(__MINGW32__)
+#include <malloc.h>
+#endif
 
 #if defined(_MSC_VER)
 #include <intrin.h>
@@ -154,19 +160,23 @@ const char* get_simd_info() {
 // ============================================================================
 
 void* aligned_alloc(size_t size, size_t alignment) {
-#if defined(_MSC_VER)
+#if defined(_MSC_VER) || defined(__MINGW32__)
     return _aligned_malloc(size, alignment);
 #elif defined(__APPLE__)
     void* ptr = nullptr;
     posix_memalign(&ptr, alignment, size);
     return ptr;
 #else
-    return ::aligned_alloc(alignment, size);
+    void* ptr = nullptr;
+    if (posix_memalign(&ptr, alignment, size) != 0) {
+        return nullptr;
+    }
+    return ptr;
 #endif
 }
 
 void aligned_free(void* ptr) {
-#if defined(_MSC_VER)
+#if defined(_MSC_VER) || defined(__MINGW32__)
     _aligned_free(ptr);
 #else
     free(ptr);

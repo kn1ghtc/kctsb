@@ -19,6 +19,8 @@
 #include <algorithm>
 #include <numeric>
 #include <functional>
+#include <stdexcept>
+#include <limits>
 
 // OpenSSL headers
 #include <openssl/evp.h>
@@ -193,6 +195,17 @@ void benchmark_chacha20_poly1305() {
         std::vector<uint8_t> ciphertext;
         std::vector<uint8_t> decrypted;
         generate_random(plaintext.data(), data_size);
+
+        // Precompute kctsb ciphertext/tag for decrypt benchmark
+        std::vector<uint8_t> kctsb_ciphertext(data_size);
+        uint8_t kctsb_tag[POLY1305_TAG_SIZE] = {0};
+    #ifdef KCTSB_HAS_CHACHA20_POLY1305
+        if (kctsb_chacha20_poly1305_encrypt(key, nonce, nullptr, 0,
+                            plaintext.data(), data_size,
+                            kctsb_ciphertext.data(), kctsb_tag) != KCTSB_SUCCESS) {
+            throw std::runtime_error("kctsb chacha20_poly1305 precompute failed");
+        }
+    #endif
         
         // OpenSSL Encryption
         run_benchmark_iterations(
@@ -212,15 +225,24 @@ void benchmark_chacha20_poly1305() {
             }
         );
         
-#ifdef KCTSB_HAS_CHACHA20
+#ifdef KCTSB_HAS_CHACHA20_POLY1305
         // kctsb Encryption - Using actual kctsb implementation
         run_benchmark_iterations(
             "ChaCha20-Poly1305 Enc", "kctsb", data_size,
             [&]() {
                 auto start = Clock::now();
-                std::vector<uint8_t> kctsb_ct(plaintext.size() + POLY1305_TAG_SIZE);
-                // TODO: Call actual kctsb chacha20_poly1305_encrypt
+                if (ciphertext.size() != data_size) {
+                    ciphertext.resize(data_size);
+                }
+                uint8_t kctsb_enc_tag[POLY1305_TAG_SIZE] = {0};
+                auto status = kctsb_chacha20_poly1305_encrypt(
+                    key, nonce, nullptr, 0,
+                    plaintext.data(), data_size,
+                    ciphertext.data(), kctsb_enc_tag);
                 auto end = Clock::now();
+                if (status != KCTSB_SUCCESS) {
+                    return std::numeric_limits<double>::infinity();
+                }
                 Duration elapsed = end - start;
                 return elapsed.count();
             }
@@ -231,9 +253,18 @@ void benchmark_chacha20_poly1305() {
             "ChaCha20-Poly1305 Dec", "kctsb", data_size,
             [&]() {
                 auto start = Clock::now();
-                std::vector<uint8_t> kctsb_pt(ciphertext.size());
-                // TODO: Call actual kctsb chacha20_poly1305_decrypt
+                if (decrypted.size() != data_size) {
+                    decrypted.resize(data_size);
+                }
+                auto status = kctsb_chacha20_poly1305_decrypt(
+                    key, nonce, nullptr, 0,
+                    kctsb_ciphertext.data(), data_size,
+                    kctsb_tag,
+                    decrypted.data());
                 auto end = Clock::now();
+                if (status != KCTSB_SUCCESS) {
+                    return std::numeric_limits<double>::infinity();
+                }
                 Duration elapsed = end - start;
                 return elapsed.count();
             }

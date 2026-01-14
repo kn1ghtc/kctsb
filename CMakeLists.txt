@@ -55,14 +55,24 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release")
         endif()
         add_link_options(/LTCG)
     else()
-        add_compile_options(
-            -O3 -march=native -mtune=native
-            -ffast-math -funroll-loops -fomit-frame-pointer
-            -flto -fPIC
-            -fstack-protector-strong
-        )
+        if(WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+            # MinGW LTO frequently triggers unresolved symbols with large static archives
+            add_compile_options(
+                -O3 -march=native -mtune=native
+                -ffast-math -funroll-loops -fomit-frame-pointer
+                -fPIC
+                -fstack-protector-strong
+            )
+        else()
+            add_compile_options(
+                -O3 -march=native -mtune=native
+                -ffast-math -funroll-loops -fomit-frame-pointer
+                -flto -fPIC
+                -fstack-protector-strong
+            )
+            add_link_options(-flto)
+        endif()
         add_compile_definitions(_FORTIFY_SOURCE=2)
-        add_link_options(-flto)
     endif()
 endif()
 

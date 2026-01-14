@@ -8,6 +8,7 @@
 #include <NTL/ALL_FEATURES.h>
 
 #include <NTL/PackageInfo.h>
+#include <cstdint>
 
 #if (defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__)))
 #define NTL_GNUC_INTEL
@@ -470,8 +471,10 @@ T* _ntl_scalar_move(T*& a)
 inline
 char *_ntl_make_aligned(char *p, long align)
 {
-   unsigned long r =  (unsigned long) (((NTL_UPTRINT_T) (p)) % ((NTL_UPTRINT_T) (align)));
-   return p + ((((unsigned long) (align)) - r) % ((unsigned long) (align)));
+   const std::uintptr_t addr = reinterpret_cast<std::uintptr_t>(p);
+   const std::uintptr_t align_val = static_cast<std::uintptr_t>(align);
+   const std::uintptr_t r = addr % align_val;
+   return p + static_cast<long>((align_val - r) % align_val);
 }
 
 #else

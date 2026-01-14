@@ -19,6 +19,8 @@
 #include <algorithm>
 #include <numeric>
 #include <functional>
+#include <stdexcept>
+#include <limits>
 
 // OpenSSL headers
 #include <openssl/evp.h>
@@ -217,6 +219,20 @@ void benchmark_aes_gcm() {
         std::vector<uint8_t> decrypted;
         generate_random(plaintext.data(), data_size);
 
+        // Precompute kctsb reference ciphertext/tag for decrypt benchmarks
+        std::vector<uint8_t> kctsb_ciphertext(data_size);
+        uint8_t kctsb_tag[GCM_TAG_SIZE] = {0};
+        kctsb_aes_ctx_t kctsb_ctx;
+        if (kctsb_aes_init(&kctsb_ctx, key, AES_KEY_SIZE) != KCTSB_SUCCESS) {
+            throw std::runtime_error("kctsb AES init failed");
+        }
+        if (kctsb_aes_gcm_encrypt(&kctsb_ctx, iv, GCM_IV_SIZE,
+                                  nullptr, 0,
+                                  plaintext.data(), data_size,
+                                  kctsb_ciphertext.data(), kctsb_tag) != KCTSB_SUCCESS) {
+            throw std::runtime_error("kctsb AES-GCM encrypt precompute failed");
+        }
+
         // OpenSSL Encryption
         run_benchmark_iterations(
             "AES-256-GCM Encrypt", "OpenSSL", data_size,
@@ -240,10 +256,18 @@ void benchmark_aes_gcm() {
         run_benchmark_iterations(
             "AES-256-GCM Encrypt", "kctsb", data_size,
             [&]() {
+                if (ciphertext.size() != data_size) {
+                    ciphertext.resize(data_size);
+                }
                 auto start = Clock::now();
-                // TODO: Replace with actual kctsb AES-GCM call
-                // kctsb::aes_gcm_encrypt(plaintext, key, iv, ciphertext, tag);
+                auto status = kctsb_aes_gcm_encrypt(&kctsb_ctx, iv, GCM_IV_SIZE,
+                                                    nullptr, 0,
+                                                    plaintext.data(), data_size,
+                                                    ciphertext.data(), tag);
                 auto end = Clock::now();
+                if (status != KCTSB_SUCCESS) {
+                    return std::numeric_limits<double>::infinity();
+                }
                 Duration elapsed = end - start;
                 return elapsed.count();
             }
@@ -253,10 +277,19 @@ void benchmark_aes_gcm() {
         run_benchmark_iterations(
             "AES-256-GCM Decrypt", "kctsb", data_size,
             [&]() {
+                if (decrypted.size() != data_size) {
+                    decrypted.resize(data_size);
+                }
                 auto start = Clock::now();
-                // TODO: Replace with actual kctsb AES-GCM call
-                // kctsb::aes_gcm_decrypt(ciphertext, key, iv, tag, decrypted);
+                auto status = kctsb_aes_gcm_decrypt(&kctsb_ctx, iv, GCM_IV_SIZE,
+                                                    nullptr, 0,
+                                                    kctsb_ciphertext.data(), data_size,
+                                                    kctsb_tag,
+                                                    decrypted.data());
                 auto end = Clock::now();
+                if (status != KCTSB_SUCCESS) {
+                    return std::numeric_limits<double>::infinity();
+                }
                 Duration elapsed = end - start;
                 return elapsed.count();
             }
