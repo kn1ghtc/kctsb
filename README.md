@@ -360,24 +360,32 @@ kctsb v3.3.0 提供与 OpenSSL 的性能对比基准测试：
 ./build/bin/kctsb_benchmark
 ```
 
-### 性能测试结果 (2025-01-14, OpenSSL 3.6.0)
+### 性能测试结果 (2026-01-14, OpenSSL 3.6.0)
 
-**测试环境**: macOS, AppleClang 15.0, OpenSSL 3.6.0
+**测试环境**: macOS 13.7.8, Intel i7-7567U, AppleClang 15.0, OpenSSL 3.6.0
 
-| 算法 | 数据大小 | OpenSSL | kctsb | 说明 |
-|------|----------|---------|-------|------|
-| AES-256-GCM (加密) | 10 MB | 2726 MB/s | 9.2 MB/s | 需要 AES-NI 优化 |
-| AES-256-GCM (解密) | 10 MB | 2786 MB/s | 8.8 MB/s | 需要 AES-NI 优化 |
-| SHA3-256 | 10 MB | 245 MB/s | 56 MB/s | Keccak 软件实现 |
-| BLAKE2b-256 | 10 MB | 510 MB/s | **393 MB/s** | ✅ 已接近 OpenSSL |
-| ChaCha20-Poly1305 | 10 MB | 1621 MB/s | (pending) | 待集成 |
+#### 🏆 亮点表现
 
-**关键优化点**:
-- BLAKE2b 已达到 OpenSSL 77% 性能，软件实现已优化良好
-- AES-GCM 需要启用 AES-NI 硬件加速
-- SHA3-256 Keccak 实现需要 SIMD 优化
+| 算法 | OpenSSL | kctsb | 性能比率 | 状态 |
+|------|---------|-------|----------|------|
+| **SHA3-256** | 292 MB/s | **310 MB/s** | **106%** | ✅ 超越OpenSSL |
+| **BLAKE2b-256** | 575 MB/s | **568 MB/s** | **98.7%** | ✅ 生产级 |
 
-详细基准测试代码见 [benchmarks/](benchmarks/) 目录。
+#### ⚠️ 待优化项
+
+| 算法 | OpenSSL | kctsb | 性能比率 | 优化方向 |
+|------|---------|-------|----------|----------|
+| AES-256-GCM | 2,930 MB/s | 9.2 MB/s | 0.3% | 🔴 需AES-NI |
+| ChaCha20-Poly1305 | 1,558 MB/s | 303 MB/s | 19.4% | 🟡 需AVX2 |
+| SHA-256 | 349 MB/s | 166 MB/s | 47.6% | 🟡 需SHA-NI |
+
+**关键发现**:
+- ✅ SHA3-256 (Keccak) 已超越 OpenSSL，无需进一步优化
+- ✅ BLAKE2b 达到 98.7%，软件实现已充分优化
+- 🔴 AES-GCM 差距 320x，急需 AES-NI 硬件加速
+- 🟡 ChaCha20 需要 AVX2 4路并行优化
+
+详细分析报告见 [docs/benchmark-analysis/](docs/benchmark-analysis/) 目录。
 
 ## 📚 API 文档
 
