@@ -1,18 +1,18 @@
 /**
  * @file simd.h
  * @brief SIMD Acceleration Interface - AVX2/AVX-512 Vectorization
- * 
+ *
  * Provides hardware-accelerated cryptographic operations using:
  * - AVX2 (256-bit vectors)
  * - AVX-512 (512-bit vectors)
  * - Runtime detection and fallback
- * 
+ *
  * Accelerated Operations:
  * - XOR operations for stream ciphers
  * - Polynomial multiplication for hash functions
  * - Matrix operations for lattice cryptography
  * - Parallel block cipher processing
- * 
+ *
  * @author knightc
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
  */
@@ -118,17 +118,17 @@ public:
         : size_(count), alignment_(alignment) {
         data_ = static_cast<T*>(aligned_alloc(count * sizeof(T), alignment));
     }
-    
+
     ~AlignedBuffer() {
         if (data_) aligned_free(data_);
     }
-    
+
     // Move semantics
     AlignedBuffer(AlignedBuffer&& other) noexcept
         : data_(other.data_), size_(other.size_), alignment_(other.alignment_) {
         other.data_ = nullptr;
     }
-    
+
     AlignedBuffer& operator=(AlignedBuffer&& other) noexcept {
         if (this != &other) {
             if (data_) aligned_free(data_);
@@ -139,15 +139,15 @@ public:
         }
         return *this;
     }
-    
+
     // No copy
     AlignedBuffer(const AlignedBuffer&) = delete;
     AlignedBuffer& operator=(const AlignedBuffer&) = delete;
-    
+
     T* data() { return data_; }
     const T* data() const { return data_; }
     size_t size() const { return size_; }
-    
+
     T& operator[](size_t i) { return data_[i]; }
     const T& operator[](size_t i) const { return data_[i]; }
 
@@ -166,7 +166,7 @@ private:
  * @param dst Destination (also first source)
  * @param src Second source
  * @param len Length in bytes
- * 
+ *
  * Uses AVX-512 > AVX2 > SSE2 > scalar fallback
  */
 void xor_blocks(uint8_t* dst, const uint8_t* src, size_t len);

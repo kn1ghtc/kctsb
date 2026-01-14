@@ -533,7 +533,7 @@ static void ghash_update(uint8_t tag[16], const uint8_t h[16], const uint8_t* da
         return;
     }
 #endif
-    
+
     // Software fallback
     uint8_t block[16];
     while (len >= 16) {
@@ -611,7 +611,7 @@ kctsb_error_t kctsb_aes_encrypt_block(const kctsb_aes_ctx_t* ctx,
     // Use software encryption (consistent with decryption)
     uint8_t state[16];
     memcpy(state, input, 16);
-    
+
     add_round_key(state, &ctx->round_keys[0]);
     for (int round = 1; round < actual_rounds; round++) {
         sub_bytes(state);
@@ -622,7 +622,7 @@ kctsb_error_t kctsb_aes_encrypt_block(const kctsb_aes_ctx_t* ctx,
     sub_bytes(state);
     shift_rows(state);
     add_round_key(state, &ctx->round_keys[actual_rounds * 4]);
-    
+
     memcpy(output, state, 16);
     kctsb_secure_zero(state, 16);
     return KCTSB_SUCCESS;
@@ -635,7 +635,7 @@ kctsb_error_t kctsb_aes_decrypt_block(const kctsb_aes_ctx_t* ctx,
     int actual_rounds = ctx->rounds & 0xFF;
     uint8_t state[16];
     memcpy(state, input, 16);
-    
+
     const uint32_t* rk = ctx->round_keys;
 
 #if defined(KCTSB_HAS_AESNI)
@@ -648,7 +648,7 @@ kctsb_error_t kctsb_aes_decrypt_block(const kctsb_aes_ctx_t* ctx,
         key_expansion(orig_key, sw_round_keys, 16, 10);
         kctsb_secure_zero(orig_key, 16);
         rk = sw_round_keys;
-        
+
         add_round_key(state, &rk[actual_rounds * 4]);
         for (int round = actual_rounds - 1; round > 0; round--) {
             inv_shift_rows(state);
@@ -659,7 +659,7 @@ kctsb_error_t kctsb_aes_decrypt_block(const kctsb_aes_ctx_t* ctx,
         inv_shift_rows(state);
         inv_sub_bytes(state);
         add_round_key(state, &rk[0]);
-        
+
         memcpy(output, state, 16);
         kctsb_secure_zero(state, 16);
         kctsb_secure_zero(sw_round_keys, sizeof(sw_round_keys));

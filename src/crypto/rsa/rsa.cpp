@@ -455,7 +455,7 @@ std::vector<uint8_t> RSA::i2osp(const ZZ& x, size_t x_len) {
         // NTL BytesFromZZ outputs in little-endian, but RSA I2OSP requires big-endian
         std::vector<uint8_t> le_bytes(num_bytes);
         BytesFromZZ(le_bytes.data(), x, num_bytes);
-        
+
         // Reverse to big-endian and place at the end (with leading zeros if needed)
         size_t offset = x_len - static_cast<size_t>(num_bytes);
         for (long i = 0; i < num_bytes; ++i) {

@@ -1,10 +1,10 @@
 /**
  * @file sm3.h
  * @brief SM3 cryptographic hash function (Chinese National Standard)
- * 
+ *
  * Implements GB/T 32905-2016 specification.
  * 256-bit hash output, similar to SHA-256.
- * 
+ *
  * @author knightc
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
  */
@@ -76,20 +76,20 @@ namespace kctsb {
 class SM3 {
 public:
     SM3();
-    
+
     void update(const ByteVec& data);
     void update(const uint8_t* data, size_t len);
     void update(const std::string& str);
-    
+
     SM3Digest digest();
     void reset();
-    
+
     // One-shot hashing
     static SM3Digest hash(const ByteVec& data);
     static SM3Digest hash(const std::string& str);
     static std::string hashHex(const ByteVec& data);
     static std::string hashHex(const std::string& str);
-    
+
 private:
     kctsb_sm3_ctx_t ctx_;
 };

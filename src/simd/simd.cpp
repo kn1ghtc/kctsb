@@ -588,10 +588,10 @@ static __m128i aes_key_expand_256_2(__m128i key, __m128i keygened) {
 
 void aes256_expand_key_ni(const uint8_t key[32], uint8_t round_keys[240]) {
     __m128i* rk = reinterpret_cast<__m128i*>(round_keys);
-    
+
     rk[0] = _mm_loadu_si128(reinterpret_cast<const __m128i*>(key));
     rk[1] = _mm_loadu_si128(reinterpret_cast<const __m128i*>(key + 16));
-    
+
     rk[2] = aes_key_expand_256_1(rk[0], _mm_aeskeygenassist_si128(rk[1], 0x01));
     rk[3] = aes_key_expand_256_2(rk[1], _mm_aeskeygenassist_si128(rk[2], 0x00));
     rk[4] = aes_key_expand_256_1(rk[2], _mm_aeskeygenassist_si128(rk[3], 0x02));
@@ -610,9 +610,9 @@ void aes256_expand_key_ni(const uint8_t key[32], uint8_t round_keys[240]) {
 void aes256_encrypt_block_ni(const uint8_t in[16], uint8_t out[16],
                               const uint8_t round_keys[240]) {
     const __m128i* rk = reinterpret_cast<const __m128i*>(round_keys);
-    
+
     __m128i block = _mm_loadu_si128(reinterpret_cast<const __m128i*>(in));
-    
+
     block = _mm_xor_si128(block, rk[0]);
     block = _mm_aesenc_si128(block, rk[1]);
     block = _mm_aesenc_si128(block, rk[2]);
@@ -628,48 +628,48 @@ void aes256_encrypt_block_ni(const uint8_t in[16], uint8_t out[16],
     block = _mm_aesenc_si128(block, rk[12]);
     block = _mm_aesenc_si128(block, rk[13]);
     block = _mm_aesenclast_si128(block, rk[14]);
-    
+
     _mm_storeu_si128(reinterpret_cast<__m128i*>(out), block);
 }
 
 void aes256_ecb_encrypt_ni(const uint8_t* in, uint8_t* out,
                             size_t num_blocks, const uint8_t round_keys[240]) {
     const __m128i* rk = reinterpret_cast<const __m128i*>(round_keys);
-    
+
     // Process 4 blocks in parallel for ILP
     while (num_blocks >= 4) {
         __m128i b0 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(in));
         __m128i b1 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(in + 16));
         __m128i b2 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(in + 32));
         __m128i b3 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(in + 48));
-        
+
         b0 = _mm_xor_si128(b0, rk[0]);
         b1 = _mm_xor_si128(b1, rk[0]);
         b2 = _mm_xor_si128(b2, rk[0]);
         b3 = _mm_xor_si128(b3, rk[0]);
-        
+
         for (int i = 1; i < 14; ++i) {
             b0 = _mm_aesenc_si128(b0, rk[i]);
             b1 = _mm_aesenc_si128(b1, rk[i]);
             b2 = _mm_aesenc_si128(b2, rk[i]);
             b3 = _mm_aesenc_si128(b3, rk[i]);
         }
-        
+
         b0 = _mm_aesenclast_si128(b0, rk[14]);
         b1 = _mm_aesenclast_si128(b1, rk[14]);
         b2 = _mm_aesenclast_si128(b2, rk[14]);
         b3 = _mm_aesenclast_si128(b3, rk[14]);
-        
+
         _mm_storeu_si128(reinterpret_cast<__m128i*>(out), b0);
         _mm_storeu_si128(reinterpret_cast<__m128i*>(out + 16), b1);
         _mm_storeu_si128(reinterpret_cast<__m128i*>(out + 32), b2);
         _mm_storeu_si128(reinterpret_cast<__m128i*>(out + 48), b3);
-        
+
         in += 64;
         out += 64;
         num_blocks -= 4;
     }
-    
+
     // Remaining blocks
     while (num_blocks > 0) {
         aes256_encrypt_block_ni(in, out, round_keys);
@@ -686,68 +686,68 @@ void aes256_ecb_encrypt_ni(const uint8_t* in, uint8_t* out,
 static inline __m128i gf128_reduce(__m128i H, __m128i X) {
     // Perform carry-less multiplication
     __m128i tmp2, tmp3, tmp4, tmp5, tmp6, tmp7, tmp8, tmp9;
-    
+
     tmp3 = _mm_clmulepi64_si128(H, X, 0x00);  // Low * Low
     tmp4 = _mm_clmulepi64_si128(H, X, 0x10);  // High * Low
     tmp5 = _mm_clmulepi64_si128(H, X, 0x01);  // Low * High
     tmp6 = _mm_clmulepi64_si128(H, X, 0x11);  // High * High
-    
+
     tmp4 = _mm_xor_si128(tmp4, tmp5);
     tmp5 = _mm_slli_si128(tmp4, 8);
     tmp4 = _mm_srli_si128(tmp4, 8);
     tmp3 = _mm_xor_si128(tmp3, tmp5);
     tmp6 = _mm_xor_si128(tmp6, tmp4);
-    
+
     // Reduction polynomial for GF(2^128): x^128 + x^7 + x^2 + x + 1
     tmp7 = _mm_srli_epi32(tmp3, 31);
     tmp8 = _mm_srli_epi32(tmp3, 30);
     tmp9 = _mm_srli_epi32(tmp3, 25);
-    
+
     tmp7 = _mm_xor_si128(tmp7, tmp8);
     tmp7 = _mm_xor_si128(tmp7, tmp9);
-    
+
     tmp8 = _mm_shuffle_epi32(tmp7, 0x93);
     tmp7 = _mm_and_si128(tmp8, _mm_set_epi32(0, 0xffffffff, 0xffffffff, 0xffffffff));
     tmp8 = _mm_and_si128(tmp8, _mm_set_epi32(0xffffffff, 0, 0, 0));
-    
+
     tmp3 = _mm_xor_si128(tmp3, tmp7);
     tmp6 = _mm_xor_si128(tmp6, tmp8);
-    
+
     tmp2 = _mm_slli_epi32(tmp3, 1);
     tmp4 = _mm_slli_epi32(tmp3, 2);
     tmp5 = _mm_slli_epi32(tmp3, 7);
-    
+
     tmp2 = _mm_xor_si128(tmp2, tmp4);
     tmp2 = _mm_xor_si128(tmp2, tmp5);
     tmp2 = _mm_xor_si128(tmp2, tmp3);
-    
+
     tmp7 = _mm_srli_si128(tmp2, 4);
     tmp2 = _mm_slli_si128(tmp2, 12);
     tmp3 = _mm_xor_si128(tmp3, tmp2);
-    
+
     tmp4 = _mm_srli_epi32(tmp3, 1);
     tmp5 = _mm_srli_epi32(tmp3, 2);
     tmp7 = _mm_xor_si128(tmp7, _mm_srli_epi32(tmp3, 7));
-    
+
     tmp4 = _mm_xor_si128(tmp4, tmp5);
     tmp4 = _mm_xor_si128(tmp4, tmp7);
     tmp4 = _mm_xor_si128(tmp4, tmp3);
-    
+
     tmp6 = _mm_xor_si128(tmp6, tmp4);
-    
+
     return tmp6;
 }
 
 void ghash_pclmul(uint8_t tag[16], const uint8_t h[16], const uint8_t* data, size_t len) {
     // Byte-swap for big-endian GHASH
     const __m128i bswap_mask = _mm_set_epi8(0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15);
-    
+
     __m128i H = _mm_loadu_si128(reinterpret_cast<const __m128i*>(h));
     H = _mm_shuffle_epi8(H, bswap_mask);
-    
+
     __m128i Y = _mm_loadu_si128(reinterpret_cast<const __m128i*>(tag));
     Y = _mm_shuffle_epi8(Y, bswap_mask);
-    
+
     while (len >= 16) {
         __m128i X = _mm_loadu_si128(reinterpret_cast<const __m128i*>(data));
         X = _mm_shuffle_epi8(X, bswap_mask);
@@ -756,7 +756,7 @@ void ghash_pclmul(uint8_t tag[16], const uint8_t h[16], const uint8_t* data, siz
         data += 16;
         len -= 16;
     }
-    
+
     if (len > 0) {
         uint8_t block[16] = {0};
         memcpy(block, data, len);
@@ -765,7 +765,7 @@ void ghash_pclmul(uint8_t tag[16], const uint8_t h[16], const uint8_t* data, siz
         Y = _mm_xor_si128(Y, X);
         Y = gf128_reduce(H, Y);
     }
-    
+
     Y = _mm_shuffle_epi8(Y, bswap_mask);
     _mm_storeu_si128(reinterpret_cast<__m128i*>(tag), Y);
 }
