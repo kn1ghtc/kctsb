@@ -273,7 +273,8 @@ void benchmark_aes_gcm() {
             }
         );
 
-        // kctsb Decryption
+        // kctsb Decryption - using actual implementation
+        std::vector<uint8_t> kctsb_decrypted(data_size);
         run_benchmark_iterations(
             "AES-256-GCM Decrypt", "kctsb", data_size,
             [&]() {

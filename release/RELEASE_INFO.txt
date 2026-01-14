@@ -1,0 +1,21 @@
+kctsb Release Information
+==========================
+Version: 3.3.0
+Platform: macOS (macos-x64)
+Build Type: Release
+Build Date: 2026-01-14 08:46:54 CST
+Compiler: Apple clang version 15.0.0 (clang-1500.1.0.2.5)
+
+Contents:
+- bin/kctsb              : Command-line tool
+- bin/kctsb_benchmark    : Performance benchmark
+- lib/libkctsb.a         : Static library
+- lib/libkctsb.dylib     : Dynamic library (macOS)
+- lib/libkctsb.so*       : Dynamic library (Linux)
+- include/kctsb/         : Header files
+
+Platform-specific binaries (with suffix):
+- *-macos-x64.*
+
+License: Apache License 2.0
+Repository: https://github.com/kn1ghtc/kctsb

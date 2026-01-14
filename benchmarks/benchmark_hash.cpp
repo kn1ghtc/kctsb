@@ -185,7 +185,6 @@ void benchmark_hash_functions() {
             "SHA3-256", "kctsb", data_size,
             [&]() {
                 auto start = Clock::now();
-                // Using kctsb Keccak implementation
                 uint8_t kctsb_digest[32];
                 FIPS202_SHA3_256(data.data(), static_cast<unsigned int>(data.size()), kctsb_digest);
                 auto end = Clock::now();

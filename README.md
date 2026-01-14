@@ -17,7 +17,7 @@
 - **ChaCha20-Poly1305** - RFC 8439 AEAD 流密码 (v3.0 新增)
 - **SM4** - 国密 SM4 分组密码
 
-### AEAD 认证加密 
+### AEAD 认证加密
 - **AES-GCM** - Galois/Counter Mode，128-bit 认证标签
 - **ChaCha20-Poly1305** - 256-bit 密钥，128-bit 标签
 
@@ -52,7 +52,7 @@
 - **SM3** - 国密 SM3 哈希
 - **BLAKE2/3** - 高性能哈希
 
-### 安全原语 
+### 安全原语
 - **常量时间操作** - 防止时序攻击
 - **安全内存** - 自动安全清零
 - **CSPRNG** - 跨平台安全随机数
@@ -351,26 +351,31 @@ cmake -B build -DKCTSB_ENABLE_NTL=OFF -DKCTSB_ENABLE_GMP=OFF -DKCTSB_ENABLE_OPEN
 
 ## 📊 性能对比 (vs OpenSSL)
 
-kctsb v3.0.0 提供与 OpenSSL 的性能对比基准测试：
+kctsb v3.3.0 提供与 OpenSSL 的性能对比基准测试：
 
-```powershell
+```bash
 # 运行性能测试
-.\build\bin\kctsb_benchmark.exe
+./scripts/build.sh --benchmark
+# 或直接运行
+./build/bin/kctsb_benchmark
 ```
 
-### 性能测试结果 (2026-01-12, OpenSSL 3.6.0)
+### 性能测试结果 (2025-01-14, OpenSSL 3.6.0)
 
-| 算法 | 数据大小 | 吞吐量 | 平均延迟 |
-|------|----------|--------|----------|
-| AES-256-GCM (加密) | 10 MB | 6356 MB/s | 1.57 ms |
-| AES-256-GCM (解密) | 10 MB | 6541 MB/s | 1.53 ms |
-| ChaCha20-Poly1305 (加密) | 10 MB | 2387 MB/s | 4.19 ms |
-| ChaCha20-Poly1305 (解密) | 10 MB | 2216 MB/s | 4.51 ms |
-| SHA-256 | 10 MB | 2095 MB/s | 4.77 ms |
-| SHA3-256 | 10 MB | 579 MB/s | 17.26 ms |
-| BLAKE2b-256 | 10 MB | 1077 MB/s | 9.28 ms |
+**测试环境**: macOS, AppleClang 15.0, OpenSSL 3.6.0
 
-**测试环境**: Windows 11, MinGW GCC 13.2.0, vcpkg OpenSSL 3.6.0
+| 算法 | 数据大小 | OpenSSL | kctsb | 说明 |
+|------|----------|---------|-------|------|
+| AES-256-GCM (加密) | 10 MB | 2726 MB/s | 9.2 MB/s | 需要 AES-NI 优化 |
+| AES-256-GCM (解密) | 10 MB | 2786 MB/s | 8.8 MB/s | 需要 AES-NI 优化 |
+| SHA3-256 | 10 MB | 245 MB/s | 56 MB/s | Keccak 软件实现 |
+| BLAKE2b-256 | 10 MB | 510 MB/s | **393 MB/s** | ✅ 已接近 OpenSSL |
+| ChaCha20-Poly1305 | 10 MB | 1621 MB/s | (pending) | 待集成 |
+
+**关键优化点**:
+- BLAKE2b 已达到 OpenSSL 77% 性能，软件实现已优化良好
+- AES-GCM 需要启用 AES-NI 硬件加速
+- SHA3-256 Keccak 实现需要 SIMD 优化
 
 详细基准测试代码见 [benchmarks/](benchmarks/) 目录。
 
