@@ -446,6 +446,18 @@ if(KCTSB_ENABLE_NTL)
     set(KCTSB_ADVANCED_SOURCES ${KCTSB_ZK_SOURCES} ${KCTSB_LATTICE_SOURCES} ${KCTSB_SSS_SOURCES})
 endif()
 
+# PSI/PIR - Private Set Intersection / Private Information Retrieval
+set(KCTSB_PSI_SOURCES
+    ${KCTSB_SRC_DIR}/advanced/psi/piano_psi.cpp
+)
+
+# SEAL-dependent PIR implementation (only if SEAL is available)
+if(KCTSB_ENABLE_SEAL AND SEAL_FOUND)
+    list(APPEND KCTSB_PSI_SOURCES ${KCTSB_SRC_DIR}/advanced/psi/seal_pir.cpp)
+endif()
+
+list(APPEND KCTSB_ADVANCED_SOURCES ${KCTSB_PSI_SOURCES})
+
 if(KCTSB_ENABLE_HELIB)
     file(GLOB_RECURSE KCTSB_FE_SOURCES ${KCTSB_SRC_DIR}/advanced/fe/*.cpp)
     list(APPEND KCTSB_ADVANCED_SOURCES ${KCTSB_FE_SOURCES})
@@ -472,6 +484,10 @@ if(KCTSB_BUILD_STATIC)
         $<BUILD_INTERFACE:${KCTSB_THIRDPARTY_DIR}/include>
         $<INSTALL_INTERFACE:include>
     )
+    # Add SEAL include directory explicitly if available
+    if(KCTSB_ENABLE_SEAL AND SEAL_FOUND)
+        target_include_directories(kctsb_static PUBLIC ${SEAL_INCLUDE_DIRS})
+    endif()
     set_target_properties(kctsb_static PROPERTIES OUTPUT_NAME kctsb)
 
     if(WIN32)
@@ -507,6 +523,10 @@ if(KCTSB_BUILD_SHARED)
         $<BUILD_INTERFACE:${KCTSB_THIRDPARTY_DIR}/include>
         $<INSTALL_INTERFACE:include>
     )
+    # Add SEAL include directory explicitly if available
+    if(KCTSB_ENABLE_SEAL AND SEAL_FOUND)
+        target_include_directories(kctsb_shared PUBLIC ${SEAL_INCLUDE_DIRS})
+    endif()
     target_compile_definitions(kctsb_shared PRIVATE KCTSB_EXPORTS KCTSB_SHARED_LIBRARY)
     set_target_properties(kctsb_shared PROPERTIES
         OUTPUT_NAME kctsb VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR})
@@ -522,6 +542,9 @@ if(KCTSB_BUILD_SHARED)
     endif()
     if(KCTSB_ENABLE_GMP AND GMP_FOUND)
         target_link_libraries(kctsb_shared PUBLIC GMP::GMP)
+    endif()
+    if(KCTSB_ENABLE_SEAL AND SEAL_FOUND)
+        target_link_libraries(kctsb_shared PUBLIC SEAL::seal)
     endif()
 endif()
 

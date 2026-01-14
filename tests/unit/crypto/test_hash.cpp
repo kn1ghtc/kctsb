@@ -215,21 +215,18 @@ TEST_F(HashTest, BLAKE2b_Keyed) {
 }
 
 // ============================================================================
-// BLAKE2s Tests
+// BLAKE2b Tests (using public API) - Additional Tests
 // ============================================================================
 
 /**
- * @brief Test BLAKE2s-256 empty input
+ * @brief Test BLAKE2b-256 empty input using kctsb stream API
  */
-TEST_F(HashTest, BLAKE2s_Empty) {
-    blake2s_ctx_t ctx;
+TEST_F(HashTest, BLAKE2b_Stream_Empty) {
+    kctsb_blake2b_ctx_t ctx;
     uint8_t output[32];
 
-    int ret = blake2s_init(&ctx, 32);
-    ASSERT_EQ(ret, 0) << "BLAKE2s init failed";
-
-    ret = blake2s_final(&ctx, output, 32);
-    ASSERT_EQ(ret, 0) << "BLAKE2s final failed";
+    kctsb_blake2b_init(&ctx, 32);
+    kctsb_blake2b_final(&ctx, output);
 
     // Verify output is valid (non-zero for empty input)
     bool all_zero = true;

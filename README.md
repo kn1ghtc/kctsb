@@ -412,21 +412,16 @@ Copyright © 2019-2026 knightc. All rights reserved.
 
 
 todo：
-1、修复kctsb编译和build中的所有warning和error、note。这些必须明确修复。
-2、同时编辑c c++的最佳实践和代码编写规范和测试规范，增加到.github\copilot-instructions.md和.github\instructions\systemopt.instructions.md对应的位置，确保代码格式规范、命名规范、开发规范统一，代码风格一致。代码风格要求专业、严谨，必须高效和安全，避免任何告警和不安全的处理，确保最快最安全。
-3、修复所有on，因为已经全部编译和安装：
--- === Configuration Summary ===
--- Static lib:   ON
--- Shared lib:   ON
--- CLI tool:     OFF
--- Tests:        OFF
--- Benchmarks:   ON
---
--- Dependencies (thirdparty/):
---   NTL:    ON
---   GMP:    ON
---   SEAL:   ON
---   HElib:  OFF
-
-4、修复中文乱码问题：.\build\bin\kctsb_benchmark.exe 2>&1；确保所有exe输出正常支持中文输出
+1、修复kctsb编译和build中的所有warning和error、note。这些必须明确修复，必须统一使用build目录的脚本或ctest进行编译和测试，确保所有平台和编译器下均无warning和error。
+2、确保helib编译一直为on状态，并且编译通过，保障kctsb的算法完整性。
+3、修复中文乱码问题：如.\build\bin\kctsb_benchmark.exe 2>&1；确保所有exe输出正常支持中文输出
+4、kctsb中单个算法尽量单个c/c++文件内实现，通用功能在utils目录中统一使用。原生完成减少不必要的依赖。按照这个原则检查项目进行整改，且写进agents.md开发规范中
+5、优先使用c盘的msys64源码编译，尝试所有方法编译失败再使用vcpkg安装或brew安装。kctsb项目 build使用统一脚本，三方依赖库每个库使用一个独立build脚本构建。重新编译构建测试验证
+6、验证kctsb中analysis目录和examples目录的代码和功能，确保能正常编译和运行，修复所有问题，验证python调用我们的c/c++类库功能，确保能正常运行
+5、完整迁移kccrypt\secureComputation目录内容后，彻底删除此目录
+6、我们是跨平台项目，之前在win环境编译和构建成功，随后在macos修复编译构建也成功，但是现在返回win环境编译构建出现问题，请修复代码，确保在不同平台运行build和编译 测试都能正常成功，不需要反复修改，代码的兼容性需要能根据平台做相关设计和实践，避免代码反复错误修改
+7、在win环境下应该使用统一的c盘的msys64来编译程序，尽量不要使用strawberry目录，确保编译一致，同一平台下环境一致，按照这个原则进行设计，完成代码修复后，进行测试验证
+8、目录中kccrypt\cpp_libs的三方依赖库，需要根据情况实际迁移到kctsb中，seal已经集成到kctsb、json我们不需要集成，这种json格式应该使用python处理，c c++代码处理16进制直接高效运算，加解密数据出来后由外部系统代码做各种后期格式处理。因此不需要集成json库。gsl不需要集成，使用我们已有算法。kuku-2.1需要集成，再单独编译按照kctsb目录格式和项目约束集成到三方库。flatbuffers需要编译集成。apsi需要编译集成。进行完整处理后彻底删除cpp_libs目录
+9、整体迁移改造完成后，重新刷新kccrypt\README.md文档，根据最新目录和项目说明，完全重写，并为kccrypt项目构建独立的agents.md的开发规范文档。
+10、由于kccrypt和kctsb这2个独立项目的重新设计和合并，需要更新.github\copilot-instructions.md与.github\instructions\systemopt.instructions.md中针对这2个项目和系统环境的约束，关键路径的约束，确保一致，kccrypt是一个python项目，所有各项目需要引用c的高效算法时，统一调用kctsb的类库完成
 

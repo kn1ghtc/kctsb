@@ -35,8 +35,8 @@ typedef struct {
 } blake2s_ctx_t;
 
 /* Forward declarations for functions called before definition */
-int blake2b_update(blake2b_ctx_t *ctx, const void *in, size_t inlen);
-int blake2s_update(blake2s_ctx_t *ctx, const void *in, size_t inlen);
+static int kctsb_blake2b_update_internal(blake2b_ctx_t *ctx, const void *in, size_t inlen);
+static int kctsb_blake2s_update_internal(blake2s_ctx_t *ctx, const void *in, size_t inlen);
 
 /* ============================================================================
  * BLAKE2b Implementation
@@ -131,7 +131,7 @@ static void blake2b_compress(blake2b_ctx_t *ctx, const uint8_t block[128]) {
     }
 }
 
-int blake2b_init(blake2b_ctx_t *ctx, size_t outlen) {
+static int kctsb_blake2b_init_internal(blake2b_ctx_t *ctx, size_t outlen) {
     if (!ctx || outlen == 0 || outlen > BLAKE2B_OUTBYTES) return -1;
 
     memset(ctx, 0, sizeof(blake2b_ctx_t));
@@ -142,7 +142,7 @@ int blake2b_init(blake2b_ctx_t *ctx, size_t outlen) {
     return 0;
 }
 
-int blake2b_init_key(blake2b_ctx_t *ctx, size_t outlen, const void *key, size_t keylen) {
+static int kctsb_blake2b_init_key_internal(blake2b_ctx_t *ctx, size_t outlen, const void *key, size_t keylen) {
     if (!ctx || outlen == 0 || outlen > BLAKE2B_OUTBYTES) return -1;
     if (keylen > BLAKE2B_KEYBYTES) return -1;
 
@@ -154,14 +154,14 @@ int blake2b_init_key(blake2b_ctx_t *ctx, size_t outlen, const void *key, size_t 
     if (keylen > 0) {
         uint8_t block[BLAKE2B_BLOCKBYTES] = {0};
         memcpy(block, key, keylen);
-        blake2b_update(ctx, block, BLAKE2B_BLOCKBYTES);
+        kctsb_blake2b_update_internal(ctx, block, BLAKE2B_BLOCKBYTES);
         memset(block, 0, sizeof(block));
     }
 
     return 0;
 }
 
-int blake2b_update(blake2b_ctx_t *ctx, const void *in, size_t inlen) {
+static int kctsb_blake2b_update_internal(blake2b_ctx_t *ctx, const void *in, size_t inlen) {
     if (!ctx || (!in && inlen > 0)) return -1;
 
     const uint8_t *pin = (const uint8_t *)in;
@@ -188,7 +188,7 @@ int blake2b_update(blake2b_ctx_t *ctx, const void *in, size_t inlen) {
     return 0;
 }
 
-int blake2b_final(blake2b_ctx_t *ctx, void *out, size_t outlen) {
+static int kctsb_blake2b_final_internal(blake2b_ctx_t *ctx, void *out, size_t outlen) {
     if (!ctx || !out || outlen < ctx->outlen) return -1;
 
     ctx->t[0] += ctx->buflen;
@@ -207,18 +207,18 @@ int blake2b_final(blake2b_ctx_t *ctx, void *out, size_t outlen) {
     return 0;
 }
 
-int blake2b(void *out, size_t outlen, const void *in, size_t inlen,
+static int kctsb_blake2b_internal(void *out, size_t outlen, const void *in, size_t inlen,
             const void *key, size_t keylen) {
     blake2b_ctx_t ctx;
 
     if (key && keylen > 0) {
-        if (blake2b_init_key(&ctx, outlen, key, keylen) < 0) return -1;
+        if (kctsb_blake2b_init_key_internal(&ctx, outlen, key, keylen) < 0) return -1;
     } else {
-        if (blake2b_init(&ctx, outlen) < 0) return -1;
+        if (kctsb_blake2b_init_internal(&ctx, outlen) < 0) return -1;
     }
 
-    if (blake2b_update(&ctx, in, inlen) < 0) return -1;
-    return blake2b_final(&ctx, out, outlen);
+    if (kctsb_blake2b_update_internal(&ctx, in, inlen) < 0) return -1;
+    return kctsb_blake2b_final_internal(&ctx, out, outlen);
 }
 
 /* ============================================================================
@@ -304,7 +304,7 @@ static void blake2s_compress(blake2s_ctx_t *ctx, const uint8_t block[64]) {
     }
 }
 
-int blake2s_init(blake2s_ctx_t *ctx, size_t outlen) {
+static int kctsb_blake2s_init_internal(blake2s_ctx_t *ctx, size_t outlen) {
     if (!ctx || outlen == 0 || outlen > BLAKE2S_OUTBYTES) return -1;
 
     memset(ctx, 0, sizeof(blake2s_ctx_t));
@@ -315,7 +315,7 @@ int blake2s_init(blake2s_ctx_t *ctx, size_t outlen) {
     return 0;
 }
 
-int blake2s_init_key(blake2s_ctx_t *ctx, size_t outlen, const void *key, size_t keylen) {
+static int kctsb_blake2s_init_key_internal(blake2s_ctx_t *ctx, size_t outlen, const void *key, size_t keylen) {
     if (!ctx || outlen == 0 || outlen > BLAKE2S_OUTBYTES) return -1;
     if (keylen > BLAKE2S_KEYBYTES) return -1;
 
@@ -327,14 +327,14 @@ int blake2s_init_key(blake2s_ctx_t *ctx, size_t outlen, const void *key, size_t 
     if (keylen > 0) {
         uint8_t block[BLAKE2S_BLOCKBYTES] = {0};
         memcpy(block, key, keylen);
-        blake2s_update(ctx, block, BLAKE2S_BLOCKBYTES);
+        kctsb_blake2s_update_internal(ctx, block, BLAKE2S_BLOCKBYTES);
         memset(block, 0, sizeof(block));
     }
 
     return 0;
 }
 
-int blake2s_update(blake2s_ctx_t *ctx, const void *in, size_t inlen) {
+static int kctsb_blake2s_update_internal(blake2s_ctx_t *ctx, const void *in, size_t inlen) {
     if (!ctx || (!in && inlen > 0)) return -1;
 
     const uint8_t *pin = (const uint8_t *)in;
@@ -361,7 +361,7 @@ int blake2s_update(blake2s_ctx_t *ctx, const void *in, size_t inlen) {
     return 0;
 }
 
-int blake2s_final(blake2s_ctx_t *ctx, void *out, size_t outlen) {
+static int kctsb_blake2s_final_internal(blake2s_ctx_t *ctx, void *out, size_t outlen) {
     if (!ctx || !out || outlen < ctx->outlen) return -1;
 
     ctx->t[0] += ctx->buflen;
@@ -380,18 +380,18 @@ int blake2s_final(blake2s_ctx_t *ctx, void *out, size_t outlen) {
     return 0;
 }
 
-int blake2s(void *out, size_t outlen, const void *in, size_t inlen,
+static int kctsb_blake2s_internal(void *out, size_t outlen, const void *in, size_t inlen,
             const void *key, size_t keylen) {
     blake2s_ctx_t ctx;
 
     if (key && keylen > 0) {
-        if (blake2s_init_key(&ctx, outlen, key, keylen) < 0) return -1;
+        if (kctsb_blake2s_init_key_internal(&ctx, outlen, key, keylen) < 0) return -1;
     } else {
-        if (blake2s_init(&ctx, outlen) < 0) return -1;
+        if (kctsb_blake2s_init_internal(&ctx, outlen) < 0) return -1;
     }
 
-    if (blake2s_update(&ctx, in, inlen) < 0) return -1;
-    return blake2s_final(&ctx, out, outlen);
+    if (kctsb_blake2s_update_internal(&ctx, in, inlen) < 0) return -1;
+    return kctsb_blake2s_final_internal(&ctx, out, outlen);
 }
 
 /* ============================================================================
@@ -399,17 +399,23 @@ int blake2s(void *out, size_t outlen, const void *in, size_t inlen,
  * ============================================================================ */
 
 void kctsb_blake2b_init(kctsb_blake2b_ctx_t* ctx, size_t outlen) {
-    blake2b_init(ctx, outlen);
+    kctsb_blake2b_init_internal(ctx, outlen);
 }
 
 void kctsb_blake2b_update(kctsb_blake2b_ctx_t* ctx, const uint8_t* data, size_t len) {
-    blake2b_update(ctx, data, len);
+    kctsb_blake2b_update_internal(ctx, data, len);
 }
 
 void kctsb_blake2b_final(kctsb_blake2b_ctx_t* ctx, uint8_t* out) {
-    blake2b_final(ctx, out, ctx->outlen);
+    kctsb_blake2b_final_internal(ctx, out, ctx->outlen);
 }
 
 void kctsb_blake2b(const uint8_t* data, size_t len, uint8_t* out, size_t outlen) {
-    blake2b(out, outlen, data, len, NULL, 0);
+    kctsb_blake2b_internal(out, outlen, data, len, NULL, 0);
+}
+
+/* Extended keyed initialization for test compatibility */
+int kctsb_blake2b_init_key_extended(kctsb_blake2b_ctx_t *ctx, size_t outlen, 
+                                     const void *key, size_t keylen) {
+    return kctsb_blake2b_init_key_internal(ctx, outlen, key, keylen);
 }
