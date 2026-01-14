@@ -412,7 +412,9 @@ void ZUC_Confidentiality(unsigned char CK[], unsigned int COUNT, unsigned char B
     iv[15] = iv[7];
     //L,the length of key stream,taking 32bit as a unit
     L = (LENGTH + 31) / 32;
+    if (L <= 0) return;  // Security: bounds check
     k=malloc(sizeof(unsigned int)*L);
+    if (k == NULL) return;  // Security: malloc failure check
     //generate key stream k
     ZUC_GenKeyStream(CK, iv, k, L); //generate key stream
     //OBS=IBS^k
@@ -471,7 +473,9 @@ unsigned int ZUC_Integrity(unsigned char IK[],unsigned int COUNT,unsigned char B
     iv[15] = iv[7];
     //L,the length of key stream,taking 32bit as a unit
     L = (LENGTH + 31) / 32 + 2;
+    if (L <= 2) return 0;  // Security: bounds check (L must be > 2)
     k=malloc(sizeof(unsigned int)*L);
+    if (k == NULL) return 0;  // Security: malloc failure check
     //generate key stream k
     ZUC_GenKeyStream(IK, iv, k, L);
     //T=T^ki

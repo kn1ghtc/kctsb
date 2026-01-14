@@ -142,11 +142,18 @@ target_include_directories(test_benchmark PRIVATE ${CMAKE_SOURCE_DIR}/include)
 gtest_discover_tests(test_benchmark PROPERTIES LABELS "performance")
 
 # ============================================================================
+# SECURITY BOUNDARY TESTS - Input validation and overflow protection
+# Label: "unit;security" - Run with: ctest -L security
+# ============================================================================
+
+kctsb_add_test(test_security_boundaries unit/security/test_security_boundaries.cpp "unit;security")
+
+# ============================================================================
 # Test Summary
 # ============================================================================
 message(STATUS "")
 message(STATUS "Test Configuration Summary:")
-message(STATUS "  Unit Tests:        test_aes, test_hash, test_sha, test_sm, test_math")
+message(STATUS "  Unit Tests:        test_aes, test_hash, test_sha, test_sm, test_math, test_security_boundaries")
 message(STATUS "  Integration Tests: test_integration")
 message(STATUS "  Performance Tests: test_benchmark")
 message(STATUS "")
@@ -154,5 +161,6 @@ message(STATUS "Run commands:")
 message(STATUS "  All tests:         ctest --output-on-failure")
 message(STATUS "  Unit tests only:   ctest -L unit --output-on-failure")
 message(STATUS "  Integration only:  ctest -L integration --output-on-failure")
+message(STATUS "  Security only:     ctest -L security --output-on-failure")
 message(STATUS "  Performance only:  ctest -L performance --output-on-failure")
 message(STATUS "")
