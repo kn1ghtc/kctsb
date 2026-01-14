@@ -1,12 +1,12 @@
 /**
  * @file benchmark_aes_gcm.cpp
  * @brief AES-256-GCM Performance Benchmark: kctsb vs OpenSSL
- * 
+ *
  * Benchmarks authenticated encryption/decryption throughput for:
  * - Various data sizes (1KB, 1MB, 10MB)
  * - Encryption and decryption operations separately
  * - Authentication tag verification
- * 
+ *
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
  * @license Apache License 2.0
  */
@@ -76,29 +76,29 @@ static double benchmark_openssl_aes_gcm_encrypt(
 ) {
     EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
     if (!ctx) return -1.0;
-    
+
     ciphertext.resize(plaintext.size() + GCM_TAG_SIZE);
     int len = 0;
     int ciphertext_len = 0;
-    
+
     auto start = Clock::now();
-    
+
     EVP_EncryptInit_ex(ctx, EVP_aes_256_gcm(), nullptr, nullptr, nullptr);
     EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, GCM_IV_SIZE, nullptr);
     EVP_EncryptInit_ex(ctx, nullptr, nullptr, key, iv);
-    EVP_EncryptUpdate(ctx, ciphertext.data(), &len, plaintext.data(), 
+    EVP_EncryptUpdate(ctx, ciphertext.data(), &len, plaintext.data(),
                       static_cast<int>(plaintext.size()));
     ciphertext_len = len;
     EVP_EncryptFinal_ex(ctx, ciphertext.data() + len, &len);
     ciphertext_len += len;
     EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, GCM_TAG_SIZE, tag);
-    
+
     auto end = Clock::now();
     Duration elapsed = end - start;
-    
+
     ciphertext.resize(ciphertext_len);
     EVP_CIPHER_CTX_free(ctx);
-    
+
     return elapsed.count();
 }
 
@@ -114,31 +114,31 @@ static double benchmark_openssl_aes_gcm_decrypt(
 ) {
     EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
     if (!ctx) return -1.0;
-    
+
     plaintext.resize(ciphertext.size());
     int len = 0;
     int plaintext_len = 0;
-    
+
     auto start = Clock::now();
-    
+
     EVP_DecryptInit_ex(ctx, EVP_aes_256_gcm(), nullptr, nullptr, nullptr);
     EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, GCM_IV_SIZE, nullptr);
     EVP_DecryptInit_ex(ctx, nullptr, nullptr, key, iv);
     EVP_DecryptUpdate(ctx, plaintext.data(), &len, ciphertext.data(),
                       static_cast<int>(ciphertext.size()));
     plaintext_len = len;
-    EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, GCM_TAG_SIZE, 
+    EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, GCM_TAG_SIZE,
                         const_cast<uint8_t*>(tag));
     int ret = EVP_DecryptFinal_ex(ctx, plaintext.data() + len, &len);
-    
+
     auto end = Clock::now();
     Duration elapsed = end - start;
-    
+
     if (ret > 0) {
         plaintext_len += len;
         plaintext.resize(plaintext_len);
     }
-    
+
     EVP_CIPHER_CTX_free(ctx);
     return elapsed.count();
 }
@@ -154,23 +154,23 @@ static void run_benchmark_iterations(
 ) {
     std::vector<double> times;
     times.reserve(BENCHMARK_ITERATIONS);
-    
+
     // Warmup
     for (size_t i = 0; i < WARMUP_ITERATIONS; ++i) {
         benchmark_func();
     }
-    
+
     // Benchmark
     for (size_t i = 0; i < BENCHMARK_ITERATIONS; ++i) {
         times.push_back(benchmark_func());
     }
-    
+
     // Calculate statistics
     double avg = std::accumulate(times.begin(), times.end(), 0.0) / times.size();
-    double min_time = *std::min_element(times.begin(), times.end());
-    double max_time = *std::max_element(times.begin(), times.end());
+    (void)*std::min_element(times.begin(), times.end()); // min_time for future use
+    (void)*std::max_element(times.begin(), times.end()); // max_time for future use
     double throughput = calculate_throughput(data_size, avg);
-    
+
     // Print result
     std::cout << std::left << std::setw(25) << name
               << std::setw(15) << impl
@@ -187,14 +187,14 @@ void benchmark_aes_gcm() {
     std::cout << "\n" << std::string(70, '=') << std::endl;
     std::cout << "  AES-256-GCM Benchmark" << std::endl;
     std::cout << std::string(70, '=') << std::endl;
-    
+
     // Generate key and IV
     uint8_t key[AES_KEY_SIZE];
     uint8_t iv[GCM_IV_SIZE];
     uint8_t tag[GCM_TAG_SIZE];
     generate_random(key, AES_KEY_SIZE);
     generate_random(iv, GCM_IV_SIZE);
-    
+
     for (size_t data_size : TEST_SIZES) {
         std::string size_str;
         if (data_size >= 1024 * 1024) {
@@ -202,7 +202,7 @@ void benchmark_aes_gcm() {
         } else {
             size_str = std::to_string(data_size / 1024) + " KB";
         }
-        
+
         std::cout << "\n--- Data Size: " << size_str << " ---" << std::endl;
         std::cout << std::left << std::setw(25) << "Operation"
                   << std::setw(15) << "Implementation"
@@ -210,13 +210,13 @@ void benchmark_aes_gcm() {
                   << std::setw(10) << "Avg Time"
                   << std::endl;
         std::cout << std::string(63, '-') << std::endl;
-        
+
         // Generate test data
         std::vector<uint8_t> plaintext(data_size);
         std::vector<uint8_t> ciphertext;
         std::vector<uint8_t> decrypted;
         generate_random(plaintext.data(), data_size);
-        
+
         // OpenSSL Encryption
         run_benchmark_iterations(
             "AES-256-GCM Encrypt", "OpenSSL", data_size,
@@ -225,7 +225,7 @@ void benchmark_aes_gcm() {
                     plaintext, key, iv, ciphertext, tag);
             }
         );
-        
+
         // OpenSSL Decryption
         run_benchmark_iterations(
             "AES-256-GCM Decrypt", "OpenSSL", data_size,
@@ -234,7 +234,7 @@ void benchmark_aes_gcm() {
                     ciphertext, key, iv, tag, decrypted);
             }
         );
-        
+
 #ifdef KCTSB_HAS_AES_GCM
         // kctsb Encryption
         run_benchmark_iterations(
@@ -248,7 +248,7 @@ void benchmark_aes_gcm() {
                 return elapsed.count();
             }
         );
-        
+
         // kctsb Decryption
         run_benchmark_iterations(
             "AES-256-GCM Decrypt", "kctsb", data_size,

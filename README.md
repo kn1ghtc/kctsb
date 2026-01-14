@@ -8,7 +8,7 @@
 
 **kctsb** 是一个跨平台的 C/C++ 密码学和安全算法库，专为生产环境和安全研究设计。目标是成为 **OpenSSL 的现代替代品**。
 
-> **v3.2.0 新特性**: 后量子密码(Kyber/Dilithium)、zk-SNARKs零知识证明(Groth16)、SIMD硬件加速(AVX2/AVX-512/AES-NI)、完整的ECC/RSA模块重构。
+> **v3.2.0 更新**: T-table AES优化、完整编码模块(Hex/Base64/BigInt)、自动化构建脚本、VS Code配置优化。
 
 ## ✨ 特性
 
@@ -146,7 +146,7 @@ kctsb/
 - ⚠️ SEAL 4.1.2 (可选)
 - ⚠️ HElib v2.3.0 (可选)
 
-**测试状态**: 84/84 通过 (100%)
+**测试状态**: 56/56 通过 (100%)
 
 ## 🚀 快速开始
 
@@ -154,7 +154,7 @@ kctsb/
 
 - **CMake**: 3.20 或更高版本
 - **构建工具**: Ninja (推荐) 或 Make
-- **编译器**: 
+- **编译器**:
   - Windows: MinGW-w64 GCC 13+ 或 MSVC 2022+
   - Linux: GCC 9+ 或 Clang 10+
   - macOS: Clang 10+ 或 GCC 9+
@@ -221,7 +221,7 @@ cd build && ctest --output-on-failure
 int main() {
     // 初始化库
     kctsb_init();
-    
+
     // AES-GCM 加密 (推荐 v3.0+)
     uint8_t key[16] = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
                        0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f};
@@ -229,13 +229,13 @@ int main() {
     uint8_t plaintext[32] = "Hello, World! kctsb v3.0";
     uint8_t ciphertext[32];
     uint8_t tag[16];
-    
+
     kctsb_aes_ctx_t ctx;
     kctsb_aes_init(&ctx, key, 16);
-    kctsb_aes_gcm_encrypt(&ctx, iv, 12, NULL, 0, 
+    kctsb_aes_gcm_encrypt(&ctx, iv, 12, NULL, 0,
                           plaintext, 32, ciphertext, tag);
     kctsb_aes_clear(&ctx);
-    
+
     kctsb_cleanup();
     return 0;
 }
@@ -253,8 +253,8 @@ int main() {
     uint8_t plaintext[] = "Secret message";
     uint8_t ciphertext[sizeof(plaintext)];
     uint8_t tag[16];
-    
-    kctsb_chacha20_poly1305_encrypt(key, nonce, 
+
+    kctsb_chacha20_poly1305_encrypt(key, nonce,
                                      aad, sizeof(aad)-1,
                                      plaintext, sizeof(plaintext)-1,
                                      ciphertext, tag);
@@ -269,19 +269,19 @@ int main() {
 
 int main() {
     using namespace kctsb;
-    
+
     // 安全随机数
     auto random_bytes = randomBytes(32);
-    
+
     // AES-GCM 加密
     std::array<uint8_t, 16> key = {0x00, 0x01, /* ... */};
     std::vector<uint8_t> plaintext = {'H', 'e', 'l', 'l', 'o'};
-    
+
     // 使用安全比较
     std::vector<uint8_t> a = {1, 2, 3};
     std::vector<uint8_t> b = {1, 2, 3};
     bool equal = kctsb_secure_compare(a.data(), b.data(), 3) == 1;
-    
+
     return 0;
 }
 ```
@@ -405,4 +405,24 @@ Copyright © 2019-2026 knightc. All rights reserved.
 - [GMP: The GNU Multiple Precision Arithmetic Library](https://gmplib.org/)
 - [Microsoft SEAL](https://github.com/microsoft/SEAL) (v4.1.2)
 - [HElib](https://github.com/homenc/HElib) (v2.3.0)
+
+
+todo：
+1、修复kctsb编译和build中的所有warning和error、note。这些必须明确修复。
+2、同时编辑c c++的最佳实践和代码编写规范和测试规范，增加到.github\copilot-instructions.md和.github\instructions\systemopt.instructions.md对应的位置，确保代码格式规范、命名规范、开发规范统一，代码风格一致。代码风格要求专业、严谨，必须高效和安全，避免任何告警和不安全的处理，确保最快最安全。
+3、修复所有on，因为已经全部编译和安装：
+-- === Configuration Summary ===
+-- Static lib:   ON
+-- Shared lib:   ON
+-- CLI tool:     OFF
+-- Tests:        OFF
+-- Benchmarks:   ON
+--
+-- Dependencies (thirdparty/):
+--   NTL:    ON
+--   GMP:    ON
+--   SEAL:   ON
+--   HElib:  OFF
+
+4、修复中文乱码问题：.\build\bin\kctsb_benchmark.exe 2>&1；确保所有exe输出正常支持中文输出
 

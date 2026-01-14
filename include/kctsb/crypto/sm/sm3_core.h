@@ -77,7 +77,7 @@ void SM3_done(SM3_STATE *md, unsigned char *hash);
 void SM3_256(const unsigned char buf[], int len, unsigned char hash[]);
 void SM3_KDF(unsigned char *Z ,unsigned short zlen,unsigned short klen,unsigned char *K);
 
-int SM3_SelfTest();
+int SM3_SelfTest(void);
 
 
 

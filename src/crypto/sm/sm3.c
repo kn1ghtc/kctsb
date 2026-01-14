@@ -288,7 +288,6 @@ void SM3_process(SM3_STATE * md, const unsigned char *buf, int len)
 void SM3_done(SM3_STATE *md, unsigned char hash[])
 {
     int i;
-    unsigned char tmp = 0;
     /* increase the bit length of the message */
     md->length += md->curlen <<3;
     /* append the '1' bit */
@@ -361,9 +360,9 @@ void SM3_256(const unsigned char buf[], int len, unsigned char hash[])
  1 //the sm3 operation is wrong
  Others:
  *******************************************************************************/
-int SM3_SelfTest()
+int SM3_SelfTest(void)
 {
-    unsigned int i=0,a=1,b=1;
+    unsigned int a=1,b=1;
     unsigned char Msg1[3]={0x61,0x62,0x63};
     int MsgLen1=3;
     unsigned char MsgHash1[32]={0};
@@ -411,11 +410,11 @@ int SM3_SelfTest()
  Others:
  *******************************************************************************/
 void SM3_KDF( unsigned char Z[] ,unsigned short zlen,unsigned short klen,unsigned char K[]){
-    
+
 #define SM2_NUMBITS 256
 #define SM2_NUMWORD (SM2_NUMBITS/ECC_WORDSIZE) //32
 #define ECC_WORDSIZE 8
-    
+
     unsigned short i,j,t;
     unsigned int bitklen;
     SM3_STATE md;
