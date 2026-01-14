@@ -2,7 +2,7 @@
 # kctsb - Knight's Cryptographic Trusted Security Base
 # Cross-platform cryptographic algorithms library
 #
-# Version: 3.2.0
+# Version: 3.3.0
 # Copyright (c) 2019-2026 knightc. All rights reserved.
 # Licensed under Apache License 2.0
 #
@@ -12,7 +12,7 @@
 cmake_minimum_required(VERSION 3.20)
 
 project(kctsb
-    VERSION 3.2.0
+    VERSION 3.3.0
     DESCRIPTION "Production-grade cryptographic algorithms library - OpenSSL replacement"
     LANGUAGES C CXX
 )
@@ -404,6 +404,8 @@ set(KCTSB_HASH_SOURCES
     ${KCTSB_SRC_DIR}/crypto/hash/blake2.c
     ${KCTSB_SRC_DIR}/crypto/hash/sha256.c
     ${KCTSB_SRC_DIR}/crypto/hash/sha512.c
+    ${KCTSB_SRC_DIR}/crypto/hash/sha256_shani.cpp
+    ${KCTSB_SRC_DIR}/crypto/hash/keccak_avx2.cpp
 )
 
 set(KCTSB_SM_SOURCES

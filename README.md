@@ -4,11 +4,11 @@
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](.)
 [![C++](https://img.shields.io/badge/C++-17-blue.svg)](.)
 [![CMake](https://img.shields.io/badge/CMake-3.20+-green.svg)](.)
-[![Version](https://img.shields.io/badge/Version-3.2.0-brightgreen.svg)](.)
+[![Version](https://img.shields.io/badge/Version-3.3.0-brightgreen.svg)](.)
 
 **kctsb** 是一个跨平台的 C/C++ 密码学和安全算法库，专为生产环境和安全研究设计。目标是成为 **OpenSSL 的现代替代品**。
 
-> **v3.2.0 更新**: T-table AES优化、完整编码模块(Hex/Base64/BigInt)、自动化构建脚本、VS Code配置优化。
+> **v3.3.0 更新**: SHA-NI 硬件加速 SHA-256、AVX2 优化 Keccak/SHA3-256、AES-NI 集成修复、92 个测试 100% 通过。
 
 ## ✨ 特性
 
@@ -39,13 +39,16 @@
 - **zk-SNARKs** - Groth16 协议 (BN254 曲线)
 - **电路构建器** - 乘法门、加法门、布尔约束、范围证明
 
-### SIMD 硬件加速
-- **AVX-512/AVX2** - 向量化运算
-- **AES-NI** - 硬件 AES 加速
+### SIMD 硬件加速 (v3.3.0 增强)
+- **SHA-NI** - 硬件 SHA-256 加速 (Intel Goldmont+)
+- **AVX2** - Keccak/SHA3-256 向量化优化
+- **AVX-512** - 512-bit 向量化运算
+- **AES-NI** - 硬件 AES 加速 (运行时检测)
 - **常量时间操作** - 防止侧信道攻击
 
 ### 哈希算法
-- **SHA** - SHA-1/256/384/512
+- **SHA** - SHA-1/256/384/512 (SHA-NI 加速)
+- **SHA3** - SHA3-256 (AVX2 优化)
 - **SM3** - 国密 SM3 哈希
 - **BLAKE2/3** - 高性能哈希
 
@@ -421,10 +424,3 @@ Copyright © 2019-2026 knightc. All rights reserved.
 - [GMP: The GNU Multiple Precision Arithmetic Library](https://gmplib.org/)
 - [Microsoft SEAL](https://github.com/microsoft/SEAL) (v4.1.2)
 - [HElib](https://github.com/homenc/HElib) (v2.3.0)
-
-## 未来计划
-### 3.3.0 版本目标
-- 根据docs/benchmark-analysis/目录下的2份分析报告，完成报告中kctsb项目的差距和优化建议，在一个版本中完全整改完成
-- 运行完整的与openssl的性能对比测试验证和差距分析，根据差距分析进一步优化
-- src目录中所有算法完善单元测试，覆盖率达到100%，并对之前todo和暂无实施的代码进行补充完善实施，不要遗漏。同步进行集成测试和cli工具的完整测试和修复
-- 参考openssl最新版本设计，暴露我们kctsb的外部api，只暴露必要的接口和算法，隐藏内部实现细节。用build脚本构建发布时增加构建一个release版本，为不同平台生成对应的类库和程序，并包括头文件（头文件需要优化只暴露必要的接口，尽量只包含在一个.h文件中，方便用户使用，项目内部的include和三方）

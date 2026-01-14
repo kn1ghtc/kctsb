@@ -23,16 +23,25 @@
 #include <stdexcept>
 
 // Runtime AES-NI detection flag (initialized once)
-// NOTE: AES-NI integration temporarily disabled due to key format incompatibility
-// between software key expansion (big-endian uint32_t) and AES-NI native format.
-// TODO v3.3: Implement proper AES-NI key expansion with format conversion.
-// static bool g_aesni_detected = false;
-// static bool g_aesni_available = false;
+// v3.3.0: Fixed key format handling - AES-NI now properly supported
+static bool g_aesni_detected = false;
+static bool g_aesni_available = false;
 
 static inline bool check_aesni() {
-    // Temporarily disabled - needs proper key format conversion
+#if defined(KCTSB_HAS_AESNI)
+    if (!g_aesni_detected) {
+        g_aesni_available = kctsb::simd::has_aesni();
+        g_aesni_detected = true;
+    }
+    return g_aesni_available;
+#else
     return false;
+#endif
 }
+
+// Flag to track if context uses AES-NI format (stored in unused high bits of rounds)
+// This is a simple way to track format without changing struct layout
+#define AESNI_FORMAT_FLAG 0x10000
 
 // ============================================================================
 // AES S-Box (constant-time lookup via full table)
@@ -371,11 +380,20 @@ kctsb_error_t kctsb_aes_init(kctsb_aes_ctx_t* ctx, const uint8_t* key, size_t ke
     }
 
 #if defined(KCTSB_HAS_AESNI)
-    // Use AES-NI key expansion if available (much faster)
+    // Use AES-NI key expansion if available
+    // AES-NI format: round keys stored as contiguous __m128i (16-byte aligned)
     if (check_aesni() && key_len == 16) {
+        // Clear the key schedule area first
+        kctsb_secure_zero(ctx->round_keys, sizeof(ctx->round_keys));
+        
         // AES-NI stores round keys as uint8_t[176] for AES-128
+        // This reinterprets the uint32_t array as byte array (same memory)
         uint8_t* rk = reinterpret_cast<uint8_t*>(ctx->round_keys);
         kctsb::simd::aes128_expand_key_ni(key, rk);
+        
+        // Mark that this context uses AES-NI format
+        ctx->rounds |= AESNI_FORMAT_FLAG;
+        
         return KCTSB_SUCCESS;
     }
 #endif
@@ -392,17 +410,21 @@ kctsb_error_t kctsb_aes_encrypt_block(const kctsb_aes_ctx_t* ctx,
         return KCTSB_ERROR_INVALID_PARAM;
     }
 
+    // Extract actual rounds (mask out AES-NI format flag)
+    int actual_rounds = ctx->rounds & 0xFF;
+
 #if defined(KCTSB_HAS_AESNI)
-    // Use AES-NI hardware acceleration if available
-    if (check_aesni()) {
+    // Check if this context was initialized with AES-NI format
+    bool uses_aesni_format = (ctx->rounds & AESNI_FORMAT_FLAG) != 0;
+    
+    if (uses_aesni_format && check_aesni()) {
         if (ctx->key_bits == 128) {
-            // Cast uint32_t* to uint8_t* - layout is compatible
+            // Round keys are already in AES-NI native format
             const uint8_t* rk = reinterpret_cast<const uint8_t*>(ctx->round_keys);
             kctsb::simd::aes128_encrypt_block_ni(input, output, rk);
             return KCTSB_SUCCESS;
         }
         // For AES-192/256, fall through to software implementation
-        // (TODO: Add aes192/256_encrypt_block_ni)
     }
 #endif
 
@@ -413,7 +435,7 @@ kctsb_error_t kctsb_aes_encrypt_block(const kctsb_aes_ctx_t* ctx,
     add_round_key(state, &ctx->round_keys[0]);
 
     // Main rounds
-    for (int round = 1; round < ctx->rounds; round++) {
+    for (int round = 1; round < actual_rounds; round++) {
         sub_bytes(state);
         shift_rows(state);
         mix_columns(state);
@@ -423,7 +445,7 @@ kctsb_error_t kctsb_aes_encrypt_block(const kctsb_aes_ctx_t* ctx,
     // Final round (no MixColumns)
     sub_bytes(state);
     shift_rows(state);
-    add_round_key(state, &ctx->round_keys[ctx->rounds * 4]);
+    add_round_key(state, &ctx->round_keys[actual_rounds * 4]);
 
     memcpy(output, state, 16);
 
@@ -438,21 +460,65 @@ kctsb_error_t kctsb_aes_decrypt_block(const kctsb_aes_ctx_t* ctx,
         return KCTSB_ERROR_INVALID_PARAM;
     }
 
+    // Extract actual rounds (mask out AES-NI format flag)
+    int actual_rounds = ctx->rounds & 0xFF;
+
+    // Note: AES-NI decryption requires inverse key schedule
+    // For now, we use software implementation for decryption
+    // TODO v3.3.1: Add AES-NI decryption with inverse key generation
+
     uint8_t state[16];
     memcpy(state, input, 16);
 
-    // Initial round key addition
-    add_round_key(state, &ctx->round_keys[ctx->rounds * 4]);
+    // If context uses AES-NI format, we need software round keys
+    // This is a fallback - ideally we'd store both formats
+#if defined(KCTSB_HAS_AESNI)
+    bool uses_aesni_format = (ctx->rounds & AESNI_FORMAT_FLAG) != 0;
+    if (uses_aesni_format) {
+        // For AES-NI contexts, we need to regenerate software keys for decryption
+        // This is inefficient but maintains correctness
+        // TODO v3.3.1: Store both key formats or add AES-NI decrypt support
+        
+        // Extract original key from AES-NI round keys (first 16 bytes = original key)
+        uint8_t orig_key[16];
+        memcpy(orig_key, ctx->round_keys, 16);
+        
+        // Generate software round keys temporarily
+        uint32_t sw_round_keys[60];
+        key_expansion(orig_key, sw_round_keys, 16, 10);
+        kctsb_secure_zero(orig_key, 16);
+        
+        // Perform decryption with software keys
+        add_round_key(state, &sw_round_keys[actual_rounds * 4]);
+        
+        for (int round = actual_rounds - 1; round > 0; round--) {
+            inv_shift_rows(state);
+            inv_sub_bytes(state);
+            add_round_key(state, &sw_round_keys[round * 4]);
+            inv_mix_columns(state);
+        }
+        
+        inv_shift_rows(state);
+        inv_sub_bytes(state);
+        add_round_key(state, &sw_round_keys[0]);
+        
+        memcpy(output, state, 16);
+        kctsb_secure_zero(state, 16);
+        kctsb_secure_zero(sw_round_keys, sizeof(sw_round_keys));
+        return KCTSB_SUCCESS;
+    }
+#endif
 
-    // Main rounds (reverse order)
-    for (int round = ctx->rounds - 1; round > 0; round--) {
+    // Software decryption for non-AES-NI contexts
+    add_round_key(state, &ctx->round_keys[actual_rounds * 4]);
+
+    for (int round = actual_rounds - 1; round > 0; round--) {
         inv_shift_rows(state);
         inv_sub_bytes(state);
         add_round_key(state, &ctx->round_keys[round * 4]);
         inv_mix_columns(state);
     }
 
-    // Final round
     inv_shift_rows(state);
     inv_sub_bytes(state);
     add_round_key(state, &ctx->round_keys[0]);
