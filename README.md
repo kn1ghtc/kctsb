@@ -4,11 +4,11 @@
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](.)
 [![C++](https://img.shields.io/badge/C++-17-blue.svg)](.)
 [![CMake](https://img.shields.io/badge/CMake-3.20+-green.svg)](.)
-[![Version](https://img.shields.io/badge/Version-3.3.0-brightgreen.svg)](.)
+[![Version](https://img.shields.io/badge/Version-3.3.1-brightgreen.svg)](.)
 
 **kctsb** 是一个跨平台的 C/C++ 密码学和安全算法库，专为生产环境和安全研究设计。目标是成为 **OpenSSL 的现代替代品**。
 
-> **v3.3.0 更新**: SHA-NI 硬件加速 SHA-256、AVX2 优化 Keccak/SHA3-256、AES-NI 集成修复、92 个测试 100% 通过。
+> **v3.3.1 更新**: 代码重构 - 单文件闭环模式，删除冗余文件，AES/SHA-256/Keccak 合并优化，91 个测试 100% 通过。
 
 ## ✨ 特性
 
@@ -149,7 +149,7 @@ kctsb/
 - ⚠️ SEAL 4.1.2 (可选)
 - ⚠️ HElib v2.3.0 (可选)
 
-**测试状态**: 58/58 通过（其中 1 项 `MathTest.NTL_Polynomial` 在 MinGW 下按设计跳过以规避 NTL Vec::SetLength 溢出告警）
+**测试状态**: 91 个测试 100% 通过（MinGW GCC 13.2 + Windows）
 
 ## 🚀 快速开始
 
@@ -205,7 +205,7 @@ ctest -L integration --test-dir build    # 仅集成测试
 ctest -L performance --test-dir build    # 仅性能测试
 ```
 
-**测试状态**: 58/58 通过（单元测试 54 个，集成测试 4 个）
+**测试状态**: 91 个测试通过（单元测试 + 集成测试 + 性能测试）
 
 > 重要提示（Windows Toolchain）：默认使用 `C:\msys64\mingw64` gcc/g++ 进行配置，脚本会自动设置 `CC/CXX` 及 CMake 编译器路径以避免 Strawberry Perl 工具链差异。HElib 现为默认开启依赖，若缺失请先运行 `scripts\build_helib.ps1`（或同名 bash 脚本）将产物放置到 `thirdparty/include` 与 `thirdparty/lib` 后再执行构建。如需使用 vcpkg，仅在基准测试场景下显式添加 `-UseVcpkg` 开关。构建期间自动设置 `KCTSB_BUILDING`/`KCTSB_SHARED_LIBRARY` 以确保 Windows 动态库正确导出符号、无 dllimport 警告；GCC 下已屏蔽 NTL 的 `-Warray-bounds`/`-Wstringop-overflow` 误报，核心源码保持零告警。
 
