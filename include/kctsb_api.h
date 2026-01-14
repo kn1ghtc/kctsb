@@ -46,13 +46,10 @@ extern "C" {
 #endif
 
 /* ============================================================================
- * Version Information
+ * Version Information - Include unified version header
  * ============================================================================ */
 
-#define KCTSB_VERSION_MAJOR 3
-#define KCTSB_VERSION_MINOR 3
-#define KCTSB_VERSION_PATCH 0
-#define KCTSB_VERSION_STRING "3.3.0"
+#include "kctsb/version.h"
 
 /**
  * @brief Get the library version string

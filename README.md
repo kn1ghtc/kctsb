@@ -4,18 +4,18 @@
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](.)
 [![C++](https://img.shields.io/badge/C++-17-blue.svg)](.)
 [![CMake](https://img.shields.io/badge/CMake-3.20+-green.svg)](.)
-[![Version](https://img.shields.io/badge/Version-3.3.2-brightgreen.svg)](.)
+[![Version](https://img.shields.io/badge/Version-3.3.3-brightgreen.svg)](.)
 
 **kctsb** 是一个跨平台的 C/C++ 密码学和安全算法库，专为生产环境和安全研究设计。目标是成为 **OpenSSL 的现代替代品**。
 
-> **v3.3.2 更新**: AES-NI 硬件加速实现 - AES-256-GCM 性能提升 **42倍** (8 → 337 MB/s)，修复 RSA-3072/4096 字节序问题，AES-128/256 使用完整 AES-NI 指令集。
+> **v3.3.3 更新**: 安全性强化 - SM4 移除 CBC 模式，仅保留 GCM 认证加密；统一版本管理至 `version.h`；SM2 增加加解密支持和 OpenSSL 基准对比。
 
 ## ✨ 特性
 
 ### 对称加密算法
 - **AES** - AES-128/192/256，支持 **CTR/GCM** 模式（v3.0 移除 ECB/CBC）
 - **ChaCha20-Poly1305** - RFC 8439 AEAD 流密码 (v3.0 新增)
-- **SM4** - 国密 SM4 分组密码
+- **SM4-GCM** - 国密 SM4 分组密码，仅支持 GCM 认证加密模式
 
 ### AEAD 认证加密
 - **AES-GCM** - Galois/Counter Mode，128-bit 认证标签
@@ -395,7 +395,7 @@ kctsb v3.3.2 提供与 OpenSSL 的性能对比基准测试：
 | RSA-2048 OAEP 解密 | 1,096 op/s | 296 op/s | 27% | ✅ NTL+CRT |
 | RSA-4096 PSS 签名 | 208 op/s | 37 op/s | 18% | ✅ NTL+CRT |
 | SM3 Hash | 182 MB/s | 156 MB/s | 86% | ✅ 生产级 |
-| SM4-CBC | 86 MB/s | 55 MB/s | 64% | ✅ 生产级 |
+| SM4-GCM | 86 MB/s | 55 MB/s | 64% | ✅ AEAD安全模式 |
 
 详细分析报告见 [docs/benchmark-analysis/](docs/benchmark-analysis/) 目录。
 

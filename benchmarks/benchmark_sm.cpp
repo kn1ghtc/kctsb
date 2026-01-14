@@ -127,19 +127,19 @@ static void print_header(const std::string& title) {
 }
 
 // ============================================================================
-// SM2 Benchmarks
+// SM2 Benchmarks with OpenSSL Comparison
 // ============================================================================
 
 /**
- * @brief SM2 benchmark suite
+ * @brief SM2 benchmark suite with OpenSSL comparison
  */
 void benchmark_sm2() {
     std::cout << "\n" << std::string(75, '=') << std::endl;
-    std::cout << "  SM2 Benchmark (Chinese National Standard)" << std::endl;
+    std::cout << "  SM2 Benchmark (Chinese National Standard GB/T 32918)" << std::endl;
     std::cout << std::string(75, '=') << std::endl;
 
 #ifdef KCTSB_HAS_SM2
-    print_header("SM2 Operations");
+    print_header("SM2 Key Generation");
 
     // Test message
     uint8_t message[64];
@@ -148,8 +148,39 @@ void benchmark_sm2() {
     size_t user_id_len = 16;
 
     // ========================================================================
-    // Key Generation
+    // OpenSSL SM2 Key Generation
     // ========================================================================
+    EVP_PKEY* openssl_keypair = nullptr;
+    {
+        EVP_PKEY_CTX* pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_SM2, nullptr);
+        if (pctx) {
+            run_benchmark(
+                "SM2 Key Generation",
+                "OpenSSL",
+                [&]() {
+                    auto start = Clock::now();
+                    EVP_PKEY_keygen_init(pctx);
+                    EVP_PKEY* pkey = nullptr;
+                    EVP_PKEY_keygen(pctx, &pkey);
+                    auto end = Clock::now();
+                    if (openssl_keypair == nullptr) {
+                        openssl_keypair = pkey;  // Keep first key
+                    } else {
+                        EVP_PKEY_free(pkey);
+                    }
+                    Duration elapsed = end - start;
+                    return elapsed.count();
+                }
+            );
+            EVP_PKEY_CTX_free(pctx);
+        } else {
+            std::cout << std::left << std::setw(25) << "SM2 Key Generation"
+                      << std::setw(10) << "OpenSSL"
+                      << "  (not supported)" << std::endl;
+        }
+    }
+
+    // kctsb Key Generation
     run_benchmark(
         "SM2 Key Generation",
         "kctsb",
@@ -163,13 +194,50 @@ void benchmark_sm2() {
         }
     );
 
-    // Generate persistent keypair for sign/verify benchmarks
+    // Generate persistent keypair for sign/verify/encrypt/decrypt benchmarks
     kctsb_sm2_keypair_t keypair;
     kctsb_sm2_generate_keypair(&keypair);
 
     // ========================================================================
-    // Sign
+    // SM2 Sign/Verify
     // ========================================================================
+    print_header("SM2 Sign/Verify");
+
+    // OpenSSL SM2 Sign
+    if (openssl_keypair) {
+        EVP_PKEY_CTX* sign_ctx = EVP_PKEY_CTX_new(openssl_keypair, nullptr);
+        if (sign_ctx) {
+            EVP_PKEY_CTX_set1_id(sign_ctx, user_id, user_id_len);
+            
+            run_benchmark(
+                "SM2 Sign",
+                "OpenSSL",
+                [&]() {
+                    auto start = Clock::now();
+                    EVP_MD_CTX* md_ctx = EVP_MD_CTX_new();
+                    EVP_MD_CTX_set_pkey_ctx(md_ctx, sign_ctx);
+                    EVP_DigestSignInit(md_ctx, nullptr, EVP_sm3(), nullptr, openssl_keypair);
+                    
+                    size_t sig_len = 0;
+                    EVP_DigestSign(md_ctx, nullptr, &sig_len, message, sizeof(message));
+                    std::vector<uint8_t> sig(sig_len);
+                    EVP_DigestSign(md_ctx, sig.data(), &sig_len, message, sizeof(message));
+                    
+                    EVP_MD_CTX_free(md_ctx);
+                    auto end = Clock::now();
+                    Duration elapsed = end - start;
+                    return elapsed.count();
+                }
+            );
+            EVP_PKEY_CTX_free(sign_ctx);
+        }
+    } else {
+        std::cout << std::left << std::setw(25) << "SM2 Sign"
+                  << std::setw(10) << "OpenSSL"
+                  << "  (not supported)" << std::endl;
+    }
+
+    // kctsb SM2 Sign
     run_benchmark(
         "SM2 Sign",
         "kctsb",
@@ -197,9 +265,7 @@ void benchmark_sm2() {
         &signature
     );
 
-    // ========================================================================
-    // Verify
-    // ========================================================================
+    // kctsb SM2 Verify
     run_benchmark(
         "SM2 Verify",
         "kctsb",
@@ -217,7 +283,64 @@ void benchmark_sm2() {
         }
     );
 
-    std::cout << "\n  Note: OpenSSL 3.0+ supports SM2 via EVP interface.\n";
+    // ========================================================================
+    // SM2 Encrypt/Decrypt (GB/T 32918.4)
+    // ========================================================================
+    print_header("SM2 Encrypt/Decrypt (GB/T 32918.4)");
+
+    // Test plaintext for encryption
+    uint8_t plaintext[32];
+    generate_random(plaintext, sizeof(plaintext));
+    
+    // kctsb SM2 Encrypt
+    std::vector<uint8_t> ciphertext(256);
+    size_t ciphertext_len = 0;
+    
+    run_benchmark(
+        "SM2 Encrypt",
+        "kctsb",
+        [&]() {
+            auto start = Clock::now();
+            ciphertext_len = ciphertext.size();
+            auto status = kctsb_sm2_encrypt(
+                keypair.public_key,
+                plaintext, sizeof(plaintext),
+                ciphertext.data(), &ciphertext_len
+            );
+            auto end = Clock::now();
+            Duration elapsed = end - start;
+            return (status == KCTSB_SUCCESS) ? elapsed.count() : -1.0;
+        }
+    );
+
+    // kctsb SM2 Decrypt
+    std::vector<uint8_t> decrypted(256);
+    size_t decrypted_len = 0;
+    
+    run_benchmark(
+        "SM2 Decrypt",
+        "kctsb",
+        [&]() {
+            auto start = Clock::now();
+            decrypted_len = decrypted.size();
+            auto status = kctsb_sm2_decrypt(
+                keypair.private_key,
+                ciphertext.data(), ciphertext_len,
+                decrypted.data(), &decrypted_len
+            );
+            auto end = Clock::now();
+            Duration elapsed = end - start;
+            return (status == KCTSB_SUCCESS) ? elapsed.count() : -1.0;
+        }
+    );
+
+    // Cleanup OpenSSL key
+    if (openssl_keypair) {
+        EVP_PKEY_free(openssl_keypair);
+    }
+
+    std::cout << "\n  Note: SM2 follows GB/T 32918.1-5 specifications.\n";
+    std::cout << "  Encryption uses C1||C3||C2 format (GB/T 32918.4).\n";
 #else
     std::cout << "\n  SM2 benchmarks skipped (KCTSB_HAS_SM2 not defined)\n";
 #endif
@@ -297,23 +420,24 @@ void benchmark_sm3() {
 }
 
 // ============================================================================
-// SM4 Benchmarks
+// SM4 Benchmarks - GCM Mode Only (AEAD)
 // ============================================================================
 
 /**
- * @brief SM4 benchmark suite
+ * @brief SM4 benchmark suite - GCM mode only
  */
 void benchmark_sm4() {
     std::cout << "\n" << std::string(75, '=') << std::endl;
-    std::cout << "  SM4 Cipher Benchmark (Chinese National Standard)" << std::endl;
+    std::cout << "  SM4-GCM Cipher Benchmark (Chinese National Standard)" << std::endl;
     std::cout << std::string(75, '=') << std::endl;
 
 #ifdef KCTSB_HAS_SM4
-    // Generate key and IV
+    // Generate key and IV (12 bytes for GCM)
     uint8_t key[16];
-    uint8_t iv[16];
+    uint8_t iv[12];
+    uint8_t tag[16];
     generate_random(key, 16);
-    generate_random(iv, 16);
+    generate_random(iv, 12);
 
     for (size_t data_size : TEST_SIZES) {
         std::string size_str;
@@ -323,100 +447,80 @@ void benchmark_sm4() {
             size_str = std::to_string(data_size / 1024) + " KB";
         }
 
-        print_header("SM4-CBC - Data Size: " + size_str);
+        print_header("SM4-GCM - Data Size: " + size_str);
 
-        // Generate test data (aligned to 16 bytes for CBC)
-        size_t aligned_size = (data_size / 16) * 16;
-        std::vector<uint8_t> plaintext(aligned_size);
-        std::vector<uint8_t> ciphertext(aligned_size);
-        std::vector<uint8_t> decrypted(aligned_size);
-        generate_random(plaintext.data(), aligned_size);
+        // Generate test data
+        std::vector<uint8_t> plaintext(data_size);
+        std::vector<uint8_t> ciphertext(data_size);
+        std::vector<uint8_t> decrypted(data_size);
+        generate_random(plaintext.data(), data_size);
 
-        // OpenSSL SM4 (if available)
-        const EVP_CIPHER* sm4_cbc = EVP_sm4_cbc();
-        if (sm4_cbc) {
+        // AAD for authenticated encryption
+        uint8_t aad[16] = "benchmark_aad";
+
+        // OpenSSL SM4-CTR (GCM not available in OpenSSL, use CTR for comparison)
+        // Note: OpenSSL does not have SM4-GCM, so we compare with CTR mode
+        const EVP_CIPHER* sm4_ctr = EVP_sm4_ctr();
+        if (sm4_ctr) {
+            // Use full 16-byte IV for CTR mode
+            uint8_t iv_ctr[16];
+            std::memcpy(iv_ctr, iv, 12);
+            std::memset(iv_ctr + 12, 0, 4);
+            
             run_benchmark(
-                "SM4-CBC Encrypt",
+                "SM4-CTR (ref)",
                 "OpenSSL",
                 [&]() {
                     auto start = Clock::now();
                     EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
                     int len = 0;
-                    EVP_EncryptInit_ex(ctx, sm4_cbc, nullptr, key, iv);
-                    EVP_CIPHER_CTX_set_padding(ctx, 0);
+                    EVP_EncryptInit_ex(ctx, sm4_ctr, nullptr, key, iv_ctr);
                     EVP_EncryptUpdate(ctx, ciphertext.data(), &len,
-                                     plaintext.data(), static_cast<int>(aligned_size));
+                                     plaintext.data(), static_cast<int>(data_size));
                     EVP_EncryptFinal_ex(ctx, ciphertext.data() + len, &len);
                     EVP_CIPHER_CTX_free(ctx);
                     auto end = Clock::now();
                     Duration elapsed = end - start;
                     return elapsed.count();
                 },
-                true, aligned_size
-            );
-
-            run_benchmark(
-                "SM4-CBC Decrypt",
-                "OpenSSL",
-                [&]() {
-                    auto start = Clock::now();
-                    EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
-                    int len = 0;
-                    EVP_DecryptInit_ex(ctx, sm4_cbc, nullptr, key, iv);
-                    EVP_CIPHER_CTX_set_padding(ctx, 0);
-                    EVP_DecryptUpdate(ctx, decrypted.data(), &len,
-                                     ciphertext.data(), static_cast<int>(aligned_size));
-                    EVP_DecryptFinal_ex(ctx, decrypted.data() + len, &len);
-                    EVP_CIPHER_CTX_free(ctx);
-                    auto end = Clock::now();
-                    Duration elapsed = end - start;
-                    return elapsed.count();
-                },
-                true, aligned_size
+                true, data_size
             );
         } else {
-            std::cout << std::left << std::setw(25) << "SM4-CBC Encrypt"
-                      << std::setw(10) << "OpenSSL"
-                      << "  (not supported in this OpenSSL build)" << std::endl;
-            std::cout << std::left << std::setw(25) << "SM4-CBC Decrypt"
+            std::cout << std::left << std::setw(25) << "SM4-CTR (ref)"
                       << std::setw(10) << "OpenSSL"
                       << "  (not supported in this OpenSSL build)" << std::endl;
         }
 
-        // kctsb SM4 Encrypt
-        kctsb_sm4_ctx_t enc_ctx;
-        kctsb_sm4_set_encrypt_key(&enc_ctx, key);
-
+        // kctsb SM4-GCM Encrypt
         run_benchmark(
-            "SM4-CBC Encrypt",
+            "SM4-GCM Encrypt",
             "kctsb",
             [&]() {
                 auto start = Clock::now();
-                kctsb_sm4_cbc_encrypt(&enc_ctx, iv, plaintext.data(),
-                                     aligned_size, ciphertext.data());
+                kctsb_sm4_gcm_encrypt_oneshot(key, iv, aad, sizeof(aad),
+                                              plaintext.data(), data_size,
+                                              ciphertext.data(), tag);
                 auto end = Clock::now();
                 Duration elapsed = end - start;
                 return elapsed.count();
             },
-            true, aligned_size
+            true, data_size
         );
 
-        // kctsb SM4 Decrypt
-        kctsb_sm4_ctx_t dec_ctx;
-        kctsb_sm4_set_decrypt_key(&dec_ctx, key);
-
+        // kctsb SM4-GCM Decrypt
         run_benchmark(
-            "SM4-CBC Decrypt",
+            "SM4-GCM Decrypt",
             "kctsb",
             [&]() {
                 auto start = Clock::now();
-                kctsb_sm4_cbc_decrypt(&dec_ctx, iv, ciphertext.data(),
-                                     aligned_size, decrypted.data());
+                auto ret = kctsb_sm4_gcm_decrypt_oneshot(key, iv, aad, sizeof(aad),
+                                                          ciphertext.data(), data_size,
+                                                          tag, decrypted.data());
                 auto end = Clock::now();
                 Duration elapsed = end - start;
-                return elapsed.count();
+                return (ret == KCTSB_SUCCESS) ? elapsed.count() : -1.0;
             },
-            true, aligned_size
+            true, data_size
         );
     }
 #else
@@ -441,4 +545,5 @@ void benchmark_sm() {
     benchmark_sm4();
 
     std::cout << "\n  Note: SM algorithms follow GB/T 32905/32907/32918 specifications.\n";
+    std::cout << "  SM4: Only GCM mode supported (AEAD). CBC removed for security.\n";
 }

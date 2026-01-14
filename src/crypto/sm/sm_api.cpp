@@ -124,80 +124,294 @@ void kctsb_sm4_decrypt_block(const kctsb_sm4_ctx_t* ctx,
     kctsb_sm4_encrypt_block(ctx, input, output);
 }
 
-kctsb_error_t kctsb_sm4_cbc_encrypt(const kctsb_sm4_ctx_t* ctx,
-                                     const uint8_t iv[16],
-                                     const uint8_t* input,
-                                     size_t input_len,
-                                     uint8_t* output) {
-    if (!ctx || !iv || !input || !output) {
+// ============================================================================
+// SM4-GCM Implementation (AEAD - Authenticated Encryption)
+// ============================================================================
+
+// Helper: XOR 16 bytes
+static inline void xor_block(uint8_t* out, const uint8_t* a, const uint8_t* b) {
+    for (int i = 0; i < 16; i++) {
+        out[i] = a[i] ^ b[i];
+    }
+}
+
+// Helper: Increment counter (big-endian)
+static inline void inc_counter(uint8_t* counter) {
+    for (int i = 15; i >= 12; i--) {
+        if (++counter[i] != 0) break;
+    }
+}
+
+// Helper: GHASH multiplication in GF(2^128)
+static void ghash_multiply(uint8_t* result, const uint8_t* x, const uint8_t* h) {
+    uint8_t z[16] = {0};
+    uint8_t v[16];
+    std::memcpy(v, h, 16);
+    
+    for (int i = 0; i < 128; i++) {
+        int byte_idx = i / 8;
+        int bit_idx = 7 - (i % 8);
+        
+        if ((x[byte_idx] >> bit_idx) & 1) {
+            xor_block(z, z, v);
+        }
+        
+        // v = v >> 1, with reduction polynomial x^128 + x^7 + x^2 + x + 1
+        bool lsb = v[15] & 1;
+        for (int j = 15; j > 0; j--) {
+            v[j] = (v[j] >> 1) | ((v[j-1] & 1) << 7);
+        }
+        v[0] >>= 1;
+        
+        if (lsb) {
+            v[0] ^= 0xe1;  // Reduction polynomial
+        }
+    }
+    
+    std::memcpy(result, z, 16);
+}
+
+// Helper: GHASH update
+static void ghash_update(uint8_t* state, const uint8_t* h, const uint8_t* data, size_t len) {
+    uint8_t block[16];
+    size_t blocks = len / 16;
+    
+    for (size_t i = 0; i < blocks; i++) {
+        xor_block(block, state, data + i * 16);
+        ghash_multiply(state, block, h);
+    }
+    
+    // Handle remaining bytes
+    size_t rem = len % 16;
+    if (rem > 0) {
+        std::memset(block, 0, 16);
+        std::memcpy(block, data + blocks * 16, rem);
+        xor_block(block, state, block);
+        ghash_multiply(state, block, h);
+    }
+}
+
+kctsb_error_t kctsb_sm4_gcm_init(kctsb_sm4_gcm_ctx_t* ctx,
+                                   const uint8_t key[16],
+                                   const uint8_t iv[12]) {
+    if (!ctx || !key || !iv) {
         return KCTSB_ERROR_INVALID_PARAM;
     }
-    if (input_len % 16 != 0) {
-        return KCTSB_ERROR_INVALID_PARAM;  // Must be block-aligned
-    }
-
-    uint8_t xor_block[16];
-    std::memcpy(xor_block, iv, 16);
-
-    size_t blocks = input_len / 16;
-    for (size_t i = 0; i < blocks; i++) {
-        const uint8_t* in = input + i * 16;
-        uint8_t* out = output + i * 16;
-
-        // XOR with previous ciphertext (or IV)
-        uint8_t temp[16];
-        for (int j = 0; j < 16; j++) {
-            temp[j] = in[j] ^ xor_block[j];
-        }
-
-        // Encrypt block
-        kctsb_sm4_encrypt_block(ctx, temp, out);
-
-        // Use this block as next XOR
-        std::memcpy(xor_block, out, 16);
-    }
-
+    
+    // Initialize SM4 cipher
+    kctsb_sm4_set_encrypt_key(&ctx->cipher_ctx, key);
+    
+    // Compute H = E(K, 0^128)
+    std::memset(ctx->h, 0, 16);
+    kctsb_sm4_encrypt_block(&ctx->cipher_ctx, ctx->h, ctx->h);
+    
+    // Compute J0 = IV || 0^31 || 1 (for 96-bit IV)
+    std::memcpy(ctx->j0, iv, 12);
+    ctx->j0[12] = 0;
+    ctx->j0[13] = 0;
+    ctx->j0[14] = 0;
+    ctx->j0[15] = 1;
+    
+    // Initialize GHASH state
+    std::memset(ctx->ghash_state, 0, 16);
+    ctx->aad_len = 0;
+    ctx->cipher_len = 0;
+    
     return KCTSB_SUCCESS;
 }
 
-kctsb_error_t kctsb_sm4_cbc_decrypt(const kctsb_sm4_ctx_t* ctx,
-                                     const uint8_t iv[16],
-                                     const uint8_t* input,
-                                     size_t input_len,
-                                     uint8_t* output) {
-    if (!ctx || !iv || !input || !output) {
+kctsb_error_t kctsb_sm4_gcm_encrypt(kctsb_sm4_gcm_ctx_t* ctx,
+                                      const uint8_t* aad,
+                                      size_t aad_len,
+                                      const uint8_t* plaintext,
+                                      size_t plaintext_len,
+                                      uint8_t* ciphertext,
+                                      uint8_t tag[16]) {
+    // Allow empty plaintext (auth-only mode) with nullptr ciphertext
+    if (!ctx || (!plaintext && plaintext_len > 0) || 
+        (!ciphertext && plaintext_len > 0) || !tag) {
         return KCTSB_ERROR_INVALID_PARAM;
     }
-    if (input_len % 16 != 0) {
-        return KCTSB_ERROR_INVALID_PARAM;
+    
+    // Process AAD
+    if (aad && aad_len > 0) {
+        ghash_update(ctx->ghash_state, ctx->h, aad, aad_len);
+        ctx->aad_len = aad_len;
     }
-
-    uint8_t xor_block[16];
-    std::memcpy(xor_block, iv, 16);
-
-    size_t blocks = input_len / 16;
+    
+    // Pad AAD to block boundary in GHASH
+    size_t aad_pad = (16 - (aad_len % 16)) % 16;
+    if (aad_pad > 0 && aad_len > 0) {
+        uint8_t zeros[16] = {0};
+        ghash_update(ctx->ghash_state, ctx->h, zeros, aad_pad);
+    }
+    
+    // Counter mode encryption
+    uint8_t counter[16];
+    std::memcpy(counter, ctx->j0, 16);
+    inc_counter(counter);  // Start from J0 + 1
+    
+    uint8_t keystream[16];
+    size_t blocks = plaintext_len / 16;
+    
     for (size_t i = 0; i < blocks; i++) {
-        const uint8_t* in = input + i * 16;
-        uint8_t* out = output + i * 16;
-
-        // Save current ciphertext for next XOR
-        uint8_t saved[16];
-        std::memcpy(saved, in, 16);
-
-        // Decrypt block
-        uint8_t temp[16];
-        kctsb_sm4_encrypt_block(ctx, in, temp);  // Decryption uses same operation with reversed keys
-
-        // XOR with previous ciphertext (or IV)
-        for (int j = 0; j < 16; j++) {
-            out[j] = temp[j] ^ xor_block[j];
-        }
-
-        // Use saved ciphertext as next XOR
-        std::memcpy(xor_block, saved, 16);
+        kctsb_sm4_encrypt_block(&ctx->cipher_ctx, counter, keystream);
+        xor_block(ciphertext + i * 16, plaintext + i * 16, keystream);
+        inc_counter(counter);
     }
-
+    
+    // Handle final partial block
+    size_t rem = plaintext_len % 16;
+    if (rem > 0) {
+        kctsb_sm4_encrypt_block(&ctx->cipher_ctx, counter, keystream);
+        for (size_t i = 0; i < rem; i++) {
+            ciphertext[blocks * 16 + i] = plaintext[blocks * 16 + i] ^ keystream[i];
+        }
+    }
+    
+    // GHASH over ciphertext
+    ghash_update(ctx->ghash_state, ctx->h, ciphertext, plaintext_len);
+    ctx->cipher_len = plaintext_len;
+    
+    // Pad ciphertext
+    size_t ct_pad = (16 - (plaintext_len % 16)) % 16;
+    if (ct_pad > 0) {
+        uint8_t zeros[16] = {0};
+        ghash_update(ctx->ghash_state, ctx->h, zeros, ct_pad);
+    }
+    
+    // Final GHASH block: len(A) || len(C) in bits
+    uint8_t len_block[16] = {0};
+    uint64_t aad_bits = ctx->aad_len * 8;
+    uint64_t ct_bits = ctx->cipher_len * 8;
+    for (int i = 0; i < 8; i++) {
+        len_block[7 - i] = (aad_bits >> (i * 8)) & 0xFF;
+        len_block[15 - i] = (ct_bits >> (i * 8)) & 0xFF;
+    }
+    ghash_update(ctx->ghash_state, ctx->h, len_block, 16);
+    
+    // Tag = GHASH ^ E(K, J0)
+    kctsb_sm4_encrypt_block(&ctx->cipher_ctx, ctx->j0, keystream);
+    xor_block(tag, ctx->ghash_state, keystream);
+    
     return KCTSB_SUCCESS;
+}
+
+kctsb_error_t kctsb_sm4_gcm_decrypt(kctsb_sm4_gcm_ctx_t* ctx,
+                                      const uint8_t* aad,
+                                      size_t aad_len,
+                                      const uint8_t* ciphertext,
+                                      size_t ciphertext_len,
+                                      const uint8_t tag[16],
+                                      uint8_t* plaintext) {
+    // Allow empty ciphertext (auth-only mode) with nullptr plaintext
+    if (!ctx || (!ciphertext && ciphertext_len > 0) || !tag || 
+        (!plaintext && ciphertext_len > 0)) {
+        return KCTSB_ERROR_INVALID_PARAM;
+    }
+    
+    // Compute expected tag
+    uint8_t computed_tag[16];
+    uint8_t ghash_state[16] = {0};
+    
+    // Process AAD
+    if (aad && aad_len > 0) {
+        ghash_update(ghash_state, ctx->h, aad, aad_len);
+    }
+    size_t aad_pad = (16 - (aad_len % 16)) % 16;
+    if (aad_pad > 0 && aad_len > 0) {
+        uint8_t zeros[16] = {0};
+        ghash_update(ghash_state, ctx->h, zeros, aad_pad);
+    }
+    
+    // GHASH over ciphertext
+    ghash_update(ghash_state, ctx->h, ciphertext, ciphertext_len);
+    size_t ct_pad = (16 - (ciphertext_len % 16)) % 16;
+    if (ct_pad > 0) {
+        uint8_t zeros[16] = {0};
+        ghash_update(ghash_state, ctx->h, zeros, ct_pad);
+    }
+    
+    // Length block
+    uint8_t len_block[16] = {0};
+    uint64_t aad_bits = aad_len * 8;
+    uint64_t ct_bits = ciphertext_len * 8;
+    for (int i = 0; i < 8; i++) {
+        len_block[7 - i] = (aad_bits >> (i * 8)) & 0xFF;
+        len_block[15 - i] = (ct_bits >> (i * 8)) & 0xFF;
+    }
+    ghash_update(ghash_state, ctx->h, len_block, 16);
+    
+    // Compute tag
+    uint8_t keystream[16];
+    kctsb_sm4_encrypt_block(&ctx->cipher_ctx, ctx->j0, keystream);
+    xor_block(computed_tag, ghash_state, keystream);
+    
+    // Constant-time tag comparison
+    int diff = 0;
+    for (int i = 0; i < 16; i++) {
+        diff |= computed_tag[i] ^ tag[i];
+    }
+    if (diff != 0) {
+        std::memset(plaintext, 0, ciphertext_len);
+        return KCTSB_ERROR_AUTH_FAILED;
+    }
+    
+    // Decrypt (CTR mode)
+    uint8_t counter[16];
+    std::memcpy(counter, ctx->j0, 16);
+    inc_counter(counter);
+    
+    size_t blocks = ciphertext_len / 16;
+    for (size_t i = 0; i < blocks; i++) {
+        kctsb_sm4_encrypt_block(&ctx->cipher_ctx, counter, keystream);
+        xor_block(plaintext + i * 16, ciphertext + i * 16, keystream);
+        inc_counter(counter);
+    }
+    
+    size_t rem = ciphertext_len % 16;
+    if (rem > 0) {
+        kctsb_sm4_encrypt_block(&ctx->cipher_ctx, counter, keystream);
+        for (size_t i = 0; i < rem; i++) {
+            plaintext[blocks * 16 + i] = ciphertext[blocks * 16 + i] ^ keystream[i];
+        }
+    }
+    
+    return KCTSB_SUCCESS;
+}
+
+kctsb_error_t kctsb_sm4_gcm_encrypt_oneshot(
+    const uint8_t key[16],
+    const uint8_t iv[12],
+    const uint8_t* aad,
+    size_t aad_len,
+    const uint8_t* plaintext,
+    size_t plaintext_len,
+    uint8_t* ciphertext,
+    uint8_t tag[16]
+) {
+    kctsb_sm4_gcm_ctx_t ctx;
+    kctsb_error_t err = kctsb_sm4_gcm_init(&ctx, key, iv);
+    if (err != KCTSB_SUCCESS) return err;
+    
+    return kctsb_sm4_gcm_encrypt(&ctx, aad, aad_len, plaintext, plaintext_len, ciphertext, tag);
+}
+
+kctsb_error_t kctsb_sm4_gcm_decrypt_oneshot(
+    const uint8_t key[16],
+    const uint8_t iv[12],
+    const uint8_t* aad,
+    size_t aad_len,
+    const uint8_t* ciphertext,
+    size_t ciphertext_len,
+    const uint8_t tag[16],
+    uint8_t* plaintext
+) {
+    kctsb_sm4_gcm_ctx_t ctx;
+    kctsb_error_t err = kctsb_sm4_gcm_init(&ctx, key, iv);
+    if (err != KCTSB_SUCCESS) return err;
+    
+    return kctsb_sm4_gcm_decrypt(&ctx, aad, aad_len, ciphertext, ciphertext_len, tag, plaintext);
 }
 
 kctsb_error_t kctsb_sm4_self_test(void) {
