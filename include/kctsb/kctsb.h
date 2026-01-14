@@ -1,11 +1,11 @@
 /**
  * @file kctsb.h
  * @brief Main header file for kctsb cryptographic library
- * 
+ *
  * This is the primary include file for the kctsb (Knight's Cryptographic
  * Toolset and Security Base) library. Include this file to access all
  * cryptographic algorithms and utilities.
- * 
+ *
  * @author knightc
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
  * @license Apache License 2.0

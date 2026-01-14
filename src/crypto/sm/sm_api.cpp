@@ -126,13 +126,24 @@ void kctsb_sm4_decrypt_block(const kctsb_sm4_ctx_t* ctx,
 
 // ============================================================================
 // SM4-GCM Implementation (AEAD - Authenticated Encryption)
+// Performance optimized: 4-bit table-based GHASH, parallel CTR blocks
 // ============================================================================
 
-// Helper: XOR 16 bytes
+// Helper: XOR 16 bytes using uint64_t for better performance
 static inline void xor_block(uint8_t* out, const uint8_t* a, const uint8_t* b) {
-    for (int i = 0; i < 16; i++) {
-        out[i] = a[i] ^ b[i];
-    }
+    uint64_t* o64 = reinterpret_cast<uint64_t*>(out);
+    const uint64_t* a64 = reinterpret_cast<const uint64_t*>(a);
+    const uint64_t* b64 = reinterpret_cast<const uint64_t*>(b);
+    o64[0] = a64[0] ^ b64[0];
+    o64[1] = a64[1] ^ b64[1];
+}
+
+// Helper: XOR in place
+static inline void xor_block_inplace(uint8_t* out, const uint8_t* b) {
+    uint64_t* o64 = reinterpret_cast<uint64_t*>(out);
+    const uint64_t* b64 = reinterpret_cast<const uint64_t*>(b);
+    o64[0] ^= b64[0];
+    o64[1] ^= b64[1];
 }
 
 // Helper: Increment counter (big-endian)
@@ -142,81 +153,173 @@ static inline void inc_counter(uint8_t* counter) {
     }
 }
 
-// Helper: GHASH multiplication in GF(2^128)
-static void ghash_multiply(uint8_t* result, const uint8_t* x, const uint8_t* h) {
-    uint8_t z[16] = {0};
-    uint8_t v[16];
-    std::memcpy(v, h, 16);
-    
-    for (int i = 0; i < 128; i++) {
-        int byte_idx = i / 8;
-        int bit_idx = 7 - (i % 8);
-        
-        if ((x[byte_idx] >> bit_idx) & 1) {
-            xor_block(z, z, v);
-        }
-        
-        // v = v >> 1, with reduction polynomial x^128 + x^7 + x^2 + x + 1
-        bool lsb = v[15] & 1;
-        for (int j = 15; j > 0; j--) {
-            v[j] = (v[j] >> 1) | ((v[j-1] & 1) << 7);
-        }
-        v[0] >>= 1;
-        
-        if (lsb) {
-            v[0] ^= 0xe1;  // Reduction polynomial
-        }
-    }
-    
-    std::memcpy(result, z, 16);
+// ============================================================================
+// Optimized GHASH using 4-bit table method with 64-bit operations
+// ============================================================================
+
+// Reduction table for shifting right by 4 bits
+// When Z >>= 4, we need to XOR with reduction polynomial if any of the low 4 bits were set
+static const uint64_t GHASH_REDUCE4[16] = {
+    0x0000000000000000ULL, 0xc200000000000000ULL, 0x8400000000000000ULL, 0x4600000000000000ULL,
+    0x0800000000000000ULL, 0xca00000000000000ULL, 0x8c00000000000000ULL, 0x4e00000000000000ULL,
+    0x1000000000000000ULL, 0xd200000000000000ULL, 0x9400000000000000ULL, 0x5600000000000000ULL,
+    0x1800000000000000ULL, 0xda00000000000000ULL, 0x9c00000000000000ULL, 0x5e00000000000000ULL
+};
+
+// GHASH 4-bit table using 64-bit values for faster operations
+struct GHashTable {
+    uint64_t hi[16];  // High 64 bits of H * i
+    uint64_t lo[16];  // Low 64 bits of H * i
+};
+
+// Byte swap for big-endian conversion
+static inline uint64_t bswap64(uint64_t x) {
+#if defined(__GNUC__) || defined(__clang__)
+    return __builtin_bswap64(x);
+#else
+    return ((x & 0x00000000000000FFULL) << 56) |
+           ((x & 0x000000000000FF00ULL) << 40) |
+           ((x & 0x0000000000FF0000ULL) << 24) |
+           ((x & 0x00000000FF000000ULL) << 8) |
+           ((x & 0x000000FF00000000ULL) >> 8) |
+           ((x & 0x0000FF0000000000ULL) >> 24) |
+           ((x & 0x00FF000000000000ULL) >> 40) |
+           ((x & 0xFF00000000000000ULL) >> 56);
+#endif
 }
 
-// Helper: GHASH update
-static void ghash_update(uint8_t* state, const uint8_t* h, const uint8_t* data, size_t len) {
+// Multiply by x in GF(2^128) - shift right by 1 with reduction
+static inline void gf128_mul_x(uint64_t* hi, uint64_t* lo) {
+    uint64_t mask = -(*lo & 1);  // All 1s if low bit set, else 0
+    *lo = (*lo >> 1) | (*hi << 63);
+    *hi = (*hi >> 1) ^ (mask & 0xe100000000000000ULL);
+}
+
+// Initialize GHASH table
+static void ghash_init_table(GHashTable* tbl, const uint8_t* h) {
+    // Load H as big-endian 128-bit value
+    uint64_t h_hi = bswap64(*reinterpret_cast<const uint64_t*>(h));
+    uint64_t h_lo = bswap64(*reinterpret_cast<const uint64_t*>(h + 8));
+
+    // table[0] = 0
+    tbl->hi[0] = 0;
+    tbl->lo[0] = 0;
+
+    // table[8] = H (bit 3 = MSB in nibble corresponds to coefficient of x^0)
+    tbl->hi[8] = h_hi;
+    tbl->lo[8] = h_lo;
+
+    // table[4] = H * x, table[2] = H * x^2, table[1] = H * x^3
+    tbl->hi[4] = h_hi; tbl->lo[4] = h_lo;
+    gf128_mul_x(&tbl->hi[4], &tbl->lo[4]);
+
+    tbl->hi[2] = tbl->hi[4]; tbl->lo[2] = tbl->lo[4];
+    gf128_mul_x(&tbl->hi[2], &tbl->lo[2]);
+
+    tbl->hi[1] = tbl->hi[2]; tbl->lo[1] = tbl->lo[2];
+    gf128_mul_x(&tbl->hi[1], &tbl->lo[1]);
+
+    // Build remaining entries using XOR
+    for (int i = 3; i < 16; i++) {
+        if (i != 4 && i != 8) {
+            int low_bit = i & (-i);
+            int rest = i ^ low_bit;
+            tbl->hi[i] = tbl->hi[low_bit] ^ tbl->hi[rest];
+            tbl->lo[i] = tbl->lo[low_bit] ^ tbl->lo[rest];
+        }
+    }
+}
+
+// GHASH multiply: result = X * H in GF(2^128)
+// Uses 4-bit table with 64-bit operations
+static void ghash_multiply_fast(uint8_t* result, const uint8_t* x, const GHashTable* tbl) {
+    uint64_t z_hi = 0, z_lo = 0;
+
+    // Process each byte of X from MSB to LSB
+    for (int i = 0; i < 16; i++) {
+        uint8_t byte = x[i];
+
+        // Process high nibble
+        uint8_t hi_nib = (byte >> 4) & 0x0F;
+
+        // Shift Z right by 4 with reduction
+        uint64_t rem = z_lo & 0x0F;
+        z_lo = (z_lo >> 4) | (z_hi << 60);
+        z_hi = (z_hi >> 4) ^ GHASH_REDUCE4[rem];
+
+        // XOR with table entry
+        z_hi ^= tbl->hi[hi_nib];
+        z_lo ^= tbl->lo[hi_nib];
+
+        // Process low nibble
+        uint8_t lo_nib = byte & 0x0F;
+
+        // Shift Z right by 4 with reduction
+        rem = z_lo & 0x0F;
+        z_lo = (z_lo >> 4) | (z_hi << 60);
+        z_hi = (z_hi >> 4) ^ GHASH_REDUCE4[rem];
+
+        // XOR with table entry
+        z_hi ^= tbl->hi[lo_nib];
+        z_lo ^= tbl->lo[lo_nib];
+    }
+
+    // Store result as big-endian
+    *reinterpret_cast<uint64_t*>(result) = bswap64(z_hi);
+    *reinterpret_cast<uint64_t*>(result + 8) = bswap64(z_lo);
+}
+
+// GHASH update
+static void ghash_update_fast(uint8_t* state, const GHashTable* tbl,
+                               const uint8_t* data, size_t len) {
     uint8_t block[16];
     size_t blocks = len / 16;
-    
+
     for (size_t i = 0; i < blocks; i++) {
         xor_block(block, state, data + i * 16);
-        ghash_multiply(state, block, h);
+        ghash_multiply_fast(state, block, tbl);
     }
-    
-    // Handle remaining bytes
+
+    // Handle remaining bytes (pad with zeros)
     size_t rem = len % 16;
     if (rem > 0) {
         std::memset(block, 0, 16);
         std::memcpy(block, data + blocks * 16, rem);
-        xor_block(block, state, block);
-        ghash_multiply(state, block, h);
+        xor_block_inplace(block, state);
+        ghash_multiply_fast(state, block, tbl);
     }
 }
 
+// ============================================================================
+// SM4-GCM Implementation
+// ============================================================================
+
 kctsb_error_t kctsb_sm4_gcm_init(kctsb_sm4_gcm_ctx_t* ctx,
-                                   const uint8_t key[16],
-                                   const uint8_t iv[12]) {
+                                  const uint8_t key[16],
+                                  const uint8_t iv[12]) {
     if (!ctx || !key || !iv) {
         return KCTSB_ERROR_INVALID_PARAM;
     }
-    
+
     // Initialize SM4 cipher
     kctsb_sm4_set_encrypt_key(&ctx->cipher_ctx, key);
-    
+
     // Compute H = E(K, 0^128)
     std::memset(ctx->h, 0, 16);
     kctsb_sm4_encrypt_block(&ctx->cipher_ctx, ctx->h, ctx->h);
-    
+
     // Compute J0 = IV || 0^31 || 1 (for 96-bit IV)
     std::memcpy(ctx->j0, iv, 12);
     ctx->j0[12] = 0;
     ctx->j0[13] = 0;
     ctx->j0[14] = 0;
     ctx->j0[15] = 1;
-    
+
     // Initialize GHASH state
     std::memset(ctx->ghash_state, 0, 16);
     ctx->aad_len = 0;
     ctx->cipher_len = 0;
-    
+
     return KCTSB_SUCCESS;
 }
 
@@ -228,72 +331,100 @@ kctsb_error_t kctsb_sm4_gcm_encrypt(kctsb_sm4_gcm_ctx_t* ctx,
                                       uint8_t* ciphertext,
                                       uint8_t tag[16]) {
     // Allow empty plaintext (auth-only mode) with nullptr ciphertext
-    if (!ctx || (!plaintext && plaintext_len > 0) || 
+    if (!ctx || (!plaintext && plaintext_len > 0) ||
         (!ciphertext && plaintext_len > 0) || !tag) {
         return KCTSB_ERROR_INVALID_PARAM;
     }
-    
-    // Process AAD
+
+    // Initialize GHASH table for H
+    GHashTable ghash_tbl;
+    ghash_init_table(&ghash_tbl, ctx->h);
+
+    // Process AAD with optimized GHASH
     if (aad && aad_len > 0) {
-        ghash_update(ctx->ghash_state, ctx->h, aad, aad_len);
+        ghash_update_fast(ctx->ghash_state, &ghash_tbl, aad, aad_len);
         ctx->aad_len = aad_len;
     }
-    
+
     // Pad AAD to block boundary in GHASH
     size_t aad_pad = (16 - (aad_len % 16)) % 16;
     if (aad_pad > 0 && aad_len > 0) {
         uint8_t zeros[16] = {0};
-        ghash_update(ctx->ghash_state, ctx->h, zeros, aad_pad);
+        ghash_update_fast(ctx->ghash_state, &ghash_tbl, zeros, aad_pad);
     }
-    
-    // Counter mode encryption
+
+    // Counter mode encryption with parallel processing (4 blocks at a time)
     uint8_t counter[16];
     std::memcpy(counter, ctx->j0, 16);
     inc_counter(counter);  // Start from J0 + 1
-    
-    uint8_t keystream[16];
+
+    constexpr size_t PARALLEL_BLOCKS = 4;
+    uint8_t keystream[PARALLEL_BLOCKS][16];
+    uint8_t counters[PARALLEL_BLOCKS][16];
     size_t blocks = plaintext_len / 16;
-    
-    for (size_t i = 0; i < blocks; i++) {
-        kctsb_sm4_encrypt_block(&ctx->cipher_ctx, counter, keystream);
-        xor_block(ciphertext + i * 16, plaintext + i * 16, keystream);
+
+    // Process 4 blocks at a time for better cache utilization
+    size_t i = 0;
+    for (; i + PARALLEL_BLOCKS <= blocks; i += PARALLEL_BLOCKS) {
+        // Prepare counters
+        for (size_t j = 0; j < PARALLEL_BLOCKS; j++) {
+            std::memcpy(counters[j], counter, 16);
+            inc_counter(counter);
+        }
+
+        // Generate keystream blocks
+        for (size_t j = 0; j < PARALLEL_BLOCKS; j++) {
+            kctsb_sm4_encrypt_block(&ctx->cipher_ctx, counters[j], keystream[j]);
+        }
+
+        // XOR with plaintext
+        for (size_t j = 0; j < PARALLEL_BLOCKS; j++) {
+            xor_block(ciphertext + (i + j) * 16, plaintext + (i + j) * 16, keystream[j]);
+        }
+    }
+
+    // Handle remaining full blocks
+    for (; i < blocks; i++) {
+        kctsb_sm4_encrypt_block(&ctx->cipher_ctx, counter, keystream[0]);
+        xor_block(ciphertext + i * 16, plaintext + i * 16, keystream[0]);
         inc_counter(counter);
     }
-    
+
     // Handle final partial block
     size_t rem = plaintext_len % 16;
     if (rem > 0) {
-        kctsb_sm4_encrypt_block(&ctx->cipher_ctx, counter, keystream);
-        for (size_t i = 0; i < rem; i++) {
-            ciphertext[blocks * 16 + i] = plaintext[blocks * 16 + i] ^ keystream[i];
+        kctsb_sm4_encrypt_block(&ctx->cipher_ctx, counter, keystream[0]);
+        for (size_t j = 0; j < rem; j++) {
+            ciphertext[blocks * 16 + j] = plaintext[blocks * 16 + j] ^ keystream[0][j];
         }
     }
-    
+
     // GHASH over ciphertext
-    ghash_update(ctx->ghash_state, ctx->h, ciphertext, plaintext_len);
+    ghash_update_fast(ctx->ghash_state, &ghash_tbl, ciphertext, plaintext_len);
     ctx->cipher_len = plaintext_len;
-    
+
     // Pad ciphertext
     size_t ct_pad = (16 - (plaintext_len % 16)) % 16;
-    if (ct_pad > 0) {
+    if (ct_pad > 0 && plaintext_len > 0) {
         uint8_t zeros[16] = {0};
-        ghash_update(ctx->ghash_state, ctx->h, zeros, ct_pad);
+        ghash_update_fast(ctx->ghash_state, &ghash_tbl, zeros, ct_pad);
     }
-    
+
     // Final GHASH block: len(A) || len(C) in bits
     uint8_t len_block[16] = {0};
     uint64_t aad_bits = ctx->aad_len * 8;
     uint64_t ct_bits = ctx->cipher_len * 8;
-    for (int i = 0; i < 8; i++) {
-        len_block[7 - i] = (aad_bits >> (i * 8)) & 0xFF;
-        len_block[15 - i] = (ct_bits >> (i * 8)) & 0xFF;
+    for (int j = 0; j < 8; j++) {
+        len_block[7 - j] = (aad_bits >> (j * 8)) & 0xFF;
+        len_block[15 - j] = (ct_bits >> (j * 8)) & 0xFF;
     }
-    ghash_update(ctx->ghash_state, ctx->h, len_block, 16);
-    
+    ghash_update_fast(ctx->ghash_state, &ghash_tbl, len_block, 16);
+
     // Tag = GHASH ^ E(K, J0)
-    kctsb_sm4_encrypt_block(&ctx->cipher_ctx, ctx->j0, keystream);
-    xor_block(tag, ctx->ghash_state, keystream);
-    
+    uint8_t final_keystream[16];
+    kctsb_sm4_encrypt_block(&ctx->cipher_ctx, ctx->j0, final_keystream);
+    xor_block(tag, ctx->ghash_state, final_keystream);
+
     return KCTSB_SUCCESS;
 }
 
@@ -305,33 +436,37 @@ kctsb_error_t kctsb_sm4_gcm_decrypt(kctsb_sm4_gcm_ctx_t* ctx,
                                       const uint8_t tag[16],
                                       uint8_t* plaintext) {
     // Allow empty ciphertext (auth-only mode) with nullptr plaintext
-    if (!ctx || (!ciphertext && ciphertext_len > 0) || !tag || 
+    if (!ctx || (!ciphertext && ciphertext_len > 0) || !tag ||
         (!plaintext && ciphertext_len > 0)) {
         return KCTSB_ERROR_INVALID_PARAM;
     }
-    
+
+    // Initialize GHASH table for H
+    GHashTable ghash_tbl;
+    ghash_init_table(&ghash_tbl, ctx->h);
+
     // Compute expected tag
     uint8_t computed_tag[16];
     uint8_t ghash_state[16] = {0};
-    
+
     // Process AAD
     if (aad && aad_len > 0) {
-        ghash_update(ghash_state, ctx->h, aad, aad_len);
+        ghash_update_fast(ghash_state, &ghash_tbl, aad, aad_len);
     }
     size_t aad_pad = (16 - (aad_len % 16)) % 16;
     if (aad_pad > 0 && aad_len > 0) {
         uint8_t zeros[16] = {0};
-        ghash_update(ghash_state, ctx->h, zeros, aad_pad);
+        ghash_update_fast(ghash_state, &ghash_tbl, zeros, aad_pad);
     }
-    
+
     // GHASH over ciphertext
-    ghash_update(ghash_state, ctx->h, ciphertext, ciphertext_len);
+    ghash_update_fast(ghash_state, &ghash_tbl, ciphertext, ciphertext_len);
     size_t ct_pad = (16 - (ciphertext_len % 16)) % 16;
-    if (ct_pad > 0) {
+    if (ct_pad > 0 && ciphertext_len > 0) {
         uint8_t zeros[16] = {0};
-        ghash_update(ghash_state, ctx->h, zeros, ct_pad);
+        ghash_update_fast(ghash_state, &ghash_tbl, zeros, ct_pad);
     }
-    
+
     // Length block
     uint8_t len_block[16] = {0};
     uint64_t aad_bits = aad_len * 8;
@@ -340,43 +475,70 @@ kctsb_error_t kctsb_sm4_gcm_decrypt(kctsb_sm4_gcm_ctx_t* ctx,
         len_block[7 - i] = (aad_bits >> (i * 8)) & 0xFF;
         len_block[15 - i] = (ct_bits >> (i * 8)) & 0xFF;
     }
-    ghash_update(ghash_state, ctx->h, len_block, 16);
-    
+    ghash_update_fast(ghash_state, &ghash_tbl, len_block, 16);
+
     // Compute tag
     uint8_t keystream[16];
     kctsb_sm4_encrypt_block(&ctx->cipher_ctx, ctx->j0, keystream);
     xor_block(computed_tag, ghash_state, keystream);
-    
+
     // Constant-time tag comparison
     int diff = 0;
     for (int i = 0; i < 16; i++) {
         diff |= computed_tag[i] ^ tag[i];
     }
     if (diff != 0) {
-        std::memset(plaintext, 0, ciphertext_len);
+        if (plaintext && ciphertext_len > 0) {
+            std::memset(plaintext, 0, ciphertext_len);
+        }
         return KCTSB_ERROR_AUTH_FAILED;
     }
-    
-    // Decrypt (CTR mode)
+
+    // Decrypt (CTR mode) with parallel processing
     uint8_t counter[16];
     std::memcpy(counter, ctx->j0, 16);
     inc_counter(counter);
-    
+
+    constexpr size_t PARALLEL_BLOCKS = 4;
+    uint8_t keystreams[PARALLEL_BLOCKS][16];
+    uint8_t counters[PARALLEL_BLOCKS][16];
     size_t blocks = ciphertext_len / 16;
-    for (size_t i = 0; i < blocks; i++) {
-        kctsb_sm4_encrypt_block(&ctx->cipher_ctx, counter, keystream);
-        xor_block(plaintext + i * 16, ciphertext + i * 16, keystream);
-        inc_counter(counter);
-    }
-    
-    size_t rem = ciphertext_len % 16;
-    if (rem > 0) {
-        kctsb_sm4_encrypt_block(&ctx->cipher_ctx, counter, keystream);
-        for (size_t i = 0; i < rem; i++) {
-            plaintext[blocks * 16 + i] = ciphertext[blocks * 16 + i] ^ keystream[i];
+
+    // Process 4 blocks at a time
+    size_t i = 0;
+    for (; i + PARALLEL_BLOCKS <= blocks; i += PARALLEL_BLOCKS) {
+        // Prepare counters
+        for (size_t j = 0; j < PARALLEL_BLOCKS; j++) {
+            std::memcpy(counters[j], counter, 16);
+            inc_counter(counter);
+        }
+
+        // Generate keystream blocks
+        for (size_t j = 0; j < PARALLEL_BLOCKS; j++) {
+            kctsb_sm4_encrypt_block(&ctx->cipher_ctx, counters[j], keystreams[j]);
+        }
+
+        // XOR with ciphertext
+        for (size_t j = 0; j < PARALLEL_BLOCKS; j++) {
+            xor_block(plaintext + (i + j) * 16, ciphertext + (i + j) * 16, keystreams[j]);
         }
     }
-    
+
+    // Handle remaining full blocks
+    for (; i < blocks; i++) {
+        kctsb_sm4_encrypt_block(&ctx->cipher_ctx, counter, keystreams[0]);
+        xor_block(plaintext + i * 16, ciphertext + i * 16, keystreams[0]);
+        inc_counter(counter);
+    }
+
+    size_t rem = ciphertext_len % 16;
+    if (rem > 0) {
+        kctsb_sm4_encrypt_block(&ctx->cipher_ctx, counter, keystreams[0]);
+        for (size_t j = 0; j < rem; j++) {
+            plaintext[blocks * 16 + j] = ciphertext[blocks * 16 + j] ^ keystreams[0][j];
+        }
+    }
+
     return KCTSB_SUCCESS;
 }
 
@@ -393,7 +555,7 @@ kctsb_error_t kctsb_sm4_gcm_encrypt_oneshot(
     kctsb_sm4_gcm_ctx_t ctx;
     kctsb_error_t err = kctsb_sm4_gcm_init(&ctx, key, iv);
     if (err != KCTSB_SUCCESS) return err;
-    
+
     return kctsb_sm4_gcm_encrypt(&ctx, aad, aad_len, plaintext, plaintext_len, ciphertext, tag);
 }
 
@@ -410,7 +572,7 @@ kctsb_error_t kctsb_sm4_gcm_decrypt_oneshot(
     kctsb_sm4_gcm_ctx_t ctx;
     kctsb_error_t err = kctsb_sm4_gcm_init(&ctx, key, iv);
     if (err != KCTSB_SUCCESS) return err;
-    
+
     return kctsb_sm4_gcm_decrypt(&ctx, aad, aad_len, ciphertext, ciphertext_len, tag, plaintext);
 }
 

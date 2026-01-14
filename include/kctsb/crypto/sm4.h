@@ -1,13 +1,13 @@
 /**
  * @file sm4.h
  * @brief SM4 block cipher (Chinese National Standard) - GCM mode only
- * 
+ *
  * Implements GB/T 32907-2016 specification.
  * 128-bit block size, 128-bit key.
- * 
+ *
  * SECURITY NOTE: Only GCM mode is supported for authenticated encryption.
  * CBC mode has been removed as it does not provide authentication.
- * 
+ *
  * @author knightc
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
  */
@@ -211,7 +211,7 @@ class SM4GCM {
 public:
     explicit SM4GCM(const uint8_t key[16]);
     ~SM4GCM();
-    
+
     /**
      * @brief Encrypt with authentication
      * @param nonce 12-byte nonce
@@ -220,7 +220,7 @@ public:
      * @return Ciphertext || Tag (16 bytes)
      */
     ByteVec encrypt(const ByteVec& nonce, const ByteVec& aad, const ByteVec& plaintext);
-    
+
     /**
      * @brief Decrypt with authentication
      * @param nonce 12-byte nonce
@@ -229,7 +229,7 @@ public:
      * @return Plaintext or empty on auth failure
      */
     ByteVec decrypt(const ByteVec& nonce, const ByteVec& aad, const ByteVec& ciphertext_with_tag);
-    
+
 private:
     kctsb_sm4_ctx_t ctx_;
 };
