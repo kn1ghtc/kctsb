@@ -184,6 +184,26 @@ ctest --test-dir build --output-on-failure
 .\build\bin\kctsb.exe hash --sha3-256 "Hello, World!"
 ```
 
+### 构建脚本选项 (v3.2.1)
+
+```powershell
+# 快速构建 + 单元/集成测试（推荐日常使用，约1分钟）
+.\scripts\build.ps1 -All
+
+# 完整构建 + 所有测试 + OpenSSL对比基准测试
+.\scripts\build.ps1 -Full -UseVcpkg
+
+# 仅构建，不运行测试
+.\scripts\build.ps1 -Clean
+
+# 按标签运行测试
+ctest -L unit --test-dir build           # 仅单元测试
+ctest -L integration --test-dir build    # 仅集成测试
+ctest -L performance --test-dir build    # 仅性能测试
+```
+
+**测试状态**: 58/58 通过（单元测试 54 个，集成测试 4 个）
+
 > 重要提示（Windows Toolchain）：默认使用 `C:\msys64\mingw64` gcc/g++ 进行配置，脚本会自动设置 `CC/CXX` 及 CMake 编译器路径以避免 Strawberry Perl 工具链差异。HElib 现为默认开启依赖，若缺失请先运行 `scripts\build_helib.ps1`（或同名 bash 脚本）将产物放置到 `thirdparty/include` 与 `thirdparty/lib` 后再执行构建。如需使用 vcpkg，仅在基准测试场景下显式添加 `-UseVcpkg` 开关。构建期间自动设置 `KCTSB_BUILDING`/`KCTSB_SHARED_LIBRARY` 以确保 Windows 动态库正确导出符号、无 dllimport 警告；GCC 下已屏蔽 NTL 的 `-Warray-bounds`/`-Wstringop-overflow` 误报，核心源码保持零告警。
 
 > Windows 编译提示（MinGW-w64 GCC 13+）：

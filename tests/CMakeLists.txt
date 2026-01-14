@@ -1,8 +1,12 @@
 # ============================================================================
 # kctsb Tests CMakeLists.txt
+# Organized test structure with labels for selective execution
 # ============================================================================
 
-# Try to find system-installed GoogleTest first (e.g., from Homebrew)
+# ============================================================================
+# GoogleTest Configuration
+# ============================================================================
+
 find_package(GTest CONFIG QUIET)
 
 if(NOT GTest_FOUND)
@@ -31,219 +35,124 @@ if(NOT GTest_FOUND)
     FetchContent_Declare(
         googletest
         GIT_REPOSITORY ${_kctsb_gtest_repo}
-        GIT_TAG v1.14.0
+        GIT_TAG v1.15.2
         GIT_SHALLOW TRUE
     )
 
-    # For Windows: Prevent overriding the parent project's compiler/linker settings
     set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-
-    # Disable install for GTest
     set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
-
     FetchContent_MakeAvailable(googletest)
 else()
     message(STATUS "Using system GoogleTest: ${GTest_VERSION}")
 endif()
 
-# Enable testing
 include(GoogleTest)
 
 # ============================================================================
-# Core Tests
+# Helper Function: Add test with labels
 # ============================================================================
-
-# AES tests
-add_executable(test_aes
-    unit/crypto/test_aes.cpp
-)
-target_link_libraries(test_aes
-    PRIVATE
-        kctsb
-        GTest::gtest_main
-)
-target_include_directories(test_aes PRIVATE ${CMAKE_SOURCE_DIR}/include)
-gtest_discover_tests(test_aes)
-
-# Hash tests
-add_executable(test_hash
-    unit/crypto/test_hash.cpp
-)
-target_link_libraries(test_hash
-    PRIVATE
+function(kctsb_add_test TARGET_NAME SOURCE_FILE LABEL)
+    add_executable(${TARGET_NAME} ${SOURCE_FILE})
+    target_link_libraries(${TARGET_NAME} PRIVATE
         kctsb_static
         GTest::gtest_main
+    )
+    target_include_directories(${TARGET_NAME} PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/src
+    )
+    if(WIN32)
+        target_link_libraries(${TARGET_NAME} PRIVATE bcrypt)
+    endif()
+    
+    # Discover tests with labels
+    gtest_discover_tests(${TARGET_NAME}
+        PROPERTIES LABELS "${LABEL}"
+    )
+endfunction()
+
+# ============================================================================
+# UNIT TESTS - Fast, isolated component tests
+# Label: "unit" - Run with: ctest -L unit
+# ============================================================================
+
+# Symmetric encryption tests
+kctsb_add_test(test_aes unit/crypto/test_aes.cpp "unit;crypto;symmetric")
+
+# Hash function tests
+kctsb_add_test(test_hash unit/crypto/test_hash.cpp "unit;crypto;hash")
+kctsb_add_test(test_sha unit/crypto/test_sha.cpp "unit;crypto;hash")
+
+# Chinese national standards tests
+kctsb_add_test(test_sm unit/crypto/test_sm.cpp "unit;crypto;sm")
+
+# Math tests (includes NTL polynomial tests)
+add_executable(test_math unit/math/test_math.cpp)
+target_link_libraries(test_math PRIVATE
+    kctsb_static
+    GTest::gtest_main
 )
-target_include_directories(test_hash PRIVATE
+target_include_directories(test_math PRIVATE
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/src
 )
-gtest_discover_tests(test_hash)
-
-# SHA family tests (SHA-256/384/512)
-add_executable(test_sha
-    unit/crypto/test_sha.cpp
-)
-target_link_libraries(test_sha
-    PRIVATE
-        kctsb_static
-        GTest::gtest_main
-)
-target_include_directories(test_sha PRIVATE
-    ${CMAKE_SOURCE_DIR}/include
-    ${CMAKE_SOURCE_DIR}/src
-)
-gtest_discover_tests(test_sha)
-
-# RSA tests (requires NTL)
-# NOTE: Temporarily disabled - test file uses legacy API (rsa_getKey, rsa_enc, rsa_decy)
-# if(KCTSB_ENABLE_NTL AND NTL_FOUND)
-#     add_executable(test_rsa
-#         unit/crypto/test_rsa.cpp
-#     )
-#     target_link_libraries(test_rsa
-#         PRIVATE
-#             kctsb_static
-#             GTest::gtest_main
-#             NTL::NTL
-#     )
-#     target_include_directories(test_rsa PRIVATE
-#         ${CMAKE_SOURCE_DIR}/include
-#         ${CMAKE_SOURCE_DIR}/src
-#         ${CMAKE_SOURCE_DIR}/src/crypto/rsa
-#     )
-#     gtest_discover_tests(test_rsa)
-# endif()
-
-# ECC tests (requires NTL)
-# NOTE: Temporarily disabled - test file uses legacy API (kc_eccGroup)
-# if(KCTSB_ENABLE_NTL AND NTL_FOUND)
-#     add_executable(test_ecc
-#         unit/crypto/test_ecc.cpp
-#     )
-#     target_link_libraries(test_ecc
-#         PRIVATE
-#             kctsb_static
-#             GTest::gtest_main
-#             NTL::NTL
-#     )
-#     target_include_directories(test_ecc PRIVATE
-#         ${CMAKE_SOURCE_DIR}/include
-#         ${CMAKE_SOURCE_DIR}/src
-#         ${CMAKE_SOURCE_DIR}/src/crypto/ecc
-#     )
-#     gtest_discover_tests(test_ecc)
-# endif()
-
-# SM tests (Chinese National Standards)
-add_executable(test_sm
-    unit/crypto/test_sm.cpp
-)
-target_link_libraries(test_sm
-    PRIVATE
-        kctsb_static
-        GTest::gtest_main
-)
-target_include_directories(test_sm PRIVATE
-    ${CMAKE_SOURCE_DIR}/include
-    ${CMAKE_SOURCE_DIR}/src
-)
-gtest_discover_tests(test_sm)
-
-# PQC tests (Post-Quantum Cryptography - Kyber, Dilithium)
-# NOTE: Temporarily disabled - API needs to be updated to match current implementation
-# if(KCTSB_ENABLE_NTL AND NTL_FOUND)
-#     add_executable(test_pqc
-#         unit/crypto/test_pqc.cpp
-#     )
-#     target_link_libraries(test_pqc
-#         PRIVATE
-#             kctsb_static
-#             GTest::gtest_main
-#             NTL::NTL
-#     )
-#     target_include_directories(test_pqc PRIVATE
-#         ${CMAKE_SOURCE_DIR}/include
-#         ${CMAKE_SOURCE_DIR}/src
-#     )
-#     gtest_discover_tests(test_pqc)
-# endif()
-
-# ZKP tests (Zero-Knowledge Proofs - Groth16)
-# NOTE: Temporarily disabled - API needs to be updated to match current implementation
-# if(KCTSB_ENABLE_NTL AND NTL_FOUND)
-#     add_executable(test_zkp
-#         unit/crypto/test_zkp.cpp
-#     )
-#     target_link_libraries(test_zkp
-#         PRIVATE
-#             kctsb_static
-#             GTest::gtest_main
-#             NTL::NTL
-#     )
-#     target_include_directories(test_zkp PRIVATE
-#         ${CMAKE_SOURCE_DIR}/include
-#         ${CMAKE_SOURCE_DIR}/src
-#     )
-#     gtest_discover_tests(test_zkp)
-# endif()
-
-# SIMD tests (Hardware Acceleration)
-# NOTE: Temporarily disabled - API needs to be updated to match current implementation
-# add_executable(test_simd
-#     unit/crypto/test_simd.cpp
-# )
-# target_link_libraries(test_simd
-#     PRIVATE
-#         kctsb_static
-#         GTest::gtest_main
-# )
-# target_include_directories(test_simd PRIVATE
-#     ${CMAKE_SOURCE_DIR}/include
-#     ${CMAKE_SOURCE_DIR}/src
-# )
-# gtest_discover_tests(test_simd)
-
-# Math tests
-add_executable(test_math
-    unit/math/test_math.cpp
-)
-target_link_libraries(test_math
-    PRIVATE
-        kctsb
-        GTest::gtest_main
-)
-target_include_directories(test_math PRIVATE ${CMAKE_SOURCE_DIR}/include)
-gtest_discover_tests(test_math)
+if(WIN32)
+    target_link_libraries(test_math PRIVATE bcrypt)
+endif()
+# NTL tests require NTL library
+if(KCTSB_ENABLE_NTL AND NTL_FOUND)
+    target_compile_definitions(test_math PRIVATE KCTSB_HAS_NTL)
+    target_link_libraries(test_math PRIVATE ${NTL_LIBRARY})
+    if(GMP_FOUND)
+        target_link_libraries(test_math PRIVATE ${GMP_LIBRARY})
+    endif()
+    if(GF2X_FOUND)
+        target_link_libraries(test_math PRIVATE ${GF2X_LIBRARY})
+    endif()
+endif()
+gtest_discover_tests(test_math PROPERTIES LABELS "unit;math")
 
 # ============================================================================
-# Integration Tests
+# INTEGRATION TESTS - Cross-module interaction tests
+# Label: "integration" - Run with: ctest -L integration
 # ============================================================================
 
-add_executable(test_integration
-    integration/test_integration.cpp
-)
-target_link_libraries(test_integration
-    PRIVATE
-        kctsb_static
-        GTest::gtest_main
+add_executable(test_integration integration/test_integration.cpp)
+target_link_libraries(test_integration PRIVATE
+    kctsb_static
+    GTest::gtest_main
 )
 if(WIN32)
     target_link_libraries(test_integration PRIVATE bcrypt)
 endif()
 target_include_directories(test_integration PRIVATE ${CMAKE_SOURCE_DIR}/include)
-gtest_discover_tests(test_integration)
+gtest_discover_tests(test_integration PROPERTIES LABELS "integration")
 
 # ============================================================================
-# Benchmark Tests
+# PERFORMANCE TESTS - Internal performance validation (no OpenSSL)
+# Label: "performance" - Run with: ctest -L performance
 # ============================================================================
 
-add_executable(test_benchmark
-    benchmark/test_benchmark.cpp
-)
-target_link_libraries(test_benchmark
-    PRIVATE
-        kctsb_static
-        GTest::gtest_main
+add_executable(test_benchmark benchmark/test_benchmark.cpp)
+target_link_libraries(test_benchmark PRIVATE
+    kctsb_static
+    GTest::gtest_main
 )
 target_include_directories(test_benchmark PRIVATE ${CMAKE_SOURCE_DIR}/include)
+gtest_discover_tests(test_benchmark PROPERTIES LABELS "performance")
+
+# ============================================================================
+# Test Summary
+# ============================================================================
+message(STATUS "")
+message(STATUS "Test Configuration Summary:")
+message(STATUS "  Unit Tests:        test_aes, test_hash, test_sha, test_sm, test_math")
+message(STATUS "  Integration Tests: test_integration")
+message(STATUS "  Performance Tests: test_benchmark")
+message(STATUS "")
+message(STATUS "Run commands:")
+message(STATUS "  All tests:         ctest --output-on-failure")
+message(STATUS "  Unit tests only:   ctest -L unit --output-on-failure")
+message(STATUS "  Integration only:  ctest -L integration --output-on-failure")
+message(STATUS "  Performance only:  ctest -L performance --output-on-failure")
+message(STATUS "")

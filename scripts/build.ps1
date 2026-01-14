@@ -1,36 +1,40 @@
 # ============================================================================
 # kctsb Build Script for Windows (PowerShell)
-# Version: 3.2.0 (parity with scripts/build.sh)
+# Version: 3.2.1 - Optimized build with test separation
 # ============================================================================
 
 param(
     [switch]$Debug,
     [switch]$Clean,
-    [switch]$Test,
-    [switch]$Benchmark,
+    [switch]$Test,              # Run unit + integration tests (fast, default for -All)
+    [switch]$TestAll,           # Run ALL tests including performance
+    [switch]$Benchmark,         # Build and run OpenSSL comparison benchmarks
     [switch]$Install,
     [string]$InstallDir = "$PSScriptRoot\install",
     [switch]$Verbose,
     [int]$Jobs = 0,
-    [switch]$All,
+    [switch]$All,               # Clean + Build + Test (unit+integration only)
+    [switch]$Full,              # Clean + Build + TestAll + Benchmark (complete)
     [switch]$NoVcpkg,
     [switch]$UseVcpkg,
     [string]$Generator
 )
 
-# Allow tools to emit warnings without stopping the script; we enforce failure via exit codes
 $ErrorActionPreference = "Continue"
 
-# Resolve project/build directories
 $ProjectDir = Split-Path $PSScriptRoot -Parent
 $BuildDir = Join-Path $ProjectDir "build"
-
-# Derive build type
 $BuildType = if ($Debug) { "Debug" } else { "Release" }
+
+# Handle -All and -Full flags
+if ($Full) {
+    $Clean = $true
+    $TestAll = $true
+    $Benchmark = $true
+}
 if ($All) {
     $Clean = $true
     $Test = $true
-    $Benchmark = $true
 }
 
 # Parallel jobs
@@ -45,25 +49,25 @@ Write-Host ""
 Write-Host "Build Type:    $BuildType"
 Write-Host "Build Dir:     $BuildDir"
 Write-Host "Parallel Jobs: $Jobs"
-Write-Host "Options:       Clean=$Clean Test=$Test Benchmark=$Benchmark Install=$Install" 
+Write-Host "Options:       Clean=$Clean Test=$Test TestAll=$TestAll Benchmark=$Benchmark"
 Write-Host ""
 
 $startTime = Get-Date
 
 try {
-    # Clean build directory
+    # [1/5] Clean
     if ($Clean -and (Test-Path $BuildDir)) {
         Write-Host "[1/5] Cleaning build directory..." -ForegroundColor Yellow
         Remove-Item -Recurse -Force $BuildDir
     } else {
-        Write-Host "[1/5] Skipping clean (use -Clean or -All to force)" -ForegroundColor Yellow
+        Write-Host "[1/5] Skipping clean (use -Clean, -All, or -Full)" -ForegroundColor Yellow
     }
 
     if (-not (Test-Path $BuildDir)) {
         New-Item -ItemType Directory -Path $BuildDir | Out-Null
     }
 
-    # Configure
+    # [2/5] Configure
     Write-Host "[2/5] Configuring with CMake..." -ForegroundColor Yellow
     Push-Location $BuildDir
 
@@ -83,7 +87,7 @@ try {
         $CMakeArgs += "-DCMAKE_INSTALL_PREFIX=$InstallDir"
     }
 
-    # Prefer Ninja if available
+    # Generator selection
     $selectedGenerator = $null
     if ($Generator) {
         $selectedGenerator = $Generator
@@ -98,7 +102,7 @@ try {
         Write-Host "  Using generator: $selectedGenerator" -ForegroundColor Green
     }
 
-    # Prefer MSYS2 MinGW toolchain over Strawberry Perl toolchain
+    # MSYS2 MinGW toolchain preference
     $msysGcc = "C:\\msys64\\mingw64\\bin\\gcc.exe"
     $msysGxx = "C:\\msys64\\mingw64\\bin\\g++.exe"
     if ((Test-Path $msysGcc) -and (Test-Path $msysGxx)) {
@@ -111,51 +115,47 @@ try {
         }
         Write-Host "  Using MSYS2 MinGW64 toolchain: $msysGcc" -ForegroundColor Green
     } else {
-        Write-Warning "MSYS2 MinGW64 toolchain not found at C:\\msys64\\mingw64\\bin; falling back to environment compilers"
-        if ($env:PATH -match "Strawberry") {
-            Write-Warning "Strawberry toolchain detected in PATH; prefer MSYS2 for consistency."
-        }
+        Write-Warning "MSYS2 MinGW64 toolchain not found; falling back to environment compilers"
     }
 
-    # Auto-add VCPKG toolchain only when explicitly requested and benchmarking
+    # VCPKG only when explicitly requested
     $enableVcpkg = $Benchmark -and (-not $NoVcpkg) -and $UseVcpkg -and $env:VCPKG_ROOT
     if ($enableVcpkg) {
         $toolchain = Join-Path $env:VCPKG_ROOT "scripts\buildsystems\vcpkg.cmake"
         if (Test-Path $toolchain) {
             $CMakeArgs += "-DCMAKE_TOOLCHAIN_FILE=$toolchain"
-            Write-Host "  Using VCPKG toolchain (explicitly enabled): $toolchain" -ForegroundColor Green
-        } else {
-            Write-Warning "VCPKG toolchain requested but not found; proceeding without it."
+            Write-Host "  Using VCPKG toolchain: $toolchain" -ForegroundColor Green
         }
-    } else {
-        Write-Host "  Skipping VCPKG toolchain (Use -UseVcpkg with -Benchmark after MSYS2/thirdparty attempts)." -ForegroundColor Yellow
     }
 
     cmake @CMakeArgs
+    if ($LASTEXITCODE -ne 0) { throw "CMake configuration failed" }
 
-    if ($LASTEXITCODE -ne 0) {
-        throw "CMake configuration failed"
-    }
-
-    # Build
+    # [3/5] Build
     Write-Host "[3/5] Building with $Jobs parallel jobs..." -ForegroundColor Yellow
     $buildCmd = @("--build", ".", "--parallel", $Jobs)
     if ($Verbose) { $buildCmd += "--verbose" }
     cmake @buildCmd
     if ($LASTEXITCODE -ne 0) { throw "Build failed" }
 
-    # Test
-    if ($Test) {
-        Write-Host "[4/5] Running tests..." -ForegroundColor Yellow
-        ctest --output-on-failure --parallel $Jobs
+    # [4/5] Tests
+    if ($Test -or $TestAll) {
+        if ($TestAll) {
+            Write-Host "[4/5] Running ALL tests..." -ForegroundColor Yellow
+            ctest --output-on-failure --parallel $Jobs
+        } else {
+            Write-Host "[4/5] Running unit + integration tests (fast)..." -ForegroundColor Yellow
+            # Run only unit and integration tests, skip performance
+            ctest -L "unit|integration" --output-on-failure --parallel $Jobs
+        }
         if ($LASTEXITCODE -ne 0) { throw "Tests failed" }
     } else {
-        Write-Host "[4/5] Skipping tests (use -Test or -All)" -ForegroundColor Yellow
+        Write-Host "[4/5] Skipping tests (use -Test, -TestAll, -All, or -Full)" -ForegroundColor Yellow
     }
 
-    # Benchmark
+    # [5/5] Benchmark
     if ($Benchmark) {
-        Write-Host "[5/5] Running benchmarks..." -ForegroundColor Yellow
+        Write-Host "[5/5] Running OpenSSL comparison benchmarks..." -ForegroundColor Yellow
         $benchBin = Join-Path $BuildDir "bin\kctsb_benchmark.exe"
         if (Test-Path $benchBin) {
             $benchLog = Join-Path $BuildDir "kctsb_benchmark.log"
@@ -166,7 +166,7 @@ try {
             Write-Host "  Benchmark binary not found. Enable KCTSB_BUILD_BENCHMARKS." -ForegroundColor Red
         }
     } else {
-        Write-Host "[5/5] Skipping benchmarks (use -Benchmark or -All)" -ForegroundColor Yellow
+        Write-Host "[5/5] Skipping benchmarks (use -Benchmark or -Full)" -ForegroundColor Yellow
     }
 
     # Install
@@ -184,7 +184,6 @@ finally {
     Pop-Location
 }
 
-$elapsed = Get-Date -Date $startTime
 $duration = New-TimeSpan -Start $startTime -End (Get-Date)
 
 Write-Host ""
@@ -196,3 +195,9 @@ Write-Host ("Elapsed:      {0:00}m {1:00}s" -f $duration.Minutes, $duration.Seco
 Write-Host "Build outputs: $BuildDir"
 Write-Host "  Libraries:   $BuildDir\lib"
 Write-Host "  Binaries:    $BuildDir\bin"
+Write-Host ""
+Write-Host "Quick commands:" -ForegroundColor Cyan
+Write-Host "  Fast build + test:     .\scripts\build.ps1 -All"
+Write-Host "  Full build + bench:    .\scripts\build.ps1 -Full -UseVcpkg"
+Write-Host "  Unit tests only:       ctest -L unit --test-dir build"
+Write-Host "  Integration only:      ctest -L integration --test-dir build"

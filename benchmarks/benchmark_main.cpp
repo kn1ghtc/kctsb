@@ -154,10 +154,10 @@ void print_summary() {
  */
 extern "C" int benchmark_main_entry() {
     std::cout << "\n";
-    std::cout << "╔════════════════════════════════════════════════════════════════════╗\n";
-    std::cout << "║         kctsb vs OpenSSL Performance Benchmark Suite              ║\n";
-    std::cout << "║                    Version " << KCTSB_VERSION_STRING << "                                 ║\n";
-    std::cout << "╚════════════════════════════════════════════════════════════════════╝\n";
+    std::cout << "+======================================================================+\n";
+    std::cout << "|         kctsb vs OpenSSL Performance Benchmark Suite               |\n";
+    std::cout << "|                    Version " << KCTSB_VERSION_STRING << "                                 |\n";
+    std::cout << "+======================================================================+\n";
     
     // Initialize kctsb/OpenSSL
     if (kctsb_init() != 0) {
