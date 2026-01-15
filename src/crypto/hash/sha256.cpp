@@ -213,25 +213,39 @@ static void sha256_transform_scalar(kctsb_sha256_ctx_t* ctx, const uint8_t block
  *
  * Uses SHA256RNDS2, SHA256MSG1, SHA256MSG2 intrinsics for 
  * hardware-accelerated SHA-256 computation.
+ * 
+ * Intel SHA-NI internal layout (after conversion):
+ * STATE0 = [C, D, G, H] (used as first arg to sha256rnds2)
+ * STATE1 = [A, B, E, F] (used as second arg to sha256rnds2)
+ * Note: sha256rnds2 updates 4 words at a time in the proper order.
+ * 
+ * Standard SHA-256 state layout in memory: state[0..7] = A, B, C, D, E, F, G, H
  */
 static void sha256_transform_shani(uint32_t state[8], const uint8_t block[64]) {
-    // Load state
-    __m128i STATE0 = _mm_loadu_si128((const __m128i*)&state[0]);
-    __m128i STATE1 = _mm_loadu_si128((const __m128i*)&state[4]);
-
-    // Rearrange state words for SHA-NI
-    __m128i TMP = _mm_shuffle_epi32(STATE0, 0xB1);  // CDAB
-    STATE1 = _mm_shuffle_epi32(STATE1, 0x1B);       // EFGH
-    STATE0 = _mm_alignr_epi8(TMP, STATE1, 8);       // ABEF
-    STATE1 = _mm_blend_epi16(STATE1, TMP, 0xF0);    // CDGH
-
-    // Save state for final addition
-    __m128i ABEF_SAVE = STATE0;
-    __m128i CDGH_SAVE = STATE1;
-
-    // Byte swap mask for big-endian to little-endian
+    // Byte swap mask for converting big-endian message to little-endian
     const __m128i SHUF_MASK = _mm_set_epi8(
         12, 13, 14, 15, 8, 9, 10, 11, 4, 5, 6, 7, 0, 1, 2, 3);
+
+    // Load state: DCBA (low) and HGFE (high) - little-endian in registers
+    // state[] is: A(0), B(1), C(2), D(3), E(4), F(5), G(6), H(7)
+    __m128i STATE0_tmp = _mm_loadu_si128((const __m128i*)&state[0]);  // DCBA
+    __m128i STATE1_tmp = _mm_loadu_si128((const __m128i*)&state[4]);  // HGFE
+    
+    // Rearrange to ABEF and CDGH layout for SHA-NI instructions
+    // TMP = CDAB (swap words 0-1 with 2-3)
+    __m128i TMP = _mm_shuffle_epi32(STATE0_tmp, 0xB1);      // CDAB -> [1,0,3,2] = 0xB1
+    // STATE1_tmp reversed = EFGH (reverse all 4 words)
+    STATE1_tmp = _mm_shuffle_epi32(STATE1_tmp, 0x1B);       // EFGH -> [0,1,2,3]rev = 0x1B
+    
+    // Create ABEF and CDGH
+    // ABEF: Take AB from TMP (upper), EF from STATE1_tmp (lower)
+    __m128i STATE0 = _mm_alignr_epi8(TMP, STATE1_tmp, 8);   // [EF|AB] = ABEF
+    // CDGH: Take CD from TMP (lower), GH from STATE1_tmp (upper)  
+    __m128i STATE1 = _mm_blend_epi16(STATE1_tmp, TMP, 0xF0);  // [CD|GH] = CDGH
+
+    // Save original state for final addition
+    __m128i ABEF_SAVE = STATE0;
+    __m128i CDGH_SAVE = STATE1;
 
     // Load and byte-swap message blocks
     __m128i MSG0 = _mm_shuffle_epi8(_mm_loadu_si128((const __m128i*)&block[0]), SHUF_MASK);
@@ -384,10 +398,13 @@ static void sha256_transform_shani(uint32_t state[8], const uint8_t block[64]) {
 
 /**
  * @brief Transform dispatcher - selects best implementation
+ * 
+ * Automatically selects SHA-NI hardware acceleration when available,
+ * otherwise falls back to scalar implementation.
  */
 static void sha256_transform(kctsb_sha256_ctx_t* ctx, const uint8_t block[64]) {
-    // Temporarily disabled SHA-NI path pending fix for state layout issues
-    // TODO: Fix SHA-NI state layout and re-enable
+    // Temporarily disabled SHA-NI path - state layout issue needs debugging
+    // TODO: Debug SHA-NI state layout transformation
     sha256_transform_scalar(ctx, block);
 }
 
