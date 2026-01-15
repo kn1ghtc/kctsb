@@ -4,10 +4,11 @@
     "cmake.configureOnOpen": true,
     "cmake.configureSettings": {
         "KCTSB_BUILD_TESTS": "ON",
-        "KCTSB_BUILD_EXAMPLES": "ON"
+        "KCTSB_BUILD_EXAMPLES": "ON",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
     },
     "files.associations": {
-        "*.h": "c",
+        "*.h": "cpp",
         "*.hpp": "cpp",
         "*.cpp": "cpp",
         "*.c": "c"
@@ -15,6 +16,7 @@
     "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
     "C_Cpp.default.compileCommands": "${workspaceFolder}/build/compile_commands.json",
     "C_Cpp.intelliSenseEngine": "default",
+    "C_Cpp.errorSquiggles": "enabled",
     "clangd.path": "/usr/bin/clang",
     "clangd.arguments": [
         "--compile-commands-dir=${workspaceFolder}/build",

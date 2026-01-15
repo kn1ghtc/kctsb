@@ -30,18 +30,18 @@
 #include "kctsb/crypto/sha512.h"
 #include "kctsb/crypto/sha3.h"
 #include "kctsb/crypto/blake2.h"
-
+#include "kctsb/crypto/sm/sm3.h"
 // MAC algorithms
 #include "kctsb/crypto/mac.h"
 
 // Asymmetric encryption
-#include "kctsb/crypto/rsa.h"
-#include "kctsb/crypto/ecc.h"
+#include "kctsb/crypto/rsa/rsa.h"
+#include "kctsb/crypto/ecc/ecc.h"
 
 // Chinese National Standards (SM series)
-#include "kctsb/crypto/sm2.h"
-#include "kctsb/crypto/sm3.h"
-#include "kctsb/crypto/sm4.h"
+#include "kctsb/crypto/sm/sm2.h"
+#include "kctsb/crypto/sm/sm3.h"
+#include "kctsb/crypto/sm/sm4.h"
 
 // Advanced cryptographic primitives
 #include "kctsb/advanced/whitebox.h"
