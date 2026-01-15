@@ -294,22 +294,25 @@ STEP=$((STEP + 1))
 if [ "$RELEASE" = true ]; then
     echo -e "${YELLOW}[$STEP/$TOTAL_STEPS] Creating release package...${NC}"
 
+    # v3.4.0: Platform-specific release directory
+    RELEASE_PLATFORM_DIR="$RELEASE_DIR/$PLATFORM_SUFFIX"
+    
     # Create release directory structure
-    mkdir -p "$RELEASE_DIR"
-    mkdir -p "$RELEASE_DIR/bin"
-    mkdir -p "$RELEASE_DIR/lib"
-    mkdir -p "$RELEASE_DIR/include"
+    mkdir -p "$RELEASE_PLATFORM_DIR"
+    mkdir -p "$RELEASE_PLATFORM_DIR/bin"
+    mkdir -p "$RELEASE_PLATFORM_DIR/lib"
+    mkdir -p "$RELEASE_PLATFORM_DIR/include"
 
     # Copy executables
     if [ -f "$BUILD_DIR/bin/kctsb" ]; then
-        cp "$BUILD_DIR/bin/kctsb" "$RELEASE_DIR/bin/kctsb-${PLATFORM_SUFFIX}"
-        cp "$BUILD_DIR/bin/kctsb" "$RELEASE_DIR/bin/kctsb"
+        cp "$BUILD_DIR/bin/kctsb" "$RELEASE_PLATFORM_DIR/bin/kctsb-${PLATFORM_SUFFIX}"
+        cp "$BUILD_DIR/bin/kctsb" "$RELEASE_PLATFORM_DIR/bin/kctsb"
         echo "  ✓ Copied kctsb executable"
     fi
 
     if [ -f "$BUILD_DIR/bin/kctsb_benchmark" ]; then
-        cp "$BUILD_DIR/bin/kctsb_benchmark" "$RELEASE_DIR/bin/kctsb_benchmark-${PLATFORM_SUFFIX}"
-        cp "$BUILD_DIR/bin/kctsb_benchmark" "$RELEASE_DIR/bin/kctsb_benchmark"
+        cp "$BUILD_DIR/bin/kctsb_benchmark" "$RELEASE_PLATFORM_DIR/bin/kctsb_benchmark-${PLATFORM_SUFFIX}"
+        cp "$BUILD_DIR/bin/kctsb_benchmark" "$RELEASE_PLATFORM_DIR/bin/kctsb_benchmark"
         echo "  ✓ Copied kctsb_benchmark executable"
     fi
 
@@ -317,28 +320,28 @@ if [ "$RELEASE" = true ]; then
     if [ "$OS_NAME" = "macOS" ]; then
         # Static library
         if [ -f "$BUILD_DIR/lib/libkctsb.a" ]; then
-            cp "$BUILD_DIR/lib/libkctsb.a" "$RELEASE_DIR/lib/libkctsb-${PLATFORM_SUFFIX}.a"
-            cp "$BUILD_DIR/lib/libkctsb.a" "$RELEASE_DIR/lib/libkctsb.a"
+            cp "$BUILD_DIR/lib/libkctsb.a" "$RELEASE_PLATFORM_DIR/lib/libkctsb-${PLATFORM_SUFFIX}.a"
+            cp "$BUILD_DIR/lib/libkctsb.a" "$RELEASE_PLATFORM_DIR/lib/libkctsb.a"
             echo "  ✓ Copied static library"
         fi
         # Dynamic library
         if [ -f "$BUILD_DIR/lib/libkctsb.dylib" ]; then
-            cp "$BUILD_DIR/lib/libkctsb.dylib" "$RELEASE_DIR/lib/libkctsb-${PLATFORM_SUFFIX}.dylib"
-            cp "$BUILD_DIR/lib/libkctsb.dylib" "$RELEASE_DIR/lib/libkctsb.dylib"
+            cp "$BUILD_DIR/lib/libkctsb.dylib" "$RELEASE_PLATFORM_DIR/lib/libkctsb-${PLATFORM_SUFFIX}.dylib"
+            cp "$BUILD_DIR/lib/libkctsb.dylib" "$RELEASE_PLATFORM_DIR/lib/libkctsb.dylib"
             echo "  ✓ Copied dynamic library"
         fi
     elif [ "$OS_NAME" = "Linux" ]; then
         # Static library
         if [ -f "$BUILD_DIR/lib/libkctsb.a" ]; then
-            cp "$BUILD_DIR/lib/libkctsb.a" "$RELEASE_DIR/lib/libkctsb-${PLATFORM_SUFFIX}.a"
-            cp "$BUILD_DIR/lib/libkctsb.a" "$RELEASE_DIR/lib/libkctsb.a"
+            cp "$BUILD_DIR/lib/libkctsb.a" "$RELEASE_PLATFORM_DIR/lib/libkctsb-${PLATFORM_SUFFIX}.a"
+            cp "$BUILD_DIR/lib/libkctsb.a" "$RELEASE_PLATFORM_DIR/lib/libkctsb.a"
             echo "  ✓ Copied static library"
         fi
         # Dynamic library
         for so_file in "$BUILD_DIR/lib/libkctsb.so"*; do
             if [ -f "$so_file" ]; then
                 filename=$(basename "$so_file")
-                cp "$so_file" "$RELEASE_DIR/lib/"
+                cp "$so_file" "$RELEASE_PLATFORM_DIR/lib/"
                 echo "  ✓ Copied $filename"
             fi
         done
@@ -346,12 +349,12 @@ if [ "$RELEASE" = true ]; then
 
     # Copy headers
     if [ -d "$PROJECT_DIR/include" ]; then
-        cp -r "$PROJECT_DIR/include/kctsb" "$RELEASE_DIR/include/"
+        cp -r "$PROJECT_DIR/include/kctsb" "$RELEASE_PLATFORM_DIR/include/"
         echo "  ✓ Copied headers"
     fi
 
     # Generate release info
-    cat > "$RELEASE_DIR/RELEASE_INFO.txt" << EOF
+    cat > "$RELEASE_PLATFORM_DIR/RELEASE_INFO.txt" << EOF
 kctsb Release Information
 ==========================
 Version: ${VERSION}
@@ -375,11 +378,11 @@ License: Apache License 2.0
 Repository: https://github.com/kn1ghtc/kctsb
 EOF
 
-    echo -e "${GREEN}  ✓ Release package created in $RELEASE_DIR${NC}"
+    echo -e "${GREEN}  ✓ Release package created in $RELEASE_PLATFORM_DIR${NC}"
     echo ""
     echo -e "${CYAN}Release contents:${NC}"
-    ls -la "$RELEASE_DIR/bin/" 2>/dev/null || true
-    ls -la "$RELEASE_DIR/lib/" 2>/dev/null || true
+    ls -la "$RELEASE_PLATFORM_DIR/bin/" 2>/dev/null || true
+    ls -la "$RELEASE_PLATFORM_DIR/lib/" 2>/dev/null || true
 fi
 
 # Install
@@ -404,7 +407,7 @@ echo -e "Build outputs:  $BUILD_DIR"
 echo -e "  Libraries:    $BUILD_DIR/lib"
 echo -e "  Binaries:     $BUILD_DIR/bin"
 if [ "$RELEASE" = true ]; then
-    echo -e "  Release:      $RELEASE_DIR"
+    echo -e "  Release:      $RELEASE_PLATFORM_DIR"
 fi
 echo ""
 

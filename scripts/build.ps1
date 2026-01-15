@@ -154,10 +154,14 @@ try {
 
     if ($Release) {
         Write-Host "[$STEP/$TOTAL_STEPS] Creating release..." -ForegroundColor Yellow
-        if (-not (Test-Path $ReleaseDir)) { New-Item -ItemType Directory -Path $ReleaseDir | Out-Null }
-        $releaseBin = Join-Path $ReleaseDir "bin"
-        $releaseLib = Join-Path $ReleaseDir "lib"
-        $releaseInclude = Join-Path $ReleaseDir "include"
+        
+        # Platform-specific release directory (v3.4.0)
+        $ReleasePlatformDir = Join-Path $ReleaseDir $PLATFORM_SUFFIX
+        if (-not (Test-Path $ReleasePlatformDir)) { New-Item -ItemType Directory -Path $ReleasePlatformDir | Out-Null }
+        
+        $releaseBin = Join-Path $ReleasePlatformDir "bin"
+        $releaseLib = Join-Path $ReleasePlatformDir "lib"
+        $releaseInclude = Join-Path $ReleasePlatformDir "include"
         @($releaseBin, $releaseLib, $releaseInclude) | ForEach-Object {
             if (-not (Test-Path $_)) { New-Item -ItemType Directory -Path $_ | Out-Null }
         }
@@ -204,9 +208,9 @@ try {
         $info += "Build: $BuildType`n"
         $info += "Date: $(Get-Date -Format 'yyyy-MM-dd HH:mm')`n"
         $info += "Compiler: $compilerVer`n"
-        Set-Content -Path (Join-Path $ReleaseDir "RELEASE_INFO.txt") -Value $info
+        Set-Content -Path (Join-Path $ReleasePlatformDir "RELEASE_INFO.txt") -Value $info
         
-        Write-Host "   Release created in $ReleaseDir" -ForegroundColor Green
+        Write-Host "   Release created in $ReleasePlatformDir" -ForegroundColor Green
     }
 
     if ($Install) {

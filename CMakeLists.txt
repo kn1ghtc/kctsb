@@ -74,8 +74,9 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release")
             -fno-rtti              # Disable RTTI, reduce object size
             # Note: Exceptions enabled - required by existing C++ classes
 
-            # LTO (Link-Time Optimization)
-            -flto
+            # LTO disabled due to GCC 11 internal error with NTL templates
+            # Re-enable when upgrading to GCC 12+
+            # -flto
 
             # Security hardening
             -fstack-protector-strong
@@ -95,7 +96,8 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release")
             add_compile_options(-march=armv8-a+crypto)
         endif()
 
-        add_link_options(-flto)
+        # LTO link options disabled
+        # add_link_options(-flto)
         add_compile_definitions(_FORTIFY_SOURCE=2)
     endif()
 endif()
@@ -217,6 +219,9 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 # Third-Party Dependencies (Cross-Platform: thirdparty/ first, then system)
 # ============================================================================
 
+# Option to skip thirdparty search (useful for Docker/Linux builds)
+option(KCTSB_SKIP_THIRDPARTY "Skip thirdparty/ directory search, use system libraries only" OFF)
+
 set(KCTSB_THIRDPARTY_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty)
 set(KCTSB_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 set(KCTSB_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
@@ -233,12 +238,12 @@ else()
     set(KCTSB_SYSTEM_INC_HINTS "")
 endif()
 
-# NTL Detection (thirdparty first, then system)
+# NTL Detection (thirdparty first if not skipped, then system)
 if(KCTSB_ENABLE_NTL)
     set(NTL_FOUND FALSE)
 
-    # Try thirdparty first
-    if(EXISTS "${KCTSB_THIRDPARTY_DIR}/include/NTL/ZZ.h")
+    # Try thirdparty first (unless skipped)
+    if(NOT KCTSB_SKIP_THIRDPARTY AND EXISTS "${KCTSB_THIRDPARTY_DIR}/include/NTL/ZZ.h")
         set(NTL_INCLUDE_DIRS "${KCTSB_THIRDPARTY_DIR}/include")
         find_library(NTL_LIBRARY NAMES ntl libntl
             HINTS "${KCTSB_THIRDPARTY_DIR}/lib" NO_DEFAULT_PATH)
@@ -271,12 +276,12 @@ if(KCTSB_ENABLE_NTL)
     endif()
 endif()
 
-# GMP Detection (thirdparty first, then system)
+# GMP Detection (thirdparty first if not skipped, then system)
 if(KCTSB_ENABLE_GMP)
     set(GMP_FOUND FALSE)
 
-    # Try thirdparty first
-    if(EXISTS "${KCTSB_THIRDPARTY_DIR}/include/gmp.h")
+    # Try thirdparty first (unless skipped)
+    if(NOT KCTSB_SKIP_THIRDPARTY AND EXISTS "${KCTSB_THIRDPARTY_DIR}/include/gmp.h")
         set(GMP_INCLUDE_DIRS "${KCTSB_THIRDPARTY_DIR}/include")
         find_library(GMP_LIBRARY NAMES gmp libgmp
             HINTS "${KCTSB_THIRDPARTY_DIR}/lib" NO_DEFAULT_PATH)
@@ -435,13 +440,14 @@ file(GLOB_RECURSE KCTSB_CORE_SOURCES
 )
 
 file(GLOB KCTSB_AES_SOURCES
-    ${KCTSB_SRC_DIR}/crypto/aes/*.cpp
-    ${KCTSB_SRC_DIR}/crypto/aes/*.c
+    ${KCTSB_SRC_DIR}/crypto/aes.cpp
+    ${KCTSB_SRC_DIR}/crypto/ghash.cpp
+    ${KCTSB_SRC_DIR}/crypto/mac.cpp
 )
 
 # ChaCha20 - native implementation only
 set(KCTSB_CHACHA_SOURCES
-    ${KCTSB_SRC_DIR}/crypto/chacha20/chacha20_poly1305.cpp
+    ${KCTSB_SRC_DIR}/crypto/chacha20_poly1305.cpp
 )
 
 # v3.4.0 Refactored Hash Sources (C++ Core + C ABI)
@@ -452,11 +458,11 @@ set(KCTSB_HASH_SOURCES
     ${KCTSB_SRC_DIR}/crypto/blake2.cpp      # v3.4.0: New location
 )
 
-# v3.4.0 Refactored SM Sources (C++ Core + C ABI, no sm_api.cpp)
+# v3.4.0 Refactored SM Sources (C++ Core + C ABI)
 set(KCTSB_SM_SOURCES
-    ${KCTSB_SRC_DIR}/crypto/sm3.cpp         # v3.4.0: New location
-    ${KCTSB_SRC_DIR}/crypto/sm4.cpp         # v3.4.0: New location
-    ${KCTSB_SRC_DIR}/crypto/sm/zuc.c        # Legacy ZUC (pending refactor)
+    ${KCTSB_SRC_DIR}/crypto/sm/sm3.cpp      # v3.4.0: SM3 in sm/ subdir
+    ${KCTSB_SRC_DIR}/crypto/sm/sm4.cpp      # v3.4.0: SM4 in sm/ subdir
+    ${KCTSB_SRC_DIR}/crypto/sm/zuc.cpp      # v3.4.0: ZUC (C++ refactored)
 )
 
 set(KCTSB_WHITEBOX_SOURCES

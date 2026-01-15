@@ -94,3 +94,4 @@ coverage/
 deps/
 deps/ntl-11.6.0
 deps/ntl-build
+build-linux/

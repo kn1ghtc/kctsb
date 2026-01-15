@@ -35,7 +35,15 @@
 #include <cerrno>
 #include <cstdlib>
 #if defined(__linux__)
-#include <sys/random.h>
+// sys/random.h requires glibc 2.25+, use runtime detection instead
+// Check for getrandom via syscall on older systems
+#include <sys/syscall.h>
+#ifdef SYS_getrandom
+#define KCTSB_HAS_GETRANDOM_SYSCALL 1
+static inline ssize_t kctsb_getrandom(void* buf, size_t len, unsigned int flags) {
+    return syscall(SYS_getrandom, buf, len, flags);
+}
+#endif
 #elif defined(__APPLE__)
 #include <Security/SecRandom.h>
 #endif
@@ -164,32 +172,47 @@ int random_bytes(void* buf, size_t len) {
     unsigned char* p = static_cast<unsigned char*>(buf);
     size_t remaining = len;
 
+#ifdef KCTSB_HAS_GETRANDOM_SYSCALL
+    // Try getrandom syscall first (works on kernel 3.17+)
     while (remaining > 0) {
-        ssize_t ret = getrandom(p, remaining, 0);
+        ssize_t ret = kctsb_getrandom(p, remaining, 0);
         if (ret < 0) {
             if (errno == EINTR) continue;
+            if (errno == ENOSYS) break; // getrandom not available, fall through to /dev/urandom
 
-            // Fallback to /dev/urandom
-            int fd = open("/dev/urandom", O_RDONLY | O_CLOEXEC);
-            if (fd < 0) return KCTSB_ERROR_RANDOM_FAILED;
-
-            while (remaining > 0) {
-                ret = read(fd, p, remaining);
-                if (ret < 0) {
-                    if (errno == EINTR) continue;
-                    close(fd);
-                    return KCTSB_ERROR_RANDOM_FAILED;
-                }
-                p += ret;
-                remaining -= static_cast<size_t>(ret);
-            }
-            close(fd);
-            return KCTSB_SUCCESS;
+            // Other errors, try fallback
+            break;
         }
         p += ret;
         remaining -= static_cast<size_t>(ret);
     }
 
+    if (remaining == 0) return KCTSB_SUCCESS;
+
+    // Reset for fallback
+    p = static_cast<unsigned char*>(buf);
+    remaining = len;
+#endif
+
+    // Fallback to /dev/urandom
+    int fd = open("/dev/urandom", O_RDONLY | O_CLOEXEC);
+    if (fd < 0) {
+        // Try without O_CLOEXEC for older kernels
+        fd = open("/dev/urandom", O_RDONLY);
+        if (fd < 0) return KCTSB_ERROR_RANDOM_FAILED;
+    }
+
+    while (remaining > 0) {
+        ssize_t ret = read(fd, p, remaining);
+        if (ret < 0) {
+            if (errno == EINTR) continue;
+            close(fd);
+            return KCTSB_ERROR_RANDOM_FAILED;
+        }
+        p += ret;
+        remaining -= static_cast<size_t>(ret);
+    }
+    close(fd);
     return KCTSB_SUCCESS;
 }
 

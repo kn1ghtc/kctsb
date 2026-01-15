@@ -24,7 +24,7 @@
 #include "kctsb/crypto/sha512.h"
 #include "kctsb/crypto/sha3.h"
 #include "kctsb/crypto/blake2.h"
-#include "kctsb/crypto/sm3.h"
+#include "kctsb/crypto/sm/sm3.h"
 #include "kctsb/kctsb.h"  // For kctsb_init()
 
 /**

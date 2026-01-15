@@ -263,15 +263,8 @@ void kctsb_zuc_generate(kctsb_zuc_ctx_t* ctx, uint32_t* keystream, size_t len) {
 
     auto* engine = static_cast<kctsb::internal::ZUCEngine*>(ctx->internal);
 
-    // Discard first output
-    engine->bit_reconstruction();
-    engine->nonlinear_f();
-    engine->lfsr_work_mode();
-
-    // Generate keystream
-    for (size_t i = 0; i < len; i++) {
-        keystream[i] = engine->generate();
-    }
+    // Use the public generate_keystream method
+    engine->generate_keystream(keystream, static_cast<int>(len));
 }
 
 void kctsb_zuc_free(kctsb_zuc_ctx_t* ctx) {

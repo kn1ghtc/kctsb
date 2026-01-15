@@ -18,7 +18,7 @@
  * @license Apache License 2.0
  */
 
-#include "kctsb/crypto/sm3.h"
+#include "kctsb/crypto/sm/sm3.h"
 #include "kctsb/core/common.h"
 #include <array>
 #include <cstring>

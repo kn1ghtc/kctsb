@@ -19,7 +19,7 @@
  * @license Apache License 2.0
  */
 
-#include "kctsb/crypto/sm4.h"
+#include "kctsb/crypto/sm/sm4.h"
 #include "kctsb/core/common.h"
 #include <array>
 #include <cstring>

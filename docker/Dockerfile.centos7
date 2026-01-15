@@ -1,0 +1,106 @@
+# ============================================================================
+# kctsb Docker Build Environment - CentOS 7 + C++17
+# Version: 3.4.0
+#
+# Purpose: Build Linux x64 release binaries with maximum compatibility
+# CentOS 7 provides glibc 2.17, ensuring wide Linux distribution support
+# ============================================================================
+
+FROM centos:7
+
+LABEL maintainer="knightc"
+LABEL description="kctsb build environment - CentOS 7 with C++17 (devtoolset-11)"
+LABEL version="3.4.0"
+
+# Use vault mirror since CentOS 7 is EOL
+RUN sed -i 's|^mirrorlist=|#mirrorlist=|g' /etc/yum.repos.d/CentOS-*.repo && \
+    sed -i 's|^#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*.repo
+
+# Install base dependencies
+RUN yum install -y \
+    centos-release-scl \
+    epel-release \
+    && yum clean all
+
+# Fix SCL repos to use vault (CentOS 7 EOL requires vault mirrors)
+RUN rm -f /etc/yum.repos.d/CentOS-SCLo-*.repo && \
+    echo '[centos-sclo-rh]' > /etc/yum.repos.d/CentOS-SCLo-rh.repo && \
+    echo 'name=CentOS-7 - SCLo rh' >> /etc/yum.repos.d/CentOS-SCLo-rh.repo && \
+    echo 'baseurl=http://vault.centos.org/centos/7/sclo/$basearch/rh/' >> /etc/yum.repos.d/CentOS-SCLo-rh.repo && \
+    echo 'gpgcheck=0' >> /etc/yum.repos.d/CentOS-SCLo-rh.repo && \
+    echo 'enabled=1' >> /etc/yum.repos.d/CentOS-SCLo-rh.repo && \
+    echo '[centos-sclo-sclo]' > /etc/yum.repos.d/CentOS-SCLo-sclo.repo && \
+    echo 'name=CentOS-7 - SCLo sclo' >> /etc/yum.repos.d/CentOS-SCLo-sclo.repo && \
+    echo 'baseurl=http://vault.centos.org/centos/7/sclo/$basearch/sclo/' >> /etc/yum.repos.d/CentOS-SCLo-sclo.repo && \
+    echo 'gpgcheck=0' >> /etc/yum.repos.d/CentOS-SCLo-sclo.repo && \
+    echo 'enabled=1' >> /etc/yum.repos.d/CentOS-SCLo-sclo.repo
+
+# Install devtoolset-11 (GCC 11.x with C++17 full support)
+RUN yum install -y \
+    devtoolset-11-gcc \
+    devtoolset-11-gcc-c++ \
+    devtoolset-11-make \
+    devtoolset-11-binutils \
+    && yum clean all
+
+# Install build tools (except cmake, will build from source)
+RUN yum install -y \
+    ninja-build \
+    git \
+    wget \
+    which \
+    m4 \
+    perl \
+    openssl-devel \
+    && yum clean all
+
+# Set environment for devtoolset-11 (must be before CMake build)
+ENV PATH="/opt/rh/devtoolset-11/root/usr/bin:${PATH}"
+ENV CC="/opt/rh/devtoolset-11/root/usr/bin/gcc"
+ENV CXX="/opt/rh/devtoolset-11/root/usr/bin/g++"
+ENV LD_LIBRARY_PATH="/opt/rh/devtoolset-11/root/usr/lib64"
+
+# Verify GCC version (should be 11.x)
+RUN gcc --version && g++ --version
+
+# Build CMake 3.28 from source (CentOS 7 only has 3.17)
+RUN cd /tmp && \
+    wget https://github.com/Kitware/CMake/releases/download/v3.28.3/cmake-3.28.3.tar.gz && \
+    tar -xzf cmake-3.28.3.tar.gz && \
+    cd cmake-3.28.3 && \
+    ./bootstrap --prefix=/usr/local --parallel=$(nproc) && \
+    make -j$(nproc) && \
+    make install && \
+    rm -rf /tmp/cmake-3.28.3*
+
+# Set working directory
+WORKDIR /workspace
+
+# Build GMP from source (required dependency)
+RUN cd /tmp && \
+    wget https://gmplib.org/download/gmp/gmp-6.3.0.tar.xz && \
+    tar -xf gmp-6.3.0.tar.xz && \
+    cd gmp-6.3.0 && \
+    ./configure --prefix=/usr/local --enable-cxx --enable-static --disable-shared && \
+    make -j$(nproc) && \
+    make install && \
+    rm -rf /tmp/gmp-6.3.0*
+
+# Build NTL from source (required dependency)
+# NTL 11.6.0 with C++14 features enabled, GCC 11 handles C++17 for kctsb
+RUN cd /tmp && \
+    wget https://libntl.org/ntl-11.6.0.tar.gz && \
+    tar -xzf ntl-11.6.0.tar.gz && \
+    cd ntl-11.6.0/src && \
+    ./configure PREFIX=/usr/local NTL_GMP_LIP=on NTL_STD_CXX14=on SHARED=off && \
+    make -j$(nproc) && \
+    make install && \
+    rm -rf /tmp/ntl-11.6.0*
+
+# Set library paths
+ENV PKG_CONFIG_PATH="/usr/local/lib/pkgconfig"
+ENV LIBRARY_PATH="/usr/local/lib"
+ENV LD_LIBRARY_PATH="/opt/rh/devtoolset-11/root/usr/lib64:/usr/local/lib"
+
+# Default command - show environment info
+CMD ["bash", "-c", "echo 'kctsb Build Environment Ready' && gcc --version | head -1 && cmake --version | head -1"]

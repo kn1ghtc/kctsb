@@ -163,7 +163,7 @@ kctsb/
 ### 系统要求
 
 - **CMake**: 3.20 或更高版本
-- **构建工具**: Ninja (推荐) 或 Make
+- **构建工具**: Ninja (推荐) 
 - **编译器**:
   - Windows: MinGW-w64 GCC 13+ 或 MSVC 2022+
   - Linux: GCC 9+ 或 Clang 10+
@@ -221,7 +221,28 @@ ctest -L performance --test-dir build    # 仅性能测试
 > - RFC 6979 确定性 ECDSA 现使用库内 SHA-256 HMAC，替换早期占位实现并消除潜在溢出警告。
 > - NTL 头文件在 GCC 下可能输出编译器误报，已通过精细化编译选项屏蔽；如需完全零告警也可使用 MSVC。
 
-### Linux/macOS 构建
+### Linux Docker 构建 (CentOS 7, glibc 2.17)
+
+使用 Docker 在 CentOS 7 环境下构建，确保最大的 Linux 兼容性：
+
+```bash
+# 在 WSL2 或原生 Linux 下执行
+cd /path/to/kctsb
+./scripts/docker_build.sh
+
+# 构建产物位于 release/linux-x64/
+ls -la release/linux-x64/bin/     # CLI 工具: kctsb
+ls -la release/linux-x64/lib/     # 静态库: libkctsb.a (1.4 MB)
+ls -la release/linux-x64/include/ # 头文件
+```
+
+**Docker 构建特性**:
+- 基于 CentOS 7 + devtoolset-11 (GCC 11.2.1)
+- glibc 2.17 兼容性（支持 RHEL 7+, Ubuntu 18.04+, Debian 9+）
+- CMake 3.28.3, NTL 11.6.0, GMP 6.3.0 内置
+- 自动生成平台特定命名: `kctsb-linux-x64`, `libkctsb-linux-x64.a`
+
+### Linux/macOS 原生构建
 
 ```bash
 # 1. 克隆项目
@@ -323,7 +344,33 @@ int main() {
 }
 ```
 
-## 🔧 CMake 选项
+## � 跨平台 Release 构建
+
+kctsb 支持 Windows, Linux, macOS 三平台的预编译分发：
+
+```
+release/
+├── bin/                    # Windows/macOS CLI 工具
+│   ├── kctsb               # macOS x64
+│   └── kctsb_benchmark     # macOS x64 benchmark
+├── lib/                    # Windows/macOS 库文件
+├── include/                # 共享头文件
+├── linux-x64/              # Linux x64 专用
+│   ├── bin/kctsb-linux-x64 # Linux CLI (glibc 2.17+)
+│   ├── lib/libkctsb-linux-x64.a  # 静态库 (1.4 MB)
+│   └── include/            # Linux 专用头文件
+└── RELEASE_INFO.txt
+```
+
+### 平台兼容性
+
+| 平台 | 编译器 | 最低要求 | 构建方式 |
+|------|--------|----------|----------|
+| Windows x64 | MinGW GCC 13+ / MSVC 2022 | Windows 10+ | `.\scripts\build.ps1` |
+| Linux x64 | GCC 11.2.1 (CentOS 7) | glibc 2.17 | `./scripts/docker_build.sh` |
+| macOS x64 | AppleClang 15+ | macOS 10.15+ | `./scripts/build.sh` |
+
+## �🔧 CMake 选项
 
 | 选项 | 默认值 | 说明 |
 |------|--------|------|

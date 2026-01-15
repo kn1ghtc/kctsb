@@ -218,7 +218,7 @@ private:
     void aes_encrypt_block(const uint8_t in[16], uint8_t out[16]) {
         // Use kctsb AES implementation
         kctsb_aes_ctx_t ctx;
-        kctsb_aes_set_encrypt_key(&ctx, key_, 128);
+        kctsb_aes_init(&ctx, key_, 16);  // 16 bytes = 128-bit key
         kctsb_aes_encrypt_block(&ctx, in, out);
     }
 
@@ -244,7 +244,7 @@ public:
         // Compute H = AES_K(0^128)
         uint8_t zero[16] = {0};
         kctsb_aes_ctx_t aes_ctx;
-        kctsb_aes_set_encrypt_key(&aes_ctx, key, 128);
+        kctsb_aes_init(&aes_ctx, key, 16);  // 16 bytes = 128-bit key
         kctsb_aes_encrypt_block(&aes_ctx, zero, H_);
 
         // Compute J0 (initial counter)
@@ -299,7 +299,7 @@ public:
 
         // Compute tag: GCTR_K(J0, S)
         kctsb_aes_ctx_t aes_ctx;
-        kctsb_aes_set_encrypt_key(&aes_ctx, key_, 128);
+        kctsb_aes_init(&aes_ctx, key_, 16);  // 16 bytes = 128-bit key
         uint8_t E_J0[16];
         kctsb_aes_encrypt_block(&aes_ctx, J0_, E_J0);
 

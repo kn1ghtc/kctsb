@@ -16,8 +16,8 @@
 #include <string>
 
 #include "kctsb/kctsb.h"
-#include "kctsb/crypto/sm3.h"
-#include "kctsb/crypto/sm4.h"
+#include "kctsb/crypto/sm/sm3.h"
+#include "kctsb/crypto/sm/sm4.h"
 
 /**
  * @brief Convert byte array to hex string
