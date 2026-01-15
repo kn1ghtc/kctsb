@@ -38,17 +38,17 @@
 #include <openssl/param_build.h>
 #include <openssl/core_names.h>
 
-// kctsb SM headers (conditional)
+// kctsb SM headers (conditional) - correct paths
 #ifdef KCTSB_HAS_SM2
-#include "kctsb/crypto/sm2.h"
+#include "kctsb/crypto/sm/sm2.h"
 #endif
 
 #ifdef KCTSB_HAS_SM3
-#include "kctsb/crypto/sm3.h"
+#include "kctsb/crypto/sm/sm3.h"
 #endif
 
 #ifdef KCTSB_HAS_SM4
-#include "kctsb/crypto/sm4.h"
+#include "kctsb/crypto/sm/sm4.h"
 #endif
 
 // Benchmark configuration

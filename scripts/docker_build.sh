@@ -1,7 +1,13 @@
 #!/bin/bash
 # ============================================================================
-# kctsb Docker Build Script for Linux
+# kctsb Docker Build Script for Linux x64
 # Version: 3.4.0
+#
+# Features:
+# - Platform-specific thirdparty: thirdparty/linux-x64/
+# - LTO enabled (GCC 11+)
+# - Single-file distribution (like OpenSSL)
+# - Unified public API header (kctsb_api.h)
 #
 # Usage:
 #   ./scripts/docker_build.sh                    # Build Linux x64 release
@@ -16,11 +22,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 DOCKER_DIR="$PROJECT_DIR/docker"
 RELEASE_DIR="$PROJECT_DIR/release"
+THIRDPARTY_DIR="$PROJECT_DIR/thirdparty"
 
 # Version and naming
 VERSION="3.4.0"
 DOCKER_IMAGE="kctsb-builder:centos7"
 PLATFORM_SUFFIX="linux-x64"
+THIRDPARTY_PLATFORM_DIR="$THIRDPARTY_DIR/$PLATFORM_SUFFIX"
 
 # Colors
 RED='\033[0;31m'
@@ -57,6 +65,11 @@ while [[ $# -gt 0 ]]; do
             echo "  --test      Run tests after build"
             echo "  --shell     Enter container shell for debugging"
             echo "  --help      Show this help"
+            echo ""
+            echo "Thirdparty search order:"
+            echo "  1. thirdparty/$PLATFORM_SUFFIX/"
+            echo "  2. thirdparty/"
+            echo "  3. System paths (Docker container)"
             exit 0
             ;;
         *)
@@ -73,6 +86,13 @@ echo ""
 echo -e "Version:    ${GREEN}$VERSION${NC}"
 echo -e "Platform:   ${GREEN}$PLATFORM_SUFFIX${NC}"
 echo -e "Image:      $DOCKER_IMAGE"
+echo ""
+echo -e "Thirdparty: $THIRDPARTY_PLATFORM_DIR"
+if [ -d "$THIRDPARTY_PLATFORM_DIR" ]; then
+    echo -e "            ${GREEN}(platform-specific found)${NC}"
+else
+    echo -e "            ${YELLOW}(using common thirdparty/ or system)${NC}"
+fi
 echo ""
 
 # Check Docker availability
@@ -104,25 +124,23 @@ if [ "$ENTER_SHELL" = true ]; then
     exit 0
 fi
 
-# Build command
+# Build command - use thirdparty dependencies, enable LTO
 BUILD_CMD="cd /workspace && \
     rm -rf build-linux && \
     mkdir -p build-linux && \
     cd build-linux && \
     cmake .. -G Ninja \
         -DCMAKE_BUILD_TYPE=Release \
-        -DKCTSB_SKIP_THIRDPARTY=ON \
         -DKCTSB_BUILD_STATIC=ON \
         -DKCTSB_BUILD_SHARED=OFF \
-        -DKCTSB_BUILD_TESTS=OFF \
+        -DKCTSB_BUILD_TESTS=ON \
         -DKCTSB_BUILD_EXAMPLES=OFF \
         -DKCTSB_BUILD_BENCHMARKS=OFF \
+        -DKCTSB_ENABLE_LTO=ON \
         -DKCTSB_ENABLE_SEAL=OFF \
         -DKCTSB_ENABLE_HELIB=OFF \
         -DKCTSB_ENABLE_OPENSSL=OFF \
-        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=OFF \
-        -DCMAKE_PREFIX_PATH='/usr/local' \
-        -DCMAKE_CXX_FLAGS='-O3 -march=x86-64 -mtune=generic -ffast-math -funroll-loops -fomit-frame-pointer -fno-rtti -fPIC' && \
+        -DCMAKE_PREFIX_PATH='/usr/local' && \
     cmake --build . --parallel 4"
 
 # Add test command if requested
@@ -144,6 +162,12 @@ echo -e "${GREEN}  ✓ Build completed${NC}"
 echo -e "${YELLOW}[3/4] Copying release artifacts...${NC}"
 
 RELEASE_PLATFORM_DIR="$RELEASE_DIR/$PLATFORM_SUFFIX"
+
+# Clean old release for this platform
+if [ -d "$RELEASE_PLATFORM_DIR" ]; then
+    rm -rf "$RELEASE_PLATFORM_DIR"
+fi
+
 mkdir -p "$RELEASE_PLATFORM_DIR/bin"
 mkdir -p "$RELEASE_PLATFORM_DIR/lib"
 mkdir -p "$RELEASE_PLATFORM_DIR/include"
@@ -151,19 +175,17 @@ mkdir -p "$RELEASE_PLATFORM_DIR/include"
 # Copy binaries
 if [ -f "$PROJECT_DIR/build-linux/bin/kctsb" ]; then
     cp "$PROJECT_DIR/build-linux/bin/kctsb" "$RELEASE_PLATFORM_DIR/bin/kctsb"
-    cp "$PROJECT_DIR/build-linux/bin/kctsb" "$RELEASE_PLATFORM_DIR/bin/kctsb-$PLATFORM_SUFFIX"
-    chmod +x "$RELEASE_PLATFORM_DIR/bin/kctsb"*
+    chmod +x "$RELEASE_PLATFORM_DIR/bin/kctsb"
     echo "  ✓ Copied kctsb executable"
 fi
 
 # Copy static library
 if [ -f "$PROJECT_DIR/build-linux/lib/libkctsb.a" ]; then
     cp "$PROJECT_DIR/build-linux/lib/libkctsb.a" "$RELEASE_PLATFORM_DIR/lib/libkctsb.a"
-    cp "$PROJECT_DIR/build-linux/lib/libkctsb.a" "$RELEASE_PLATFORM_DIR/lib/libkctsb-$PLATFORM_SUFFIX.a"
-    echo "  ✓ Copied static library"
+    echo "  ✓ Copied libkctsb.a"
 fi
 
-# Copy shared library
+# Copy shared library (if exists)
 for so_file in "$PROJECT_DIR/build-linux/lib/libkctsb.so"*; do
     if [ -f "$so_file" ]; then
         filename=$(basename "$so_file")
@@ -172,7 +194,7 @@ for so_file in "$PROJECT_DIR/build-linux/lib/libkctsb.so"*; do
     fi
 done
 
-# Copy headers - ONLY the unified public API header (like OpenSSL's EVP)
+# Copy ONLY the unified public API header
 if [ -f "$PROJECT_DIR/include/kctsb/kctsb_api.h" ]; then
     cp "$PROJECT_DIR/include/kctsb/kctsb_api.h" "$RELEASE_PLATFORM_DIR/include/"
     echo "  ✓ Copied kctsb_api.h (unified public API)"
@@ -197,14 +219,11 @@ glibc: $GLIBC_VERSION (minimum requirement)
 Contents:
 - bin/kctsb              : Command-line tool
 - lib/libkctsb.a         : Static library
-- include/kctsb_api.h    : Unified public API header (like OpenSSL's EVP)
+- include/kctsb_api.h    : Unified public API header
 
-Usage:
-    #include <kctsb_api.h>
-    gcc -o myapp myapp.c -L./lib -lkctsb -lgmp -lntl -lpthread
-
-Platform-specific binaries (with suffix):
-- *-$PLATFORM_SUFFIX.*
+Integration (like OpenSSL):
+  #include <kctsb_api.h>
+  // Link: -lkctsb -lstdc++
 
 Compatibility:
 - CentOS 7+ / RHEL 7+
@@ -225,9 +244,15 @@ echo -e "${GREEN}╚════════════════════
 echo ""
 echo -e "Release dir:  $RELEASE_PLATFORM_DIR"
 echo ""
+echo -e "${CYAN}Distribution (like OpenSSL):${NC}"
+echo "  Header:  kctsb_api.h"
+echo "  Library: libkctsb.a"
+echo "  Link:    -lkctsb -lstdc++"
+echo ""
 echo -e "${CYAN}Release contents:${NC}"
 ls -la "$RELEASE_PLATFORM_DIR/bin/" 2>/dev/null || true
 ls -la "$RELEASE_PLATFORM_DIR/lib/" 2>/dev/null || true
+ls -la "$RELEASE_PLATFORM_DIR/include/" 2>/dev/null || true
 echo ""
 echo -e "${CYAN}Quick verification:${NC}"
 echo "  file $RELEASE_PLATFORM_DIR/bin/kctsb"

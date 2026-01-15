@@ -8,6 +8,12 @@
 #
 # Architecture: C++ Core + C ABI (v3.4.0+)
 # Design Goal: Replace OpenSSL with native implementations
+#
+# v3.4.0 Changes:
+# - Unified public API header (kctsb_api.h)
+# - Platform-specific thirdparty: thirdparty/{win-x64,linux-x64,macos-x64}/
+# - Single-file static library distribution (all deps bundled)
+# - LTO enabled with compiler version detection
 # ============================================================================
 
 cmake_minimum_required(VERSION 3.20)
@@ -15,16 +21,16 @@ cmake_minimum_required(VERSION 3.20)
 project(kctsb
     VERSION 3.4.0
     DESCRIPTION "Production-grade cryptographic algorithms library - OpenSSL replacement"
-    LANGUAGES C CXX  # v3.4.0: C++ Core + C ABI (C for security.c)
+    LANGUAGES C CXX
 )
 
 # ============================================================================
-# Build Configuration - C++17 Mandatory (Principle #2)
+# Build Configuration - C++17 Mandatory
 # ============================================================================
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)  # Disable GNU extensions for portability
+set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -43,7 +49,88 @@ message(STATUS "Platform: ${CMAKE_SYSTEM_NAME}")
 message(STATUS "Compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
 
 # ============================================================================
-# Performance Optimization (Maximum Speed + Minimum Memory - Principle #2)
+# Platform Detection and Thirdparty Path Setup
+# ============================================================================
+
+# Detect platform suffix for thirdparty directory
+if(WIN32)
+    set(KCTSB_PLATFORM "windows")
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "AMD64|x86_64")
+        set(KCTSB_PLATFORM_SUFFIX "win-x64")
+    else()
+        set(KCTSB_PLATFORM_SUFFIX "win-arm64")
+    endif()
+    add_definitions(-DKCTSB_PLATFORM_WINDOWS -D_CRT_SECURE_NO_WARNINGS -DNOMINMAX -DWIN32_LEAN_AND_MEAN)
+elseif(APPLE)
+    set(KCTSB_PLATFORM "macos")
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|aarch64")
+        set(KCTSB_PLATFORM_SUFFIX "macos-arm64")
+    else()
+        set(KCTSB_PLATFORM_SUFFIX "macos-x64")
+    endif()
+    add_definitions(-DKCTSB_PLATFORM_MACOS)
+elseif(UNIX)
+    set(KCTSB_PLATFORM "linux")
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
+        set(KCTSB_PLATFORM_SUFFIX "linux-arm64")
+    else()
+        set(KCTSB_PLATFORM_SUFFIX "linux-x64")
+    endif()
+    add_definitions(-DKCTSB_PLATFORM_LINUX)
+endif()
+
+message(STATUS "Platform suffix: ${KCTSB_PLATFORM_SUFFIX}")
+
+# Thirdparty directories (platform-specific first, then common)
+set(KCTSB_THIRDPARTY_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty)
+set(KCTSB_THIRDPARTY_PLATFORM_DIR ${KCTSB_THIRDPARTY_DIR}/${KCTSB_PLATFORM_SUFFIX})
+set(KCTSB_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
+set(KCTSB_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+# System library paths (fallback)
+if(APPLE)
+    set(KCTSB_SYSTEM_LIB_HINTS "/usr/local/lib" "/opt/homebrew/lib" "/usr/lib")
+    set(KCTSB_SYSTEM_INC_HINTS "/usr/local/include" "/opt/homebrew/include" "/usr/include")
+elseif(UNIX)
+    set(KCTSB_SYSTEM_LIB_HINTS "/usr/local/lib" "/usr/lib" "/usr/lib/x86_64-linux-gnu")
+    set(KCTSB_SYSTEM_INC_HINTS "/usr/local/include" "/usr/include")
+else()
+    set(KCTSB_SYSTEM_LIB_HINTS "")
+    set(KCTSB_SYSTEM_INC_HINTS "")
+endif()
+
+# ============================================================================
+# LTO Configuration (with compiler version detection)
+# ============================================================================
+
+option(KCTSB_ENABLE_LTO "Enable Link-Time Optimization" ON)
+
+set(KCTSB_LTO_SUPPORTED FALSE)
+
+if(KCTSB_ENABLE_LTO)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+        # GCC 12+ recommended for LTO with NTL templates
+        if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "12.0")
+            set(KCTSB_LTO_SUPPORTED TRUE)
+            message(STATUS "LTO: Enabled (GCC ${CMAKE_CXX_COMPILER_VERSION})")
+        elseif(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "11.0")
+            # GCC 11 may have issues with NTL templates, try anyway
+            set(KCTSB_LTO_SUPPORTED TRUE)
+            message(STATUS "LTO: Enabled (GCC ${CMAKE_CXX_COMPILER_VERSION} - may have issues with NTL)")
+        else()
+            message(STATUS "LTO: Disabled (GCC < 11.0)")
+        endif()
+    elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang|AppleClang")
+        set(KCTSB_LTO_SUPPORTED TRUE)
+        message(STATUS "LTO: Enabled (Clang ${CMAKE_CXX_COMPILER_VERSION})")
+    elseif(MSVC)
+        set(KCTSB_LTO_SUPPORTED TRUE)
+        message(STATUS "LTO: Enabled (MSVC)")
+    endif()
+endif()
+
+# ============================================================================
+# Performance Optimization
 # ============================================================================
 
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
@@ -51,17 +138,18 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release")
         add_compile_options(
             /O2 /Oi /Ot /GL      # Maximum optimization
             /fp:fast              # Fast floating-point
-            /GR-                  # Disable RTTI (memory optimization)
-            /EHs-c-               # Disable exceptions (C ABI handles errors)
+            /GR-                  # Disable RTTI
+            /EHs-c-               # Disable exceptions
         )
         if(CMAKE_SYSTEM_PROCESSOR MATCHES "AMD64|x86_64")
             add_compile_options(/arch:AVX2)
         endif()
-        add_link_options(/LTCG)
+        if(KCTSB_LTO_SUPPORTED)
+            add_link_options(/LTCG)
+        endif()
     else()
         # GCC/Clang unified optimization flags
         add_compile_options(
-            # Maximum speed optimization
             -O3
             -march=native
             -mtune=native
@@ -69,44 +157,34 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release")
             -funroll-loops
             -fomit-frame-pointer
             -fPIC
-
-            # Memory optimization (Principle #2)
-            -fno-rtti              # Disable RTTI, reduce object size
-            # Note: Exceptions enabled - required by existing C++ classes
-
-            # LTO disabled due to GCC 11 internal error with NTL templates
-            # Re-enable when upgrading to GCC 12+
-            # -flto
-
-            # Security hardening
+            -fno-rtti
             -fstack-protector-strong
         )
 
-        # Hardware acceleration instructions (x86_64)
-        if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
-            add_compile_options(
-                -maes -mpclmul         # AES-NI + PCLMUL
-                -msse4.1 -msse4.2      # SSE4
-                -mavx2                 # AVX2
-            )
+        # LTO flags
+        if(KCTSB_LTO_SUPPORTED)
+            add_compile_options(-flto)
+            add_link_options(-flto)
         endif()
 
-        # ARM64 NEON (Apple Silicon / ARM servers)
+        # Hardware acceleration (x86_64)
+        if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
+            add_compile_options(-maes -mpclmul -msse4.1 -msse4.2 -mavx2)
+        endif()
+
+        # ARM64 NEON
         if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
             add_compile_options(-march=armv8-a+crypto)
         endif()
 
-        # LTO link options disabled
-        # add_link_options(-flto)
         add_compile_definitions(_FORTIFY_SOURCE=2)
     endif()
 endif()
 
 # ============================================================================
-# Hardware Feature Detection and Defines
+# Hardware Feature Detection
 # ============================================================================
 
-# Check for AES-NI support
 include(CheckCXXCompilerFlag)
 check_cxx_compiler_flag("-maes" COMPILER_SUPPORTS_AESNI)
 if(COMPILER_SUPPORTS_AESNI)
@@ -116,7 +194,6 @@ else()
     message(STATUS "AES-NI: Not available")
 endif()
 
-# Check for PCLMUL (for GCM/GHASH)
 check_cxx_compiler_flag("-mpclmul" COMPILER_SUPPORTS_PCLMUL)
 if(COMPILER_SUPPORTS_PCLMUL)
     message(STATUS "PCLMUL: Enabled")
@@ -124,59 +201,44 @@ if(COMPILER_SUPPORTS_PCLMUL)
 endif()
 
 # ============================================================================
-# Warning Flags and UTF-8 Encoding
+# Warning Flags
 # ============================================================================
 
-# Platform detection
 if(WIN32)
-    set(KCTSB_PLATFORM "windows")
-    add_definitions(-DKCTSB_PLATFORM_WINDOWS -D_CRT_SECURE_NO_WARNINGS -DNOMINMAX -DWIN32_LEAN_AND_MEAN)
     if(MSVC)
-        # MSVC warning flags
-        add_compile_options(
-            /W4                     # Warning level 4
-            /utf-8                  # UTF-8 source and execution charset
-            /permissive-            # Standards conformance
-        )
-        # Treat specific warnings as errors
-        add_compile_options(/we4715)  # Not all control paths return a value
+        add_compile_options(/W4 /utf-8 /permissive- /we4715)
     else()
         # MinGW/GCC on Windows
         add_compile_options(
             -Wall -Wextra -Wpedantic
             -Werror=return-type
             -Werror=uninitialized
-            -Wno-unused-parameter      # Allow unused params in interface functions
-            -Wno-array-bounds          # Suppress NTL false positives on vector bounds
-            -Wno-stringop-overflow     # Suppress NTL vec memset false positives
-            -finput-charset=UTF-8      # Input encoding
-            -fexec-charset=UTF-8       # Output encoding
+            -Wno-unused-parameter
+            -Wno-array-bounds
+            -Wno-stringop-overflow
+            -finput-charset=UTF-8
+            -fexec-charset=UTF-8
         )
     endif()
 elseif(APPLE)
-    set(KCTSB_PLATFORM "macos")
-    add_definitions(-DKCTSB_PLATFORM_MACOS)
     add_compile_options(
         -Wall -Wextra -Wpedantic
         -Werror=return-type
         -Werror=uninitialized
         -Wno-unused-parameter
-        -Wno-array-bounds          # Suppress NTL false positives on vector bounds
-        -Wno-deprecated-copy       # Suppress NTL GF2.h implicit copy warning
+        -Wno-array-bounds
+        -Wno-deprecated-copy
         -finput-charset=UTF-8
         -fexec-charset=UTF-8
     )
 elseif(UNIX)
-    set(KCTSB_PLATFORM "linux")
-    add_definitions(-DKCTSB_PLATFORM_LINUX)
     add_compile_options(
         -Wall -Wextra -Wpedantic
         -Werror=return-type
         -Werror=uninitialized
         -Wno-unused-parameter
-        -Wno-array-bounds          # Suppress NTL false positives on vector bounds
-        -Wno-stringop-overflow     # Suppress NTL vec memset false positives
-        -Wno-stringop-overflow     # Suppress NTL vec memset false positives
+        -Wno-array-bounds
+        -Wno-stringop-overflow
         -finput-charset=UTF-8
         -fexec-charset=UTF-8
     )
@@ -194,7 +256,7 @@ option(KCTSB_BUILD_CLI "Build kctsb.exe CLI tool" ON)
 option(KCTSB_BUILD_EXAMPLES "Build C++ examples" ON)
 option(KCTSB_INSTALL "Generate install target" ON)
 
-# Core dependencies (always required)
+# Core dependencies
 option(KCTSB_ENABLE_NTL "Enable NTL (required for ECC/RSA)" ON)
 option(KCTSB_ENABLE_GMP "Enable GMP (required for NTL)" ON)
 
@@ -207,6 +269,9 @@ option(KCTSB_ENABLE_ZSTD "Enable zstd compression" ON)
 # Benchmark-only dependency
 option(KCTSB_ENABLE_OPENSSL "Enable OpenSSL (ONLY for benchmarks)" ON)
 
+# Distribution option: bundle all deps into single static library
+option(KCTSB_BUNDLE_DEPS "Bundle dependencies into single static library" ON)
+
 # ============================================================================
 # Output Directories
 # ============================================================================
@@ -216,195 +281,189 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 # ============================================================================
-# Third-Party Dependencies (Cross-Platform: thirdparty/ first, then system)
+# Third-Party Dependencies (Platform thirdparty FIRST, then common, then system)
 # ============================================================================
 
-# Option to skip thirdparty search (useful for Docker/Linux builds)
-option(KCTSB_SKIP_THIRDPARTY "Skip thirdparty/ directory search, use system libraries only" OFF)
+# Helper macro: Find library in thirdparty (platform-specific first, then common)
+macro(kctsb_find_thirdparty_lib OUT_VAR LIB_NAME)
+    # 1. Try platform-specific thirdparty first
+    find_library(${OUT_VAR} NAMES ${LIB_NAME} lib${LIB_NAME}
+        HINTS "${KCTSB_THIRDPARTY_PLATFORM_DIR}/lib"
+        NO_DEFAULT_PATH)
+    
+    # 2. Then try common thirdparty
+    if(NOT ${OUT_VAR})
+        find_library(${OUT_VAR} NAMES ${LIB_NAME} lib${LIB_NAME}
+            HINTS "${KCTSB_THIRDPARTY_DIR}/lib"
+            NO_DEFAULT_PATH)
+    endif()
+    
+    # 3. Finally try system paths
+    if(NOT ${OUT_VAR})
+        find_library(${OUT_VAR} NAMES ${LIB_NAME} lib${LIB_NAME}
+            HINTS ${KCTSB_SYSTEM_LIB_HINTS})
+    endif()
+endmacro()
 
-set(KCTSB_THIRDPARTY_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty)
-set(KCTSB_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
-set(KCTSB_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
+# Helper macro: Find include in thirdparty
+macro(kctsb_find_thirdparty_inc OUT_VAR HEADER_FILE)
+    # 1. Try platform-specific thirdparty first
+    find_path(${OUT_VAR} ${HEADER_FILE}
+        HINTS "${KCTSB_THIRDPARTY_PLATFORM_DIR}/include"
+        NO_DEFAULT_PATH)
+    
+    # 2. Then try common thirdparty
+    if(NOT ${OUT_VAR})
+        find_path(${OUT_VAR} ${HEADER_FILE}
+            HINTS "${KCTSB_THIRDPARTY_DIR}/include"
+            NO_DEFAULT_PATH)
+    endif()
+    
+    # 3. Finally try system paths
+    if(NOT ${OUT_VAR})
+        find_path(${OUT_VAR} ${HEADER_FILE}
+            HINTS ${KCTSB_SYSTEM_INC_HINTS})
+    endif()
+endmacro()
 
-# Platform-specific library paths
-if(APPLE)
-    set(KCTSB_SYSTEM_LIB_HINTS "/usr/local/lib" "/opt/homebrew/lib" "/usr/lib")
-    set(KCTSB_SYSTEM_INC_HINTS "/usr/local/include" "/opt/homebrew/include" "/usr/include")
-elseif(UNIX)
-    set(KCTSB_SYSTEM_LIB_HINTS "/usr/local/lib" "/usr/lib" "/usr/lib/x86_64-linux-gnu")
-    set(KCTSB_SYSTEM_INC_HINTS "/usr/local/include" "/usr/include")
-else()
-    set(KCTSB_SYSTEM_LIB_HINTS "")
-    set(KCTSB_SYSTEM_INC_HINTS "")
-endif()
+# Collect all dependency libraries for bundling
+set(KCTSB_BUNDLED_LIBS "")
 
-# NTL Detection (thirdparty first if not skipped, then system)
+# -----------------------------------------------------------------------------
+# NTL Detection
+# -----------------------------------------------------------------------------
 if(KCTSB_ENABLE_NTL)
     set(NTL_FOUND FALSE)
-
-    # Try thirdparty first (unless skipped)
-    if(NOT KCTSB_SKIP_THIRDPARTY AND EXISTS "${KCTSB_THIRDPARTY_DIR}/include/NTL/ZZ.h")
-        set(NTL_INCLUDE_DIRS "${KCTSB_THIRDPARTY_DIR}/include")
-        find_library(NTL_LIBRARY NAMES ntl libntl
-            HINTS "${KCTSB_THIRDPARTY_DIR}/lib" NO_DEFAULT_PATH)
-        if(NTL_LIBRARY)
-            set(NTL_FOUND TRUE)
-            message(STATUS "✓ NTL found (thirdparty): ${NTL_LIBRARY}")
-        endif()
-    endif()
-
-    # Fallback to system paths
-    if(NOT NTL_FOUND)
-        find_path(NTL_INCLUDE_DIRS NTL/ZZ.h HINTS ${KCTSB_SYSTEM_INC_HINTS})
-        find_library(NTL_LIBRARY NAMES ntl libntl HINTS ${KCTSB_SYSTEM_LIB_HINTS})
-        if(NTL_INCLUDE_DIRS AND NTL_LIBRARY)
-            set(NTL_FOUND TRUE)
-            message(STATUS "✓ NTL found (system): ${NTL_LIBRARY}")
-        endif()
-    endif()
-
-    if(NTL_FOUND)
+    
+    kctsb_find_thirdparty_inc(NTL_INCLUDE_DIRS NTL/ZZ.h)
+    kctsb_find_thirdparty_lib(NTL_LIBRARY ntl)
+    
+    if(NTL_INCLUDE_DIRS AND NTL_LIBRARY)
+        set(NTL_FOUND TRUE)
+        message(STATUS "✓ NTL found: ${NTL_LIBRARY}")
         add_definitions(-DKCTSB_HAS_NTL)
+        
         if(NOT TARGET NTL::NTL)
             add_library(NTL::NTL STATIC IMPORTED)
             set_target_properties(NTL::NTL PROPERTIES
                 IMPORTED_LOCATION "${NTL_LIBRARY}"
                 INTERFACE_INCLUDE_DIRECTORIES "${NTL_INCLUDE_DIRS}")
         endif()
+        
+        list(APPEND KCTSB_BUNDLED_LIBS "${NTL_LIBRARY}")
     else()
-        message(FATAL_ERROR "NTL not found. Install via: brew install ntl (macOS) or to thirdparty/")
+        message(FATAL_ERROR "NTL not found. Place in thirdparty/${KCTSB_PLATFORM_SUFFIX}/ or thirdparty/")
     endif()
 endif()
 
-# GMP Detection (thirdparty first if not skipped, then system)
+# -----------------------------------------------------------------------------
+# GMP Detection
+# -----------------------------------------------------------------------------
 if(KCTSB_ENABLE_GMP)
     set(GMP_FOUND FALSE)
-
-    # Try thirdparty first (unless skipped)
-    if(NOT KCTSB_SKIP_THIRDPARTY AND EXISTS "${KCTSB_THIRDPARTY_DIR}/include/gmp.h")
-        set(GMP_INCLUDE_DIRS "${KCTSB_THIRDPARTY_DIR}/include")
-        find_library(GMP_LIBRARY NAMES gmp libgmp
-            HINTS "${KCTSB_THIRDPARTY_DIR}/lib" NO_DEFAULT_PATH)
-        find_library(GMPXX_LIBRARY NAMES gmpxx libgmpxx
-            HINTS "${KCTSB_THIRDPARTY_DIR}/lib" NO_DEFAULT_PATH)
-        if(GMP_LIBRARY)
-            set(GMP_FOUND TRUE)
-            message(STATUS "✓ GMP found (thirdparty): ${GMP_LIBRARY}")
-        endif()
-    endif()
-
-    # Fallback to system paths
-    if(NOT GMP_FOUND)
-        find_path(GMP_INCLUDE_DIRS gmp.h HINTS ${KCTSB_SYSTEM_INC_HINTS})
-        find_library(GMP_LIBRARY NAMES gmp libgmp HINTS ${KCTSB_SYSTEM_LIB_HINTS})
-        find_library(GMPXX_LIBRARY NAMES gmpxx libgmpxx HINTS ${KCTSB_SYSTEM_LIB_HINTS})
-        if(GMP_INCLUDE_DIRS AND GMP_LIBRARY)
-            set(GMP_FOUND TRUE)
-            message(STATUS "✓ GMP found (system): ${GMP_LIBRARY}")
-        endif()
-    endif()
-
-    if(GMP_FOUND)
+    
+    kctsb_find_thirdparty_inc(GMP_INCLUDE_DIRS gmp.h)
+    kctsb_find_thirdparty_lib(GMP_LIBRARY gmp)
+    kctsb_find_thirdparty_lib(GMPXX_LIBRARY gmpxx)
+    
+    if(GMP_INCLUDE_DIRS AND GMP_LIBRARY)
+        set(GMP_FOUND TRUE)
+        message(STATUS "✓ GMP found: ${GMP_LIBRARY}")
+        add_definitions(-DKCTSB_HAS_GMP)
+        
         set(GMP_LIBRARIES ${GMP_LIBRARY})
         if(GMPXX_LIBRARY)
             list(APPEND GMP_LIBRARIES ${GMPXX_LIBRARY})
             add_definitions(-DKCTSB_HAS_GMPXX)
         endif()
-        add_definitions(-DKCTSB_HAS_GMP)
+        
         if(NOT TARGET GMP::GMP)
             add_library(GMP::GMP STATIC IMPORTED)
             set_target_properties(GMP::GMP PROPERTIES
                 IMPORTED_LOCATION "${GMP_LIBRARY}"
                 INTERFACE_INCLUDE_DIRECTORIES "${GMP_INCLUDE_DIRS}")
         endif()
+        
+        list(APPEND KCTSB_BUNDLED_LIBS "${GMP_LIBRARY}")
+        if(GMPXX_LIBRARY)
+            list(APPEND KCTSB_BUNDLED_LIBS "${GMPXX_LIBRARY}")
+        endif()
     else()
-        message(FATAL_ERROR "GMP not found. Install via: brew install gmp (macOS) or to thirdparty/")
+        message(FATAL_ERROR "GMP not found. Place in thirdparty/${KCTSB_PLATFORM_SUFFIX}/ or thirdparty/")
     endif()
 endif()
 
-# SEAL Detection (thirdparty first, then system)
+# -----------------------------------------------------------------------------
+# SEAL Detection (optional)
+# -----------------------------------------------------------------------------
 if(KCTSB_ENABLE_SEAL)
     set(SEAL_FOUND FALSE)
-
-    # Try thirdparty first
-    if(EXISTS "${KCTSB_THIRDPARTY_DIR}/include/SEAL-4.1/seal/seal.h")
-        set(SEAL_INCLUDE_DIRS "${KCTSB_THIRDPARTY_DIR}/include/SEAL-4.1")
-        find_library(SEAL_LIBRARY NAMES seal-4.1 libseal-4.1
-            HINTS "${KCTSB_THIRDPARTY_DIR}/lib" NO_DEFAULT_PATH)
-        if(SEAL_LIBRARY)
-            set(SEAL_FOUND TRUE)
-            message(STATUS "✓ SEAL found (thirdparty): ${SEAL_LIBRARY}")
-        endif()
-    endif()
-
-    # Fallback to system paths
-    if(NOT SEAL_FOUND)
+    
+    # Try platform-specific first
+    find_path(SEAL_INCLUDE_DIRS seal/seal.h
+        HINTS "${KCTSB_THIRDPARTY_PLATFORM_DIR}/include/SEAL-4.1"
+              "${KCTSB_THIRDPARTY_DIR}/include/SEAL-4.1"
+        NO_DEFAULT_PATH)
+    
+    if(NOT SEAL_INCLUDE_DIRS)
         find_path(SEAL_INCLUDE_DIRS seal/seal.h
             HINTS ${KCTSB_SYSTEM_INC_HINTS}
             PATH_SUFFIXES SEAL-4.1)
-        find_library(SEAL_LIBRARY NAMES seal-4.1 seal
-            HINTS ${KCTSB_SYSTEM_LIB_HINTS})
-        if(SEAL_INCLUDE_DIRS AND SEAL_LIBRARY)
-            set(SEAL_FOUND TRUE)
-            message(STATUS "✓ SEAL found (system): ${SEAL_LIBRARY}")
-        endif()
     endif()
-
-    if(SEAL_FOUND)
+    
+    kctsb_find_thirdparty_lib(SEAL_LIBRARY seal-4.1)
+    
+    if(SEAL_INCLUDE_DIRS AND SEAL_LIBRARY)
+        set(SEAL_FOUND TRUE)
+        message(STATUS "✓ SEAL found: ${SEAL_LIBRARY}")
         add_definitions(-DKCTSB_HAS_SEAL)
+        
         if(NOT TARGET SEAL::seal)
             add_library(SEAL::seal STATIC IMPORTED)
             set_target_properties(SEAL::seal PROPERTIES
                 IMPORTED_LOCATION "${SEAL_LIBRARY}"
                 INTERFACE_INCLUDE_DIRECTORIES "${SEAL_INCLUDE_DIRS}")
         endif()
+        
+        list(APPEND KCTSB_BUNDLED_LIBS "${SEAL_LIBRARY}")
     else()
         message(STATUS "⚠ SEAL not found (optional)")
         set(KCTSB_ENABLE_SEAL OFF)
     endif()
 endif()
 
-# HElib Detection (thirdparty first, then system)
+# -----------------------------------------------------------------------------
+# HElib Detection (optional)
+# -----------------------------------------------------------------------------
 if(KCTSB_ENABLE_HELIB)
     set(HELIB_FOUND FALSE)
-
-    # Try thirdparty first
-    if(EXISTS "${KCTSB_THIRDPARTY_DIR}/include/helib/helib.h")
-        set(HELIB_INCLUDE_DIRS "${KCTSB_THIRDPARTY_DIR}/include")
-        find_library(HELIB_LIBRARY NAMES helib libhelib
-            HINTS "${KCTSB_THIRDPARTY_DIR}/lib" NO_DEFAULT_PATH)
-        if(HELIB_LIBRARY)
-            set(HELIB_FOUND TRUE)
-            message(STATUS "✓ HElib found (thirdparty): ${HELIB_LIBRARY}")
-        endif()
-    endif()
-
-    # Fallback to system paths
-    if(NOT HELIB_FOUND)
-        find_path(HELIB_INCLUDE_DIRS helib/helib.h HINTS ${KCTSB_SYSTEM_INC_HINTS})
-        find_library(HELIB_LIBRARY NAMES helib HINTS ${KCTSB_SYSTEM_LIB_HINTS})
-        if(HELIB_INCLUDE_DIRS AND HELIB_LIBRARY)
-            set(HELIB_FOUND TRUE)
-            message(STATUS "✓ HElib found (system): ${HELIB_LIBRARY}")
-        endif()
-    endif()
-
-    if(HELIB_FOUND)
+    
+    kctsb_find_thirdparty_inc(HELIB_INCLUDE_DIRS helib/helib.h)
+    kctsb_find_thirdparty_lib(HELIB_LIBRARY helib)
+    
+    if(HELIB_INCLUDE_DIRS AND HELIB_LIBRARY)
+        set(HELIB_FOUND TRUE)
+        message(STATUS "✓ HElib found: ${HELIB_LIBRARY}")
         add_definitions(-DKCTSB_HAS_HELIB)
+        
         if(NOT TARGET helib)
             add_library(helib STATIC IMPORTED)
             set_target_properties(helib PROPERTIES
                 IMPORTED_LOCATION "${HELIB_LIBRARY}"
                 INTERFACE_INCLUDE_DIRECTORIES "${HELIB_INCLUDE_DIRS}")
         endif()
+        
+        list(APPEND KCTSB_BUNDLED_LIBS "${HELIB_LIBRARY}")
     else()
-        message(FATAL_ERROR "HElib not found. Build thirdparty dependency via scripts/build_helib.ps1 (MSYS2 MinGW) or scripts/build_helib.sh, or disable explicitly with -DKCTSB_ENABLE_HELIB=OFF if you acknowledge the risk.")
+        message(STATUS "⚠ HElib not found (optional, use -DKCTSB_ENABLE_HELIB=OFF to disable)")
+        set(KCTSB_ENABLE_HELIB OFF)
     endif()
 endif()
 
+# -----------------------------------------------------------------------------
 # OpenSSL for benchmarks ONLY
+# -----------------------------------------------------------------------------
 if(KCTSB_BUILD_BENCHMARKS AND KCTSB_ENABLE_OPENSSL)
-    # macOS: Use Homebrew OpenSSL
     if(APPLE)
         set(OPENSSL_ROOT_DIR "/usr/local/opt/openssl@3")
         set(OPENSSL_INCLUDE_DIR "/usr/local/opt/openssl@3/include")
@@ -419,7 +478,7 @@ if(KCTSB_BUILD_BENCHMARKS AND KCTSB_ENABLE_OPENSSL)
     endif()
 endif()
 
-# zlib/zstd
+# zlib (optional)
 if(KCTSB_ENABLE_ZLIB)
     find_package(ZLIB QUIET)
     if(ZLIB_FOUND)
@@ -431,7 +490,7 @@ if(KCTSB_ENABLE_ZLIB)
 endif()
 
 # ============================================================================
-# Source Files (Native Implementations Only - NO OpenSSL in src/)
+# Source Files
 # ============================================================================
 
 file(GLOB_RECURSE KCTSB_CORE_SOURCES
@@ -445,31 +504,27 @@ file(GLOB KCTSB_AES_SOURCES
     ${KCTSB_SRC_DIR}/crypto/mac.cpp
 )
 
-# ChaCha20 - native implementation only
 set(KCTSB_CHACHA_SOURCES
     ${KCTSB_SRC_DIR}/crypto/chacha20_poly1305.cpp
 )
 
-# v3.4.0 Refactored Hash Sources (C++ Core + C ABI)
 set(KCTSB_HASH_SOURCES
-    ${KCTSB_SRC_DIR}/crypto/sha256.cpp      # v3.4.0: New location
-    ${KCTSB_SRC_DIR}/crypto/sha512.cpp      # v3.4.0: New location
-    ${KCTSB_SRC_DIR}/crypto/sha3.cpp        # v3.4.0: New (Keccak/SHA3)
-    ${KCTSB_SRC_DIR}/crypto/blake2.cpp      # v3.4.0: New location
+    ${KCTSB_SRC_DIR}/crypto/sha256.cpp
+    ${KCTSB_SRC_DIR}/crypto/sha512.cpp
+    ${KCTSB_SRC_DIR}/crypto/sha3.cpp
+    ${KCTSB_SRC_DIR}/crypto/blake2.cpp
 )
 
-# v3.4.0 Refactored SM Sources (C++ Core + C ABI)
 set(KCTSB_SM_SOURCES
-    ${KCTSB_SRC_DIR}/crypto/sm/sm3.cpp      # v3.4.0: SM3 in sm/ subdir
-    ${KCTSB_SRC_DIR}/crypto/sm/sm4.cpp      # v3.4.0: SM4 in sm/ subdir
-    ${KCTSB_SRC_DIR}/crypto/sm/zuc.cpp      # v3.4.0: ZUC (C++ refactored)
+    ${KCTSB_SRC_DIR}/crypto/sm/sm3.cpp
+    ${KCTSB_SRC_DIR}/crypto/sm/sm4.cpp
+    ${KCTSB_SRC_DIR}/crypto/sm/zuc.cpp
 )
 
 set(KCTSB_WHITEBOX_SOURCES
     ${KCTSB_SRC_DIR}/advanced/whitebox/whitebox_aes.c
 )
 
-# SIMD acceleration sources
 set(KCTSB_SIMD_SOURCES
     ${KCTSB_SRC_DIR}/simd/simd.cpp
 )
@@ -488,7 +543,6 @@ if(KCTSB_ENABLE_NTL)
     file(GLOB KCTSB_RSA_SOURCES ${KCTSB_SRC_DIR}/crypto/rsa/*.cpp)
     list(APPEND KCTSB_CRYPTO_SOURCES ${KCTSB_RSA_SOURCES})
 
-    # ECC - NTL-based (replaces MIRACL)
     set(KCTSB_ECC_SOURCES
         ${KCTSB_SRC_DIR}/crypto/ecc/ecc_curve.cpp
         ${KCTSB_SRC_DIR}/crypto/ecc/ecdh.cpp
@@ -505,19 +559,18 @@ if(KCTSB_ENABLE_NTL)
     set(KCTSB_ADVANCED_SOURCES ${KCTSB_ZK_SOURCES} ${KCTSB_LATTICE_SOURCES} ${KCTSB_SSS_SOURCES})
 endif()
 
-# PSI/PIR - Private Set Intersection / Private Information Retrieval
+# PSI/PIR
 set(KCTSB_PSI_SOURCES
     ${KCTSB_SRC_DIR}/advanced/psi/piano_psi.cpp
 )
 
-# SEAL-dependent PIR implementation (only if SEAL is available)
 if(KCTSB_ENABLE_SEAL AND SEAL_FOUND)
     list(APPEND KCTSB_PSI_SOURCES ${KCTSB_SRC_DIR}/advanced/psi/seal_pir.cpp)
 endif()
 
 list(APPEND KCTSB_ADVANCED_SOURCES ${KCTSB_PSI_SOURCES})
 
-if(KCTSB_ENABLE_HELIB)
+if(KCTSB_ENABLE_HELIB AND HELIB_FOUND)
     file(GLOB_RECURSE KCTSB_FE_SOURCES ${KCTSB_SRC_DIR}/advanced/fe/*.cpp)
     list(APPEND KCTSB_ADVANCED_SOURCES ${KCTSB_FE_SOURCES})
 endif()
@@ -536,26 +589,35 @@ set(KCTSB_ALL_SOURCES
 # Library Targets
 # ============================================================================
 
+# Include directories for both thirdparty locations
+set(KCTSB_THIRDPARTY_INCLUDE_DIRS
+    ${KCTSB_THIRDPARTY_PLATFORM_DIR}/include
+    ${KCTSB_THIRDPARTY_DIR}/include
+)
+
 if(KCTSB_BUILD_STATIC)
     add_library(kctsb_static STATIC ${KCTSB_ALL_SOURCES})
     target_include_directories(kctsb_static PUBLIC
         $<BUILD_INTERFACE:${KCTSB_INCLUDE_DIR}>
+        $<BUILD_INTERFACE:${KCTSB_THIRDPARTY_PLATFORM_DIR}/include>
         $<BUILD_INTERFACE:${KCTSB_THIRDPARTY_DIR}/include>
         $<INSTALL_INTERFACE:include>
     )
     target_compile_definitions(kctsb_static PRIVATE KCTSB_BUILDING)
-    # Add SEAL include directory explicitly if available
+    
     if(KCTSB_ENABLE_SEAL AND SEAL_FOUND)
         target_include_directories(kctsb_static PUBLIC ${SEAL_INCLUDE_DIRS})
     endif()
     set_target_properties(kctsb_static PROPERTIES OUTPUT_NAME kctsb)
 
+    # Platform-specific system libraries (always needed, not bundled)
     if(WIN32)
         target_link_libraries(kctsb_static PRIVATE bcrypt)
     elseif(APPLE)
-        # Link Security framework for SecRandomCopyBytes
         target_link_libraries(kctsb_static PRIVATE "-framework Security")
     endif()
+    
+    # Link dependencies
     if(KCTSB_ENABLE_NTL AND NTL_FOUND)
         target_link_libraries(kctsb_static PUBLIC NTL::NTL)
     endif()
@@ -580,10 +642,11 @@ if(KCTSB_BUILD_SHARED)
     add_library(kctsb_shared SHARED ${KCTSB_ALL_SOURCES})
     target_include_directories(kctsb_shared PUBLIC
         $<BUILD_INTERFACE:${KCTSB_INCLUDE_DIR}>
+        $<BUILD_INTERFACE:${KCTSB_THIRDPARTY_PLATFORM_DIR}/include>
         $<BUILD_INTERFACE:${KCTSB_THIRDPARTY_DIR}/include>
         $<INSTALL_INTERFACE:include>
     )
-    # Add SEAL include directory explicitly if available
+    
     if(KCTSB_ENABLE_SEAL AND SEAL_FOUND)
         target_include_directories(kctsb_shared PUBLIC ${SEAL_INCLUDE_DIRS})
     endif()
@@ -594,7 +657,6 @@ if(KCTSB_BUILD_SHARED)
     if(WIN32)
         target_link_libraries(kctsb_shared PRIVATE bcrypt)
     elseif(APPLE)
-        # Link Security framework for SecRandomCopyBytes
         target_link_libraries(kctsb_shared PRIVATE "-framework Security")
     endif()
     if(KCTSB_ENABLE_NTL AND NTL_FOUND)
@@ -620,6 +682,19 @@ elseif(KCTSB_BUILD_SHARED)
 endif()
 
 # ============================================================================
+# Bundled Static Library (like OpenSSL - single file distribution)
+# ============================================================================
+
+# Note: CMake doesn't directly support merging static libraries.
+# The bundled library is created by the build scripts (build.ps1, build.sh)
+# using platform-specific tools (ar, lib.exe).
+# 
+# For distribution, users only need:
+#   - libkctsb.a (static) or libkctsb.so/.dll (shared)
+#   - kctsb_api.h (public header)
+#   - Link with: -lkctsb -lstdc++ [-lbcrypt on Windows]
+
+# ============================================================================
 # CLI Tool
 # ============================================================================
 
@@ -628,6 +703,7 @@ if(KCTSB_BUILD_CLI)
     add_executable(kctsb_cli ${KCTSB_CLI_SOURCES})
     target_include_directories(kctsb_cli PRIVATE
         ${KCTSB_INCLUDE_DIR}
+        ${KCTSB_THIRDPARTY_PLATFORM_DIR}/include
         ${KCTSB_THIRDPARTY_DIR}/include
     )
     set_target_properties(kctsb_cli PROPERTIES OUTPUT_NAME kctsb)
@@ -667,8 +743,7 @@ endif()
 if(KCTSB_INSTALL)
     include(GNUInstallDirs)
 
-    # Install ONLY the unified public API header (like OpenSSL's EVP)
-    # Internal headers remain in include/kctsb/ for project builds only
+    # Install ONLY the unified public API header
     install(FILES ${KCTSB_INCLUDE_DIR}/kctsb/kctsb_api.h
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
         RENAME kctsb_api.h)
@@ -692,15 +767,26 @@ endif()
 
 message(STATUS "")
 message(STATUS "=== Configuration Summary ===")
-message(STATUS "Static lib:   ${KCTSB_BUILD_STATIC}")
-message(STATUS "Shared lib:   ${KCTSB_BUILD_SHARED}")
-message(STATUS "CLI tool:     ${KCTSB_BUILD_CLI}")
-message(STATUS "Tests:        ${KCTSB_BUILD_TESTS}")
-message(STATUS "Benchmarks:   ${KCTSB_BUILD_BENCHMARKS}")
+message(STATUS "Static lib:       ${KCTSB_BUILD_STATIC}")
+message(STATUS "Shared lib:       ${KCTSB_BUILD_SHARED}")
+message(STATUS "CLI tool:         ${KCTSB_BUILD_CLI}")
+message(STATUS "Tests:            ${KCTSB_BUILD_TESTS}")
+message(STATUS "Benchmarks:       ${KCTSB_BUILD_BENCHMARKS}")
+message(STATUS "LTO:              ${KCTSB_LTO_SUPPORTED}")
 message(STATUS "")
-message(STATUS "Dependencies (thirdparty/):")
+message(STATUS "Thirdparty search order:")
+message(STATUS "  1. ${KCTSB_THIRDPARTY_PLATFORM_DIR}")
+message(STATUS "  2. ${KCTSB_THIRDPARTY_DIR}")
+message(STATUS "  3. System paths")
+message(STATUS "")
+message(STATUS "Dependencies:")
 message(STATUS "  NTL:    ${KCTSB_ENABLE_NTL}")
 message(STATUS "  GMP:    ${KCTSB_ENABLE_GMP}")
 message(STATUS "  SEAL:   ${KCTSB_ENABLE_SEAL}")
 message(STATUS "  HElib:  ${KCTSB_ENABLE_HELIB}")
+message(STATUS "")
+message(STATUS "Distribution (like OpenSSL):")
+message(STATUS "  Header:  kctsb_api.h (single public header)")
+message(STATUS "  Library: libkctsb.a / libkctsb.so / kctsb.dll")
+message(STATUS "  Link:    -lkctsb -lstdc++ [-lbcrypt on Windows]")
 message(STATUS "")

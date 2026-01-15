@@ -121,8 +121,21 @@ kctsb/
 ├── tests/                      # GoogleTest测试代码
 ├── benchmarks/                 # 性能对比测试 (vs OpenSSL)
 ├── thirdparty/                 # ★第三方库统一目录★
+│   ├── win-x64/                # Windows x64 平台特定库 (可选)
+│   ├── linux-x64/              # Linux x64 平台特定库 (可选)
+│   ├── macos-x64/              # macOS x64 平台特定库 (可选)
 │   ├── include/                # NTL/, gf2x/, gmp.h, SEAL-4.1/, helib/
 │   └── lib/                    # libntl.a, libgf2x.a, libgmp.a, etc.
+├── release/                    # ★跨平台发布目录★
+│   ├── win-x64/                # Windows x64 构建产物
+│   │   ├── kctsb_api.h         # 唯一公共头文件
+│   │   ├── libkctsb.a          # 静态库
+│   │   ├── libkctsb.dll        # 动态库
+│   │   └── kctsb.exe           # CLI 工具
+│   └── linux-x64/              # Linux x64 构建产物
+│       ├── kctsb_api.h         # 唯一公共头文件
+│       ├── libkctsb.a          # 静态库
+│       └── kctsb               # CLI 工具
 ├── docs/                       # 文档
 │   ├── releases/               # 版本发布说明
 │   └── third-party-dependencies.md  # 源码安装指南
@@ -373,34 +386,65 @@ int main() {
 
 ## 📦 跨平台 Release 构建
 
-kctsb 支持 Windows, Linux, macOS 三平台的预编译分发：
+kctsb 支持 Windows, Linux, macOS 三平台的预编译分发。采用**类似 OpenSSL 的单头文件分发模式**：
 
 ```
 release/
-├── windows-x64/
-│   ├── bin/kctsb.exe           # CLI 工具
-│   ├── lib/libkctsb.a          # 静态库
-│   └── include/kctsb_api.h     # ★ 唯一公共头文件 ★
-├── linux-x64/
-│   ├── bin/kctsb               # Linux CLI
-│   ├── lib/libkctsb.a          # 静态库
-│   └── include/kctsb_api.h     # ★ 唯一公共头文件 ★
-├── macos-x64/
-│   ├── bin/kctsb               # macOS CLI
-│   ├── lib/libkctsb.a          # 静态库
-│   └── include/kctsb_api.h     # ★ 唯一公共头文件 ★
-└── RELEASE_INFO.txt
+├── win-x64/                        # Windows x64 平台
+│   ├── kctsb_api.h                 # ★ 唯一公共头文件 ★
+│   ├── libkctsb.a                  # 静态库 (~4.4 MB)
+│   ├── libkctsb.dll                # 动态库 (~4.1 MB)
+│   └── kctsb.exe                   # CLI 工具 (~372 KB)
+├── linux-x64/                      # Linux x64 平台 (glibc 2.17+)
+│   ├── kctsb_api.h                 # ★ 唯一公共头文件 ★
+│   ├── libkctsb.a                  # 静态库
+│   └── kctsb                       # CLI 工具
+└── macos-x64/                      # macOS x64 平台 (可选)
+    ├── kctsb_api.h                 # ★ 唯一公共头文件 ★
+    ├── libkctsb.a                  # 静态库
+    └── kctsb                       # CLI 工具
 ```
+
+### thirdparty 目录结构
+
+为解决跨平台依赖问题，thirdparty 支持平台特定子目录：
+
+```
+thirdparty/
+├── win-x64/                        # Windows x64 平台特定 (可选)
+│   ├── include/
+│   └── lib/
+├── linux-x64/                      # Linux x64 平台特定 (可选)
+│   ├── include/
+│   └── lib/
+├── include/                        # 通用头文件 (所有平台共享)
+│   ├── NTL/
+│   ├── gmp.h, gmpxx.h
+│   ├── SEAL-4.1/
+│   └── helib/
+└── lib/                            # 通用库文件 (所有平台共享)
+    ├── libntl.a
+    ├── libgmp.a
+    ├── libseal-4.1.a
+    └── libhelib.a
+```
+
+**搜索顺序**: `thirdparty/{platform}/` → `thirdparty/` → 系统路径
 
 ### 外部用户集成指南
 
+**最简集成方式**:
+1. 从 `release/{platform}/` 目录复制 `kctsb_api.h` 和 `libkctsb.a` 到项目
+2. 包含头文件：`#include "kctsb_api.h"`
+3. 链接静态库
+
 ```c
 // 只需要包含这一个头文件
-#include <kctsb_api.h>
+#include "kctsb_api.h"
 
 // 编译时链接库
-// Linux/macOS: gcc -o app app.c -I<path>/include -L<path>/lib -lkctsb -lstdc++
-// Windows:     gcc -o app.exe app.c -I<path>\include -L<path>\lib -lkctsb -lstdc++ -lbcrypt
+// Linux/macOS: gcc -o app app.c -I. -L. -lkctsb -lstdc++
+// Windows:     gcc -o app.exe app.c -I. -L. -lkctsb -lstdc++ -lbcrypt
 ```
 
 ### 平台兼容性

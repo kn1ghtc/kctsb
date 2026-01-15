@@ -30,13 +30,8 @@
 #include <openssl/evp.h>
 #include <openssl/rand.h>
 
-// kctsb v3.4.0 headers
-#include "kctsb/kctsb.h"
-#include "kctsb/crypto/sha256.h"
-#include "kctsb/crypto/sha512.h"
-#include "kctsb/crypto/sha3.h"
-#include "kctsb/crypto/blake2.h"
-#include "kctsb/crypto/sm3.h"
+// kctsb v3.4.0 headers - use unified public API
+#include "kctsb/kctsb_api.h"
 
 // Benchmark configuration
 constexpr size_t WARMUP_ITERATIONS = 10;
