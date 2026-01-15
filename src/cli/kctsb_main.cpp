@@ -20,7 +20,7 @@
  * 
  * @author kctsb Development Team
  * @date 2026-01-12 (Beijing Time, UTC+8)
- * @version 3.0.0
+ * @version 3.4.0
  * @copyright Apache License 2.0
  */
 

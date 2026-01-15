@@ -1,15 +1,17 @@
 {
     "configurations": [
         {
-            "name": "Win32",
+            "name": "Win32 (MSYS2 MinGW64)",
             "includePath": [
                 "${workspaceFolder}/include",
                 "${workspaceFolder}/include/kctsb",
                 "${workspaceFolder}/thirdparty/include",
-                "${workspaceFolder}/thirdparty/googletest/googletest/include",
-                "${workspaceFolder}/thirdparty/googletest/googlemock/include",
+                "${workspaceFolder}/thirdparty/include/NTL",
+                "${workspaceFolder}/thirdparty/win-x64/include",
                 "${workspaceFolder}/src",
-                "${workspaceFolder}/build/_deps/*/include",
+                "${workspaceFolder}/build/_deps/googletest-src/googletest/include",
+                "${workspaceFolder}/build/_deps/googletest-src/googlemock/include",
+                "C:/msys64/mingw64/include",
                 "D:/vcpkg/installed/x64-windows/include"
             ],
             "defines": [
@@ -24,11 +26,20 @@
                 "KCTSB_HAS_HELIB",
                 "KCTSB_BENCHMARK_HAS_OPENSSL"
             ],
-            "compilerPath": "C:/Strawberry/c/bin/gcc.exe",
+            "compilerPath": "C:/msys64/mingw64/bin/gcc.exe",
             "cStandard": "c17",
             "cppStandard": "c++17",
             "intelliSenseMode": "windows-gcc-x64",
-            "compileCommands": "${workspaceFolder}/build/compile_commands.json"
+            "compileCommands": "${workspaceFolder}/build/compile_commands.json",
+            "browse": {
+                "path": [
+                    "${workspaceFolder}/include",
+                    "${workspaceFolder}/src",
+                    "${workspaceFolder}/thirdparty/include",
+                    "C:/msys64/mingw64/include"
+                ],
+                "limitSymbolsToIncludedHeaders": true
+            }
         },
         {
             "name": "Linux",
@@ -36,10 +47,10 @@
                 "${workspaceFolder}/include",
                 "${workspaceFolder}/include/kctsb",
                 "${workspaceFolder}/thirdparty/include",
-                "${workspaceFolder}/thirdparty/googletest/googletest/include",
-                "${workspaceFolder}/thirdparty/googletest/googlemock/include",
+                "${workspaceFolder}/thirdparty/linux-x64/include",
                 "${workspaceFolder}/src",
-                "${workspaceFolder}/build/_deps/*/include",
+                "${workspaceFolder}/build/_deps/googletest-src/googletest/include",
+                "${workspaceFolder}/build/_deps/googletest-src/googlemock/include",
                 "/usr/local/include",
                 "/usr/include"
             ],
@@ -64,14 +75,12 @@
                 "${workspaceFolder}/include",
                 "${workspaceFolder}/include/kctsb",
                 "${workspaceFolder}/thirdparty/include",
-                "${workspaceFolder}/thirdparty/include/SEAL-4.1",
-                "${workspaceFolder}/thirdparty/googletest/googletest/include",
-                "${workspaceFolder}/thirdparty/googletest/googlemock/include",
+                "${workspaceFolder}/thirdparty/macos-x64/include",
                 "${workspaceFolder}/src",
-                "${workspaceFolder}/build/_deps/*/include",
+                "${workspaceFolder}/build/_deps/googletest-src/googletest/include",
+                "${workspaceFolder}/build/_deps/googletest-src/googlemock/include",
                 "/usr/local/opt/openssl@3/include",
                 "/usr/local/include",
-                "/usr/local/share/vcpkg/installed/x64-osx/include",
                 "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include"
             ],
             "defines": [
@@ -81,24 +90,13 @@
                 "KCTSB_HAS_GMP",
                 "KCTSB_HAS_SEAL",
                 "KCTSB_HAS_HELIB",
-                "KCTSB_HAS_ZLIB",
-                "KCTSB_BENCHMARK_HAS_OPENSSL",
-                "KCTSB_HAS_AES_GCM",
-                "KCTSB_HAS_CHACHA20_POLY1305",
-                "KCTSB_HAS_SHA3",
-                "KCTSB_HAS_BLAKE2",
-                "KCTSB_HAS_RSA",
-                "KCTSB_HAS_ECC",
-                "KCTSB_HAS_SM2",
-                "KCTSB_HAS_SM3",
-                "KCTSB_HAS_SM4"
+                "KCTSB_BENCHMARK_HAS_OPENSSL"
             ],
             "compilerPath": "/usr/bin/clang",
             "cStandard": "c17",
             "cppStandard": "c++17",
             "intelliSenseMode": "macos-clang-x64",
-            "compileCommands": "${workspaceFolder}/build/compile_commands.json",
-            "configurationProvider": "ms-vscode.cmake-tools"
+            "compileCommands": "${workspaceFolder}/build/compile_commands.json"
         }
     ],
     "version": 4

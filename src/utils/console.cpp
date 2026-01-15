@@ -24,24 +24,35 @@ namespace utils {
 
 void enable_utf8_console() {
 #ifdef _WIN32
+    // Set console code page to UTF-8 for proper Unicode display
     SetConsoleOutputCP(CP_UTF8);
     SetConsoleCP(CP_UTF8);
-    _setmode(_fileno(stdout), _O_BINARY);
-    _setmode(_fileno(stderr), _O_BINARY);
+
+    // Enable UTF-8 text mode for streams (NOT binary mode)
+    // Using _O_U8TEXT causes issues with narrow strings, so we use _O_TEXT
+    // The combination of CP_UTF8 + _O_TEXT ensures proper display
+    _setmode(_fileno(stdout), _O_TEXT);
+    _setmode(_fileno(stderr), _O_TEXT);
+
+    // Enable ANSI escape sequences for modern Windows terminals
+    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+    if (hOut != INVALID_HANDLE_VALUE) {
+        DWORD dwMode = 0;
+        if (GetConsoleMode(hOut, &dwMode)) {
+            dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+            SetConsoleMode(hOut, dwMode);
+        }
+    }
 #endif
 
-    try {
-        std::locale utf8_locale("");
-        std::locale::global(utf8_locale);
-        std::cout.imbue(utf8_locale);
-        std::cerr.imbue(utf8_locale);
-    } catch (const std::exception&) {
-        std::locale::global(std::locale::classic());
-        std::cout.imbue(std::locale());
-        std::cerr.imbue(std::locale());
-    }
+    // Use classic locale for consistent behavior with UTF-8 console
+    // Avoid locale-specific number formatting that can cause display issues
+    std::locale::global(std::locale::classic());
+    std::cout.imbue(std::locale::classic());
+    std::cerr.imbue(std::locale::classic());
 
-    std::ios::sync_with_stdio(false);
+    // Sync with C stdio for consistent output ordering
+    std::ios::sync_with_stdio(true);
 }
 
 } // namespace utils
