@@ -32,8 +32,10 @@
 
 #if defined(_MSC_VER)
 #include <intrin.h>
+#define KCTSB_PREFETCH(addr) _mm_prefetch(reinterpret_cast<const char*>(addr), _MM_HINT_T0)
 #else
 #include <cpuid.h>
+#define KCTSB_PREFETCH(addr) __builtin_prefetch(addr, 0, 3)
 #endif
 
 // ============================================================================
@@ -443,8 +445,12 @@ void kctsb_sha256_update(kctsb_sha256_ctx_t* ctx,
         len -= buffer_space;
     }
 
-    // Process complete blocks
+    // Process complete blocks with prefetch optimization
     while (len >= KCTSB_SHA256_BLOCK_SIZE) {
+        // Prefetch next block to reduce memory latency
+        if (len >= 2 * KCTSB_SHA256_BLOCK_SIZE) {
+            KCTSB_PREFETCH(data + KCTSB_SHA256_BLOCK_SIZE);
+        }
         kctsb::internal::SHA256Compressor::transform(ctx, data);
         data += KCTSB_SHA256_BLOCK_SIZE;
         len -= KCTSB_SHA256_BLOCK_SIZE;

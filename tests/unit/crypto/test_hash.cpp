@@ -130,23 +130,6 @@ TEST_F(HashTest, SHA512_ABC) {
 }
 
 // ============================================================================
-// SHA-384 Tests
-// ============================================================================
-
-TEST_F(HashTest, SHA384_ABC) {
-    uint8_t digest[KCTSB_SHA384_DIGEST_SIZE];
-    const uint8_t msg[] = "abc";
-    kctsb_sha384(msg, 3, digest);
-
-    const char* expected_hex =
-        "cb00753f45a35e8bb5a03d699ac65007"
-        "272c32ab0eded1631a8b605a43ff5bed"
-        "8086072ba1e7cc2358baeca134c825a7";
-
-    EXPECT_EQ(bytes_to_hex(digest, 48), expected_hex);
-}
-
-// ============================================================================
 // SHA3-256 Tests (FIPS 202)
 // ============================================================================
 

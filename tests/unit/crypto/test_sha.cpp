@@ -138,78 +138,22 @@ TEST(SHA512Test, IncrementalUpdate) {
 }
 
 // ============================================================================
-// SHA-384 Tests
-// ============================================================================
-
-TEST(SHA384Test, EmptyString) {
-    // SHA-384("")
-    uint8_t digest[48];
-    kctsb_sha384((const uint8_t*)"", 0, digest);
-
-    EXPECT_EQ(to_hex(digest, 48),
-              "38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da"
-              "274edebfe76f65fbd51ad2f14898b95b");
-}
-
-TEST(SHA384Test, ABC) {
-    // SHA-384("abc")
-    uint8_t digest[48];
-    kctsb_sha384((const uint8_t*)"abc", 3, digest);
-
-    EXPECT_EQ(to_hex(digest, 48),
-              "cb00753f45a35e8bb5a03d699ac65007272c32ab0eded1631a8b605a43ff5bed"
-              "8086072ba1e7cc2358baeca134c825a7");
-}
-
-TEST(SHA384Test, LongMessage) {
-    // SHA-384 of long message
-    const char* msg = "abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu";
-    uint8_t digest[48];
-    kctsb_sha384((const uint8_t*)msg, strlen(msg), digest);
-
-    EXPECT_EQ(to_hex(digest, 48),
-              "09330c33f71147e83d192fc782cd1b4753111b173b3b05d22fa08086e3b0f712"
-              "fcc7c71a557e2db966c3e9fa91746039");
-}
-
-TEST(SHA384Test, IncrementalUpdate) {
-    // Test incremental hashing
-    kctsb_sha384_ctx_t ctx;
-    uint8_t digest[48];
-
-    kctsb_sha384_init(&ctx);
-    kctsb_sha384_update(&ctx, (const uint8_t*)"ab", 2);
-    kctsb_sha384_update(&ctx, (const uint8_t*)"c", 1);
-    kctsb_sha384_final(&ctx, digest);
-
-    EXPECT_EQ(to_hex(digest, 48),
-              "cb00753f45a35e8bb5a03d699ac65007272c32ab0eded1631a8b605a43ff5bed"
-              "8086072ba1e7cc2358baeca134c825a7");
-}
-
-// ============================================================================
 // Cross-Family Compatibility Tests
 // ============================================================================
 
 TEST(SHATest, DifferentOutputSizes) {
-    // Verify different hash sizes
+    // Verify SHA-256 and SHA-512 produce different hash sizes
     const char* msg = "The quick brown fox jumps over the lazy dog";
 
     uint8_t sha256[32];
-    uint8_t sha384[48];
     uint8_t sha512[64];
 
     kctsb_sha256((const uint8_t*)msg, strlen(msg), sha256);
-    kctsb_sha384((const uint8_t*)msg, strlen(msg), sha384);
     kctsb_sha512((const uint8_t*)msg, strlen(msg), sha512);
 
     // SHA-256 produces 32 bytes
     EXPECT_EQ(to_hex(sha256, 32),
               "d7a8fbb307d7809469ca9abcb0082e4f8d5651e46d3cdb762d02d0bf37c9e592");
-
-    // SHA-384 produces 48 bytes
-    EXPECT_EQ(to_hex(sha384, 48),
-              "ca737f1014a48f4c0b6dd43cb177b0afd9e5169367544c494011e3317dbf9a509cb1e5dc1e85a941bbee3d7f2afbc9b1");
 
     // SHA-512 produces 64 bytes
     EXPECT_EQ(to_hex(sha512, 64),

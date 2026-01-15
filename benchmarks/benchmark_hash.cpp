@@ -1,10 +1,9 @@
 /**
  * @file benchmark_hash.cpp
- * @brief Hash Function Performance Benchmark: kctsb v3.4.0 vs OpenSSL
+ * @brief Hash Function Performance Benchmark: kctsb v3.4.1 vs OpenSSL
  *
  * Complete coverage benchmarks for all hash algorithms:
  * - SHA-256: FIPS 180-4
- * - SHA-384: FIPS 180-4 truncated SHA-512
  * - SHA-512: FIPS 180-4
  * - SHA3-256: FIPS 202 (Keccak)
  * - SHA3-512: FIPS 202 (Keccak)
@@ -12,6 +11,8 @@
  * - BLAKE2b-256/512: RFC 7693
  * - BLAKE2s-256: RFC 7693
  * - SM3: GB/T 32905-2016 (Chinese national standard)
+ *
+ * Note: SHA-384 removed in v3.4.1 (only 256/512 supported)
  *
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
  * @license Apache License 2.0
@@ -152,7 +153,7 @@ static void print_ratio(double kctsb_throughput, double openssl_throughput) {
     const char* symbol = ratio >= 1.0 ? "+" : "";
     double diff_percent = (ratio - 1.0) * 100.0;
     
-    std::cout << std::left << std::setw(25) << "  → Ratio"
+    std::cout << std::left << std::setw(25) << "  ==> Ratio"
               << std::setw(15) << ""
               << std::right << std::fixed << std::setprecision(2)
               << std::setw(10) << ratio << "x"
@@ -176,23 +177,6 @@ static double benchmark_sha256_kctsb(const uint8_t* data, size_t size) {
     return run_benchmark_iterations("SHA-256", "kctsb", size, [&]() {
         auto start = Clock::now();
         kctsb_sha256(data, size, digest);
-        auto end = Clock::now();
-        return std::chrono::duration<double, std::milli>(end - start).count();
-    });
-}
-
-static double benchmark_sha384_openssl(const uint8_t* data, size_t size) {
-    uint8_t digest[48];
-    return run_benchmark_iterations("SHA-384", "OpenSSL", size, [&]() {
-        return benchmark_openssl_hash(EVP_sha384(), data, size, digest);
-    });
-}
-
-static double benchmark_sha384_kctsb(const uint8_t* data, size_t size) {
-    uint8_t digest[48];
-    return run_benchmark_iterations("SHA-384", "kctsb", size, [&]() {
-        auto start = Clock::now();
-        kctsb_sha384(data, size, digest);
         auto end = Clock::now();
         return std::chrono::duration<double, std::milli>(end - start).count();
     });
@@ -339,11 +323,6 @@ void benchmark_hash_functions() {
         kc_tp = benchmark_sha256_kctsb(data.data(), data_size);
         print_ratio(kc_tp, ssl_tp);
 
-        // SHA-384
-        ssl_tp = benchmark_sha384_openssl(data.data(), data_size);
-        kc_tp = benchmark_sha384_kctsb(data.data(), data_size);
-        print_ratio(kc_tp, ssl_tp);
-
         // SHA-512
         ssl_tp = benchmark_sha512_openssl(data.data(), data_size);
         kc_tp = benchmark_sha512_kctsb(data.data(), data_size);
@@ -379,12 +358,12 @@ void benchmark_hash_functions() {
     std::cout << "\n" << std::string(70, '=') << std::endl;
     std::cout << "  Benchmark Summary" << std::endl;
     std::cout << std::string(70, '=') << std::endl;
-    std::cout << "Algorithms tested: SHA-256, SHA-384, SHA-512, SHA3-256, SHA3-512," << std::endl;
+    std::cout << "Algorithms tested: SHA-256, SHA-512, SHA3-256, SHA3-512," << std::endl;
     std::cout << "                   BLAKE2b-512, BLAKE2s-256, SM3" << std::endl;
     std::cout << "Iterations per test: " << BENCHMARK_ITERATIONS << std::endl;
     std::cout << "Warmup iterations: " << WARMUP_ITERATIONS << std::endl;
     std::cout << "\nNotes:" << std::endl;
-    std::cout << "  - SHA-256/384/512: FIPS 180-4 compliant" << std::endl;
+    std::cout << "  - SHA-256/512: FIPS 180-4 compliant" << std::endl;
     std::cout << "  - SHA3: FIPS 202 Keccak sponge construction" << std::endl;
     std::cout << "  - BLAKE2: RFC 7693, optimized for software" << std::endl;
     std::cout << "  - SM3: GB/T 32905-2016 Chinese national standard" << std::endl;
