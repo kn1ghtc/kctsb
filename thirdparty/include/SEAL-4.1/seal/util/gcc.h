@@ -21,18 +21,9 @@
 
 #ifdef SEAL_USE_ALIGNED_ALLOC
 #include <cstdlib>
-#if defined(__MINGW32__) || defined(__MINGW64__) || defined(_WIN32)
-// MinGW/Windows does not have aligned_alloc, use _aligned_malloc instead
-#include <malloc.h>
-#define SEAL_MALLOC(size) \
-    static_cast<seal_byte *>((((size)&63) == 0) ? _aligned_malloc((size), 64) : std::malloc((size)))
-#define SEAL_FREE(ptr) \
-    do { if ((reinterpret_cast<uintptr_t>(ptr) & 63) == 0) _aligned_free(ptr); else std::free(ptr); } while(0)
-#else
 #define SEAL_MALLOC(size) \
     static_cast<seal_byte *>((((size)&63) == 0) ? ::aligned_alloc(64, (size)) : std::malloc((size)))
 #define SEAL_FREE(ptr) std::free(ptr)
-#endif
 #endif
 
 // Are intrinsics enabled?

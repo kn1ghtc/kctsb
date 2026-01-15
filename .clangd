@@ -1,0 +1,19 @@
+# .clangd configuration for kctsb project
+# This file configures clangd language server to properly resolve includes
+
+CompileFlags:
+  CompilationDatabase: build/  # Path to compile_commands.json
+  Add:
+    - -I/Users/kc/Projects/python3/py_vscode/kctsb/include
+    - -I/usr/local/opt/openssl@3/include
+    - -I/usr/local/include
+    - -std=c++17
+  Remove:
+    - -march=native  # Remove arch-specific flags that may cause issues
+
+Diagnostics:
+  Suppress:
+    - unused-includes
+
+Index:
+  Background: Build

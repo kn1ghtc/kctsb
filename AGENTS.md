@@ -1,87 +1,278 @@
 # AGENTS.md - kctsb AI Development Guidelines
 
 > **项目**: kctsb - Knight's Cryptographic Trusted Security Base  
-> **版本**: 3.2.0  
-> **更新时间**: 2026-01-14 (Beijing Time, UTC+8)
+> **版本**: 3.4.0  
+> **更新时间**: 2026-01-15 (Beijing Time, UTC+8)
 
 ---
 
 ## 🎯 项目概述
 
-kctsb (Knight's Cryptographic Trusted Security Base) 是一个**生产级**跨平台C/C++密码学和安全算法库，可用于安全研究、生产部署和算法验证。
-
-### 核心设计原则
-
-1. **生产级代码质量**: 所有实现均通过标准测试向量验证，无mock/placeholder代码
-2. **跨平台兼容**: 支持 Windows/Linux/macOS，使用CMake + Ninja构建
-3. **双语言接口**: 提供纯C和C++ API，便于集成
-4. **C API优先**: 所有C库优先使用C API接入，不强制要求C++封装（如GMP使用mpz_t而非mpz_class）
-5. **安全优先**: 实现遵循密码学最佳实践，包含适当的安全警告
-6. **性能验证**: 提供与OpenSSL的性能对比benchmark（仅benchmark可用OpenSSL）
-7. **原生实现**: 核心算法必须原生实现，仅benchmark可引用OpenSSL进行对比
-8. **NTL-based ECC**: 椭圆曲线算法使用NTL原生实现，已移除MIRACL依赖
-
-### 设计目标
-
-本项目的目标是**替代OpenSSL**成为更现代、更安全的密码学库：
-- ⚠️ **src/目录禁止引用OpenSSL**: 所有核心算法必须原生C/C++实现
-- ⚠️ **已移除MIRACL**: ECC使用NTL实现（Montgomery ladder常量时间标量乘法）
-- ✅ **benchmark/目录可以引用OpenSSL**: 仅用于性能对比测试
-- ✅ **参考实现允许**: 可参考OpenSSL/MIRACL等开源实现，但必须重写为原生代码
-- ✅ **性能目标**: 追求超越OpenSSL的性能表现（-O3, -march=native, -flto）
-
-### 开源使用说明
-
-本项目采用 **Apache License 2.0** 开源协议，可用于：
-- ✅ 商业项目集成
-- ✅ 安全研究与算法验证
-- ✅ 教学与学习目的
-- ✅ 二次开发与修改
-
-**使用建议**：
-- 生产环境使用前，请进行充分的安全审计
-- 对于高安全需求场景，建议配合硬件安全模块(HSM)
-- 时间敏感操作需注意侧信道防护
+kctsb (Knight's Cryptographic Trusted Security Base) 是一个**生产级**跨平台C++密码学和安全算法库，可用于安全研究、生产部署和算法验证。
 
 ---
 
-### 目录规范
+## ⚡ 三大开发原则 (v3.4.0+)
 
-1. **include/**: 所有头文件 (.h, .hpp) 必须放在此目录
-   - src/ 目录禁止放置头文件
-   - 公共API: `include/kctsb/crypto/*.h`
-   - 内部实现: `include/kctsb/internal/*.h`
+### 🥇 第一原则：C++ Core + C ABI 封装
 
-2. **thirdparty/**: 所有第三方库的**编译产物**统一放置于此
-   - `thirdparty/include/`: 第三方头文件
-   - `thirdparty/lib/`: 静态库 (.a)
-   - CMake优先从此目录搜索依赖
+**所有算法必须采用「C++ 实现功能 + C 的 ABI 封装」架构。**
 
-3. **deps/**: 第三方库**源码和编译中间产物** (临时目录)
+#### 为什么需要 C ABI 封装？
 
-4. **build/**: CMake构建目录 (不提交Git)
+即使完全使用 C++ 实现，引入 C 语言封装（extern "C"）的目的不是为了兼容 C，而是为了**消除 C++ 的运行时不确定性**：
+
+| 优势 | 说明 |
+|------|------|
+| **ABI 稳定性** | C++ 调用约定在不同编译器（GCC/Clang/MSVC）或版本间可能不一致。C 封装确保名字修饰（Name Mangling）稳定，跨模块调用不会崩溃 |
+| **内存边界控制** | C 接口强制显式处理内存（传入 `uint8_t*` 缓冲区），避免 `std::vector` 隐式内存拷贝或扩容，严格控制内存消耗 |
+| **防止异常逃逸** | 加密算法集成在底层，C++ 异常传播到非 C++ 环境会导致崩溃。C 接口通过返回错误码（`kctsb_error_t`）处理异常，更安全高效 |
+
+#### 标准实现模式
+
+```cpp
+// ============================================================================
+// Internal C++ Implementation (namespace kctsb::internal)
+// ============================================================================
+namespace kctsb::internal {
+
+class AES256 {
+public:
+    // Template metaprogramming: compile-time constant computation
+    template<size_t Rounds>
+    static constexpr auto generate_round_keys() noexcept;
+
+    // Force inline for hot path
+    __attribute__((always_inline))
+    void encrypt_block(const uint8_t* in, uint8_t* out) noexcept;
+
+    // Zero-copy in-place operation
+    void transform_inplace(uint8_t* buffer, size_t len) noexcept;
+
+private:
+    // SIMD-aligned memory
+    alignas(32) std::array<uint32_t, 60> round_keys_;
+};
+
+} // namespace kctsb::internal
+
+// ============================================================================
+// C ABI Export (extern "C")
+// ============================================================================
+extern "C" {
+
+KCTSB_API kctsb_error_t kctsb_aes256_init(kctsb_aes_ctx_t* ctx,
+                                           const uint8_t* key) {
+    if (!ctx || !key) {
+        return KCTSB_ERROR_INVALID_PARAM;
+    }
+    try {
+        // Internal C++ logic, catch all exceptions
+        auto& impl = *reinterpret_cast<kctsb::internal::AES256*>(ctx->opaque);
+        impl.set_key(key);
+        return KCTSB_SUCCESS;
+    } catch (...) {
+        return KCTSB_ERROR_INTERNAL;
+    }
+}
+
+KCTSB_API void kctsb_aes256_clear(kctsb_aes_ctx_t* ctx) {
+    if (ctx) {
+        // Secure memory zeroing
+        kctsb_secure_memzero(ctx, sizeof(*ctx));
+    }
+}
+
+} // extern "C"
+```
 
 ---
 
-## 🔧 kctsb 特定开发约束
+### 🥈 第二原则：C++17 统一标准 + 极限性能优化
+
+**全项目统一使用 C++17 标准，启用最优编译参数，追求极致速度和最小内存占用。**
+
+#### 强制编译标准
+
+```cmake
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)  # 禁用 GNU 扩展，保证跨平台一致性
+```
+
+#### C++17 性能特性利用
+
+| 特性 | 用途 | 示例 |
+|------|------|------|
+| `constexpr if` | 编译期分支消除 | `if constexpr (KeyBits == 256) { ... }` |
+| `std::array` | 定长零开销容器 | 替代 C 数组，带边界检查（Debug） |
+| `std::string_view` | 零拷贝字符串视图 | 参数传递避免拷贝 |
+| `[[nodiscard]]` | 强制检查返回值 | 错误码必须处理 |
+| `[[likely]]`/`[[unlikely]]` | 分支预测提示 | 热路径优化 |
+| Fold expressions | 模板元编程简化 | 批量初始化 |
+
+#### 极限优化编译参数
+
+**GCC/Clang (Release 模式)**:
+```bash
+-O3                    # 最高优化级别
+-march=native          # 针对当前 CPU 架构优化
+-mtune=native          # 针对当前 CPU 调度优化
+-ffast-math            # 快速浮点运算（仅适用非精确场景）
+-funroll-loops         # 循环展开
+-fomit-frame-pointer   # 省略栈帧指针
+-flto                  # 链接时优化
+-fPIC                  # 位置无关代码
+
+# 内存优化
+-fno-rtti              # 禁用 RTTI，减少内存占用
+-fno-exceptions        # 禁用异常（C ABI 层处理错误）
+
+# 硬件加速
+-maes -mpclmul         # AES-NI + PCLMUL
+-msse4.1 -msse4.2      # SSE4
+-mavx2                 # AVX2
+-mavx512f              # AVX-512 (可选)
+
+# 安全加固
+-fstack-protector-strong
+-D_FORTIFY_SOURCE=2
+```
+
+**MSVC (Release 模式)**:
+```
+/O2 /Oi /Ot /GL /fp:fast /arch:AVX2
+/LTCG (链接时代码生成)
+```
+
+#### 内存优化策略
+
+| 策略 | 实现 |
+|------|------|
+| **预分配内存** | 加密上下文在初始化时一次性分配，或由调用者传入预分配缓冲区 |
+| **零拷贝设计** | 直接在原始字节数组上原地（In-place）加密，避免数据搬运 |
+| **内存对齐** | 使用 `alignas(16/32)` 确保 SIMD 加载最优 |
+| **禁用 RTTI** | `-fno-rtti` 去掉虚函数表指针，减少对象大小 |
+| **禁用异常** | `-fno-exceptions`，通过 C ABI 返回错误码 |
+
+---
+
+### 🥉 第三原则：单文件单算法 + 禁止额外封装层
+
+**每个算法使用一个独立的 .cpp 文件实现，C ABI 封装直接在该文件内导出，每个算法对应一个独立的 .h 头文件。**
+
+#### ✅ 正确做法
+
+```
+src/crypto/
+├── sha256.cpp       # SHA-256 C++ 实现 + C ABI 导出
+├── sha512.cpp       # SHA-512 C++ 实现 + C ABI 导出
+├── sha3.cpp         # SHA3 C++ 实现 + C ABI 导出
+├── blake2.cpp       # BLAKE2 C++ 实现 + C ABI 导出
+├── sm2.cpp          # SM2 C++ 实现 + C ABI 导出
+├── sm3.cpp          # SM3 C++ 实现 + C ABI 导出
+├── sm4.cpp          # SM4 C++ 实现 + C ABI 导出
+└── ...
+
+include/kctsb/crypto/
+├── sha256.h         # SHA-256 公共头文件
+├── sha512.h         # SHA-512 公共头文件
+├── sha3.h           # SHA3 公共头文件
+├── blake2.h         # BLAKE2 公共头文件
+├── sm2.h            # SM2 公共头文件
+├── sm3.h            # SM3 公共头文件
+├── sm4.h            # SM4 公共头文件
+└── ...
+```
+
+#### ❌ 禁止做法
+
+```
+# 禁止: 额外的 API 封装文件
+src/crypto/sm/sm_api.cpp       # ❌ 不合理的额外封装
+
+# 禁止: 同一算法多个头文件
+include/kctsb/crypto/sm/
+├── sm3.h            # 公共头
+├── sm3_core.h       # ❌ 冗余
+├── sm3_impl.h       # ❌ 冗余
+
+# 禁止: 分散的实现文件
+src/crypto/sm/
+├── sm3.c            # ❌
+├── sm_api.cpp       # ❌
+├── sm_util.c        # ❌
+```
+
+#### 头文件模板
+
+```c
+/**
+ * @file algorithm.h
+ * @brief Algorithm - Public C API
+ */
+#ifndef KCTSB_CRYPTO_ALGORITHM_H
+#define KCTSB_CRYPTO_ALGORITHM_H
+
+#include "kctsb/core/common.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+// ============================================================================
+// Constants
+// ============================================================================
+#define KCTSB_ALGORITHM_DIGEST_SIZE 32
+#define KCTSB_ALGORITHM_BLOCK_SIZE 64
+
+// ============================================================================
+// Types
+// ============================================================================
+typedef struct kctsb_algorithm_ctx_s {
+    uint8_t opaque[256];  // Opaque storage for C++ implementation
+} kctsb_algorithm_ctx_t;
+
+// ============================================================================
+// C API Functions
+// ============================================================================
+KCTSB_API kctsb_error_t kctsb_algorithm_init(kctsb_algorithm_ctx_t* ctx);
+KCTSB_API kctsb_error_t kctsb_algorithm_update(kctsb_algorithm_ctx_t* ctx,
+                                                const uint8_t* data, size_t len);
+KCTSB_API kctsb_error_t kctsb_algorithm_final(kctsb_algorithm_ctx_t* ctx,
+                                               uint8_t* digest);
+KCTSB_API kctsb_error_t kctsb_algorithm(const uint8_t* data, size_t len,
+                                         uint8_t* digest);
+KCTSB_API void kctsb_algorithm_clear(kctsb_algorithm_ctx_t* ctx);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif // KCTSB_CRYPTO_ALGORITHM_H
+```
+
+---
+
+## 🔧 开发约束
 
 ### 依赖管理
 
 **thirdparty 统一目录** (优先):
 - **位置**: `kctsb/thirdparty/`
 - **结构**: `include/` 放头文件，`lib/` 放静态库
-- **CMake**: 优先从thirdparty搜索，不再使用vcpkg（除benchmark）
+- **CMake**: 优先从 thirdparty 搜索，不再使用 vcpkg（除 benchmark）
 
-**核心依赖** (2026-01-14):
+**核心依赖** (2026-01-15):
 | 依赖 | 版本 | 位置 | 状态 | 用途 |
 |------|------|------|------|------|
 | GMP | 6.3.0+ | thirdparty | ✅ 必需 | 高精度整数 |
-| gf2x | 1.3.0+ | thirdparty | ✅ 必需 | NTL依赖 |
-| NTL | 11.6.0+ | thirdparty | ✅ 必需 | 数论、ECC |
+| gf2x | 1.3.0+ | thirdparty | ✅ 必需 | NTL 依赖 |
+| NTL | 11.6.0+ | thirdparty | ✅ 必需 | 数论、ECC、大数运算加速 |
 | SEAL | 4.1.2 | thirdparty | ⚠️ 可选 | 同态加密 |
 | HElib | v2.3.0 | thirdparty | ⚠️ 可选 | 函数加密 |
 
-**Benchmark专用依赖** (仅benchmarks/可用):
+**Benchmark 专用依赖** (仅 benchmarks/ 可用):
 | 依赖 | 版本 | 来源 | 用途 |
 |------|------|------|------|
 | OpenSSL | 3.x | vcpkg | 性能对比 |
@@ -90,38 +281,56 @@ kctsb (Knight's Cryptographic Trusted Security Base) 是一个**生产级**跨�
 
 ### 依赖约束 ⚠️
 
-1. **核心依赖** (src/目录可用):
-   - ✅ NTL 11.6.0+: 数论运算、椭圆曲线
+1. **核心依赖** (src/ 目录可用):
+   - ✅ NTL 11.6.0+: 数论运算、椭圆曲线、大数加速
    - ✅ GMP 6.3.0+: 高精度整数
-   - ✅ gf2x 1.3.0+: NTL的GF(2)多项式运算
+   - ✅ gf2x 1.3.0+: NTL 的 GF(2) 多项式运算
    - ⚠️ SEAL 4.1.2 (可选): 同态加密
    - ⚠️ HElib v2.3.0 (可选): 函数加密
 
-2. **禁止依赖** (src/目录禁用):
+2. **禁止依赖** (src/ 目录禁用):
    - ❌ OpenSSL: 目标是替代它
-   - ❌ MIRACL: 已移除，使用NTL实现ECC
-   - ❌ 其他外部库: 使用纯C/C++原生实现
+   - ❌ MIRACL: 已移除，使用 NTL 实现 ECC
+   - ❌ 其他外部库: 使用纯 C++ 原生实现
 
-3. **benchmark依赖** (仅benchmarks/目录可用):
+3. **benchmark 依赖** (仅 benchmarks/ 目录可用):
    - ✅ OpenSSL: 性能对比测试
-   - ✅ zlib/zstd: 压缩benchmark
+   - ✅ zlib/zstd: 压缩 benchmark
 
-### Windows 工具链与构建策略 (2026-01-14)
-- **首选工具链**: `C:\msys64\mingw64` 下的 gcc/g++；`scripts/build.ps1` 已默认设置 `CC/CXX` 和 `-DCMAKE_C_COMPILER/-DCMAKE_CXX_COMPILER` 指向该路径。
-- **禁止优先使用 Strawberry Perl 工具链**: 若 PATH 中存在 `C:\Strawberry\c\bin`，需主动切换至 MSYS2；仅在 MSYS2 缺失且确认风险时才退回。
-- **VCPKG 使用原则**: 默认不启用；仅在 `-Benchmark` 且显式传入 `-UseVcpkg` 后才加载 `$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake`。优先从 thirdparty/ 及源码构建。
-- **三方库独立脚本**: 每个依赖使用 scripts/ 下独立 build 脚本（例如 `build_helib.ps1`、`build_ntl.ps1`），保持 build/ 和 thirdparty/ 的分离与可复现。
-- **HElib 为默认开启的必选项**: `KCTSB_ENABLE_HELIB=ON` 并在缺失时终止配置，按脚本编译后放置于 thirdparty/include|lib。
+### 目录规范
 
-### 算法文件布局与共享工具
-- 单一算法尽量使用单个 C/C++ 翻译单元实现；共用逻辑抽取到 `src/utils/`，并在 `include/kctsb/utils/` 暴露对应头文件。
-- 统一使用 `kctsb::utils::enable_utf8_console()` / `kctsb_enable_utf8_console()` 处理 CLI、benchmark 等可执行程序的 UTF-8 输出，避免中文/框线字符乱码及重定向问题。
+1. **include/**: 所有头文件 (.h) 必须放在此目录
+   - src/ 目录禁止放置头文件
+   - 公共 API: `include/kctsb/crypto/*.h`
+   - 内部实现: `include/kctsb/internal/*.h` (极少使用)
+
+2. **src/crypto/**: 算法实现源文件
+   - 每个算法一个 .cpp 文件
+   - C ABI 封装在同一文件内导出
+
+3. **thirdparty/**: 第三方库编译产物
+   - `thirdparty/include/`: 第三方头文件
+   - `thirdparty/lib/`: 静态库 (.a)
+
+4. **build/**: CMake 构建目录 (不提交 Git)
 
 ### 代码语言政策
 
-- **src/目录**: 所有注释和变量名必须使用**英文**
-- **docs/目录**: 文档可使用中文
+- **src/ 目录**: 所有注释和变量名必须使用**英文**
+- **docs/ 目录**: 文档可使用中文
 - 禁止在代码中使用中文注释或变量名
+
+### Hash 算法统一调用规范
+
+**所有使用 hash 算法的模块，必须统一调用 `src/crypto/` 下的 hash 实现：**
+
+- `kctsb_sha256()` - SHA-256
+- `kctsb_sha512()` - SHA-512  
+- `kctsb_sha3_256()` / `kctsb_sha3_512()` - SHA3
+- `kctsb_blake2b()` / `kctsb_blake2s()` - BLAKE2
+- `kctsb_sm3()` - SM3
+
+**禁止**在其他模块中重复实现 hash 算法。
 
 ---
 
@@ -129,154 +338,126 @@ kctsb (Knight's Cryptographic Trusted Security Base) 是一个**生产级**跨�
 
 ### crypto/ - 标准密码算法
 
-| 模块 | 功能 | 实现状态 | 测试状态 | 备注 |
-|------|------|----------|----------|------|
-| aes/ | AES-128/192/256-GCM AEAD | ✅ 完成 | ✅ 测试向量验证 | 生产就绪 |
-| chacha20/ | ChaCha20-Poly1305 AEAD | ✅ 完成 | ✅ RFC 7539 向量 | 生产就绪 |
-| hash/Keccak | SHA3-256/512 (Keccak) | ✅ 完成 | ✅ FIPS 202 向量 | 生产就绪 |
-| hash/blake2 | BLAKE2b/BLAKE2s | ✅ 完成 | ✅ RFC 7693 向量 | 生产就绪 |
-| sm/sm2 | 国密SM2椭圆曲线 | ✅ 完成 | ✅ GM/T 向量 | 完整实现 |
-| sm/sm3 | 国密SM3哈希 | ✅ 完成 | ✅ GM/T 向量 | 完整实现 |
-| sm/sm4 | 国密SM4分组密码 | ✅ 完成 | ✅ GM/T 向量 | 完整实现 |
-| rsa/ | RSA加密签名 | ✅ 完成 | ✅ NTL实现 | kc_rsa.cpp |
-| ecc/ | 椭圆曲线密码 | ✅ 完成 | ✅ NTL实现 | ecc_ntl.cpp |
+| 模块 | 功能 | 文件 | 实现状态 |
+|------|------|------|----------|
+| sha256 | SHA-256 | sha256.cpp + sha256.h | ✅ 生产就绪 |
+| sha512 | SHA-512 | sha512.cpp + sha512.h | ✅ 生产就绪 |
+| sha3 | SHA3-256/512 (Keccak) | sha3.cpp + sha3.h | ✅ 生产就绪 |
+| blake2 | BLAKE2b/BLAKE2s | blake2.cpp + blake2.h | ✅ 生产就绪 |
+| blake3 | BLAKE3 | blake3.cpp + blake3.h | ✅ 生产就绪 |
+| aes | AES-128/192/256-GCM | aes.cpp + aes.h | ✅ 生产就绪 |
+| chacha20 | ChaCha20-Poly1305 | chacha20.cpp + chacha20.h | ✅ 生产就绪 |
+| sm2 | 国密 SM2 椭圆曲线 | sm2.cpp + sm2.h | ✅ 生产就绪 |
+| sm3 | 国密 SM3 哈希 | sm3.cpp + sm3.h | ✅ 生产就绪 |
+| sm4 | 国密 SM4-GCM | sm4.cpp + sm4.h | ✅ 生产就绪 |
+| rsa | RSA-OAEP/PSS | rsa.cpp + rsa.h | ✅ 生产就绪 |
+| ecc | ECC/ECDSA/ECDH/ECIES | ecc.cpp + ecc.h | ✅ 生产就绪 |
 
 ### advanced/ - 高级密码学
 
-| 模块 | 功能 | 实现状态 | 依赖 | 代码状态 |
-|------|------|----------|------|----------|
-| whitebox/ | 白盒AES (Chow方案) | ✅ 完成 | 无 | 完整实现 |
-| sss/ | Shamir秘密共享 | ✅ 完成 | NTL | 测试通过 |
-| zk/ffs/ | Feige-Fiat-Shamir证明 | ✅ 完成 | NTL | 测试通过 |
-| zk/snarks/ | zk-SNARKs | 📋 计划中 | - | 待实现 |
-| lattice/ | 格密码 (LLL约简) | ✅ 完成 | NTL | 测试通过 |
-| fe/ | 函数加密 (BGV方案) | 📋 框架存在 | HElib | 设计草稿 |
-
-### 当前测试状态 (2026-01-14)
-
-| 类别 | 测试数 | 通过 | 失败 | 状态 |
-|------|--------|------|------|------|
-| AES | 8 | 8 | 0 | ✅ |
-| ChaCha20 | 4 | 4 | 0 | ✅ |
-| Hash | 12 | 12 | 0 | ✅ |
-| SM2/SM3/SM4 | 10 | 10 | 0 | ✅ |
-| RSA | 6 | 6 | 0 | ✅ |
-| Whitebox | 4 | 4 | 0 | ✅ |
-| ZK (FFS) | 8 | 8 | 0 | ✅ |
-| **总计** | **72** | **72** | **0** | **100%** |
+| 模块 | 功能 | 实现状态 | 依赖 |
+|------|------|----------|------|
+| whitebox | 白盒 AES (Chow 方案) | ✅ 完成 | 无 |
+| sss | Shamir 秘密共享 | ✅ 完成 | NTL |
+| zk/ffs | Feige-Fiat-Shamir | ✅ 完成 | NTL |
+| zk/snarks | Groth16 zk-SNARKs | ✅ 完成 | NTL |
+| pqc | 后量子密码 (Kyber/Dilithium) | ✅ 完成 | NTL |
+| lattice | 格密码 (LLL 约简) | ✅ 完成 | NTL |
+| fe | 函数加密 (BGV) | ⚠️ 可选 | HElib |
 
 ---
 
-## 🚀 kctsb 构建命令
+## 🚀 构建命令
 
-### Windows (PowerShell) - 推荐配置
-
-```powershell
-# 进入项目目录
-cd D:\pyproject\kctsb
-
-# 完整构建（使用thirdparty目录依赖, Ninja推荐）
-cmake -B build -G Ninja `
-    -DCMAKE_BUILD_TYPE=Release `
-    -DCMAKE_C_FLAGS="-O3 -march=native -mtune=native -fomit-frame-pointer" `
-    -DCMAKE_CXX_FLAGS="-O3 -march=native -mtune=native -fomit-frame-pointer" `
-    -DKCTSB_BUILD_CLI=ON `
-    -DKCTSB_BUILD_TESTS=ON `
-    -DKCTSB_BUILD_BENCHMARKS=ON
-
-cmake --build build --parallel
-
-# 运行测试
-ctest --test-dir build --output-on-failure
-
-# 运行CLI工具
-.\build\bin\kctsb.exe version
-.\build\bin\kctsb.exe hash --sha3-256 "Hello, World!"
-```
-
-### Linux/macOS
+### Linux/macOS (推荐)
 
 ```bash
-# 配置并构建（Ninja推荐）
+# 一键构建 + 测试
+./scripts/build.sh --all
+
+# 仅构建
+./scripts/build.sh
+
+# 构建 + benchmark
+./scripts/build.sh --benchmark
+```
+
+### Windows (PowerShell)
+
+```powershell
+# 一键构建 + 测试
+.\scripts\build.ps1 -All
+
+# 构建 + benchmark (需要 vcpkg)
+.\scripts\build.ps1 -Full -UseVcpkg
+```
+
+### 手动构建
+
+```bash
 cmake -B build -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_C_FLAGS="-O3 -march=native" \
-    -DCMAKE_CXX_FLAGS="-O3 -march=native" \
-    -DKCTSB_BUILD_CLI=ON \
-    -DKCTSB_BUILD_TESTS=ON
-cmake --build build --parallel $(nproc)
+    -DKCTSB_BUILD_TESTS=ON \
+    -DKCTSB_BUILD_BENCHMARKS=ON
 
-# 运行测试和benchmark
+cmake --build build --parallel $(nproc)
 ctest --test-dir build --output-on-failure
-./build/bin/kctsb version
 ```
 
 ---
 
-## 🎯 新增算法开发规范
+## 🎯 API 设计规范
 
-### 文件组织
+### C 函数命名
 
+```c
+kctsb_<algorithm>_<operation>()
+
+// 示例
+kctsb_sha256_init()
+kctsb_sha256_update()
+kctsb_sha256_final()
+kctsb_sha256()          // 一次性调用
+kctsb_sha256_clear()
 ```
-src/crypto/<algorithm>/
-├── <algorithm>.c      # C实现
-├── <algorithm>.cpp    # C++封装 (可选)
-include/kctsb/crypto/
-└── <algorithm>.h      # 公共头文件
-tests/
-└── test_<algorithm>.cpp  # GoogleTest测试
+
+### 三段式 API (流式处理)
+
+```c
+// 初始化
+kctsb_error_t kctsb_sha256_init(kctsb_sha256_ctx_t* ctx);
+
+// 更新 (可多次调用)
+kctsb_error_t kctsb_sha256_update(kctsb_sha256_ctx_t* ctx,
+                                   const uint8_t* data, size_t len);
+
+// 完成
+kctsb_error_t kctsb_sha256_final(kctsb_sha256_ctx_t* ctx,
+                                  uint8_t digest[32]);
+
+// 清理
+void kctsb_sha256_clear(kctsb_sha256_ctx_t* ctx);
 ```
 
-### API设计
+### 一次性 API
 
-- C函数: `kctsb_<algorithm>_<operation>()`
-- 必须提供初始化/更新/完成三段式API (适用时)
-- 返回错误码而非抛出异常
+```c
+// 小数据一次性处理
+kctsb_error_t kctsb_sha256(const uint8_t* data, size_t len,
+                           uint8_t digest[32]);
+```
 
 ### 测试要求
 
 - 使用官方测试向量 (NIST/RFC/GM/T)
 - 边界条件测试
-- 性能benchmark与OpenSSL对比
+- 性能 benchmark 与 OpenSSL 对比
 
 ### 安全要求
 
 - 时间常量操作 (防侧信道)
-- 敏感数据清零 (使用kctsb_secure_memzero)
+- 敏感数据清零 (使用 `kctsb_secure_memzero`)
 - 输入验证
-
----
-
-## 📝 待办事项 (TODO)
-
-### 高优先级
-
-1. **修复编译警告和错误**
-   - 目标: 修复所有warning、error、note
-   - 编译器: GCC/Clang/MSVC
-   - 文件: 所有src/目录代码
-
-2. **中文乱码问题**
-   - 目标: .\build\bin\kctsb_benchmark.exe 正常输出中文
-   - 方法: UTF-8 BOM 或控制台编码设置
-   - 平台: Windows
-
-3. **完善CLI工具**
-   - 目标: kctsb.exe支持所有加密操作
-   - 参考: OpenSSL CLI设计
-   - 子命令: hash, enc, dec, sign, verify, keygen, bench
-
-### 中优先级
-
-4. **性能优化**
-   - 目标: 核心算法性能超越OpenSSL
-   - 方法: SIMD优化 (AVX2/AVX-512)
-   - 文件: `src/crypto/aes/*.c`, `src/crypto/hash/*.c`
-
-5. **zk-SNARKs实现**
-   - 目标: 完成零知识证明的SNARK实现
-   - 依赖: NTL多项式运算
-   - 位置: `src/advanced/zk/snarks/`
 
 ---
 
@@ -284,24 +465,24 @@ tests/
 
 ### 生产环境使用指南
 
-1. **代码审计**: 在生产环境部署前，建议进行独立的安全代码审计
+1. **代码审计**: 生产环境部署前，建议进行独立的安全代码审计
 2. **侧信道防护**: 
-   - 当前AES-GCM和ChaCha20实现为软件实现，可能存在时间侧信道
-   - 对于高安全需求，建议使用硬件AES-NI指令或HSM
+   - 当前 AES-GCM 和 ChaCha20 实现为软件实现，可能存在时间侧信道
+   - 高安全需求建议使用硬件 AES-NI 指令或 HSM
 3. **内存安全**: 
    - 使用 `kctsb_secure_memzero()` 清理敏感数据
    - 避免在日志中输出密钥材料
 4. **随机数生成**: 
-   - Windows: 使用BCryptGenRandom (CSPRNG)
-   - Unix: 使用/dev/urandom (getrandom syscall)
-   - 不要使用rand()或time-based种子
+   - Windows: BCryptGenRandom (CSPRNG)
+   - Unix: /dev/urandom (getrandom syscall)
+   - 不要使用 rand() 或 time-based 种子
 
 ### 密码学最佳实践
 
 - **密钥管理**: 密钥应存储在安全硬件或加密的密钥库中
-- **IV/Nonce**: GCM模式下IV必须唯一，绝不能重用
-- **认证**: 始终使用AEAD模式 (GCM/Poly1305)，避免使用ECB/CBC-only
-- **密钥派生**: 使用HKDF或Argon2派生密钥，不要直接使用密码
+- **IV/Nonce**: GCM 模式下 IV 必须唯一，绝不能重用
+- **认证**: 始终使用 AEAD 模式 (GCM/Poly1305)，避免使用 ECB/CBC-only
+- **密钥派生**: 使用 HKDF 或 Argon2 派生密钥，不要直接使用密码
 
 ---
 

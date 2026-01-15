@@ -38,10 +38,10 @@
 // Zero memory functions
 /* #undef SEAL_USE_EXPLICIT_BZERO */
 /* #undef SEAL_USE_EXPLICIT_MEMSET */
-/* #undef SEAL_USE_MEMSET_S */
+#define SEAL_USE_MEMSET_S
 
 // Third-party dependencies
-/* #undef SEAL_USE_MSGSL */
-/* #undef SEAL_USE_ZLIB */
-/* #undef SEAL_USE_ZSTD */
+#define SEAL_USE_MSGSL
+#define SEAL_USE_ZLIB
+#define SEAL_USE_ZSTD
 /* #undef SEAL_USE_INTEL_HEXL */

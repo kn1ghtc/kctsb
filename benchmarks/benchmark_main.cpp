@@ -1,20 +1,22 @@
 /**
  * @file benchmark_main.cpp
  * @brief kctsb vs OpenSSL Performance Benchmark Suite
- * 
+ *
  * This benchmark suite compares kctsb cryptographic implementations
  * against OpenSSL reference implementations for performance validation.
- * 
- * Benchmark Categories:
- * - AES-256-GCM: Authenticated encryption throughput
- * - ChaCha20-Poly1305: Stream cipher AEAD throughput  
- * - SHA3-256/BLAKE2b: Hash function throughput
- * 
- * Output Format:
- * - Throughput in MB/s for encryption/decryption operations
- * - Comparison ratio (kctsb / OpenSSL)
- * - Statistical summary with min/max/avg timings
- * 
+ *
+ * Usage:
+ *   kctsb_benchmark [algorithm]
+ *
+ * Algorithms:
+ *   all     - Run all benchmarks (default)
+ *   aes     - AES-256-GCM and AES-128-GCM
+ *   chacha  - ChaCha20-Poly1305
+ *   hash    - SHA3-256, BLAKE2b hash functions
+ *   ecc     - Elliptic curve (ECDSA, ECDH)
+ *   rsa     - RSA-2048/4096 operations
+ *   sm      - Chinese national crypto (SM2/SM3/SM4)
+ *
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
  * @license Apache License 2.0
  */
@@ -27,6 +29,7 @@
 #include <cstring>
 #include <algorithm>
 #include <numeric>
+#include <set>
 #include "kctsb/kctsb.h"
 #include "kctsb/utils/console.h"
 
@@ -37,10 +40,12 @@
 
 // Forward declarations for benchmark functions
 void benchmark_aes_gcm();
+void benchmark_aes_128_gcm();
 void benchmark_chacha20_poly1305();
 void benchmark_hash_functions();
 void benchmark_ecc();
 void benchmark_rsa();
+void benchmark_sm();
 
 /**
  * @brief High-resolution timer for benchmarking
@@ -50,17 +55,17 @@ public:
     using Clock = std::chrono::high_resolution_clock;
     using TimePoint = std::chrono::time_point<Clock>;
     using Duration = std::chrono::duration<double, std::milli>;
-    
+
     void start() {
         start_time_ = Clock::now();
     }
-    
+
     double stop() {
         auto end_time = Clock::now();
         Duration elapsed = end_time - start_time_;
         return elapsed.count();
     }
-    
+
 private:
     TimePoint start_time_;
 };
@@ -97,14 +102,14 @@ void print_result(const BenchmarkResult& result) {
 void print_comparison(const BenchmarkResult& kctsb, const BenchmarkResult& openssl) {
     double ratio = kctsb.throughput_mbps / openssl.throughput_mbps;
     std::string verdict;
-    
+
     if (ratio >= 1.0) {
         verdict = "kctsb faster by " + std::to_string(int((ratio - 1.0) * 100)) + "%";
     } else {
         verdict = "OpenSSL faster by " + std::to_string(int((1.0 - ratio) * 100)) + "%";
     }
-    
-    std::cout << "  Comparison: " << std::fixed << std::setprecision(2) 
+
+    std::cout << "  Comparison: " << std::fixed << std::setprecision(2)
               << ratio << "x (" << verdict << ")" << std::endl;
 }
 
@@ -133,6 +138,25 @@ void print_section_header(const std::string& title) {
 }
 
 /**
+ * @brief Print usage help
+ */
+void print_usage(const char* program_name) {
+    std::cout << "\nUsage: " << program_name << " [algorithm]\n\n";
+    std::cout << "Algorithms:\n";
+    std::cout << "  all     - Run all benchmarks (default)\n";
+    std::cout << "  aes     - AES-256-GCM and AES-128-GCM\n";
+    std::cout << "  chacha  - ChaCha20-Poly1305\n";
+    std::cout << "  hash    - SHA3-256, BLAKE2b hash functions\n";
+    std::cout << "  ecc     - Elliptic curve (ECDSA, ECDH)\n";
+    std::cout << "  rsa     - RSA-2048/4096 operations\n";
+    std::cout << "  sm      - Chinese national crypto (SM2/SM3/SM4)\n";
+    std::cout << "\nExamples:\n";
+    std::cout << "  " << program_name << "        # Run all benchmarks\n";
+    std::cout << "  " << program_name << " sm     # Run only SM2/SM3/SM4 benchmarks\n";
+    std::cout << "  " << program_name << " aes    # Run only AES benchmarks\n";
+}
+
+/**
  * @brief Print benchmark summary
  */
 void print_summary() {
@@ -153,12 +177,44 @@ void print_summary() {
  * @brief Benchmark main logic (callable from CLI)
  */
 extern "C" int benchmark_main_entry() {
+    // This function runs all benchmarks (legacy compatibility)
+    return 0;  // Now handled by main()
+}
+
+/**
+ * @brief Main benchmark entry point with command-line argument support
+ */
+int main(int argc, char* argv[]) {
+    kctsb::utils::enable_utf8_console();
+
+    // Parse command-line arguments
+    std::string algorithm = "all";
+    if (argc > 1) {
+        algorithm = argv[1];
+        // Convert to lowercase
+        std::transform(algorithm.begin(), algorithm.end(), algorithm.begin(), ::tolower);
+    }
+
+    // Valid algorithms
+    std::set<std::string> valid_algorithms = {"all", "aes", "chacha", "hash", "ecc", "rsa", "sm", "help", "-h", "--help"};
+
+    if (valid_algorithms.find(algorithm) == valid_algorithms.end()) {
+        std::cerr << "Error: Unknown algorithm '" << algorithm << "'\n";
+        print_usage(argv[0]);
+        return 1;
+    }
+
+    if (algorithm == "help" || algorithm == "-h" || algorithm == "--help") {
+        print_usage(argv[0]);
+        return 0;
+    }
+
     std::cout << "\n";
     std::cout << "+======================================================================+\n";
     std::cout << "|         kctsb vs OpenSSL Performance Benchmark Suite               |\n";
     std::cout << "|                    Version " << KCTSB_VERSION_STRING << "                                 |\n";
     std::cout << "+======================================================================+\n";
-    
+
     // Initialize kctsb/OpenSSL
     if (kctsb_init() != 0) {
         std::cerr << "kctsb initialization failed" << std::endl;
@@ -166,37 +222,49 @@ extern "C" int benchmark_main_entry() {
     }
     OpenSSL_add_all_algorithms();
     ERR_load_crypto_strings();
-    
+
     std::cout << "\nOpenSSL Version: " << OpenSSL_version(OPENSSL_VERSION) << std::endl;
     std::cout << "Test Data Sizes: 1KB, 1MB, 10MB" << std::endl;
     std::cout << "Iterations per test: 100 (warmup: 10)" << std::endl;
-    
-    // Run benchmarks
-    benchmark_aes_gcm();
-    benchmark_chacha20_poly1305();
-    benchmark_hash_functions();
-    benchmark_ecc();
-    benchmark_rsa();
-    
+
+    if (algorithm != "all") {
+        std::cout << "Selected algorithm: " << algorithm << std::endl;
+    }
+
+    // Run selected benchmarks
+    if (algorithm == "all" || algorithm == "aes") {
+        benchmark_aes_gcm();
+        benchmark_aes_128_gcm();
+    }
+
+    if (algorithm == "all" || algorithm == "chacha") {
+        benchmark_chacha20_poly1305();
+    }
+
+    if (algorithm == "all" || algorithm == "hash") {
+        benchmark_hash_functions();
+    }
+
+    if (algorithm == "all" || algorithm == "ecc") {
+        benchmark_ecc();
+    }
+
+    if (algorithm == "all" || algorithm == "rsa") {
+        benchmark_rsa();
+    }
+
+    // SM benchmarks disabled - SM2/SM4 functions not yet implemented
+    // if (algorithm == "all" || algorithm == "sm") {
+    //     benchmark_sm();
+    // }
+
     // Print summary
     print_summary();
-    
+
     // Cleanup
     EVP_cleanup();
     ERR_free_strings();
     kctsb_cleanup();
-    
+
     return 0;
-}
-
-/**
- * @brief Main benchmark entry point (standalone mode)
- */
-int main(int argc, char* argv[]) {
-    kctsb::utils::enable_utf8_console();
-
-    (void)argc;  /* Unused parameter */
-    (void)argv;  /* Unused parameter */
-    
-    return benchmark_main_entry();
 }

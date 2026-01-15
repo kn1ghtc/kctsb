@@ -24,9 +24,12 @@
 #include <iomanip>
 #include <sstream>
 
-#include "kctsb/crypto/sha.h"
-#include "kctsb/crypto/blake.h"
-#include "kctsb/crypto/hash/keccak.h"
+#include "kctsb/crypto/sha256.h"
+#include "kctsb/crypto/sha512.h"
+#include "kctsb/crypto/sha3.h"
+#include "kctsb/crypto/sha256.h"
+#include "kctsb/crypto/sha3.h"
+#include "kctsb/crypto/blake2.h"
 
 /**
  * @brief Print hash subcommand help
@@ -101,22 +104,15 @@ int cmd_hash(int argc, char* argv[]) {
 
         // Compute hash based on algorithm
         if (algorithm == "sha256") {
-            // TODO: Implement SHA-256 (currently requires OpenSSL)
-            std::cerr << "Error: SHA-256 not yet implemented (requires OpenSSL integration)\n";
-            return 1;
+            std::cout << "Algorithm: SHA-256\n";
+            kctsb_sha256(input_data.data(), input_data.size(), hash);
         }
         else if (algorithm == "sha3-256" || algorithm == "sha3") {
             std::cout << "Algorithm: SHA3-256\n";
-
-            // Call kctsb SHA3-256 implementation (FIPS 202)
-            FIPS202_SHA3_256(input_data.data(),
-                             static_cast<unsigned int>(input_data.size()),
-                             hash);
+            kctsb_sha3_256(input_data.data(), input_data.size(), hash);
         }
         else if (algorithm == "blake2b") {
             std::cout << "Algorithm: BLAKE2b-256\n";
-
-            // Call kctsb BLAKE2b implementation
             kctsb_blake2b(input_data.data(), input_data.size(), hash, 32);
         }
         else {

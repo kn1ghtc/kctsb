@@ -1,18 +1,18 @@
 /**
  * @file simd.h
  * @brief SIMD Acceleration Interface - AVX2/AVX-512 Vectorization
- * 
+ *
  * Provides hardware-accelerated cryptographic operations using:
  * - AVX2 (256-bit vectors)
  * - AVX-512 (512-bit vectors)
  * - Runtime detection and fallback
- * 
+ *
  * Accelerated Operations:
  * - XOR operations for stream ciphers
  * - Polynomial multiplication for hash functions
  * - Matrix operations for lattice cryptography
  * - Parallel block cipher processing
- * 
+ *
  * @author knightc
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
  */
@@ -118,17 +118,17 @@ public:
         : size_(count), alignment_(alignment) {
         data_ = static_cast<T*>(aligned_alloc(count * sizeof(T), alignment));
     }
-    
+
     ~AlignedBuffer() {
         if (data_) aligned_free(data_);
     }
-    
+
     // Move semantics
     AlignedBuffer(AlignedBuffer&& other) noexcept
         : data_(other.data_), size_(other.size_), alignment_(other.alignment_) {
         other.data_ = nullptr;
     }
-    
+
     AlignedBuffer& operator=(AlignedBuffer&& other) noexcept {
         if (this != &other) {
             if (data_) aligned_free(data_);
@@ -139,15 +139,15 @@ public:
         }
         return *this;
     }
-    
+
     // No copy
     AlignedBuffer(const AlignedBuffer&) = delete;
     AlignedBuffer& operator=(const AlignedBuffer&) = delete;
-    
+
     T* data() { return data_; }
     const T* data() const { return data_; }
     size_t size() const { return size_; }
-    
+
     T& operator[](size_t i) { return data_[i]; }
     const T& operator[](size_t i) const { return data_[i]; }
 
@@ -166,7 +166,7 @@ private:
  * @param dst Destination (also first source)
  * @param src Second source
  * @param len Length in bytes
- * 
+ *
  * Uses AVX-512 > AVX2 > SSE2 > scalar fallback
  */
 void xor_blocks(uint8_t* dst, const uint8_t* src, size_t len);
@@ -210,8 +210,12 @@ void chacha20_blocks_parallel(uint8_t* output, const ChaChaState& input, size_t 
 // AES Operations (AES-NI)
 // ============================================================================
 
-#if defined(__AES__) || defined(_MSC_VER)
-#define KCTSB_HAS_AESNI 1
+// AES-NI detection - check both compiler intrinsic and CMake-defined macro
+#if defined(__AES__) || defined(_MSC_VER) || defined(KCTSB_HAS_AESNI)
+    #ifndef KCTSB_HAS_AESNI
+        #define KCTSB_HAS_AESNI 1
+    #endif
+    #include <wmmintrin.h>  // AES-NI intrinsics
 #endif
 
 /**
@@ -256,10 +260,27 @@ void aes128_ecb_encrypt_ni(const uint8_t* in, uint8_t* out,
                             size_t num_blocks, const uint8_t round_keys[176]);
 
 /**
+ * @brief AES-256 ECB encryption of multiple blocks (parallel)
+ */
+void aes256_ecb_encrypt_ni(const uint8_t* in, uint8_t* out,
+                            size_t num_blocks, const uint8_t round_keys[240]);
+
+/**
  * @brief AES-128 CTR mode using AES-NI with parallel processing
  */
 void aes128_ctr_ni(const uint8_t* in, uint8_t* out, size_t len,
                    const uint8_t round_keys[176], uint8_t nonce[16]);
+
+/**
+ * @brief GHASH using PCLMUL instruction for GCM mode
+ * @param tag Running GHASH tag (16 bytes, in/out)
+ * @param h GHASH subkey (16 bytes)
+ * @param data Input data
+ * @param len Data length
+ */
+#if defined(KCTSB_HAS_PCLMUL) || defined(__PCLMUL__)
+void ghash_pclmul(uint8_t tag[16], const uint8_t h[16], const uint8_t* data, size_t len);
+#endif
 
 // ============================================================================
 // Polynomial Operations (for NTT/FFT)

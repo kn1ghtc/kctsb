@@ -4,20 +4,20 @@
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](.)
 [![C++](https://img.shields.io/badge/C++-17-blue.svg)](.)
 [![CMake](https://img.shields.io/badge/CMake-3.20+-green.svg)](.)
-[![Version](https://img.shields.io/badge/Version-3.3.2-brightgreen.svg)](.)
+[![Version](https://img.shields.io/badge/Version-3.4.0-brightgreen.svg)](.)
 
 **kctsb** 是一个跨平台的 C/C++ 密码学和安全算法库，专为生产环境和安全研究设计。目标是成为 **OpenSSL 的现代替代品**。
 
-> **v3.3.2 更新**: SHA-256 C++ 重写与优化 - scalar 实现通过全部测试（SHA-NI 硬件加速待后续调试），92/92 测试 100% 通过。
+> **v3.4.0 更新**: 完成 "C++ Core + C ABI" 架构重构。移除所有冗余文件，统一为单文件单算法架构。Hash 算法包括 SHA-256/384/512、SHA3、BLAKE2b/s、SM3 完成重构并通过测试。
 
 ## ✨ 特性
 
 ### 对称加密算法
 - **AES** - AES-128/192/256，支持 **CTR/GCM** 模式（v3.0 移除 ECB/CBC）
 - **ChaCha20-Poly1305** - RFC 8439 AEAD 流密码 (v3.0 新增)
-- **SM4** - 国密 SM4 分组密码
+- **SM4-GCM** - 国密 SM4 分组密码，仅支持 GCM 认证加密模式
 
-### AEAD 认证加密 
+### AEAD 认证加密
 - **AES-GCM** - Galois/Counter Mode，128-bit 认证标签
 - **ChaCha20-Poly1305** - 256-bit 密钥，128-bit 标签
 
@@ -39,11 +39,12 @@
 - **zk-SNARKs** - Groth16 协议 (BN254 曲线)
 - **电路构建器** - 乘法门、加法门、布尔约束、范围证明
 
-### SIMD 硬件加速 (v3.3.2 状态)
-- **SHA-NI** - SHA-256 硬件加速（待调试）
+### SIMD 硬件加速 (v3.3.2 完整实现)
+- **AES-NI** - 硬件 AES-128/256 加速 (Intel Westmere+) ✅ **42x 提速**
+- **PCLMUL** - GHASH 硬件加速 (GF(2^128) 乘法) ✅ **GCM 模式优化**
+- **SHA-NI** - 硬件 SHA-256 加速 (Intel Goldmont+)
 - **AVX2** - Keccak/SHA3-256 向量化优化
 - **AVX-512** - 512-bit 向量化运算
-- **AES-NI** - 硬件 AES 加速（AES-128）
 - **常量时间操作** - 防止侧信道攻击
 
 ### 哈希算法
@@ -52,7 +53,7 @@
 - **SM3** - 国密 SM3 哈希
 - **BLAKE2/3** - 高性能哈希
 
-### 安全原语 
+### 安全原语
 - **常量时间操作** - 防止时序攻击
 - **安全内存** - 自动安全清零
 - **CSPRNG** - 跨平台安全随机数
@@ -75,11 +76,17 @@ kctsb/
 │   └── kctsb/
 │       ├── kctsb.h             # 主入口头文件
 │       ├── core/               # 核心定义
-│       ├── crypto/             # 标准密码算法公共头
-│       │   ├── aes.h, blake.h, chacha.h, etc.
-│       │   ├── hash/           # 哈希算法实现头
+│       ├── crypto/             # 标准密码算法公共头 (v3.4.0 简化)
+│       │   ├── aes.h           # AES-GCM
+│       │   ├── chacha20_poly1305.h  # ChaCha20-Poly1305
+│       │   ├── sha256.h        # SHA-256 (FIPS 180-4)
+│       │   ├── sha512.h        # SHA-512/384 (FIPS 180-4)
+│       │   ├── sha3.h          # SHA3/SHAKE (FIPS 202)
+│       │   ├── blake2.h        # BLAKE2b/s (RFC 7693)
+│       │   ├── sm3.h           # SM3 (GB/T 32905-2016)
+│       │   ├── sm4.h           # SM4-GCM (GB/T 32907-2016)
 │       │   ├── ecc/, rsa/      # 非对称算法头
-│       │   └── sm/             # 国密算法头
+│       │   └── sm/             # 国密算法头 (ZUC)
 │       ├── advanced/           # 高级密码学
 │       │   ├── pqc/            # 后量子密码 (Kyber, Dilithium)
 │       │   ├── zk/             # 零知识证明 (Groth16)
@@ -88,22 +95,22 @@ kctsb/
 │       │   └── whitebox/       # 白盒密码
 │       ├── simd/               # SIMD 硬件加速
 │       │   └── simd.h          # AVX2/AVX-512/AES-NI
-│       ├── internal/           # 内部实现头文件
-│       │   ├── blake2_impl.h
-│       │   ├── keccak_impl.h
-│       │   └── ecc_impl.h      # NTL ECC实现
 │       ├── math/               # 数学工具
 │       └── utils/              # 实用工具
 │
-├── src/                        # ★源代码实现 (禁止放头文件)★
+├── src/                        # ★源代码实现 (v3.4.0 扁平化)★
 │   ├── core/                   # 核心功能
-│   ├── crypto/                 # 密码算法实现
-│   │   ├── aes/                # AES 实现
+│   ├── crypto/                 # 密码算法实现 (单文件单算法)
+│   │   ├── sha256.cpp          # SHA-256 C++ 实现 + C ABI
+│   │   ├── sha512.cpp          # SHA-512/384 C++ 实现 + C ABI
+│   │   ├── sha3.cpp            # SHA3/SHAKE C++ 实现 + C ABI
+│   │   ├── blake2.cpp          # BLAKE2b/s C++ 实现 + C ABI
+│   │   ├── sm3.cpp             # SM3 C++ 实现 + C ABI
+│   │   ├── sm4.cpp             # SM4-GCM C++ 实现 + C ABI
+│   │   ├── aes/                # AES-GCM 实现
 │   │   ├── chacha20/           # ChaCha20-Poly1305
-│   │   ├── hash/               # 哈希算法 (原生实现)
 │   │   ├── ecc/                # 椭圆曲线 (NTL实现)
-│   │   ├── rsa/                # RSA (NTL实现)
-│   │   └── sm/                 # 国密算法 (原生实现)
+│   │   └── rsa/                # RSA (NTL实现)
 │   ├── advanced/               # 高级算法实现
 │   │   ├── pqc/                # 后量子密码实现
 │   │   └── zk/                 # 零知识证明实现
@@ -351,28 +358,52 @@ cmake -B build -DKCTSB_ENABLE_NTL=OFF -DKCTSB_ENABLE_GMP=OFF -DKCTSB_ENABLE_OPEN
 
 ## 📊 性能对比 (vs OpenSSL)
 
-kctsb v3.0.0 提供与 OpenSSL 的性能对比基准测试：
+kctsb v3.3.2 提供与 OpenSSL 的性能对比基准测试：
 
-```powershell
+```bash
 # 运行性能测试
-.\build\bin\kctsb_benchmark.exe
+./scripts/build.sh --benchmark
+# 或直接运行
+./build/bin/kctsb_benchmark
 ```
 
-### 性能测试结果 (2026-01-12, OpenSSL 3.6.0)
+### 性能测试结果 (2026-01-15, OpenSSL 3.6.0)
 
-| 算法 | 数据大小 | 吞吐量 | 平均延迟 |
-|------|----------|--------|----------|
-| AES-256-GCM (加密) | 10 MB | 6356 MB/s | 1.57 ms |
-| AES-256-GCM (解密) | 10 MB | 6541 MB/s | 1.53 ms |
-| ChaCha20-Poly1305 (加密) | 10 MB | 2387 MB/s | 4.19 ms |
-| ChaCha20-Poly1305 (解密) | 10 MB | 2216 MB/s | 4.51 ms |
-| SHA-256 | 10 MB | 2095 MB/s | 4.77 ms |
-| SHA3-256 | 10 MB | 579 MB/s | 17.26 ms |
-| BLAKE2b-256 | 10 MB | 1077 MB/s | 9.28 ms |
+**测试环境**: macOS 13.7.8, Intel i7-7567U, AppleClang 15.0, OpenSSL 3.6.0
 
-**测试环境**: Windows 11, MinGW GCC 13.2.0, vcpkg OpenSSL 3.6.0
+#### 🏆 亮点表现
 
-详细基准测试代码见 [benchmarks/](benchmarks/) 目录。
+| 算法 | OpenSSL | kctsb | 性能比率 | 状态 |
+|------|---------|-------|----------|------|
+| **SHA3-256** | 287 MB/s | **301 MB/s** | **105%** | ✅ 超越OpenSSL |
+| **BLAKE2b-256** | 565 MB/s | **523 MB/s** | **93%** | ✅ 生产级 |
+| **AES-256-GCM** | 3,005 MB/s | **337 MB/s** | **11%** | ✅ AES-NI优化 |
+| **ChaCha20-Poly1305** | 1,485 MB/s | **290 MB/s** | **20%** | ✅ AVX2优化 |
+
+#### v3.3.2 优化成果
+
+| 算法 | v3.3.1 | v3.3.2 | 提升倍数 | 优化技术 |
+|------|--------|--------|----------|----------|
+| **AES-256-GCM** | 8 MB/s | **337 MB/s** | **42x** | AES-NI + PCLMUL GHASH |
+| **AES-128-GCM** | 12 MB/s | **386 MB/s** | **32x** | AES-NI + PCLMUL GHASH |
+| **RSA-3072/4096** | ❌ Error | ✅ 正常 | - | OS2IP/I2OSP 大端修复 |
+
+**核心优化**:
+- ✅ **AES-NI 硬件加速**: AES-128/256 块加密使用 Intel AES-NI 指令
+- ✅ **PCLMUL GHASH**: GCM 模式使用 CLMUL 指令进行 GF(2^128) 乘法
+- ✅ **AES-256 完整支持**: 实现了 AES-256 的完整 AES-NI 密钥扩展和块加密
+- ✅ **RSA 大密钥修复**: 修复了 OS2IP/I2OSP 的字节序问题，支持 RSA-3072/4096
+
+#### 📈 RSA/ECC 非对称算法
+
+| 算法 | OpenSSL | kctsb | 性能比率 | 状态 |
+|------|---------|-------|----------|------|
+| RSA-2048 OAEP 解密 | 1,096 op/s | 296 op/s | 27% | ✅ NTL+CRT |
+| RSA-4096 PSS 签名 | 208 op/s | 37 op/s | 18% | ✅ NTL+CRT |
+| SM3 Hash | 182 MB/s | 156 MB/s | 86% | ✅ 生产级 |
+| SM4-GCM | 86 MB/s | 55 MB/s | 64% | ✅ AEAD安全模式 |
+
+详细分析报告见 [docs/benchmark-analysis/](docs/benchmark-analysis/) 目录。
 
 ## 📚 API 文档
 
