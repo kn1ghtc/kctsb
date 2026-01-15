@@ -85,6 +85,12 @@ kctsb_add_test(test_sha unit/crypto/test_sha.cpp "unit;crypto;hash")
 # v3.4.0: Disabled - SIMD hash functions pending re-implementation
 # kctsb_add_test(test_simd_hash unit/crypto/test_simd_hash.cpp "unit;crypto;hash;simd")
 
+# MAC (Message Authentication Code) tests
+kctsb_add_test(test_mac unit/crypto/test_mac.cpp "unit;crypto;mac")
+
+# Random number generation tests
+kctsb_add_test(test_random unit/crypto/test_random.cpp "unit;crypto;random")
+
 # Chinese national standards tests (SM2/SM3/SM4)
 kctsb_add_test(test_sm unit/crypto/test_sm.cpp "unit;crypto;sm")
 

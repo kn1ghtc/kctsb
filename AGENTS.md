@@ -254,7 +254,7 @@ KCTSB_API void kctsb_algorithm_clear(kctsb_algorithm_ctx_t* ctx);
 
 ---
 
-## � 字节序规范 (Byte Order Convention)
+## 字节序规范 (Byte Order Convention)
 
 ### 核心原则
 
@@ -330,7 +330,8 @@ std::reverse(output, output + len);  // ❌ 分散实现，难以维护
 
 ---
 
-## �🔧 开发约束
+## 开发约束
+
 
 ### 编译器要求
 

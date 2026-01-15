@@ -234,47 +234,144 @@ if(COMPILER_SUPPORTS_PCLMUL)
 endif()
 
 # ============================================================================
-# Warning Flags
+# Warning Flags - STRICT MODE (Zero warnings policy)
 # ============================================================================
 
+option(KCTSB_ENABLE_CLANG_TIDY "Enable clang-tidy static analysis" OFF)
+option(KCTSB_ENABLE_SANITIZERS "Enable Address/Undefined sanitizers" OFF)
+option(KCTSB_WARNINGS_AS_ERRORS "Treat warnings as errors" ON)
+
+# Clang-Tidy integration
+if(KCTSB_ENABLE_CLANG_TIDY)
+    find_program(CLANG_TIDY_EXE NAMES "clang-tidy" "clang-tidy-15" "clang-tidy-16" "clang-tidy-17")
+    if(CLANG_TIDY_EXE)
+        message(STATUS "✓ clang-tidy found: ${CLANG_TIDY_EXE}")
+        # Only apply to project sources, not thirdparty
+        set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY_EXE};--config-file=${CMAKE_SOURCE_DIR}/.clang-tidy")
+    else()
+        message(WARNING "clang-tidy not found, static analysis disabled")
+    endif()
+endif()
+
+# Sanitizers (Debug builds only)
+if(KCTSB_ENABLE_SANITIZERS AND CMAKE_BUILD_TYPE STREQUAL "Debug")
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        message(STATUS "✓ Sanitizers enabled (ASan + UBSan)")
+        add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer)
+        add_link_options(-fsanitize=address,undefined)
+    endif()
+endif()
+
+# Strict warning flags for project code
 if(WIN32)
     if(MSVC)
-        add_compile_options(/W4 /utf-8 /permissive- /we4715)
-    else()
-        # MinGW/GCC on Windows
         add_compile_options(
+            /W4                     # High warning level
+            /utf-8                  # UTF-8 source and execution charset
+            /permissive-            # Strict C++ conformance
+            /we4715                 # Not all control paths return a value
+            /we4716                 # Function must return a value
+            /we4834                 # Discarding return value with [[nodiscard]]
+            /we4172                 # Returning address of local variable
+            /wd4100                 # Unreferenced formal parameter (allow)
+        )
+        if(KCTSB_WARNINGS_AS_ERRORS)
+            add_compile_options(/WX)
+        endif()
+    else()
+        # MinGW/GCC on Windows - Full strict mode
+        add_compile_options(
+            # Core warnings
             -Wall -Wextra -Wpedantic
+            # Fatal errors for critical issues
             -Werror=return-type
             -Werror=uninitialized
+            -Werror=format
+            -Werror=format-security
+            # Modern C++ best practices
+            -Wshadow                    # Variable shadowing
+            -Wnon-virtual-dtor          # Missing virtual destructor
+            -Wold-style-cast            # C-style casts (prefer static_cast)
+            -Woverloaded-virtual        # Unintended virtual overloading
+            -Wcast-align                # Pointer cast alignment
+            -Wconversion                # Implicit type conversion
+            -Wsign-conversion           # Sign conversion
+            -Wdouble-promotion          # Float to double implicit conversion
+            -Wformat=2                  # Printf format string issues
+            -Wnull-dereference          # Null pointer dereference
+            -Wunused                    # Unused entities
+            -Wduplicated-cond           # Duplicated if-else conditions
+            -Wduplicated-branches       # Duplicated if-else branches
+            -Wlogical-op                # Suspicious logical operations
+            -Wuseless-cast              # Useless casts
+            # Suppress noisy warnings from thirdparty
             -Wno-unused-parameter
             -Wno-array-bounds
             -Wno-stringop-overflow
+            # Charset
             -finput-charset=UTF-8
             -fexec-charset=UTF-8
         )
+        if(KCTSB_WARNINGS_AS_ERRORS)
+            add_compile_options(-Werror)
+        endif()
     endif()
 elseif(APPLE)
     add_compile_options(
         -Wall -Wextra -Wpedantic
         -Werror=return-type
         -Werror=uninitialized
+        -Wshadow
+        -Wnon-virtual-dtor
+        -Wold-style-cast
+        -Woverloaded-virtual
+        -Wcast-align
+        -Wconversion
+        -Wsign-conversion
+        -Wdouble-promotion
+        -Wformat=2
+        -Wnull-dereference
+        -Wunused
         -Wno-unused-parameter
         -Wno-array-bounds
         -Wno-deprecated-copy
         -finput-charset=UTF-8
         -fexec-charset=UTF-8
     )
+    if(KCTSB_WARNINGS_AS_ERRORS)
+        add_compile_options(-Werror)
+    endif()
 elseif(UNIX)
     add_compile_options(
         -Wall -Wextra -Wpedantic
         -Werror=return-type
         -Werror=uninitialized
+        -Werror=format
+        -Werror=format-security
+        -Wshadow
+        -Wnon-virtual-dtor
+        -Wold-style-cast
+        -Woverloaded-virtual
+        -Wcast-align
+        -Wconversion
+        -Wsign-conversion
+        -Wdouble-promotion
+        -Wformat=2
+        -Wnull-dereference
+        -Wunused
+        -Wduplicated-cond
+        -Wduplicated-branches
+        -Wlogical-op
+        -Wuseless-cast
         -Wno-unused-parameter
         -Wno-array-bounds
         -Wno-stringop-overflow
         -finput-charset=UTF-8
         -fexec-charset=UTF-8
     )
+    if(KCTSB_WARNINGS_AS_ERRORS)
+        add_compile_options(-Werror)
+    endif()
 endif()
 
 # ============================================================================

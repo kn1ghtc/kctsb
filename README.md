@@ -499,43 +499,39 @@ kctsb v3.3.2 提供与 OpenSSL 的性能对比基准测试：
 ./build/bin/kctsb_benchmark
 ```
 
-### 性能测试结果 (2026-01-15, OpenSSL 3.6.0)
+### 性能测试结果 (2026-01-16, v3.4.0)
 
-**测试环境**: macOS 13.7.8, Intel i7-7567U, AppleClang 15.0, OpenSSL 3.6.0
+**测试环境**: Windows 11, GCC 13.2.0 (MinGW-W64) + LTO, OpenSSL 3.6.0
 
 #### 🏆 亮点表现
 
 | 算法 | OpenSSL | kctsb | 性能比率 | 状态 |
 |------|---------|-------|----------|------|
-| **SHA3-256** | 287 MB/s | **301 MB/s** | **105%** | ✅ 超越OpenSSL |
-| **BLAKE2b-256** | 565 MB/s | **523 MB/s** | **93%** | ✅ 生产级 |
-| **AES-256-GCM** | 3,005 MB/s | **337 MB/s** | **11%** | ✅ AES-NI优化 |
-| **ChaCha20-Poly1305** | 1,485 MB/s | **290 MB/s** | **20%** | ✅ AVX2优化 |
+| **BLAKE2s-256** | 605 MB/s | **609 MB/s** | **100.7%** | ✅ **超越OpenSSL** |
+| **BLAKE2b-512** | 1126 MB/s | 1019 MB/s | **90.5%** | ✅ 生产级 |
+| **SHA3-256** | 626 MB/s | 515 MB/s | **82.3%** | ✅ 生产级 |
+| **SHA3-512** | 334 MB/s | 299 MB/s | **89.8%** | ✅ 生产级 |
+| **RSA-2048 PSS Verify** | 59,488 op/s | 54,095 op/s | **90.9%** | ✅ 生产级 |
 
-#### v3.3.2 优化成果
+#### v3.4.0 更新 (vs v3.3.0)
 
-| 算法 | v3.3.1 | v3.3.2 | 提升倍数 | 优化技术 |
-|------|--------|--------|----------|----------|
-| **AES-256-GCM** | 8 MB/s | **337 MB/s** | **42x** | AES-NI + PCLMUL GHASH |
-| **AES-128-GCM** | 12 MB/s | **386 MB/s** | **32x** | AES-NI + PCLMUL GHASH |
-| **RSA-3072/4096** | ❌ Error | ✅ 正常 | - | OS2IP/I2OSP 大端修复 |
+| 改进项 | v3.3.0 | v3.4.0 | 变化 |
+|--------|--------|--------|------|
+| **测试用例数** | ~100 | **157** | +57% |
+| **BLAKE2b** | 568 MB/s | 1019 MB/s | **+79%** |
+| **SM3 Benchmark** | ❌ 禁用 | ✅ 启用 | 新增 |
+| **ECC Benchmark** | ❌ 禁用 | ✅ 启用 | 新增 |
+| **编码规范** | 基础 | clang-format + clang-tidy | 完善 |
 
-**核心优化**:
-- ✅ **AES-NI 硬件加速**: AES-128/256 块加密使用 Intel AES-NI 指令
-- ✅ **PCLMUL GHASH**: GCM 模式使用 CLMUL 指令进行 GF(2^128) 乘法
-- ✅ **AES-256 完整支持**: 实现了 AES-256 的完整 AES-NI 密钥扩展和块加密
-- ✅ **RSA 大密钥修复**: 修复了 OS2IP/I2OSP 的字节序问题，支持 RSA-3072/4096
-
-#### 📈 RSA/ECC 非对称算法
+#### 📈 RSA/国密算法
 
 | 算法 | OpenSSL | kctsb | 性能比率 | 状态 |
 |------|---------|-------|----------|------|
-| RSA-2048 OAEP 解密 | 1,096 op/s | 296 op/s | 27% | ✅ NTL+CRT |
-| RSA-4096 PSS 签名 | 208 op/s | 37 op/s | 18% | ✅ NTL+CRT |
-| SM3 Hash | 182 MB/s | 156 MB/s | 86% | ✅ 生产级 |
-| SM4-GCM | 86 MB/s | 55 MB/s | 64% | ✅ AEAD安全模式 |
+| RSA-2048 OAEP Decrypt | 2,336 op/s | 1,669 op/s | **71.4%** | ✅ NTL+CRT |
+| RSA-4096 PSS Sign | 332 op/s | 254 op/s | **76.5%** | ✅ NTL+CRT |
+| SM3 Hash | 289 MB/s | 203 MB/s | **70.1%** | ✅ 国密支持 |
 
-详细分析报告见 [docs/benchmark-analysis/](docs/benchmark-analysis/) 目录。
+详细分析报告见 [docs/benchmark-analysis/benchmark-report-2026-01-v3.4.0.md](docs/benchmark-analysis/benchmark-report-2026-01-v3.4.0.md)。
 
 ## 📚 API 文档
 

@@ -1,0 +1,227 @@
+# =============================================================================
+# kctsb Clang-Tidy Configuration
+# Version: 3.4.0
+# Security-focused C++17 static analysis
+# =============================================================================
+#
+# Run manually: clang-tidy -p build src/**/*.cpp
+# CMake integration: set(CMAKE_CXX_CLANG_TIDY "clang-tidy")
+# =============================================================================
+
+---
+# Header filter: Only check project headers, exclude thirdparty
+HeaderFilterRegex: '^.*/(include|src)/kctsb/.*\.h$'
+
+# Format style for suggested fixes
+FormatStyle: file
+
+# Treat warnings as errors
+WarningsAsErrors: '*'
+
+Checks: >
+  -*,
+  bugprone-*,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-exception-escape,
+  cert-*,
+  -cert-err58-cpp,
+  clang-analyzer-*,
+  -clang-analyzer-cplusplus.NewDeleteLeaks,
+  concurrency-*,
+  cppcoreguidelines-*,
+  -cppcoreguidelines-avoid-c-arrays,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -cppcoreguidelines-macro-usage,
+  -cppcoreguidelines-non-private-member-variables-in-classes,
+  -cppcoreguidelines-owning-memory,
+  -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
+  -cppcoreguidelines-pro-bounds-constant-array-index,
+  -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+  -cppcoreguidelines-pro-type-cstyle-cast,
+  -cppcoreguidelines-pro-type-reinterpret-cast,
+  -cppcoreguidelines-pro-type-union-access,
+  -cppcoreguidelines-pro-type-vararg,
+  google-*,
+  -google-build-using-namespace,
+  -google-readability-casting,
+  -google-readability-todo,
+  -google-runtime-references,
+  hicpp-*,
+  -hicpp-avoid-c-arrays,
+  -hicpp-no-array-decay,
+  -hicpp-signed-bitwise,
+  -hicpp-vararg,
+  misc-*,
+  -misc-const-correctness,
+  -misc-non-private-member-variables-in-classes,
+  -misc-no-recursion,
+  modernize-*,
+  -modernize-avoid-c-arrays,
+  -modernize-use-trailing-return-type,
+  -modernize-concat-nested-namespaces,
+  performance-*,
+  portability-*,
+  readability-*,
+  -readability-braces-around-statements,
+  -readability-else-after-return,
+  -readability-function-cognitive-complexity,
+  -readability-identifier-length,
+  -readability-magic-numbers,
+  -readability-named-parameter,
+  -readability-uppercase-literal-suffix,
+
+CheckOptions:
+  # Naming conventions (must match existing code style)
+  - key: readability-identifier-naming.AbstractClassCase
+    value: CamelCase
+  - key: readability-identifier-naming.AbstractClassPrefix
+    value: ''
+  - key: readability-identifier-naming.ClassCase
+    value: CamelCase
+  - key: readability-identifier-naming.ClassConstantCase
+    value: UPPER_CASE
+  - key: readability-identifier-naming.ClassMemberCase
+    value: lower_case
+  - key: readability-identifier-naming.ClassMemberSuffix
+    value: '_'
+  - key: readability-identifier-naming.ConstantCase
+    value: UPPER_CASE
+  - key: readability-identifier-naming.ConstexprVariableCase
+    value: UPPER_CASE
+  - key: readability-identifier-naming.EnumCase
+    value: CamelCase
+  - key: readability-identifier-naming.EnumConstantCase
+    value: UPPER_CASE
+  - key: readability-identifier-naming.FunctionCase
+    value: lower_case
+  - key: readability-identifier-naming.GlobalConstantCase
+    value: UPPER_CASE
+  - key: readability-identifier-naming.GlobalVariableCase
+    value: lower_case
+  - key: readability-identifier-naming.GlobalVariablePrefix
+    value: g_
+  - key: readability-identifier-naming.LocalVariableCase
+    value: lower_case
+  - key: readability-identifier-naming.MacroDefinitionCase
+    value: UPPER_CASE
+  - key: readability-identifier-naming.MemberCase
+    value: lower_case
+  - key: readability-identifier-naming.MethodCase
+    value: lower_case
+  - key: readability-identifier-naming.NamespaceCase
+    value: lower_case
+  - key: readability-identifier-naming.ParameterCase
+    value: lower_case
+  - key: readability-identifier-naming.PrivateMemberPrefix
+    value: m_
+  - key: readability-identifier-naming.ProtectedMemberPrefix
+    value: m_
+  - key: readability-identifier-naming.PublicMemberCase
+    value: lower_case
+  - key: readability-identifier-naming.StaticConstantCase
+    value: UPPER_CASE
+  - key: readability-identifier-naming.StaticVariableCase
+    value: lower_case
+  - key: readability-identifier-naming.StructCase
+    value: CamelCase
+  - key: readability-identifier-naming.TemplateParameterCase
+    value: CamelCase
+  - key: readability-identifier-naming.TypeAliasCase
+    value: CamelCase
+  - key: readability-identifier-naming.TypedefCase
+    value: CamelCase
+  - key: readability-identifier-naming.UnionCase
+    value: CamelCase
+  - key: readability-identifier-naming.VariableCase
+    value: lower_case
+
+  # Security checks
+  - key: bugprone-assert-side-effect.AssertMacros
+    value: 'assert,KCTSB_ASSERT'
+  - key: bugprone-signed-char-misuse.CharTypdefsToIgnore
+    value: ''
+  - key: bugprone-sizeof-expression.WarnOnSizeOfCompareToConstant
+    value: 'true'
+  - key: bugprone-sizeof-expression.WarnOnSizeOfConstant
+    value: 'true'
+  - key: bugprone-suspicious-enum-usage.StrictMode
+    value: 'true'
+  - key: bugprone-suspicious-string-compare.WarnOnLogicalNotComparison
+    value: 'true'
+
+  # Performance
+  - key: performance-for-range-copy.WarnOnAllAutoCopies
+    value: 'true'
+  - key: performance-inefficient-string-concatenation.StrictMode
+    value: 'true'
+  - key: performance-move-const-arg.CheckTriviallyCopyableMove
+    value: 'true'
+  - key: performance-unnecessary-value-param.AllowedTypes
+    value: ''
+
+  # Modernize
+  - key: modernize-loop-convert.MaxCopySize
+    value: '16'
+  - key: modernize-loop-convert.MinConfidence
+    value: 'reasonable'
+  - key: modernize-loop-convert.NamingStyle
+    value: 'lower_case'
+  - key: modernize-pass-by-value.IncludeStyle
+    value: 'llvm'
+  - key: modernize-use-auto.MinTypeNameLength
+    value: '5'
+  - key: modernize-use-auto.RemoveStars
+    value: 'false'
+  - key: modernize-use-default-member-init.UseAssignment
+    value: 'false'
+  - key: modernize-use-emplace.ContainersWithPushBack
+    value: '::std::vector;::std::list;::std::deque'
+  - key: modernize-use-emplace.SmartPointers
+    value: '::std::shared_ptr;::std::unique_ptr'
+  - key: modernize-use-nullptr.NullMacros
+    value: 'NULL'
+  - key: modernize-use-override.AllowOverrideAndFinal
+    value: 'false'
+  - key: modernize-use-override.OverrideSpelling
+    value: 'override'
+
+  # Misc
+  - key: misc-definitions-in-headers.HeaderFileExtensions
+    value: ';h;hh;hpp;hxx'
+  - key: misc-definitions-in-headers.UseHeaderFileExtension
+    value: 'true'
+  - key: misc-throw-by-value-catch-by-reference.CheckThrowTemporaries
+    value: 'true'
+  - key: misc-unused-parameters.StrictMode
+    value: 'false'
+
+  # CERT security guidelines
+  - key: cert-dcl50-cpp.RestrictSystemIncludes
+    value: 'true'
+
+  # Portability
+  - key: portability-simd-intrinsics.Suggest
+    value: 'true'
+
+  # Readability
+  - key: readability-function-size.LineThreshold
+    value: '100'
+  - key: readability-function-size.StatementThreshold
+    value: '100'
+  - key: readability-function-size.BranchThreshold
+    value: '20'
+  - key: readability-function-size.ParameterThreshold
+    value: '8'
+  - key: readability-function-size.NestingThreshold
+    value: '5'
+  - key: readability-function-size.VariableThreshold
+    value: '20'
+  - key: readability-implicit-bool-conversion.AllowIntegerConditions
+    value: 'false'
+  - key: readability-implicit-bool-conversion.AllowPointerConditions
+    value: 'true'
+  - key: readability-simplify-boolean-expr.ChainedConditionalReturn
+    value: 'true'
+  - key: readability-simplify-boolean-expr.ChainedConditionalAssignment
+    value: 'true'
+...

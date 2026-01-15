@@ -1,0 +1,163 @@
+# =============================================================================
+# kctsb Clang-Format Configuration
+# Version: 3.4.0
+# Based on Google C++ Style with security-focused modifications
+# =============================================================================
+
+Language: Cpp
+BasedOnStyle: Google
+
+# Indentation
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+AccessModifierOffset: -4
+ContinuationIndentWidth: 4
+IndentCaseLabels: true
+IndentPPDirectives: BeforeHash
+IndentWrappedFunctionNames: false
+NamespaceIndentation: None
+
+# Line length and breaking
+ColumnLimit: 100
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Never
+AllowShortLambdasOnASingleLine: Empty
+AlwaysBreakAfterReturnType: None
+AlwaysBreakBeforeMultilineStrings: true
+AlwaysBreakTemplateDeclarations: Yes
+BinPackArguments: false
+BinPackParameters: false
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterClass: true
+  AfterControlStatement: Always
+  AfterEnum: true
+  AfterFunction: true
+  AfterNamespace: false
+  AfterStruct: true
+  AfterUnion: true
+  AfterExternBlock: false
+  BeforeCatch: true
+  BeforeElse: true
+  BeforeWhile: false
+  IndentBraces: false
+  SplitEmptyFunction: true
+  SplitEmptyRecord: true
+  SplitEmptyNamespace: true
+BreakConstructorInitializers: BeforeComma
+BreakInheritanceList: BeforeComma
+BreakStringLiterals: true
+
+# Alignment
+AlignAfterOpenBracket: Align
+AlignConsecutiveAssignments: None
+AlignConsecutiveDeclarations: None
+AlignConsecutiveMacros: AcrossEmptyLinesAndComments
+AlignEscapedNewlines: Left
+AlignOperands: Align
+AlignTrailingComments: true
+
+# Spacing
+SpaceAfterCStyleCast: false
+SpaceAfterLogicalNot: false
+SpaceAfterTemplateKeyword: true
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeCaseColon: false
+SpaceBeforeCpp11BracedList: false
+SpaceBeforeCtorInitializerColon: true
+SpaceBeforeInheritanceColon: true
+SpaceBeforeParens: ControlStatements
+SpaceBeforeRangeBasedForLoopColon: true
+SpaceBeforeSquareBrackets: false
+SpaceInEmptyBlock: false
+SpaceInEmptyParentheses: false
+SpacesBeforeTrailingComments: 2
+SpacesInAngles: Never
+SpacesInCStyleCastParentheses: false
+SpacesInConditionalStatement: false
+SpacesInContainerLiterals: false
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+
+# Pointer/Reference alignment
+DerivePointerAlignment: false
+PointerAlignment: Left
+ReferenceAlignment: Left
+
+# Include sorting
+IncludeBlocks: Regroup
+IncludeCategories:
+  # Local project headers first
+  - Regex: '^"kctsb/'
+    Priority: 1
+    SortPriority: 0
+  # Other local headers
+  - Regex: '^"'
+    Priority: 2
+    SortPriority: 0
+  # C system headers
+  - Regex: '^<(assert|ctype|errno|float|limits|locale|math|setjmp|signal|stdarg|stddef|stdio|stdlib|string|time|wchar|wctype)\.h>'
+    Priority: 3
+    SortPriority: 0
+  # C++ standard library headers
+  - Regex: '^<[a-z_]+>'
+    Priority: 4
+    SortPriority: 0
+  # Third-party headers
+  - Regex: '^<'
+    Priority: 5
+    SortPriority: 0
+SortIncludes: CaseSensitive
+
+# Penalty settings
+PenaltyBreakAssignment: 2
+PenaltyBreakBeforeFirstCallParameter: 1
+PenaltyBreakComment: 300
+PenaltyBreakFirstLessLess: 120
+PenaltyBreakOpenParenthesis: 0
+PenaltyBreakString: 1000
+PenaltyBreakTemplateDeclaration: 10
+PenaltyExcessCharacter: 1000000
+PenaltyIndentedWhitespace: 0
+PenaltyReturnTypeOnItsOwnLine: 60
+
+# Miscellaneous
+AllowAllArgumentsOnNextLine: false
+AllowAllParametersOfDeclarationOnNextLine: false
+CompactNamespaces: false
+Cpp11BracedListStyle: true
+EmptyLineAfterAccessModifier: Never
+EmptyLineBeforeAccessModifier: LogicalBlock
+FixNamespaceComments: true
+InsertBraces: true
+InsertNewlineAtEOF: true
+KeepEmptyLinesAtTheStartOfBlocks: false
+MaxEmptyLinesToKeep: 1
+ReflowComments: true
+SeparateDefinitionBlocks: Always
+SortUsingDeclarations: true
+
+# C++ specific
+Standard: c++17
+Cpp11BracedListStyle: true
+
+# Lambda formatting
+LambdaBodyIndentation: Signature
+
+# Attribute macros (don't break after)
+AttributeMacros:
+  - __attribute__
+  - __declspec
+  - KCTSB_API
+  - KCTSB_EXPORT
+
+# Comment pragmas (don't format)
+CommentPragmas: '^ IWYU pragma:'
+
+# Macro blocks
+MacroBlockBegin: ''
+MacroBlockEnd: ''

@@ -9,6 +9,7 @@
 #define KCTSB_UTILS_RANDOM_H
 
 #include "kctsb/core/common.h"
+#include "kctsb/core/types.h"
 #include "kctsb/core/security.h"
 
 #ifdef __cplusplus

@@ -5,6 +5,7 @@
     "cmake.configureSettings": {
         "KCTSB_BUILD_TESTS": "ON",
         "KCTSB_BUILD_EXAMPLES": "ON",
+        "KCTSB_ENABLE_SANITIZERS": "OFF",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
     },
     "files.associations": {
@@ -13,18 +14,59 @@
         "*.cpp": "cpp",
         "*.c": "c"
     },
+    // C/C++ Extension settings
     "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
     "C_Cpp.default.compileCommands": "${workspaceFolder}/build/compile_commands.json",
     "C_Cpp.intelliSenseEngine": "default",
     "C_Cpp.errorSquiggles": "enabled",
+    "C_Cpp.codeAnalysis.clangTidy.enabled": true,
+    "C_Cpp.codeAnalysis.clangTidy.config": "",
+    "C_Cpp.codeAnalysis.clangTidy.useBuildPath": true,
+    "C_Cpp.codeAnalysis.runAutomatically": true,
+    
+    // Clang-Format settings
+    "C_Cpp.clang_format_style": "file",
+    "C_Cpp.clang_format_fallbackStyle": "Google",
+    "C_Cpp.formatting": "clangFormat",
+    
+    // clangd settings (alternative to C/C++ extension)
     "clangd.path": "/usr/bin/clang",
     "clangd.arguments": [
         "--compile-commands-dir=${workspaceFolder}/build",
         "--header-insertion=never",
         "--clang-tidy",
-        "--background-index"
+        "--background-index",
+        "--all-scopes-completion",
+        "--completion-style=detailed",
+        "--function-arg-placeholders"
     ],
+    
+    // Editor settings for C++
     "editor.formatOnSave": true,
     "editor.tabSize": 4,
-    "editor.insertSpaces": true
+    "editor.insertSpaces": true,
+    "[cpp]": {
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "ms-vscode.cpptools"
+    },
+    "[c]": {
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "ms-vscode.cpptools"
+    },
+    
+    // Files to exclude
+    "files.exclude": {
+        "**/.git": true,
+        "**/build": false,
+        "**/thirdparty/lib": true,
+        "**/__pycache__": true
+    },
+    
+    // Search exclusions
+    "search.exclude": {
+        "**/build": true,
+        "**/thirdparty": true,
+        "**/*.a": true,
+        "**/*.o": true
+    }
 }
