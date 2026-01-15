@@ -15,6 +15,8 @@
 #include "kctsb/crypto/ecc/ecc_curve.h"
 #include <stdexcept>
 #include <algorithm>
+#include <vector>
+#include <cstdint>
 
 using namespace NTL;
 
@@ -483,13 +485,23 @@ int ECCurve::point_to_bytes(const AffinePoint& P, unsigned char* out, size_t out
     // Uncompressed format: 0x04 || x || y
     out[0] = 0x04;
     
-    // Extract x coordinate bytes
+    // Extract x coordinate bytes (NTL uses little-endian, SEC 1 requires big-endian)
     ZZ x_int = rep(P.x);
-    BytesFromZZ(out + 1, x_int, static_cast<long>(field_size));
+    std::vector<uint8_t> x_le(field_size);
+    BytesFromZZ(x_le.data(), x_int, static_cast<long>(field_size));
+    // Reverse to big-endian for output
+    for (size_t i = 0; i < field_size; i++) {
+        out[1 + i] = x_le[field_size - 1 - i];
+    }
     
-    // Extract y coordinate bytes
+    // Extract y coordinate bytes (NTL uses little-endian, SEC 1 requires big-endian)
     ZZ y_int = rep(P.y);
-    BytesFromZZ(out + 1 + field_size, y_int, static_cast<long>(field_size));
+    std::vector<uint8_t> y_le(field_size);
+    BytesFromZZ(y_le.data(), y_int, static_cast<long>(field_size));
+    // Reverse to big-endian for output
+    for (size_t i = 0; i < field_size; i++) {
+        out[1 + field_size + i] = y_le[field_size - 1 - i];
+    }
     
     return static_cast<int>(required_len);
 }
@@ -514,8 +526,15 @@ AffinePoint ECCurve::point_from_bytes(const unsigned char* in, size_t in_len) co
         
         ZZ_p::init(p_);
         
-        ZZ x_int = ZZFromBytes(in + 1, static_cast<long>(field_size));
-        ZZ y_int = ZZFromBytes(in + 1 + field_size, static_cast<long>(field_size));
+        // Convert big-endian input to little-endian for NTL
+        std::vector<uint8_t> x_le(field_size), y_le(field_size);
+        for (size_t i = 0; i < field_size; i++) {
+            x_le[i] = in[1 + field_size - 1 - i];
+            y_le[i] = in[1 + field_size + field_size - 1 - i];
+        }
+        
+        ZZ x_int = ZZFromBytes(x_le.data(), static_cast<long>(field_size));
+        ZZ y_int = ZZFromBytes(y_le.data(), static_cast<long>(field_size));
         
         AffinePoint P(conv<ZZ_p>(x_int), conv<ZZ_p>(y_int));
         

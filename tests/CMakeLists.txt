@@ -85,9 +85,8 @@ kctsb_add_test(test_sha unit/crypto/test_sha.cpp "unit;crypto;hash")
 # v3.4.0: Disabled - SIMD hash functions pending re-implementation
 # kctsb_add_test(test_simd_hash unit/crypto/test_simd_hash.cpp "unit;crypto;hash;simd")
 
-# Chinese national standards tests
-# v3.4.0: test_sm temporarily disabled - SM3/SM4 implementation timeout issue
-# kctsb_add_test(test_sm unit/crypto/test_sm.cpp "unit;crypto;sm")
+# Chinese national standards tests (SM2/SM3/SM4)
+kctsb_add_test(test_sm unit/crypto/test_sm.cpp "unit;crypto;sm")
 
 # Math tests (requires NTL for polynomial operations)
 if(KCTSB_ENABLE_NTL AND NTL_FOUND)

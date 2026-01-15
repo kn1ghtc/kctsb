@@ -21,6 +21,7 @@
 #include <stdexcept>
 #include <random>
 #include <algorithm>
+#include <vector>
 
 using namespace NTL;
 
@@ -47,8 +48,14 @@ std::vector<uint8_t> ECDHKeyPair::export_public_key(const ECCurve& curve) const 
 }
 
 std::vector<uint8_t> ECDHKeyPair::export_private_key(size_t field_size) const {
+    // NTL BytesFromZZ outputs little-endian, SEC 1 requires big-endian
+    std::vector<uint8_t> le_bytes(field_size);
+    BytesFromZZ(le_bytes.data(), private_key, static_cast<long>(field_size));
+    
     std::vector<uint8_t> result(field_size);
-    BytesFromZZ(result.data(), private_key, static_cast<long>(field_size));
+    for (size_t i = 0; i < field_size; i++) {
+        result[i] = le_bytes[field_size - 1 - i];
+    }
     return result;
 }
 
@@ -119,7 +126,12 @@ JacobianPoint ECDH::import_public_key(const uint8_t* data, size_t len) const {
 }
 
 ECDHKeyPair ECDH::import_private_key(const uint8_t* data, size_t len) const {
-    ZZ d = ZZFromBytes(data, static_cast<long>(len));
+    // SEC 1 input is big-endian, convert to little-endian for NTL
+    std::vector<uint8_t> le_bytes(len);
+    for (size_t i = 0; i < len; i++) {
+        le_bytes[i] = data[len - 1 - i];
+    }
+    ZZ d = ZZFromBytes(le_bytes.data(), static_cast<long>(len));
     return keypair_from_private(d);
 }
 
@@ -144,10 +156,16 @@ std::vector<uint8_t> ECDH::compute_shared_secret(
     AffinePoint S_aff = curve_.to_affine(S);
     
     size_t field_size = get_field_size();
-    std::vector<uint8_t> shared_secret(field_size);
     
+    // NTL BytesFromZZ outputs little-endian, SEC 1 requires big-endian
     ZZ x_int = conv<ZZ>(rep(S_aff.x));
-    BytesFromZZ(shared_secret.data(), x_int, static_cast<long>(field_size));
+    std::vector<uint8_t> le_bytes(field_size);
+    BytesFromZZ(le_bytes.data(), x_int, static_cast<long>(field_size));
+    
+    std::vector<uint8_t> shared_secret(field_size);
+    for (size_t i = 0; i < field_size; i++) {
+        shared_secret[i] = le_bytes[field_size - 1 - i];
+    }
     
     return shared_secret;
 }
@@ -162,7 +180,12 @@ std::vector<uint8_t> ECDH::compute_shared_secret(
     const uint8_t* private_key_bytes, size_t private_key_len,
     const uint8_t* peer_public_bytes, size_t peer_public_len) const {
     
-    ZZ private_key = ZZFromBytes(private_key_bytes, static_cast<long>(private_key_len));
+    // SEC 1 input is big-endian, convert to little-endian for NTL
+    std::vector<uint8_t> le_bytes(private_key_len);
+    for (size_t i = 0; i < private_key_len; i++) {
+        le_bytes[i] = private_key_bytes[private_key_len - 1 - i];
+    }
+    ZZ private_key = ZZFromBytes(le_bytes.data(), static_cast<long>(private_key_len));
     JacobianPoint peer_public = import_public_key(peer_public_bytes, peer_public_len);
     
     return compute_shared_secret(private_key, peer_public);

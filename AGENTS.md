@@ -254,7 +254,83 @@ KCTSB_API void kctsb_algorithm_clear(kctsb_algorithm_ctx_t* ctx);
 
 ---
 
-## 🔧 开发约束
+## � 字节序规范 (Byte Order Convention)
+
+### 核心原则
+
+**内部存储使用小端序 (Little-Endian)，外部接口使用大端序 (Big-Endian)。**
+
+| 组件 | 字节序 | 说明 |
+|------|--------|------|
+| NTL `BytesFromZZ`/`ZZFromBytes` | 小端序 | NTL 原生格式 |
+| 外部字节数组输入 | 大端序 | 密码学标准格式 (PKCS#1, SEC 1, GM/T) |
+| 外部字节数组输出 | 大端序 | 密码学标准格式 |
+| 内部计算 | 小端序 | 利用 x86/ARM 原生优势 |
+
+### 标准转换函数
+
+使用 `kctsb/utils/byte_order.h` 提供的统一转换工具：
+
+```cpp
+#include "kctsb/utils/byte_order.h"
+
+// C++ NTL 集成（需要定义 KCTSB_USE_NTL）
+#define KCTSB_USE_NTL
+#include "kctsb/utils/byte_order.h"
+
+namespace kctsb::byte_order {
+    // 大端字节数组 → NTL ZZ
+    ZZ be_bytes_to_zz(const uint8_t* data, size_t len);
+    
+    // NTL ZZ → 大端字节数组
+    void zz_to_be_bytes(const ZZ& z, uint8_t* out, size_t len);
+    
+    // PKCS#1 I2OSP/OS2IP
+    int i2osp(const ZZ& x, size_t x_len, uint8_t* out);
+    ZZ os2ip(const uint8_t* data, size_t len);
+}
+```
+
+### 实现规范
+
+#### ✅ 正确做法
+
+```cpp
+// 输入：大端序字节数组
+void process_input(const uint8_t* be_input, size_t len) {
+    // 转换为 NTL ZZ
+    NTL::ZZ value = kctsb::byte_order::be_bytes_to_zz(be_input, len);
+    
+    // 内部计算...
+    NTL::ZZ result = compute(value);
+    
+    // 输出：转换回大端序
+    kctsb::byte_order::zz_to_be_bytes(result, output, len);
+}
+```
+
+#### ❌ 禁止做法
+
+```cpp
+// 禁止：直接使用 NTL 原生函数（输出为小端序）
+NTL::BytesFromZZ(output, zz_value, len);  // ❌ 输出小端序，不符合标准
+
+// 禁止：手动反转没有统一接口
+std::reverse(output, output + len);  // ❌ 分散实现，难以维护
+```
+
+### ECC/RSA/SM2 字节序要求
+
+| 算法 | 公钥格式 | 签名格式 | 密文格式 |
+|------|----------|----------|----------|
+| RSA | I2OSP (大端) | I2OSP (大端) | I2OSP (大端) |
+| ECDSA | SEC 1 (大端) | DER/固定 (大端) | - |
+| SM2 | GB/T 32918 (大端) | (r,s) 固定64字节 (大端) | C1‖C3‖C2 (大端) |
+| ECDH | SEC 1 (大端) | - | - |
+
+---
+
+## �🔧 开发约束
 
 ### 编译器要求
 

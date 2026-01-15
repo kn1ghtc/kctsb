@@ -31,11 +31,19 @@
 #include <cstring>
 #include <stdexcept>
 
-// CPUID for PCLMUL detection
+// CPUID and SIMD intrinsics
 #if defined(_MSC_VER)
 #include <intrin.h>
 #else
 #include <cpuid.h>
+#endif
+
+// AES-NI and SSE intrinsics
+#if defined(KCTSB_HAS_AESNI) || defined(__AES__)
+#include <wmmintrin.h>  // AES-NI
+#include <emmintrin.h>  // SSE2
+#include <tmmintrin.h>  // SSSE3 (for _mm_shuffle_epi8)
+#include <smmintrin.h>  // SSE4.1
 #endif
 
 // ============================================================================
@@ -712,14 +720,444 @@ kctsb_error_t kctsb_aes_ctr_crypt(const kctsb_aes_ctx_t* ctx, const uint8_t nonc
     return KCTSB_SUCCESS;
 }
 
-kctsb_error_t kctsb_aes_gcm_encrypt(const kctsb_aes_ctx_t* ctx,
-                                     const uint8_t* iv, size_t iv_len,
-                                     const uint8_t* aad, size_t aad_len,
-                                     const uint8_t* input, size_t input_len,
-                                     uint8_t* output, uint8_t tag[16]) {
-    if (!ctx || !iv || !output || !tag) return KCTSB_ERROR_INVALID_PARAM;
-    if (input_len > 0 && !input) return KCTSB_ERROR_INVALID_PARAM;
+// ============================================================================
+// High-Performance AES-GCM using 4-block parallel AES-NI
+// ============================================================================
 
+#if defined(KCTSB_HAS_AESNI)
+
+// Byte-swap mask for big-endian counter (GCM uses big-endian counter)
+static const __m128i BSWAP_EPI32 = _mm_set_epi8(12,13,14,15, 8,9,10,11, 4,5,6,7, 0,1,2,3);
+
+// Increment counter block by 1 (big-endian, last 32 bits)
+static inline __m128i inc_counter_be32_fast(__m128i ctr) {
+    // Swap bytes to little-endian, add 1, swap back
+    __m128i swapped = _mm_shuffle_epi8(ctr, BSWAP_EPI32);
+    __m128i one = _mm_set_epi32(1, 0, 0, 0);
+    swapped = _mm_add_epi32(swapped, one);
+    return _mm_shuffle_epi8(swapped, BSWAP_EPI32);
+}
+
+// Generate 4 consecutive counter blocks efficiently using SIMD
+static inline void gen_4_counters_fast(__m128i base, __m128i& c0, __m128i& c1, __m128i& c2, __m128i& c3) {
+    // Swap to little-endian for arithmetic
+    __m128i swapped = _mm_shuffle_epi8(base, BSWAP_EPI32);
+    
+    // Create increments: +0, +1, +2, +3
+    __m128i inc0 = _mm_set_epi32(0, 0, 0, 0);
+    __m128i inc1 = _mm_set_epi32(1, 0, 0, 0);
+    __m128i inc2 = _mm_set_epi32(2, 0, 0, 0);
+    __m128i inc3 = _mm_set_epi32(3, 0, 0, 0);
+    
+    // Generate all 4 counters
+    __m128i t0 = _mm_add_epi32(swapped, inc0);
+    __m128i t1 = _mm_add_epi32(swapped, inc1);
+    __m128i t2 = _mm_add_epi32(swapped, inc2);
+    __m128i t3 = _mm_add_epi32(swapped, inc3);
+    
+    // Swap back to big-endian
+    c0 = _mm_shuffle_epi8(t0, BSWAP_EPI32);
+    c1 = _mm_shuffle_epi8(t1, BSWAP_EPI32);
+    c2 = _mm_shuffle_epi8(t2, BSWAP_EPI32);
+    c3 = _mm_shuffle_epi8(t3, BSWAP_EPI32);
+}
+
+// Advance counter by N (for after processing N blocks)
+static inline __m128i add_counter_be32(__m128i ctr, uint32_t n) {
+    __m128i swapped = _mm_shuffle_epi8(ctr, BSWAP_EPI32);
+    __m128i add = _mm_set_epi32((int)n, 0, 0, 0);
+    swapped = _mm_add_epi32(swapped, add);
+    return _mm_shuffle_epi8(swapped, BSWAP_EPI32);
+}
+
+// 4-block parallel AES-128 encryption
+static inline void aes128_encrypt_4blocks_ni(
+    __m128i& b0, __m128i& b1, __m128i& b2, __m128i& b3,
+    const __m128i* rk)
+{
+    b0 = _mm_xor_si128(b0, rk[0]);
+    b1 = _mm_xor_si128(b1, rk[0]);
+    b2 = _mm_xor_si128(b2, rk[0]);
+    b3 = _mm_xor_si128(b3, rk[0]);
+
+    for (int i = 1; i < 10; ++i) {
+        b0 = _mm_aesenc_si128(b0, rk[i]);
+        b1 = _mm_aesenc_si128(b1, rk[i]);
+        b2 = _mm_aesenc_si128(b2, rk[i]);
+        b3 = _mm_aesenc_si128(b3, rk[i]);
+    }
+
+    b0 = _mm_aesenclast_si128(b0, rk[10]);
+    b1 = _mm_aesenclast_si128(b1, rk[10]);
+    b2 = _mm_aesenclast_si128(b2, rk[10]);
+    b3 = _mm_aesenclast_si128(b3, rk[10]);
+}
+
+// 4-block parallel AES-256 encryption
+static inline void aes256_encrypt_4blocks_ni(
+    __m128i& b0, __m128i& b1, __m128i& b2, __m128i& b3,
+    const __m128i* rk)
+{
+    b0 = _mm_xor_si128(b0, rk[0]);
+    b1 = _mm_xor_si128(b1, rk[0]);
+    b2 = _mm_xor_si128(b2, rk[0]);
+    b3 = _mm_xor_si128(b3, rk[0]);
+
+    for (int i = 1; i < 14; ++i) {
+        b0 = _mm_aesenc_si128(b0, rk[i]);
+        b1 = _mm_aesenc_si128(b1, rk[i]);
+        b2 = _mm_aesenc_si128(b2, rk[i]);
+        b3 = _mm_aesenc_si128(b3, rk[i]);
+    }
+
+    b0 = _mm_aesenclast_si128(b0, rk[14]);
+    b1 = _mm_aesenclast_si128(b1, rk[14]);
+    b2 = _mm_aesenclast_si128(b2, rk[14]);
+    b3 = _mm_aesenclast_si128(b3, rk[14]);
+}
+
+// High-performance AES-GCM encrypt using AES-NI (4-block parallel)
+static kctsb_error_t aes_gcm_encrypt_aesni(
+    const kctsb_aes_ctx_t* ctx,
+    const uint8_t* iv, size_t iv_len,
+    const uint8_t* aad, size_t aad_len,
+    const uint8_t* input, size_t input_len,
+    uint8_t* output, uint8_t tag[16])
+{
+    const __m128i* rk = reinterpret_cast<const __m128i*>(ctx->round_keys);
+    const bool is_aes256 = (ctx->key_bits == 256);
+
+    // Compute H = E(K, 0^128)
+    alignas(16) uint8_t h_bytes[16] = {0};
+    __m128i H = _mm_setzero_si128();
+    if (is_aes256) {
+        __m128i tmp = H;
+        aes256_encrypt_4blocks_ni(tmp, tmp, tmp, tmp, rk);
+        H = tmp;
+    } else {
+        __m128i tmp = H;
+        aes128_encrypt_4blocks_ni(tmp, tmp, tmp, tmp, rk);
+        H = tmp;
+    }
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(h_bytes), H);
+
+    // Compute J0 (initial counter)
+    alignas(16) uint8_t j0_bytes[16];
+    if (iv_len == 12) {
+        memcpy(j0_bytes, iv, 12);
+        j0_bytes[12] = 0; j0_bytes[13] = 0; j0_bytes[14] = 0; j0_bytes[15] = 1;
+    } else {
+        memset(j0_bytes, 0, 16);
+        ghash_update(j0_bytes, h_bytes, iv, iv_len);
+        alignas(16) uint8_t len_block[16] = {0};
+        uint64_t iv_bits = (uint64_t)iv_len * 8;
+        for (int i = 0; i < 8; i++) len_block[15 - i] = (uint8_t)(iv_bits >> (i * 8));
+        ghash_update(j0_bytes, h_bytes, len_block, 16);
+    }
+
+    // Set up counter (J0 + 1)
+    alignas(16) uint8_t counter_bytes[16];
+    memcpy(counter_bytes, j0_bytes, 16);
+    inc_counter(counter_bytes);
+    __m128i counter = _mm_loadu_si128(reinterpret_cast<const __m128i*>(counter_bytes));
+
+    // CTR encryption with 4-block parallelism
+    size_t offset = 0;
+    while (offset + 64 <= input_len) {
+        // Generate 4 counter blocks efficiently
+        __m128i c0, c1, c2, c3;
+        gen_4_counters_fast(counter, c0, c1, c2, c3);
+
+        // Advance counter by 4
+        counter = add_counter_be32(counter, 4);
+
+        // Encrypt counter blocks in parallel
+        if (is_aes256) {
+            aes256_encrypt_4blocks_ni(c0, c1, c2, c3, rk);
+        } else {
+            aes128_encrypt_4blocks_ni(c0, c1, c2, c3, rk);
+        }
+
+        // XOR with plaintext
+        __m128i p0 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset));
+        __m128i p1 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 16));
+        __m128i p2 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 32));
+        __m128i p3 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 48));
+
+        __m128i ct0 = _mm_xor_si128(p0, c0);
+        __m128i ct1 = _mm_xor_si128(p1, c1);
+        __m128i ct2 = _mm_xor_si128(p2, c2);
+        __m128i ct3 = _mm_xor_si128(p3, c3);
+
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset), ct0);
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset + 16), ct1);
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset + 32), ct2);
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset + 48), ct3);
+
+        offset += 64;
+    }
+
+    // Handle remaining blocks (1-3 blocks or partial)
+    while (offset < input_len) {
+        alignas(16) uint8_t keystream[16];
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(counter_bytes), counter);
+
+        __m128i ks = counter;
+        if (is_aes256) {
+            ks = _mm_xor_si128(ks, rk[0]);
+            for (int i = 1; i < 14; ++i) ks = _mm_aesenc_si128(ks, rk[i]);
+            ks = _mm_aesenclast_si128(ks, rk[14]);
+        } else {
+            ks = _mm_xor_si128(ks, rk[0]);
+            for (int i = 1; i < 10; ++i) ks = _mm_aesenc_si128(ks, rk[i]);
+            ks = _mm_aesenclast_si128(ks, rk[10]);
+        }
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(keystream), ks);
+
+        size_t bytes = (input_len - offset < 16) ? (input_len - offset) : 16;
+        for (size_t j = 0; j < bytes; j++) {
+            output[offset + j] = input[offset + j] ^ keystream[j];
+        }
+
+        counter = inc_counter_be32_fast(counter);
+        offset += bytes;
+    }
+
+    // GHASH authentication
+    alignas(16) uint8_t ghash_tag[16] = {0};
+    if (aad && aad_len > 0) {
+        ghash_update(ghash_tag, h_bytes, aad, aad_len);
+        size_t aad_padding = (16 - (aad_len % 16)) % 16;
+        if (aad_padding > 0) {
+            uint8_t pad[16] = {0};
+            ghash_update(ghash_tag, h_bytes, pad, aad_padding);
+        }
+    }
+    if (input_len > 0) {
+        ghash_update(ghash_tag, h_bytes, output, input_len);
+        size_t ct_padding = (16 - (input_len % 16)) % 16;
+        if (ct_padding > 0) {
+            uint8_t pad[16] = {0};
+            ghash_update(ghash_tag, h_bytes, pad, ct_padding);
+        }
+    }
+
+    // Add length block
+    alignas(16) uint8_t len_block[16] = {0};
+    uint64_t aad_bits = aad_len * 8, ct_bits = input_len * 8;
+    for (int i = 0; i < 8; i++) {
+        len_block[7 - i] = (uint8_t)(aad_bits >> (i * 8));
+        len_block[15 - i] = (uint8_t)(ct_bits >> (i * 8));
+    }
+    ghash_update(ghash_tag, h_bytes, len_block, 16);
+
+    // Compute final tag: tag = E(K, J0) XOR GHASH
+    __m128i j0 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(j0_bytes));
+    __m128i enc_j0;
+    if (is_aes256) {
+        enc_j0 = _mm_xor_si128(j0, rk[0]);
+        for (int i = 1; i < 14; ++i) enc_j0 = _mm_aesenc_si128(enc_j0, rk[i]);
+        enc_j0 = _mm_aesenclast_si128(enc_j0, rk[14]);
+    } else {
+        enc_j0 = _mm_xor_si128(j0, rk[0]);
+        for (int i = 1; i < 10; ++i) enc_j0 = _mm_aesenc_si128(enc_j0, rk[i]);
+        enc_j0 = _mm_aesenclast_si128(enc_j0, rk[10]);
+    }
+
+    __m128i gtag = _mm_loadu_si128(reinterpret_cast<const __m128i*>(ghash_tag));
+    __m128i final_tag = _mm_xor_si128(enc_j0, gtag);
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(tag), final_tag);
+
+    // Secure cleanup
+    kctsb_secure_zero(h_bytes, 16);
+    kctsb_secure_zero(j0_bytes, 16);
+    kctsb_secure_zero(counter_bytes, 16);
+    kctsb_secure_zero(ghash_tag, 16);
+
+    return KCTSB_SUCCESS;
+}
+
+// High-performance AES-GCM decrypt using AES-NI (4-block parallel)
+static kctsb_error_t aes_gcm_decrypt_aesni(
+    const kctsb_aes_ctx_t* ctx,
+    const uint8_t* iv, size_t iv_len,
+    const uint8_t* aad, size_t aad_len,
+    const uint8_t* input, size_t input_len,
+    const uint8_t tag[16], uint8_t* output)
+{
+    const __m128i* rk = reinterpret_cast<const __m128i*>(ctx->round_keys);
+    const bool is_aes256 = (ctx->key_bits == 256);
+
+    // Compute H = E(K, 0^128)
+    alignas(16) uint8_t h_bytes[16] = {0};
+    __m128i H = _mm_setzero_si128();
+    if (is_aes256) {
+        __m128i tmp = H;
+        aes256_encrypt_4blocks_ni(tmp, tmp, tmp, tmp, rk);
+        H = tmp;
+    } else {
+        __m128i tmp = H;
+        aes128_encrypt_4blocks_ni(tmp, tmp, tmp, tmp, rk);
+        H = tmp;
+    }
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(h_bytes), H);
+
+    // Compute J0 (initial counter)
+    alignas(16) uint8_t j0_bytes[16];
+    if (iv_len == 12) {
+        memcpy(j0_bytes, iv, 12);
+        j0_bytes[12] = 0; j0_bytes[13] = 0; j0_bytes[14] = 0; j0_bytes[15] = 1;
+    } else {
+        memset(j0_bytes, 0, 16);
+        ghash_update(j0_bytes, h_bytes, iv, iv_len);
+        alignas(16) uint8_t len_block[16] = {0};
+        uint64_t iv_bits = (uint64_t)iv_len * 8;
+        for (int i = 0; i < 8; i++) len_block[15 - i] = (uint8_t)(iv_bits >> (i * 8));
+        ghash_update(j0_bytes, h_bytes, len_block, 16);
+    }
+
+    // Verify tag BEFORE decryption (authenticate-then-decrypt)
+    alignas(16) uint8_t ghash_tag[16] = {0};
+    if (aad && aad_len > 0) {
+        ghash_update(ghash_tag, h_bytes, aad, aad_len);
+        size_t aad_padding = (16 - (aad_len % 16)) % 16;
+        if (aad_padding > 0) {
+            uint8_t pad[16] = {0};
+            ghash_update(ghash_tag, h_bytes, pad, aad_padding);
+        }
+    }
+    if (input_len > 0) {
+        ghash_update(ghash_tag, h_bytes, input, input_len);
+        size_t ct_padding = (16 - (input_len % 16)) % 16;
+        if (ct_padding > 0) {
+            uint8_t pad[16] = {0};
+            ghash_update(ghash_tag, h_bytes, pad, ct_padding);
+        }
+    }
+
+    // Add length block
+    alignas(16) uint8_t len_block[16] = {0};
+    uint64_t aad_bits = aad_len * 8, ct_bits = input_len * 8;
+    for (int i = 0; i < 8; i++) {
+        len_block[7 - i] = (uint8_t)(aad_bits >> (i * 8));
+        len_block[15 - i] = (uint8_t)(ct_bits >> (i * 8));
+    }
+    ghash_update(ghash_tag, h_bytes, len_block, 16);
+
+    // Compute expected tag
+    __m128i j0 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(j0_bytes));
+    __m128i enc_j0;
+    if (is_aes256) {
+        enc_j0 = _mm_xor_si128(j0, rk[0]);
+        for (int i = 1; i < 14; ++i) enc_j0 = _mm_aesenc_si128(enc_j0, rk[i]);
+        enc_j0 = _mm_aesenclast_si128(enc_j0, rk[14]);
+    } else {
+        enc_j0 = _mm_xor_si128(j0, rk[0]);
+        for (int i = 1; i < 10; ++i) enc_j0 = _mm_aesenc_si128(enc_j0, rk[i]);
+        enc_j0 = _mm_aesenclast_si128(enc_j0, rk[10]);
+    }
+
+    __m128i gtag = _mm_loadu_si128(reinterpret_cast<const __m128i*>(ghash_tag));
+    __m128i computed_tag = _mm_xor_si128(enc_j0, gtag);
+
+    alignas(16) uint8_t computed_tag_bytes[16];
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(computed_tag_bytes), computed_tag);
+
+    // Constant-time tag comparison
+    if (!kctsb_secure_compare(tag, computed_tag_bytes, 16)) {
+        kctsb_secure_zero(output, input_len);
+        kctsb_secure_zero(h_bytes, 16);
+        kctsb_secure_zero(j0_bytes, 16);
+        kctsb_secure_zero(ghash_tag, 16);
+        kctsb_secure_zero(computed_tag_bytes, 16);
+        return KCTSB_ERROR_AUTH_FAILED;
+    }
+
+    // Decryption (same as encryption in CTR mode)
+    alignas(16) uint8_t counter_bytes[16];
+    memcpy(counter_bytes, j0_bytes, 16);
+    inc_counter(counter_bytes);
+    __m128i counter = _mm_loadu_si128(reinterpret_cast<const __m128i*>(counter_bytes));
+
+    size_t offset = 0;
+    while (offset + 64 <= input_len) {
+        __m128i c0, c1, c2, c3;
+        gen_4_counters_fast(counter, c0, c1, c2, c3);
+
+        counter = add_counter_be32(counter, 4);
+
+        if (is_aes256) {
+            aes256_encrypt_4blocks_ni(c0, c1, c2, c3, rk);
+        } else {
+            aes128_encrypt_4blocks_ni(c0, c1, c2, c3, rk);
+        }
+
+        __m128i ct0 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset));
+        __m128i ct1 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 16));
+        __m128i ct2 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 32));
+        __m128i ct3 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 48));
+
+        __m128i p0 = _mm_xor_si128(ct0, c0);
+        __m128i p1 = _mm_xor_si128(ct1, c1);
+        __m128i p2 = _mm_xor_si128(ct2, c2);
+        __m128i p3 = _mm_xor_si128(ct3, c3);
+
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset), p0);
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset + 16), p1);
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset + 32), p2);
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset + 48), p3);
+
+        offset += 64;
+    }
+
+    while (offset < input_len) {
+        alignas(16) uint8_t keystream[16];
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(counter_bytes), counter);
+
+        __m128i ks = counter;
+        if (is_aes256) {
+            ks = _mm_xor_si128(ks, rk[0]);
+            for (int i = 1; i < 14; ++i) ks = _mm_aesenc_si128(ks, rk[i]);
+            ks = _mm_aesenclast_si128(ks, rk[14]);
+        } else {
+            ks = _mm_xor_si128(ks, rk[0]);
+            for (int i = 1; i < 10; ++i) ks = _mm_aesenc_si128(ks, rk[i]);
+            ks = _mm_aesenclast_si128(ks, rk[10]);
+        }
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(keystream), ks);
+
+        size_t bytes = (input_len - offset < 16) ? (input_len - offset) : 16;
+        for (size_t j = 0; j < bytes; j++) {
+            output[offset + j] = input[offset + j] ^ keystream[j];
+        }
+
+        counter = inc_counter_be32_fast(counter);
+        offset += bytes;
+    }
+
+    // Secure cleanup
+    kctsb_secure_zero(h_bytes, 16);
+    kctsb_secure_zero(j0_bytes, 16);
+    kctsb_secure_zero(counter_bytes, 16);
+    kctsb_secure_zero(ghash_tag, 16);
+    kctsb_secure_zero(computed_tag_bytes, 16);
+
+    return KCTSB_SUCCESS;
+}
+
+#endif // KCTSB_HAS_AESNI
+
+// ============================================================================
+// Software Fallback AES-GCM (for non-AES-NI systems)
+// ============================================================================
+
+static kctsb_error_t aes_gcm_encrypt_software(
+    const kctsb_aes_ctx_t* ctx,
+    const uint8_t* iv, size_t iv_len,
+    const uint8_t* aad, size_t aad_len,
+    const uint8_t* input, size_t input_len,
+    uint8_t* output, uint8_t tag[16])
+{
     uint8_t h[16] = {0}, j0[16], counter[16], keystream[16], ghash_tag[16] = {0};
 
     kctsb_aes_encrypt_block(ctx, h, h);
@@ -776,6 +1214,37 @@ kctsb_error_t kctsb_aes_gcm_encrypt(const kctsb_aes_ctx_t* ctx,
     return KCTSB_SUCCESS;
 }
 
+// ============================================================================
+// Public AES-GCM API with automatic acceleration
+// ============================================================================
+
+// Forward declaration for software fallback
+static kctsb_error_t aes_gcm_decrypt_software(
+    const kctsb_aes_ctx_t* ctx,
+    const uint8_t* iv, size_t iv_len,
+    const uint8_t* aad, size_t aad_len,
+    const uint8_t* input, size_t input_len,
+    const uint8_t tag[16], uint8_t* output);
+
+kctsb_error_t kctsb_aes_gcm_encrypt(const kctsb_aes_ctx_t* ctx,
+                                     const uint8_t* iv, size_t iv_len,
+                                     const uint8_t* aad, size_t aad_len,
+                                     const uint8_t* input, size_t input_len,
+                                     uint8_t* output, uint8_t tag[16]) {
+    if (!ctx || !iv || !output || !tag) return KCTSB_ERROR_INVALID_PARAM;
+    if (input_len > 0 && !input) return KCTSB_ERROR_INVALID_PARAM;
+
+#if defined(KCTSB_HAS_AESNI)
+    // Use high-performance AES-NI path if available and key is in AES-NI format
+    bool uses_aesni_format = (ctx->rounds & AESNI_FORMAT_FLAG) != 0;
+    if (uses_aesni_format && check_aesni() && (ctx->key_bits == 128 || ctx->key_bits == 256)) {
+        return aes_gcm_encrypt_aesni(ctx, iv, iv_len, aad, aad_len, input, input_len, output, tag);
+    }
+#endif
+
+    return aes_gcm_encrypt_software(ctx, iv, iv_len, aad, aad_len, input, input_len, output, tag);
+}
+
 kctsb_error_t kctsb_aes_gcm_decrypt(const kctsb_aes_ctx_t* ctx,
                                      const uint8_t* iv, size_t iv_len,
                                      const uint8_t* aad, size_t aad_len,
@@ -784,6 +1253,25 @@ kctsb_error_t kctsb_aes_gcm_decrypt(const kctsb_aes_ctx_t* ctx,
     if (!ctx || !iv || !tag || !output) return KCTSB_ERROR_INVALID_PARAM;
     if (input_len > 0 && !input) return KCTSB_ERROR_INVALID_PARAM;
 
+#if defined(KCTSB_HAS_AESNI)
+    // Use high-performance AES-NI path if available and key is in AES-NI format
+    bool uses_aesni_format = (ctx->rounds & AESNI_FORMAT_FLAG) != 0;
+    if (uses_aesni_format && check_aesni() && (ctx->key_bits == 128 || ctx->key_bits == 256)) {
+        return aes_gcm_decrypt_aesni(ctx, iv, iv_len, aad, aad_len, input, input_len, tag, output);
+    }
+#endif
+
+    return aes_gcm_decrypt_software(ctx, iv, iv_len, aad, aad_len, input, input_len, tag, output);
+}
+
+// Software fallback for AES-GCM decrypt
+static kctsb_error_t aes_gcm_decrypt_software(
+    const kctsb_aes_ctx_t* ctx,
+    const uint8_t* iv, size_t iv_len,
+    const uint8_t* aad, size_t aad_len,
+    const uint8_t* input, size_t input_len,
+    const uint8_t tag[16], uint8_t* output)
+{
     uint8_t computed_tag[16], h[16] = {0}, j0[16], counter[16], keystream[16], ghash_tag[16] = {0};
 
     kctsb_aes_encrypt_block(ctx, h, h);

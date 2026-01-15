@@ -228,8 +228,9 @@ static double benchmark_openssl_aes_gcm_decrypt(
 
 /**
  * @brief Run benchmark iterations and collect statistics
+ * @return Throughput in MB/s for ratio calculation
  */
-static void run_benchmark_iterations(
+static double run_benchmark_iterations(
     const std::string& name,
     const std::string& impl,
     size_t data_size,
@@ -250,8 +251,6 @@ static void run_benchmark_iterations(
 
     // Calculate statistics
     double avg = std::accumulate(times.begin(), times.end(), 0.0) / times.size();
-    (void)*std::min_element(times.begin(), times.end()); // min_time for future use
-    (void)*std::max_element(times.begin(), times.end()); // max_time for future use
     double throughput = calculate_throughput(data_size, avg);
 
     // Print result
@@ -260,6 +259,25 @@ static void run_benchmark_iterations(
               << std::right << std::fixed << std::setprecision(2)
               << std::setw(10) << throughput << " MB/s"
               << std::setw(10) << avg << " ms"
+              << std::endl;
+    
+    return throughput;
+}
+
+/**
+ * @brief Print ratio comparison between kctsb and OpenSSL
+ */
+static void print_ratio(double kctsb_throughput, double openssl_throughput) {
+    double ratio = kctsb_throughput / openssl_throughput;
+    const char* status = ratio >= 1.0 ? "FASTER" : "SLOWER";
+    const char* symbol = ratio >= 1.0 ? "+" : "";
+    double diff_percent = (ratio - 1.0) * 100.0;
+    
+    std::cout << std::left << std::setw(25) << "  → Ratio"
+              << std::setw(15) << ""
+              << std::right << std::fixed << std::setprecision(2)
+              << std::setw(10) << ratio << "x"
+              << "    (" << symbol << diff_percent << "% " << status << ")"
               << std::endl;
 }
 
@@ -314,8 +332,10 @@ void benchmark_aes_gcm() {
             throw std::runtime_error("kctsb AES-GCM encrypt precompute failed");
         }
 
+        double ssl_enc_tp, ssl_dec_tp, kc_enc_tp, kc_dec_tp;
+
         // OpenSSL Encryption
-        run_benchmark_iterations(
+        ssl_enc_tp = run_benchmark_iterations(
             "AES-256-GCM Encrypt", "OpenSSL", data_size,
             [&]() {
                 return benchmark_openssl_aes_gcm_encrypt(
@@ -323,18 +343,9 @@ void benchmark_aes_gcm() {
             }
         );
 
-        // OpenSSL Decryption
-        run_benchmark_iterations(
-            "AES-256-GCM Decrypt", "OpenSSL", data_size,
-            [&]() {
-                return benchmark_openssl_aes_gcm_decrypt(
-                    ciphertext, key, iv, tag, decrypted);
-            }
-        );
-
 #ifdef KCTSB_HAS_AES_GCM
         // kctsb Encryption
-        run_benchmark_iterations(
+        kc_enc_tp = run_benchmark_iterations(
             "AES-256-GCM Encrypt", "kctsb", data_size,
             [&]() {
                 if (ciphertext.size() != data_size) {
@@ -353,10 +364,24 @@ void benchmark_aes_gcm() {
                 return elapsed.count();
             }
         );
+        print_ratio(kc_enc_tp, ssl_enc_tp);
+#else
+        std::cout << "AES-256-GCM Encrypt      kctsb          (not compiled)" << std::endl;
+#endif
 
+        // OpenSSL Decryption
+        ssl_dec_tp = run_benchmark_iterations(
+            "AES-256-GCM Decrypt", "OpenSSL", data_size,
+            [&]() {
+                return benchmark_openssl_aes_gcm_decrypt(
+                    ciphertext, key, iv, tag, decrypted);
+            }
+        );
+
+#ifdef KCTSB_HAS_AES_GCM
         // kctsb Decryption - using actual implementation
         std::vector<uint8_t> kctsb_decrypted(data_size);
-        run_benchmark_iterations(
+        kc_dec_tp = run_benchmark_iterations(
             "AES-256-GCM Decrypt", "kctsb", data_size,
             [&]() {
                 if (decrypted.size() != data_size) {
@@ -376,8 +401,8 @@ void benchmark_aes_gcm() {
                 return elapsed.count();
             }
         );
+        print_ratio(kc_dec_tp, ssl_dec_tp);
 #else
-        std::cout << "AES-256-GCM Encrypt      kctsb          (not compiled)" << std::endl;
         std::cout << "AES-256-GCM Decrypt      kctsb          (not compiled)" << std::endl;
 #endif
     }

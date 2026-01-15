@@ -18,6 +18,7 @@
 
 #include "kctsb/crypto/mac.h"
 #include "kctsb/crypto/sha256.h"
+#include "kctsb/crypto/sha512.h"
 #include "kctsb/crypto/aes.h"
 #include "kctsb/core/common.h"
 #include <cstring>
@@ -94,6 +95,76 @@ private:
     kctsb_sha256_ctx_t inner_ctx_;
     uint8_t i_key_pad_[HMAC_SHA256_BLOCK_SIZE];
     uint8_t o_key_pad_[HMAC_SHA256_BLOCK_SIZE];
+};
+
+// ============================================================================
+// HMAC-SHA512 Implementation (RFC 2104)
+// ============================================================================
+
+static constexpr size_t HMAC_SHA512_BLOCK_SIZE = 128;  // SHA-512 block size
+static constexpr size_t HMAC_SHA512_DIGEST_SIZE = 64;  // SHA-512 output size
+
+class HMAC_SHA512 {
+public:
+    void init(const uint8_t* key, size_t key_len) {
+        uint8_t key_block[HMAC_SHA512_BLOCK_SIZE];
+        std::memset(key_block, 0, HMAC_SHA512_BLOCK_SIZE);
+
+        // If key > block size, hash it first
+        if (key_len > HMAC_SHA512_BLOCK_SIZE) {
+            kctsb_sha512_ctx_t hash_ctx;
+            kctsb_sha512_init(&hash_ctx);
+            kctsb_sha512_update(&hash_ctx, key, key_len);
+            kctsb_sha512_final(&hash_ctx, key_block);
+        } else {
+            std::memcpy(key_block, key, key_len);
+        }
+
+        // Compute i_key_pad and o_key_pad
+        for (size_t i = 0; i < HMAC_SHA512_BLOCK_SIZE; i++) {
+            i_key_pad_[i] = key_block[i] ^ 0x36;
+            o_key_pad_[i] = key_block[i] ^ 0x5C;
+        }
+
+        // Initialize inner hash with i_key_pad
+        kctsb_sha512_init(&inner_ctx_);
+        kctsb_sha512_update(&inner_ctx_, i_key_pad_, HMAC_SHA512_BLOCK_SIZE);
+
+        // Securely clear key_block
+        volatile uint8_t* p = key_block;
+        for (size_t i = 0; i < HMAC_SHA512_BLOCK_SIZE; i++) {
+            p[i] = 0;
+        }
+    }
+
+    void update(const uint8_t* data, size_t len) {
+        kctsb_sha512_update(&inner_ctx_, data, len);
+    }
+
+    void final(uint8_t mac[64]) {
+        uint8_t inner_digest[HMAC_SHA512_DIGEST_SIZE];
+
+        // Finalize inner hash
+        kctsb_sha512_final(&inner_ctx_, inner_digest);
+
+        // Compute outer hash: H(o_key_pad || inner_digest)
+        kctsb_sha512_ctx_t outer_ctx;
+        kctsb_sha512_init(&outer_ctx);
+        kctsb_sha512_update(&outer_ctx, o_key_pad_, HMAC_SHA512_BLOCK_SIZE);
+        kctsb_sha512_update(&outer_ctx, inner_digest, HMAC_SHA512_DIGEST_SIZE);
+        kctsb_sha512_final(&outer_ctx, mac);
+
+        // Securely clear sensitive data
+        volatile uint8_t* p = inner_digest;
+        for (size_t i = 0; i < HMAC_SHA512_DIGEST_SIZE; i++) {
+            p[i] = 0;
+        }
+    }
+
+private:
+    kctsb_sha512_ctx_t inner_ctx_;
+    uint8_t i_key_pad_[HMAC_SHA512_BLOCK_SIZE];
+    uint8_t o_key_pad_[HMAC_SHA512_BLOCK_SIZE];
 };
 
 // ============================================================================
@@ -439,6 +510,42 @@ void kctsb_hmac_sha256(const uint8_t* key, size_t key_len, const uint8_t* data, 
     if (!key || !data || !mac) return;
 
     kctsb::internal::HMAC_SHA256 hmac;
+    hmac.init(key, key_len);
+    hmac.update(data, len);
+    hmac.final(mac);
+}
+
+// HMAC-SHA512
+
+void kctsb_hmac_sha512_init(kctsb_hmac512_ctx_t* ctx, const uint8_t* key, size_t key_len) {
+    if (!ctx || !key) return;
+
+    auto* hmac = new kctsb::internal::HMAC_SHA512();
+    hmac->init(key, key_len);
+    ctx->internal = hmac;
+}
+
+void kctsb_hmac_sha512_update(kctsb_hmac512_ctx_t* ctx, const uint8_t* data, size_t len) {
+    if (!ctx || !ctx->internal || !data) return;
+
+    auto* hmac = static_cast<kctsb::internal::HMAC_SHA512*>(ctx->internal);
+    hmac->update(data, len);
+}
+
+void kctsb_hmac_sha512_final(kctsb_hmac512_ctx_t* ctx, uint8_t mac[64]) {
+    if (!ctx || !ctx->internal || !mac) return;
+
+    auto* hmac = static_cast<kctsb::internal::HMAC_SHA512*>(ctx->internal);
+    hmac->final(mac);
+
+    delete hmac;
+    ctx->internal = nullptr;
+}
+
+void kctsb_hmac_sha512(const uint8_t* key, size_t key_len, const uint8_t* data, size_t len, uint8_t mac[64]) {
+    if (!key || !data || !mac) return;
+
+    kctsb::internal::HMAC_SHA512 hmac;
     hmac.init(key, key_len);
     hmac.update(data, len);
     hmac.final(mac);

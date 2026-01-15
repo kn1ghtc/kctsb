@@ -50,6 +50,7 @@
 #include "kctsb/advanced/lattice.h"
 #include "kctsb/advanced/fuzzy.h"
 #include "kctsb/advanced/fe.h"
+#include "kctsb/advanced/otp.h"
 
 // Mathematical utilities
 #include "kctsb/math/common.h"

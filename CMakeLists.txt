@@ -120,9 +120,40 @@ if(KCTSB_ENABLE_LTO)
         else()
             message(STATUS "LTO: Disabled (GCC < 11.0)")
         endif()
+        
+        # For GCC LTO, use gcc-ar and gcc-ranlib to handle LTO object files
+        if(KCTSB_LTO_SUPPORTED)
+            find_program(GCC_AR NAMES gcc-ar gcc-ar-13 gcc-ar-12 HINTS ${CMAKE_CXX_COMPILER_DIR})
+            find_program(GCC_RANLIB NAMES gcc-ranlib gcc-ranlib-13 gcc-ranlib-12 HINTS ${CMAKE_CXX_COMPILER_DIR})
+            if(GCC_AR AND GCC_RANLIB)
+                set(CMAKE_AR ${GCC_AR})
+                set(CMAKE_RANLIB ${GCC_RANLIB})
+                message(STATUS "LTO: Using gcc-ar (${GCC_AR}) and gcc-ranlib (${GCC_RANLIB})")
+            else()
+                # Fallback: try with full path from compiler directory
+                get_filename_component(COMPILER_DIR ${CMAKE_CXX_COMPILER} DIRECTORY)
+                if(EXISTS "${COMPILER_DIR}/gcc-ar.exe")
+                    set(CMAKE_AR "${COMPILER_DIR}/gcc-ar.exe")
+                    set(CMAKE_RANLIB "${COMPILER_DIR}/gcc-ranlib.exe")
+                    message(STATUS "LTO: Using gcc-ar from compiler directory")
+                elseif(EXISTS "${COMPILER_DIR}/gcc-ar")
+                    set(CMAKE_AR "${COMPILER_DIR}/gcc-ar")
+                    set(CMAKE_RANLIB "${COMPILER_DIR}/gcc-ranlib")
+                    message(STATUS "LTO: Using gcc-ar from compiler directory")
+                else()
+                    message(WARNING "LTO: gcc-ar/gcc-ranlib not found, static library may fail")
+                endif()
+            endif()
+        endif()
     elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang|AppleClang")
         set(KCTSB_LTO_SUPPORTED TRUE)
         message(STATUS "LTO: Enabled (Clang ${CMAKE_CXX_COMPILER_VERSION})")
+        # For Clang, use llvm-ar
+        find_program(LLVM_AR NAMES llvm-ar)
+        if(LLVM_AR)
+            set(CMAKE_AR ${LLVM_AR})
+            message(STATUS "LTO: Using llvm-ar")
+        endif()
     elseif(MSVC)
         set(KCTSB_LTO_SUPPORTED TRUE)
         message(STATUS "LTO: Enabled (MSVC)")
@@ -535,6 +566,7 @@ set(KCTSB_HASH_SOURCES
 set(KCTSB_SM_SOURCES
     ${KCTSB_SRC_DIR}/crypto/sm/sm3.cpp
     ${KCTSB_SRC_DIR}/crypto/sm/sm4.cpp
+    ${KCTSB_SRC_DIR}/crypto/sm/sm2.cpp
     ${KCTSB_SRC_DIR}/crypto/sm/zuc.cpp
 )
 
@@ -586,6 +618,10 @@ if(KCTSB_ENABLE_SEAL AND SEAL_FOUND)
 endif()
 
 list(APPEND KCTSB_ADVANCED_SOURCES ${KCTSB_PSI_SOURCES})
+
+# OTP (One-Time Password) - always included
+file(GLOB_RECURSE KCTSB_OTP_SOURCES ${KCTSB_SRC_DIR}/advanced/otp/*.cpp)
+list(APPEND KCTSB_ADVANCED_SOURCES ${KCTSB_OTP_SOURCES})
 
 if(KCTSB_ENABLE_HELIB AND HELIB_FOUND)
     file(GLOB_RECURSE KCTSB_FE_SOURCES ${KCTSB_SRC_DIR}/advanced/fe/*.cpp)

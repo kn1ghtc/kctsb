@@ -184,15 +184,27 @@ bool DSAParams::is_valid() const {
 
 std::vector<uint8_t> DSAKeyPair::export_public_key() const {
     size_t p_len = NumBytes(params.p);
+    // NTL BytesFromZZ outputs little-endian, FIPS 186 requires big-endian
+    std::vector<uint8_t> le_bytes(p_len);
+    BytesFromZZ(le_bytes.data(), public_key, static_cast<long>(p_len));
+    
     std::vector<uint8_t> result(p_len);
-    BytesFromZZ(result.data(), public_key, static_cast<long>(p_len));
+    for (size_t i = 0; i < p_len; i++) {
+        result[i] = le_bytes[p_len - 1 - i];
+    }
     return result;
 }
 
 std::vector<uint8_t> DSAKeyPair::export_private_key() const {
     size_t q_len = NumBytes(params.q);
+    // NTL BytesFromZZ outputs little-endian, FIPS 186 requires big-endian
+    std::vector<uint8_t> le_bytes(q_len);
+    BytesFromZZ(le_bytes.data(), private_key, static_cast<long>(q_len));
+    
     std::vector<uint8_t> result(q_len);
-    BytesFromZZ(result.data(), private_key, static_cast<long>(q_len));
+    for (size_t i = 0; i < q_len; i++) {
+        result[i] = le_bytes[q_len - 1 - i];
+    }
     return result;
 }
 
@@ -209,11 +221,20 @@ std::vector<uint8_t> DSASignature::to_bytes() const {
     size_t s_len = NumBytes(s);
     size_t total_len = r_len + s_len + 2;  // 2 bytes for lengths
     
+    // NTL BytesFromZZ outputs little-endian, convert to big-endian
+    std::vector<uint8_t> r_le(r_len), s_le(s_len);
+    BytesFromZZ(r_le.data(), r, static_cast<long>(r_len));
+    BytesFromZZ(s_le.data(), s, static_cast<long>(s_len));
+    
     std::vector<uint8_t> result(total_len);
     result[0] = static_cast<uint8_t>(r_len);
     result[1] = static_cast<uint8_t>(s_len);
-    BytesFromZZ(result.data() + 2, r, static_cast<long>(r_len));
-    BytesFromZZ(result.data() + 2 + r_len, s, static_cast<long>(s_len));
+    for (size_t i = 0; i < r_len; i++) {
+        result[2 + i] = r_le[r_len - 1 - i];
+    }
+    for (size_t i = 0; i < s_len; i++) {
+        result[2 + r_len + i] = s_le[s_len - 1 - i];
+    }
     
     return result;
 }
@@ -230,9 +251,18 @@ DSASignature DSASignature::from_bytes(const uint8_t* data, size_t len) {
         throw std::invalid_argument("Invalid signature format");
     }
     
+    // Input is big-endian, convert to little-endian for NTL
+    std::vector<uint8_t> r_le(r_len), s_le(s_len);
+    for (size_t i = 0; i < r_len; i++) {
+        r_le[i] = data[2 + r_len - 1 - i];
+    }
+    for (size_t i = 0; i < s_len; i++) {
+        s_le[i] = data[2 + r_len + s_len - 1 - i];
+    }
+    
     DSASignature sig;
-    sig.r = ZZFromBytes(data + 2, static_cast<long>(r_len));
-    sig.s = ZZFromBytes(data + 2 + r_len, static_cast<long>(s_len));
+    sig.r = ZZFromBytes(r_le.data(), static_cast<long>(r_len));
+    sig.s = ZZFromBytes(s_le.data(), static_cast<long>(s_len));
     
     return sig;
 }

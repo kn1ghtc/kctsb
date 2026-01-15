@@ -163,9 +163,9 @@ kctsb/
 | FE (同态) | HElib | ✅ 可用 | HElib v2.3.0 |
 
 **核心依赖** (thirdparty/):
-- ✅ GMP 6.3.0+ (必需)
-- ✅ gf2x 1.3.0+ (必需)
-- ✅ NTL 11.6.0+ (必需)
+- ✅ GMP 6.3.0+ (必需，包含在NTL中)
+- ✅ gf2x 1.3.0+ (必需，包含在NTL中)
+- ✅ NTL 11.6.0+ (必需，数学库引用)
 - ⚠️ SEAL 4.1.2 (可选)
 - ⚠️ HElib v2.3.0 (可选)
 
@@ -178,9 +178,9 @@ kctsb/
 - **CMake**: 3.20 或更高版本
 - **构建工具**: Ninja (推荐) 
 - **编译器**:
-  - Windows: MinGW-w64 GCC 13+ 或 MSVC 2022+
-  - Linux: GCC 9+ 或 Clang 10+
-  - macOS: Clang 10+ 或 GCC 9+
+  - Windows: MinGW-w64 GCC 13+ 
+  - Linux: GCC 12+ 
+  - macOS:  GCC 12+
 - **C++ 标准**: C++17
 - **C 标准**: C11
 

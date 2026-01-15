@@ -363,3 +363,334 @@ TEST_F(SMTest, SM4_GCM_AuthFailure) {
         << "SM4-GCM should detect tampering";
 }
 
+// ============================================================================
+// SM2 Elliptic Curve Cryptography Tests (GB/T 32918-2016)
+// ============================================================================
+
+#include "kctsb/crypto/sm/sm2.h"
+
+/**
+ * @brief Test SM2 key generation
+ */
+TEST_F(SMTest, SM2_KeyGeneration) {
+    kctsb_sm2_keypair_t keypair;
+    
+    kctsb_error_t result = kctsb_sm2_generate_keypair(&keypair);
+    EXPECT_EQ(result, KCTSB_SUCCESS);
+    
+    // Verify keys are not all zeros
+    bool priv_all_zero = true;
+    bool pub_all_zero = true;
+    
+    for (int i = 0; i < KCTSB_SM2_PRIVATE_KEY_SIZE; ++i) {
+        if (keypair.private_key[i] != 0) priv_all_zero = false;
+    }
+    for (int i = 0; i < KCTSB_SM2_PUBLIC_KEY_SIZE; ++i) {
+        if (keypair.public_key[i] != 0) pub_all_zero = false;
+    }
+    
+    EXPECT_FALSE(priv_all_zero) << "Private key should not be all zeros";
+    EXPECT_FALSE(pub_all_zero) << "Public key should not be all zeros";
+}
+
+/**
+ * @brief Test SM2 key uniqueness
+ */
+TEST_F(SMTest, SM2_KeyUniqueness) {
+    kctsb_sm2_keypair_t keypair1, keypair2;
+    
+    EXPECT_EQ(kctsb_sm2_generate_keypair(&keypair1), KCTSB_SUCCESS);
+    EXPECT_EQ(kctsb_sm2_generate_keypair(&keypair2), KCTSB_SUCCESS);
+    
+    // Keys should be different
+    EXPECT_NE(memcmp(keypair1.private_key, keypair2.private_key, 
+                     KCTSB_SM2_PRIVATE_KEY_SIZE), 0)
+        << "Generated private keys should be unique";
+    EXPECT_NE(memcmp(keypair1.public_key, keypair2.public_key, 
+                     KCTSB_SM2_PUBLIC_KEY_SIZE), 0)
+        << "Generated public keys should be unique";
+}
+
+/**
+ * @brief Test SM2 signature and verification
+ */
+TEST_F(SMTest, SM2_SignVerify) {
+    kctsb_sm2_keypair_t keypair;
+    EXPECT_EQ(kctsb_sm2_generate_keypair(&keypair), KCTSB_SUCCESS);
+    
+    const char* message = "Test message for SM2 signature verification";
+    size_t msg_len = strlen(message);
+    const char* user_id = "1234567812345678";
+    
+    kctsb_sm2_signature_t signature;
+    
+    // Sign
+    kctsb_error_t result = kctsb_sm2_sign(
+        keypair.private_key,
+        keypair.public_key,
+        reinterpret_cast<const uint8_t*>(user_id),
+        strlen(user_id),
+        reinterpret_cast<const uint8_t*>(message),
+        msg_len,
+        &signature
+    );
+    EXPECT_EQ(result, KCTSB_SUCCESS);
+    
+    // Verify
+    result = kctsb_sm2_verify(
+        keypair.public_key,
+        reinterpret_cast<const uint8_t*>(user_id),
+        strlen(user_id),
+        reinterpret_cast<const uint8_t*>(message),
+        msg_len,
+        &signature
+    );
+    EXPECT_EQ(result, KCTSB_SUCCESS);
+}
+
+/**
+ * @brief Test SM2 signature verification with wrong message
+ */
+TEST_F(SMTest, SM2_SignVerify_WrongMessage) {
+    kctsb_sm2_keypair_t keypair;
+    EXPECT_EQ(kctsb_sm2_generate_keypair(&keypair), KCTSB_SUCCESS);
+    
+    const char* message = "Original message";
+    const char* wrong_message = "Tampered message";
+    const char* user_id = "1234567812345678";
+    
+    kctsb_sm2_signature_t signature;
+    
+    // Sign original message
+    EXPECT_EQ(kctsb_sm2_sign(
+        keypair.private_key,
+        keypair.public_key,
+        reinterpret_cast<const uint8_t*>(user_id),
+        strlen(user_id),
+        reinterpret_cast<const uint8_t*>(message),
+        strlen(message),
+        &signature
+    ), KCTSB_SUCCESS);
+    
+    // Verify with wrong message should fail
+    kctsb_error_t result = kctsb_sm2_verify(
+        keypair.public_key,
+        reinterpret_cast<const uint8_t*>(user_id),
+        strlen(user_id),
+        reinterpret_cast<const uint8_t*>(wrong_message),
+        strlen(wrong_message),
+        &signature
+    );
+    EXPECT_EQ(result, KCTSB_ERROR_VERIFICATION_FAILED)
+        << "Verification should fail with wrong message";
+}
+
+/**
+ * @brief Test SM2 signature verification with tampered signature
+ */
+TEST_F(SMTest, SM2_SignVerify_TamperedSignature) {
+    kctsb_sm2_keypair_t keypair;
+    EXPECT_EQ(kctsb_sm2_generate_keypair(&keypair), KCTSB_SUCCESS);
+    
+    const char* message = "Test message";
+    const char* user_id = "1234567812345678";
+    
+    kctsb_sm2_signature_t signature;
+    
+    EXPECT_EQ(kctsb_sm2_sign(
+        keypair.private_key,
+        keypair.public_key,
+        reinterpret_cast<const uint8_t*>(user_id),
+        strlen(user_id),
+        reinterpret_cast<const uint8_t*>(message),
+        strlen(message),
+        &signature
+    ), KCTSB_SUCCESS);
+    
+    // Tamper with signature
+    signature.r[0] ^= 0x01;
+    
+    // Verification should fail
+    kctsb_error_t result = kctsb_sm2_verify(
+        keypair.public_key,
+        reinterpret_cast<const uint8_t*>(user_id),
+        strlen(user_id),
+        reinterpret_cast<const uint8_t*>(message),
+        strlen(message),
+        &signature
+    );
+    EXPECT_NE(result, KCTSB_SUCCESS)
+        << "Verification should fail with tampered signature";
+}
+
+/**
+ * @brief Test SM2 encryption and decryption
+ */
+TEST_F(SMTest, SM2_EncryptDecrypt) {
+    kctsb_sm2_keypair_t keypair;
+    EXPECT_EQ(kctsb_sm2_generate_keypair(&keypair), KCTSB_SUCCESS);
+    
+    const char* plaintext = "This is a secret message for SM2 encryption test.";
+    size_t pt_len = strlen(plaintext);
+    
+    // Get required ciphertext size
+    size_t ct_len = 0;
+    kctsb_sm2_encrypt(keypair.public_key, 
+                      reinterpret_cast<const uint8_t*>(plaintext),
+                      pt_len, nullptr, &ct_len);
+    EXPECT_GT(ct_len, pt_len) << "Ciphertext should be larger than plaintext";
+    
+    std::vector<uint8_t> ciphertext(ct_len);
+    
+    // Encrypt
+    kctsb_error_t result = kctsb_sm2_encrypt(
+        keypair.public_key,
+        reinterpret_cast<const uint8_t*>(plaintext),
+        pt_len,
+        ciphertext.data(),
+        &ct_len
+    );
+    EXPECT_EQ(result, KCTSB_SUCCESS);
+    
+    // Decrypt
+    size_t dec_len = ct_len;
+    std::vector<uint8_t> decrypted(pt_len + 32);
+    
+    result = kctsb_sm2_decrypt(
+        keypair.private_key,
+        ciphertext.data(),
+        ct_len,
+        decrypted.data(),
+        &dec_len
+    );
+    EXPECT_EQ(result, KCTSB_SUCCESS);
+    EXPECT_EQ(dec_len, pt_len);
+    EXPECT_EQ(memcmp(plaintext, decrypted.data(), pt_len), 0)
+        << "Decrypted message should match original";
+}
+
+/**
+ * @brief Test SM2 decryption with tampered ciphertext
+ */
+TEST_F(SMTest, SM2_Decrypt_TamperedCiphertext) {
+    kctsb_sm2_keypair_t keypair;
+    EXPECT_EQ(kctsb_sm2_generate_keypair(&keypair), KCTSB_SUCCESS);
+    
+    const char* plaintext = "Secret data";
+    size_t pt_len = strlen(plaintext);
+    
+    size_t ct_len = 0;
+    kctsb_sm2_encrypt(keypair.public_key,
+                      reinterpret_cast<const uint8_t*>(plaintext),
+                      pt_len, nullptr, &ct_len);
+    
+    std::vector<uint8_t> ciphertext(ct_len);
+    EXPECT_EQ(kctsb_sm2_encrypt(
+        keypair.public_key,
+        reinterpret_cast<const uint8_t*>(plaintext),
+        pt_len,
+        ciphertext.data(),
+        &ct_len
+    ), KCTSB_SUCCESS);
+    
+    // Tamper with ciphertext (modify C2 portion)
+    if (ct_len > 100) {
+        ciphertext[100] ^= 0xFF;
+    }
+    
+    // Decryption should fail
+    size_t dec_len = ct_len;
+    std::vector<uint8_t> decrypted(pt_len + 32);
+    
+    kctsb_error_t result = kctsb_sm2_decrypt(
+        keypair.private_key,
+        ciphertext.data(),
+        ct_len,
+        decrypted.data(),
+        &dec_len
+    );
+    EXPECT_NE(result, KCTSB_SUCCESS)
+        << "Decryption should fail with tampered ciphertext";
+}
+
+/**
+ * @brief Test SM2 with different message sizes
+ */
+TEST_F(SMTest, SM2_VariableMessageSize) {
+    kctsb_sm2_keypair_t keypair;
+    EXPECT_EQ(kctsb_sm2_generate_keypair(&keypair), KCTSB_SUCCESS);
+    
+    // Test with various message sizes
+    std::vector<size_t> sizes = {1, 16, 32, 64, 100, 256, 1000};
+    
+    for (size_t size : sizes) {
+        std::vector<uint8_t> plaintext(size);
+        for (size_t i = 0; i < size; ++i) {
+            plaintext[i] = static_cast<uint8_t>(i & 0xFF);
+        }
+        
+        // Get ciphertext size
+        size_t ct_len = 0;
+        kctsb_sm2_encrypt(keypair.public_key, plaintext.data(), size, 
+                          nullptr, &ct_len);
+        
+        std::vector<uint8_t> ciphertext(ct_len);
+        EXPECT_EQ(kctsb_sm2_encrypt(
+            keypair.public_key, plaintext.data(), size,
+            ciphertext.data(), &ct_len
+        ), KCTSB_SUCCESS) << "Encryption failed for size " << size;
+        
+        // Decrypt
+        size_t dec_len = ct_len;
+        std::vector<uint8_t> decrypted(size + 32);
+        EXPECT_EQ(kctsb_sm2_decrypt(
+            keypair.private_key, ciphertext.data(), ct_len,
+            decrypted.data(), &dec_len
+        ), KCTSB_SUCCESS) << "Decryption failed for size " << size;
+        
+        EXPECT_EQ(dec_len, size);
+        EXPECT_EQ(memcmp(plaintext.data(), decrypted.data(), size), 0)
+            << "Round-trip failed for size " << size;
+    }
+}
+
+/**
+ * @brief Test SM2 self test
+ */
+TEST_F(SMTest, SM2_SelfTest) {
+    EXPECT_EQ(kctsb_sm2_self_test(), KCTSB_SUCCESS);
+}
+
+/**
+ * @brief Test SM2 with default user ID
+ */
+TEST_F(SMTest, SM2_DefaultUserId) {
+    kctsb_sm2_keypair_t keypair;
+    EXPECT_EQ(kctsb_sm2_generate_keypair(&keypair), KCTSB_SUCCESS);
+    
+    const char* message = "Test with default user ID";
+    size_t msg_len = strlen(message);
+    
+    kctsb_sm2_signature_t signature;
+    
+    // Sign with NULL user ID (should use default)
+    kctsb_error_t result = kctsb_sm2_sign(
+        keypair.private_key,
+        keypair.public_key,
+        nullptr, 0,  // NULL user ID
+        reinterpret_cast<const uint8_t*>(message),
+        msg_len,
+        &signature
+    );
+    EXPECT_EQ(result, KCTSB_SUCCESS);
+    
+    // Verify with NULL user ID
+    result = kctsb_sm2_verify(
+        keypair.public_key,
+        nullptr, 0,
+        reinterpret_cast<const uint8_t*>(message),
+        msg_len,
+        &signature
+    );
+    EXPECT_EQ(result, KCTSB_SUCCESS);
+}

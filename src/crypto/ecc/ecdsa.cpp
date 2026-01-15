@@ -19,6 +19,7 @@
 #include "kctsb/crypto/ecc/ecdsa.h"
 #include "kctsb/crypto/sha256.h"  // For SHA-256 hashing
 #include <array>
+#include <vector>
 #include <cstring>
 #include <stdexcept>
 #include <random>
@@ -149,14 +150,29 @@ ECDSASignature ECDSASignature::from_der(const uint8_t* data, size_t len) {
 }
 
 void ECDSASignature::to_fixed(uint8_t* out, size_t field_size) const {
-    BytesFromZZ(out, r, static_cast<long>(field_size));
-    BytesFromZZ(out + field_size, s, static_cast<long>(field_size));
+    // NTL BytesFromZZ outputs little-endian, SEC 1 requires big-endian
+    std::vector<uint8_t> r_le(field_size), s_le(field_size);
+    BytesFromZZ(r_le.data(), r, static_cast<long>(field_size));
+    BytesFromZZ(s_le.data(), s, static_cast<long>(field_size));
+    
+    // Reverse to big-endian for SEC 1 compliance
+    for (size_t i = 0; i < field_size; i++) {
+        out[i] = r_le[field_size - 1 - i];
+        out[field_size + i] = s_le[field_size - 1 - i];
+    }
 }
 
 ECDSASignature ECDSASignature::from_fixed(const uint8_t* data, size_t field_size) {
+    // SEC 1 input is big-endian, convert to little-endian for NTL
+    std::vector<uint8_t> r_le(field_size), s_le(field_size);
+    for (size_t i = 0; i < field_size; i++) {
+        r_le[i] = data[field_size - 1 - i];
+        s_le[i] = data[2 * field_size - 1 - i];
+    }
+    
     ECDSASignature sig;
-    sig.r = ZZFromBytes(data, static_cast<long>(field_size));
-    sig.s = ZZFromBytes(data + field_size, static_cast<long>(field_size));
+    sig.r = ZZFromBytes(r_le.data(), static_cast<long>(field_size));
+    sig.s = ZZFromBytes(s_le.data(), static_cast<long>(field_size));
     return sig;
 }
 
@@ -199,8 +215,14 @@ std::vector<uint8_t> ECDSAKeyPair::export_public_key(const ECCurve& curve) const
 }
 
 std::vector<uint8_t> ECDSAKeyPair::export_private_key(size_t field_size) const {
+    // NTL BytesFromZZ outputs little-endian, SEC 1 requires big-endian
+    std::vector<uint8_t> le_bytes(field_size);
+    BytesFromZZ(le_bytes.data(), private_key, static_cast<long>(field_size));
+    
     std::vector<uint8_t> result(field_size);
-    BytesFromZZ(result.data(), private_key, static_cast<long>(field_size));
+    for (size_t i = 0; i < field_size; i++) {
+        result[i] = le_bytes[field_size - 1 - i];
+    }
     return result;
 }
 
@@ -412,14 +434,23 @@ ZZ ECDSA::generate_k_rfc6979(const ZZ& e, const ZZ& private_key) const {
     size_t qlen = NumBytes(n);
     size_t hlen = 32;  // SHA-256 output length
 
-    // Convert inputs to byte arrays
+    // Convert inputs to byte arrays (RFC 6979 uses big-endian)
+    // NTL BytesFromZZ outputs little-endian, convert to big-endian
+    std::vector<uint8_t> x_le(qlen);
+    BytesFromZZ(x_le.data(), private_key, static_cast<long>(qlen));
     std::vector<uint8_t> x(qlen);
-    BytesFromZZ(x.data(), private_key, static_cast<long>(qlen));
+    for (size_t i = 0; i < qlen; i++) {
+        x[i] = x_le[qlen - 1 - i];
+    }
 
-    std::vector<uint8_t> h1(qlen);
+    std::vector<uint8_t> h1_le(qlen);
     ZZ e_mod = e % n;
     if (e_mod < 0) e_mod += n;
-    BytesFromZZ(h1.data(), e_mod, static_cast<long>(qlen));
+    BytesFromZZ(h1_le.data(), e_mod, static_cast<long>(qlen));
+    std::vector<uint8_t> h1(qlen);
+    for (size_t i = 0; i < qlen; i++) {
+        h1[i] = h1_le[qlen - 1 - i];
+    }
 
     // Initialize V = 0x01 0x01 ... 0x01 (hlen bytes)
     std::vector<uint8_t> V(hlen, 0x01);

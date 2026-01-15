@@ -127,8 +127,9 @@ static double benchmark_openssl_chacha20_decrypt(
 
 /**
  * @brief Run benchmark iterations
+ * @return Throughput in MB/s for ratio calculation
  */
-static void run_benchmark_iterations(
+static double run_benchmark_iterations(
     const std::string& name,
     const std::string& impl,
     size_t data_size,
@@ -156,6 +157,25 @@ static void run_benchmark_iterations(
               << std::right << std::fixed << std::setprecision(2)
               << std::setw(10) << throughput << " MB/s"
               << std::setw(10) << avg << " ms"
+              << std::endl;
+    
+    return throughput;
+}
+
+/**
+ * @brief Print ratio comparison between kctsb and OpenSSL
+ */
+static void print_ratio(double kctsb_throughput, double openssl_throughput) {
+    double ratio = kctsb_throughput / openssl_throughput;
+    const char* status = ratio >= 1.0 ? "FASTER" : "SLOWER";
+    const char* symbol = ratio >= 1.0 ? "+" : "";
+    double diff_percent = (ratio - 1.0) * 100.0;
+    
+    std::cout << std::left << std::setw(25) << "  → Ratio"
+              << std::setw(15) << ""
+              << std::right << std::fixed << std::setprecision(2)
+              << std::setw(10) << ratio << "x"
+              << "    (" << symbol << diff_percent << "% " << status << ")"
               << std::endl;
 }
 
@@ -207,8 +227,10 @@ void benchmark_chacha20_poly1305() {
         }
     #endif
         
+        double ssl_enc_tp, ssl_dec_tp, kc_enc_tp, kc_dec_tp;
+        
         // OpenSSL Encryption
-        run_benchmark_iterations(
+        ssl_enc_tp = run_benchmark_iterations(
             "ChaCha20-Poly1305 Enc", "OpenSSL", data_size,
             [&]() {
                 return benchmark_openssl_chacha20_encrypt(
@@ -216,18 +238,9 @@ void benchmark_chacha20_poly1305() {
             }
         );
         
-        // OpenSSL Decryption
-        run_benchmark_iterations(
-            "ChaCha20-Poly1305 Dec", "OpenSSL", data_size,
-            [&]() {
-                return benchmark_openssl_chacha20_decrypt(
-                    ciphertext, key, nonce, tag, decrypted);
-            }
-        );
-        
 #ifdef KCTSB_HAS_CHACHA20_POLY1305
         // kctsb Encryption - Using actual kctsb implementation
-        run_benchmark_iterations(
+        kc_enc_tp = run_benchmark_iterations(
             "ChaCha20-Poly1305 Enc", "kctsb", data_size,
             [&]() {
                 auto start = Clock::now();
@@ -247,9 +260,23 @@ void benchmark_chacha20_poly1305() {
                 return elapsed.count();
             }
         );
+        print_ratio(kc_enc_tp, ssl_enc_tp);
+#else
+        std::cout << "ChaCha20-Poly1305 Enc    kctsb          (not compiled)" << std::endl;
+#endif
         
+        // OpenSSL Decryption
+        ssl_dec_tp = run_benchmark_iterations(
+            "ChaCha20-Poly1305 Dec", "OpenSSL", data_size,
+            [&]() {
+                return benchmark_openssl_chacha20_decrypt(
+                    ciphertext, key, nonce, tag, decrypted);
+            }
+        );
+        
+#ifdef KCTSB_HAS_CHACHA20_POLY1305
         // kctsb Decryption
-        run_benchmark_iterations(
+        kc_dec_tp = run_benchmark_iterations(
             "ChaCha20-Poly1305 Dec", "kctsb", data_size,
             [&]() {
                 auto start = Clock::now();
@@ -269,8 +296,8 @@ void benchmark_chacha20_poly1305() {
                 return elapsed.count();
             }
         );
+        print_ratio(kc_dec_tp, ssl_dec_tp);
 #else
-        std::cout << "ChaCha20-Poly1305 Enc    kctsb          (not compiled)" << std::endl;
         std::cout << "ChaCha20-Poly1305 Dec    kctsb          (not compiled)" << std::endl;
 #endif
     }

@@ -103,15 +103,27 @@ bool DHParams::is_valid() const {
 
 std::vector<uint8_t> DHKeyPair::export_public_key() const {
     size_t byte_len = NumBytes(public_key);
+    // NTL BytesFromZZ outputs little-endian, PKCS#3 requires big-endian
+    std::vector<uint8_t> le_bytes(byte_len);
+    BytesFromZZ(le_bytes.data(), public_key, static_cast<long>(byte_len));
+    
     std::vector<uint8_t> result(byte_len);
-    BytesFromZZ(result.data(), public_key, static_cast<long>(byte_len));
+    for (size_t i = 0; i < byte_len; i++) {
+        result[i] = le_bytes[byte_len - 1 - i];
+    }
     return result;
 }
 
 std::vector<uint8_t> DHKeyPair::export_private_key() const {
     size_t byte_len = NumBytes(private_key);
+    // NTL BytesFromZZ outputs little-endian, PKCS#3 requires big-endian
+    std::vector<uint8_t> le_bytes(byte_len);
+    BytesFromZZ(le_bytes.data(), private_key, static_cast<long>(byte_len));
+    
     std::vector<uint8_t> result(byte_len);
-    BytesFromZZ(result.data(), private_key, static_cast<long>(byte_len));
+    for (size_t i = 0; i < byte_len; i++) {
+        result[i] = le_bytes[byte_len - 1 - i];
+    }
     return result;
 }
 
@@ -208,7 +220,12 @@ DHKeyPair DH::keypair_from_private(const ZZ& private_key) const {
 }
 
 ZZ DH::import_public_key(const uint8_t* data, size_t len) const {
-    ZZ pub = ZZFromBytes(data, static_cast<long>(len));
+    // Input is big-endian, convert to little-endian for NTL
+    std::vector<uint8_t> le_bytes(len);
+    for (size_t i = 0; i < len; i++) {
+        le_bytes[i] = data[len - 1 - i];
+    }
+    ZZ pub = ZZFromBytes(le_bytes.data(), static_cast<long>(len));
     
     if (!validate_public_key(pub)) {
         throw std::invalid_argument("Invalid public key");
@@ -218,7 +235,12 @@ ZZ DH::import_public_key(const uint8_t* data, size_t len) const {
 }
 
 DHKeyPair DH::import_private_key(const uint8_t* data, size_t len) const {
-    ZZ priv = ZZFromBytes(data, static_cast<long>(len));
+    // Input is big-endian, convert to little-endian for NTL
+    std::vector<uint8_t> le_bytes(len);
+    for (size_t i = 0; i < len; i++) {
+        le_bytes[i] = data[len - 1 - i];
+    }
+    ZZ priv = ZZFromBytes(le_bytes.data(), static_cast<long>(len));
     return keypair_from_private(priv);
 }
 
@@ -241,10 +263,15 @@ std::vector<uint8_t> DH::compute_shared_secret(const ZZ& private_key,
         throw std::runtime_error("DH computation resulted in weak shared secret");
     }
     
-    // Convert to bytes
+    // Convert to bytes (NTL outputs little-endian, PKCS#3 requires big-endian)
     size_t byte_len = get_prime_size();
+    std::vector<uint8_t> le_bytes(byte_len);
+    BytesFromZZ(le_bytes.data(), shared, static_cast<long>(byte_len));
+    
     std::vector<uint8_t> result(byte_len);
-    BytesFromZZ(result.data(), shared, static_cast<long>(byte_len));
+    for (size_t i = 0; i < byte_len; i++) {
+        result[i] = le_bytes[byte_len - 1 - i];
+    }
     
     return result;
 }
@@ -256,7 +283,12 @@ std::vector<uint8_t> DH::compute_shared_secret(const DHKeyPair& keypair,
 
 std::vector<uint8_t> DH::compute_shared_secret(const uint8_t* private_key, size_t priv_len,
                                                const uint8_t* peer_public, size_t pub_len) const {
-    ZZ priv = ZZFromBytes(private_key, static_cast<long>(priv_len));
+    // Input is big-endian, convert to little-endian for NTL
+    std::vector<uint8_t> priv_le(priv_len);
+    for (size_t i = 0; i < priv_len; i++) {
+        priv_le[i] = private_key[priv_len - 1 - i];
+    }
+    ZZ priv = ZZFromBytes(priv_le.data(), static_cast<long>(priv_len));
     ZZ pub = import_public_key(peer_public, pub_len);
     
     return compute_shared_secret(priv, pub);

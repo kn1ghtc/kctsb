@@ -36,6 +36,19 @@ KCTSB_API void kctsb_hmac_sha256_final(kctsb_hmac_ctx_t* ctx, uint8_t mac[32]);
 KCTSB_API void kctsb_hmac_sha256(const uint8_t* key, size_t key_len, const uint8_t* data, size_t len, uint8_t mac[32]);
 
 // ============================================================================
+// HMAC-SHA512 (RFC 2104, FIPS 198-1)
+// ============================================================================
+
+typedef struct {
+    void* internal;
+} kctsb_hmac512_ctx_t;
+
+KCTSB_API void kctsb_hmac_sha512_init(kctsb_hmac512_ctx_t* ctx, const uint8_t* key, size_t key_len);
+KCTSB_API void kctsb_hmac_sha512_update(kctsb_hmac512_ctx_t* ctx, const uint8_t* data, size_t len);
+KCTSB_API void kctsb_hmac_sha512_final(kctsb_hmac512_ctx_t* ctx, uint8_t mac[64]);
+KCTSB_API void kctsb_hmac_sha512(const uint8_t* key, size_t key_len, const uint8_t* data, size_t len, uint8_t mac[64]);
+
+// ============================================================================
 // CMAC-AES (NIST SP 800-38B)
 // ============================================================================
 
