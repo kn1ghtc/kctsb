@@ -42,26 +42,26 @@ static inline void chacha_quarter_round(uint32_t& a, uint32_t& b, uint32_t& c, u
  * @brief Load 32-bit little-endian value
  */
 static inline uint32_t load32_le(const uint8_t* p) {
-    return ((uint32_t)p[0]) | ((uint32_t)p[1] << 8) |
-           ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
+    return static_cast<uint32_t>(p[0]) | (static_cast<uint32_t>(p[1]) << 8) |
+           (static_cast<uint32_t>(p[2]) << 16) | (static_cast<uint32_t>(p[3]) << 24);
 }
 
 /**
  * @brief Store 32-bit little-endian value
  */
 static inline void store32_le(uint8_t* p, uint32_t v) {
-    p[0] = (uint8_t)(v);
-    p[1] = (uint8_t)(v >> 8);
-    p[2] = (uint8_t)(v >> 16);
-    p[3] = (uint8_t)(v >> 24);
+    p[0] = static_cast<uint8_t>(v);
+    p[1] = static_cast<uint8_t>(v >> 8);
+    p[2] = static_cast<uint8_t>(v >> 16);
+    p[3] = static_cast<uint8_t>(v >> 24);
 }
 
 /**
  * @brief Store 64-bit little-endian value
  */
 static inline void store64_le(uint8_t* p, uint64_t v) {
-    for (int i = 0; i < 8; i++) {
-        p[i] = (uint8_t)(v >> (i * 8));
+    for (size_t i = 0; i < 8; i++) {
+        p[i] = static_cast<uint8_t>(v >> (i * 8));
     }
 }
 
@@ -171,7 +171,7 @@ kctsb_error_t kctsb_chacha20_crypt(kctsb_chacha20_ctx_t* ctx,
         chacha20_block(ctx->state, ctx->keystream);
         ctx->state[12]++;  // Increment counter
 
-        for (int i = 0; i < 64; i++) {
+        for (size_t i = 0; i < 64; i++) {
             output[offset + i] = input[offset + i] ^ ctx->keystream[i];
         }
 

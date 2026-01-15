@@ -200,17 +200,25 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release")
             add_link_options(-flto)
         endif()
 
-        # Hardware acceleration (x86_64)
-        if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
-            add_compile_options(-maes -mpclmul -msse4.1 -msse4.2 -mavx2)
-        endif()
-
-        # ARM64 NEON
-        if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
-            add_compile_options(-march=armv8-a+crypto)
-        endif()
-
         add_compile_definitions(_FORTIFY_SOURCE=2)
+    endif()
+endif()
+
+# ============================================================================
+# Hardware Acceleration Flags (ALL build types - required for SIMD intrinsics)
+# ============================================================================
+
+if(NOT MSVC)
+    # x86_64: AES-NI, PCLMUL, SSE4.2, AVX2, SSSE3, SHA-NI
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
+        add_compile_options(-maes -mpclmul -msse4.1 -msse4.2 -mssse3 -mavx2 -msha)
+        message(STATUS "Hardware acceleration: AES-NI, PCLMUL, SSE4.2, SSSE3, AVX2, SHA-NI")
+    endif()
+
+    # ARM64 NEON with crypto extensions
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
+        add_compile_options(-march=armv8-a+crypto)
+        message(STATUS "Hardware acceleration: ARM64 NEON + Crypto")
     endif()
 endif()
 

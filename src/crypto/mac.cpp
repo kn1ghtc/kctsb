@@ -356,14 +356,14 @@ public:
         // Append length block: [len(A)]_64 || [0]_64
         uint8_t len_block[16] = {0};
         // AAD length in bits (big-endian)
-        len_block[0] = (aad_len_ >> 56) & 0xFF;
-        len_block[1] = (aad_len_ >> 48) & 0xFF;
-        len_block[2] = (aad_len_ >> 40) & 0xFF;
-        len_block[3] = (aad_len_ >> 32) & 0xFF;
-        len_block[4] = (aad_len_ >> 24) & 0xFF;
-        len_block[5] = (aad_len_ >> 16) & 0xFF;
-        len_block[6] = (aad_len_ >> 8) & 0xFF;
-        len_block[7] = aad_len_ & 0xFF;
+        len_block[0] = static_cast<uint8_t>((aad_len_ >> 56) & 0xFF);
+        len_block[1] = static_cast<uint8_t>((aad_len_ >> 48) & 0xFF);
+        len_block[2] = static_cast<uint8_t>((aad_len_ >> 40) & 0xFF);
+        len_block[3] = static_cast<uint8_t>((aad_len_ >> 32) & 0xFF);
+        len_block[4] = static_cast<uint8_t>((aad_len_ >> 24) & 0xFF);
+        len_block[5] = static_cast<uint8_t>((aad_len_ >> 16) & 0xFF);
+        len_block[6] = static_cast<uint8_t>((aad_len_ >> 8) & 0xFF);
+        len_block[7] = static_cast<uint8_t>(aad_len_ & 0xFF);
         // Ciphertext length = 0 for GMAC
 
         ghash_block(len_block);
@@ -408,14 +408,14 @@ private:
         // Append length block
         uint8_t len_block[16] = {0};
         uint64_t iv_bits = iv_len * 8;
-        len_block[8] = (iv_bits >> 56) & 0xFF;
-        len_block[9] = (iv_bits >> 48) & 0xFF;
-        len_block[10] = (iv_bits >> 40) & 0xFF;
-        len_block[11] = (iv_bits >> 32) & 0xFF;
-        len_block[12] = (iv_bits >> 24) & 0xFF;
-        len_block[13] = (iv_bits >> 16) & 0xFF;
-        len_block[14] = (iv_bits >> 8) & 0xFF;
-        len_block[15] = iv_bits & 0xFF;
+        len_block[8] = static_cast<uint8_t>((iv_bits >> 56) & 0xFF);
+        len_block[9] = static_cast<uint8_t>((iv_bits >> 48) & 0xFF);
+        len_block[10] = static_cast<uint8_t>((iv_bits >> 40) & 0xFF);
+        len_block[11] = static_cast<uint8_t>((iv_bits >> 32) & 0xFF);
+        len_block[12] = static_cast<uint8_t>((iv_bits >> 24) & 0xFF);
+        len_block[13] = static_cast<uint8_t>((iv_bits >> 16) & 0xFF);
+        len_block[14] = static_cast<uint8_t>((iv_bits >> 8) & 0xFF);
+        len_block[15] = static_cast<uint8_t>(iv_bits & 0xFF);
 
         for (size_t i = 0; i < 16; i++) {
             len_block[i] ^= J0_[i];

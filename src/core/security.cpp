@@ -26,7 +26,9 @@
 #include <windows.h>
 #include <bcrypt.h>
 #ifndef STATUS_SUCCESS
-#define STATUS_SUCCESS ((NTSTATUS)0x00000000L)
+// Use constexpr instead of old-style macro cast to avoid -Wold-style-cast
+constexpr NTSTATUS KCTSB_STATUS_SUCCESS = 0x00000000L;
+#define STATUS_SUCCESS KCTSB_STATUS_SUCCESS
 #endif
 #else
 #include <sys/types.h>
@@ -105,7 +107,7 @@ bool secure_compare(const void* a, const void* b, size_t len) {
 
     // Constant-time comparison: always iterate through all bytes
     for (size_t i = 0; i < len; i++) {
-        diff |= pa[i] ^ pb[i];
+        diff |= static_cast<unsigned char>(pa[i] ^ pb[i]);
     }
 
     COMPILER_BARRIER();

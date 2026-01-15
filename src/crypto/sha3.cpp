@@ -116,7 +116,7 @@ public:
      * @brief Apply Keccak-f[1600] permutation
      */
     void permute() noexcept {
-        for (int round = 0; round < 24; ++round) {
+        for (size_t round = 0; round < 24; ++round) {
             theta();
             rho_pi();
             chi();
@@ -150,13 +150,13 @@ private:
     void theta() noexcept {
         std::array<uint64_t, 5> C{};
 
-        for (int x = 0; x < 5; ++x) {
+        for (size_t x = 0; x < 5; ++x) {
             C[x] = state[x] ^ state[x + 5] ^ state[x + 10] ^ state[x + 15] ^ state[x + 20];
         }
 
-        for (int x = 0; x < 5; ++x) {
+        for (size_t x = 0; x < 5; ++x) {
             uint64_t D = C[(x + 4) % 5] ^ rotl64(C[(x + 1) % 5], 1);
-            for (int y = 0; y < 5; ++y) {
+            for (size_t y = 0; y < 5; ++y) {
                 state[x + 5 * y] ^= D;
             }
         }
@@ -169,10 +169,10 @@ private:
     void rho_pi() noexcept {
         std::array<uint64_t, 25> temp{};
 
-        for (int x = 0; x < 5; ++x) {
-            for (int y = 0; y < 5; ++y) {
-                int new_x = y;
-                int new_y = (2 * x + 3 * y) % 5;
+        for (size_t x = 0; x < 5; ++x) {
+            for (size_t y = 0; y < 5; ++y) {
+                size_t new_x = y;
+                size_t new_y = (2 * x + 3 * y) % 5;
                 temp[new_x + 5 * new_y] = rotl64(state[x + 5 * y], KECCAK_RHO[x + 5 * y]);
             }
         }
@@ -185,12 +185,12 @@ private:
      */
     __attribute__((always_inline))
     void chi() noexcept {
-        for (int y = 0; y < 5; ++y) {
+        for (size_t y = 0; y < 5; ++y) {
             std::array<uint64_t, 5> row;
-            for (int x = 0; x < 5; ++x) {
+            for (size_t x = 0; x < 5; ++x) {
                 row[x] = state[x + 5 * y];
             }
-            for (int x = 0; x < 5; ++x) {
+            for (size_t x = 0; x < 5; ++x) {
                 state[x + 5 * y] = row[x] ^ ((~row[(x + 1) % 5]) & row[(x + 2) % 5]);
             }
         }
@@ -200,7 +200,7 @@ private:
      * @brief ι step - XOR round constant
      */
     __attribute__((always_inline))
-    void iota(int round) noexcept {
+    void iota(size_t round) noexcept {
         state[0] ^= KECCAK_RC[round];
     }
 };

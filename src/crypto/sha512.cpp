@@ -88,18 +88,18 @@ constexpr std::array<uint64_t, 8> H384_INIT = {
 
 __attribute__((always_inline))
 static inline uint64_t load64_be(const uint8_t* p) noexcept {
-    return ((uint64_t)p[0] << 56) | ((uint64_t)p[1] << 48) |
-           ((uint64_t)p[2] << 40) | ((uint64_t)p[3] << 32) |
-           ((uint64_t)p[4] << 24) | ((uint64_t)p[5] << 16) |
-           ((uint64_t)p[6] << 8)  | (uint64_t)p[7];
+    return (static_cast<uint64_t>(p[0]) << 56) | (static_cast<uint64_t>(p[1]) << 48) |
+           (static_cast<uint64_t>(p[2]) << 40) | (static_cast<uint64_t>(p[3]) << 32) |
+           (static_cast<uint64_t>(p[4]) << 24) | (static_cast<uint64_t>(p[5]) << 16) |
+           (static_cast<uint64_t>(p[6]) << 8)  | static_cast<uint64_t>(p[7]);
 }
 
 __attribute__((always_inline))
 static inline void store64_be(uint8_t* p, uint64_t v) noexcept {
-    p[0] = (uint8_t)(v >> 56); p[1] = (uint8_t)(v >> 48);
-    p[2] = (uint8_t)(v >> 40); p[3] = (uint8_t)(v >> 32);
-    p[4] = (uint8_t)(v >> 24); p[5] = (uint8_t)(v >> 16);
-    p[6] = (uint8_t)(v >> 8);  p[7] = (uint8_t)v;
+    p[0] = static_cast<uint8_t>(v >> 56); p[1] = static_cast<uint8_t>(v >> 48);
+    p[2] = static_cast<uint8_t>(v >> 40); p[3] = static_cast<uint8_t>(v >> 32);
+    p[4] = static_cast<uint8_t>(v >> 24); p[5] = static_cast<uint8_t>(v >> 16);
+    p[6] = static_cast<uint8_t>(v >> 8);  p[7] = static_cast<uint8_t>(v);
 }
 
 /**
@@ -116,10 +116,10 @@ public:
         uint64_t t1, t2;
 
         // Prepare message schedule
-        for (int i = 0; i < 16; i++) {
+        for (size_t i = 0; i < 16; i++) {
             W[i] = load64_be(block + i * 8);
         }
-        for (int i = 16; i < 80; i++) {
+        for (size_t i = 16; i < 80; i++) {
             W[i] = SIG1(W[i - 2]) + W[i - 7] + SIG0(W[i - 15]) + W[i - 16];
         }
 
@@ -130,7 +130,7 @@ public:
         g = ctx->state[6]; h = ctx->state[7];
 
         // Main compression loop
-        for (int i = 0; i < 80; i++) {
+        for (size_t i = 0; i < 80; i++) {
             t1 = h + EP1(e) + CH(e, f, g) + K512[i] + W[i];
             t2 = EP0(a) + MAJ(a, b, c);
             h = g; g = f; f = e;

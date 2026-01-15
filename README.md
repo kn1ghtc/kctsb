@@ -198,7 +198,14 @@ cmake -B build -G Ninja `
 
 # 构建
 cmake --build build --parallel
+或者
+ninja.exe -C build -j8 2>&1
 
+或直接一句话：
+```shell
+ $env:PATH = "C:\msys64\mingw64\bin;$env:PATH"; cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER="C:/msys64/mingw64/bin/gcc.exe" -DCMAKE_CXX_COMPILER="C:/msys64/mingw64/bin/g++.exe" -DKCTSB_BUILD_TESTS=ON -DKCTSB_BUILD_CLI=ON -DKCTSB_BUILD_BENCHMARKS=ON -DKCTSB_WARNINGS_AS_ERRORS=OFF 2>&1 | Select-Object -Last 5; ninja -C build -j8 2>&1 | Select-Object -Last 10
+
+```
 # 运行测试
 ctest --test-dir build --output-on-failure
 
@@ -325,21 +332,7 @@ release/
 | `KCTSB_ENABLE_HELIB` | **ON** | 使用HElib (函数加密) |
 
 ```powershell
-# 示例：完整构建（推荐）- 使用 VCPKG_ROOT 环境变量
-cmake -B build -G "MinGW Makefiles" `
-    -DCMAKE_BUILD_TYPE=Release `
-    -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
-    -DKCTSB_BUILD_BENCHMARKS=ON
-
-# 示例：完整构建带NTL（需要先编译NTL）
-cmake -B build -G "MinGW Makefiles" `
-    -DCMAKE_BUILD_TYPE=Release `
-    -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
-    -DNTL_ROOT="D:\libs\ntl" `
-    -DKCTSB_BUILD_BENCHMARKS=ON
-
-# 示例：最小构建（无外部依赖）
-cmake -B build -DKCTSB_ENABLE_NTL=OFF -DKCTSB_ENABLE_GMP=OFF -DKCTSB_ENABLE_OPENSSL=OFF
+ninja.exe -C build -j8 2>&1 
 ```
 
 ## 📊 性能对比 (vs OpenSSL)

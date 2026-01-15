@@ -116,7 +116,7 @@ public:
         uint32_t K[36];
 
         // Initialize K with key XOR FK
-        for (int i = 0; i < 4; i++) {
+        for (size_t i = 0; i < 4; i++) {
             K[i] = SM4_FK[i] ^ (
                 (static_cast<uint32_t>(key[4*i]) << 24) |
                 (static_cast<uint32_t>(key[4*i+1]) << 16) |
@@ -126,7 +126,7 @@ public:
         }
 
         // Generate round keys
-        for (int i = 0; i < 32; i++) {
+        for (size_t i = 0; i < 32; i++) {
             K[i+4] = K[i] ^ sm4_t_prime(K[i+1] ^ K[i+2] ^ K[i+3] ^ SM4_CK[i]);
             rk[i] = K[i+4];
         }
@@ -140,7 +140,7 @@ public:
         uint32_t X[36];
 
         // Load input block
-        for (int i = 0; i < 4; i++) {
+        for (size_t i = 0; i < 4; i++) {
             X[i] = (static_cast<uint32_t>(in[4*i]) << 24) |
                    (static_cast<uint32_t>(in[4*i+1]) << 16) |
                    (static_cast<uint32_t>(in[4*i+2]) << 8) |
@@ -488,6 +488,31 @@ kctsb_error_t kctsb_sm4_gcm_open(const uint8_t key[16], const uint8_t iv[12],
     if (ret != KCTSB_SUCCESS) return ret;
 
     return kctsb_sm4_gcm_decrypt(&ctx, aad, aad_len, ciphertext, ciphertext_len, tag, plaintext);
+}
+
+// One-shot API aliases for consistent naming with AES-GCM
+kctsb_error_t kctsb_sm4_gcm_encrypt_oneshot(
+    const uint8_t key[16],
+    const uint8_t iv[12],
+    const uint8_t* aad,
+    size_t aad_len,
+    const uint8_t* plaintext,
+    size_t plaintext_len,
+    uint8_t* ciphertext,
+    uint8_t tag[16]) {
+    return kctsb_sm4_gcm_seal(key, iv, aad, aad_len, plaintext, plaintext_len, ciphertext, tag);
+}
+
+kctsb_error_t kctsb_sm4_gcm_decrypt_oneshot(
+    const uint8_t key[16],
+    const uint8_t iv[12],
+    const uint8_t* aad,
+    size_t aad_len,
+    const uint8_t* ciphertext,
+    size_t ciphertext_len,
+    const uint8_t tag[16],
+    uint8_t* plaintext) {
+    return kctsb_sm4_gcm_open(key, iv, aad, aad_len, ciphertext, ciphertext_len, tag, plaintext);
 }
 
 } // extern "C"

@@ -62,8 +62,8 @@ constexpr std::array<uint32_t, 8> SM3_IV = {
  */
 __attribute__((always_inline))
 static inline uint32_t load32_be(const uint8_t* p) noexcept {
-    return ((uint32_t)p[0] << 24) | ((uint32_t)p[1] << 16) |
-           ((uint32_t)p[2] << 8) | p[3];
+    return (static_cast<uint32_t>(p[0]) << 24) | (static_cast<uint32_t>(p[1]) << 16) |
+           (static_cast<uint32_t>(p[2]) << 8) | p[3];
 }
 
 /**
@@ -71,10 +71,10 @@ static inline uint32_t load32_be(const uint8_t* p) noexcept {
  */
 __attribute__((always_inline))
 static inline void store32_be(uint8_t* p, uint32_t v) noexcept {
-    p[0] = (uint8_t)(v >> 24);
-    p[1] = (uint8_t)(v >> 16);
-    p[2] = (uint8_t)(v >> 8);
-    p[3] = (uint8_t)v;
+    p[0] = static_cast<uint8_t>(v >> 24);
+    p[1] = static_cast<uint8_t>(v >> 16);
+    p[2] = static_cast<uint8_t>(v >> 8);
+    p[3] = static_cast<uint8_t>(v);
 }
 
 /**

@@ -121,16 +121,16 @@ inline bool check_sha_ni() noexcept {
 
 __attribute__((always_inline))
 static inline uint32_t load32_be(const uint8_t* p) noexcept {
-    return ((uint32_t)p[0] << 24) | ((uint32_t)p[1] << 16) |
-           ((uint32_t)p[2] << 8) | p[3];
+    return (static_cast<uint32_t>(p[0]) << 24) | (static_cast<uint32_t>(p[1]) << 16) |
+           (static_cast<uint32_t>(p[2]) << 8) | p[3];
 }
 
 __attribute__((always_inline))
 static inline void store32_be(uint8_t* p, uint32_t v) noexcept {
-    p[0] = (uint8_t)(v >> 24);
-    p[1] = (uint8_t)(v >> 16);
-    p[2] = (uint8_t)(v >> 8);
-    p[3] = (uint8_t)v;
+    p[0] = static_cast<uint8_t>(v >> 24);
+    p[1] = static_cast<uint8_t>(v >> 16);
+    p[2] = static_cast<uint8_t>(v >> 8);
+    p[3] = static_cast<uint8_t>(v);
 }
 
 /**
@@ -147,10 +147,10 @@ public:
         uint32_t t1, t2;
 
         // Prepare message schedule
-        for (int i = 0; i < 16; i++) {
+        for (size_t i = 0; i < 16; i++) {
             W[i] = load32_be(block + i * 4);
         }
-        for (int i = 16; i < 64; i++) {
+        for (size_t i = 16; i < 64; i++) {
             W[i] = SIG1(W[i - 2]) + W[i - 7] + SIG0(W[i - 15]) + W[i - 16];
         }
 
@@ -161,7 +161,7 @@ public:
         g = ctx->state[6]; h = ctx->state[7];
 
         // Main compression loop (unrolled for performance)
-        for (int i = 0; i < 64; i++) {
+        for (size_t i = 0; i < 64; i++) {
             t1 = h + EP1(e) + CH(e, f, g) + K256[i] + W[i];
             t2 = EP0(a) + MAJ(a, b, c);
             h = g; g = f; f = e;
@@ -182,8 +182,8 @@ public:
      * @brief SHA-NI accelerated transform
      */
     static void transform_shani(uint32_t state[8], const uint8_t block[64]) noexcept {
-        __m128i STATE0 = _mm_loadu_si128((const __m128i*)&state[0]);
-        __m128i STATE1 = _mm_loadu_si128((const __m128i*)&state[4]);
+        __m128i STATE0 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(&state[0]));
+        __m128i STATE1 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(&state[4]));
 
         __m128i TMP = _mm_shuffle_epi32(STATE0, 0xB1);
         STATE1 = _mm_shuffle_epi32(STATE1, 0x1B);
@@ -196,22 +196,22 @@ public:
         const __m128i SHUF_MASK = _mm_set_epi8(
             12, 13, 14, 15, 8, 9, 10, 11, 4, 5, 6, 7, 0, 1, 2, 3);
 
-        __m128i MSG0 = _mm_shuffle_epi8(_mm_loadu_si128((const __m128i*)&block[0]), SHUF_MASK);
-        __m128i MSG1 = _mm_shuffle_epi8(_mm_loadu_si128((const __m128i*)&block[16]), SHUF_MASK);
-        __m128i MSG2 = _mm_shuffle_epi8(_mm_loadu_si128((const __m128i*)&block[32]), SHUF_MASK);
-        __m128i MSG3 = _mm_shuffle_epi8(_mm_loadu_si128((const __m128i*)&block[48]), SHUF_MASK);
+        __m128i MSG0 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(&block[0])), SHUF_MASK);
+        __m128i MSG1 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(&block[16])), SHUF_MASK);
+        __m128i MSG2 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(&block[32])), SHUF_MASK);
+        __m128i MSG3 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(&block[48])), SHUF_MASK);
 
         __m128i MSG, TMP0;
 
         // Rounds 0-3
-        MSG = _mm_add_epi32(MSG0, _mm_loadu_si128((const __m128i*)&K256[0]));
+        MSG = _mm_add_epi32(MSG0, _mm_loadu_si128(reinterpret_cast<const __m128i*>(&K256[0])));
         STATE1 = _mm_sha256rnds2_epu32(STATE1, STATE0, MSG);
         MSG = _mm_shuffle_epi32(MSG, 0x0E);
         STATE0 = _mm_sha256rnds2_epu32(STATE0, STATE1, MSG);
         TMP0 = _mm_sha256msg1_epu32(MSG0, MSG1);
 
         // Rounds 4-7
-        MSG = _mm_add_epi32(MSG1, _mm_loadu_si128((const __m128i*)&K256[4]));
+        MSG = _mm_add_epi32(MSG1, _mm_loadu_si128(reinterpret_cast<const __m128i*>(&K256[4])));
         STATE1 = _mm_sha256rnds2_epu32(STATE1, STATE0, MSG);
         MSG = _mm_shuffle_epi32(MSG, 0x0E);
         STATE0 = _mm_sha256rnds2_epu32(STATE0, STATE1, MSG);
@@ -222,7 +222,7 @@ public:
         // Rounds 8-11 through 60-63 follow same pattern
 
         // Rounds 8-11
-        MSG = _mm_add_epi32(MSG2, _mm_loadu_si128((const __m128i*)&K256[8]));
+        MSG = _mm_add_epi32(MSG2, _mm_loadu_si128(reinterpret_cast<const __m128i*>(&K256[8])));
         STATE1 = _mm_sha256rnds2_epu32(STATE1, STATE0, MSG);
         MSG = _mm_shuffle_epi32(MSG, 0x0E);
         STATE0 = _mm_sha256rnds2_epu32(STATE0, STATE1, MSG);
@@ -230,7 +230,7 @@ public:
         TMP0 = _mm_sha256msg1_epu32(MSG2, MSG3);
 
         // Rounds 12-15
-        MSG = _mm_add_epi32(MSG3, _mm_loadu_si128((const __m128i*)&K256[12]));
+        MSG = _mm_add_epi32(MSG3, _mm_loadu_si128(reinterpret_cast<const __m128i*>(&K256[12])));
         STATE1 = _mm_sha256rnds2_epu32(STATE1, STATE0, MSG);
         MSG = _mm_shuffle_epi32(MSG, 0x0E);
         STATE0 = _mm_sha256rnds2_epu32(STATE0, STATE1, MSG);
@@ -238,17 +238,17 @@ public:
         TMP0 = _mm_sha256msg1_epu32(MSG3, MSG0);
 
         // Rounds 16-63 (continue the pattern)
-        for (int i = 16; i < 64; i += 4) {
+        for (size_t i = 16; i < 64; i += 4) {
             __m128i* msgs[4] = {&MSG0, &MSG1, &MSG2, &MSG3};
-            int idx = (i / 4) % 4;
-            MSG = _mm_add_epi32(*msgs[idx], _mm_loadu_si128((const __m128i*)&K256[i]));
+            size_t idx = (i / 4) % 4;
+            MSG = _mm_add_epi32(*msgs[idx], _mm_loadu_si128(reinterpret_cast<const __m128i*>(&K256[i])));
             STATE1 = _mm_sha256rnds2_epu32(STATE1, STATE0, MSG);
             MSG = _mm_shuffle_epi32(MSG, 0x0E);
             STATE0 = _mm_sha256rnds2_epu32(STATE0, STATE1, MSG);
 
             if (i < 52) {
-                int next = (idx + 1) % 4;
-                int prev1 = (idx + 3) % 4;
+                size_t next = (idx + 1) % 4;
+                size_t prev1 = (idx + 3) % 4;
                 // prev2 is not needed in this algorithm variant
                 *msgs[idx] = _mm_sha256msg2_epu32(
                     _mm_add_epi32(TMP0, _mm_alignr_epi8(*msgs[next], *msgs[idx], 4)),
@@ -265,16 +265,18 @@ public:
         STATE0 = _mm_blend_epi16(TMP, STATE1, 0xF0);
         STATE1 = _mm_alignr_epi8(STATE1, TMP, 8);
 
-        _mm_storeu_si128((__m128i*)&state[0], STATE0);
-        _mm_storeu_si128((__m128i*)&state[4], STATE1);
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(&state[0]), STATE0);
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(&state[4]), STATE1);
     }
 #endif
 
     /**
      * @brief Auto-dispatch to best implementation
+     * @note SHA-NI path temporarily disabled pending state layout verification
      */
     static void transform(kctsb_sha256_ctx_t* ctx, const uint8_t block[64]) noexcept {
-        // Use scalar implementation (SHA-NI needs state layout fixes)
+        // SHA-NI implementation needs state layout verification
+        // Using scalar implementation for correctness
         transform_scalar(ctx, block);
     }
 };

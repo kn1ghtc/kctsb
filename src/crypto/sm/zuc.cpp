@@ -120,8 +120,8 @@ public:
 
     void init(const uint8_t key[16], const uint8_t iv[16]) {
         // Load key to LFSR
-        for (int i = 0; i < 16; i++) {
-            lfsr_s[i] = link_to_s(key[i], ZUC_D[i], iv[i]);
+        for (size_t i = 0; i < 16; i++) {
+            lfsr_s[i] = link_to_s(key[i], static_cast<uint16_t>(ZUC_D[i]), iv[i]);
         }
 
         // Initialize R1, R2
@@ -299,17 +299,17 @@ void kctsb_zuc_eea3(const uint8_t ck[16], uint32_t count, uint8_t bearer,
     iv[15] = iv[7];
 
     // Generate keystream length
-    int L = (length + 31) / 32;
+    size_t L = static_cast<size_t>((length + 31) / 32);
     uint32_t* k = static_cast<uint32_t*>(std::malloc(sizeof(uint32_t) * L));
     if (!k) return;
 
     // Initialize and generate keystream
     kctsb::internal::ZUCEngine engine;
     engine.init(ck, iv);
-    engine.generate_keystream(k, L);
+    engine.generate_keystream(k, static_cast<int>(L));
 
     // XOR to produce output
-    for (int i = 0; i < L; i++) {
+    for (size_t i = 0; i < L; i++) {
         obs[i] = ibs[i] ^ k[i];
     }
 
@@ -346,14 +346,14 @@ uint32_t kctsb_zuc_eia3(const uint8_t ik[16], uint32_t count, uint8_t bearer,
     iv[15] = iv[7];
 
     // Generate keystream length
-    int L = (length + 31) / 32 + 2;
+    size_t L = static_cast<size_t>((length + 31) / 32 + 2);
     uint32_t* k = static_cast<uint32_t*>(std::malloc(sizeof(uint32_t) * L));
     if (!k) return 0;
 
     // Initialize and generate keystream
     kctsb::internal::ZUCEngine engine;
     engine.init(ik, iv);
-    engine.generate_keystream(k, L);
+    engine.generate_keystream(k, static_cast<int>(L));
 
     // Compute MAC
     uint32_t T = 0;
@@ -367,7 +367,7 @@ uint32_t kctsb_zuc_eia3(const uint8_t ik[16], uint32_t count, uint8_t bearer,
     T ^= kctsb::internal::get_word(k, length);
 
     // MAC = T ^ k(32*(L-1))
-    uint32_t MAC = T ^ kctsb::internal::get_word(k, 32 * (L - 1));
+    uint32_t MAC = T ^ kctsb::internal::get_word(k, static_cast<uint32_t>(32 * (L - 1)));
 
     std::free(k);
     return MAC;
