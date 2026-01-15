@@ -254,12 +254,29 @@ public:
     }
 
     void update(const uint8_t* data, size_t len) noexcept {
+        uint8_t* state_bytes = reinterpret_cast<uint8_t*>(state_.state.data());
+        
         while (len > 0) {
             size_t to_absorb = std::min(len, rate_ - absorbed_);
-
-            // XOR data into state buffer area
+            
+            // Fast path: use 64-bit XOR when aligned
+            if (absorbed_ == 0 && to_absorb >= 8) {
+                size_t lanes = to_absorb / 8;
+                for (size_t i = 0; i < lanes; ++i) {
+                    uint64_t lane;
+                    std::memcpy(&lane, data + i * 8, 8);
+                    state_.state[i] ^= lane;
+                }
+                size_t consumed = lanes * 8;
+                absorbed_ = consumed;
+                data += consumed;
+                len -= consumed;
+                to_absorb -= consumed;
+            }
+            
+            // Handle remaining bytes
             for (size_t i = 0; i < to_absorb; ++i) {
-                reinterpret_cast<uint8_t*>(state_.state.data())[absorbed_ + i] ^= data[i];
+                state_bytes[absorbed_ + i] ^= data[i];
             }
 
             absorbed_ += to_absorb;

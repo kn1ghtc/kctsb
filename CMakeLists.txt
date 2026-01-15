@@ -209,10 +209,10 @@ endif()
 # ============================================================================
 
 if(NOT MSVC)
-    # x86_64: AES-NI, PCLMUL, SSE4.2, AVX2, SSSE3, SHA-NI
+    # x86_64: AES-NI, PCLMUL, SSE4.2, AVX2, BMI2, SSSE3, SHA-NI
     if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
-        add_compile_options(-maes -mpclmul -msse4.1 -msse4.2 -mssse3 -mavx2 -msha)
-        message(STATUS "Hardware acceleration: AES-NI, PCLMUL, SSE4.2, SSSE3, AVX2, SHA-NI")
+        add_compile_options(-maes -mpclmul -msse4.1 -msse4.2 -mssse3 -mavx2 -mbmi2 -msha)
+        message(STATUS "Hardware acceleration: AES-NI, PCLMUL, SSE4.2, SSSE3, AVX2, BMI2, SHA-NI")
     endif()
 
     # ARM64 NEON with crypto extensions

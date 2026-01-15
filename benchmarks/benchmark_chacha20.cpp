@@ -171,7 +171,7 @@ static void print_ratio(double kctsb_throughput, double openssl_throughput) {
     const char* symbol = ratio >= 1.0 ? "+" : "";
     double diff_percent = (ratio - 1.0) * 100.0;
     
-    std::cout << std::left << std::setw(25) << "  → Ratio"
+    std::cout << std::left << std::setw(25) << "  ==> Ratio"
               << std::setw(15) << ""
               << std::right << std::fixed << std::setprecision(2)
               << std::setw(10) << ratio << "x"
