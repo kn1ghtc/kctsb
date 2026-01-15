@@ -666,9 +666,13 @@ endif()
 
 if(KCTSB_INSTALL)
     include(GNUInstallDirs)
-    install(DIRECTORY ${KCTSB_INCLUDE_DIR}/kctsb
+
+    # Install ONLY the unified public API header (like OpenSSL's EVP)
+    # Internal headers remain in include/kctsb/ for project builds only
+    install(FILES ${KCTSB_INCLUDE_DIR}/kctsb/kctsb_api.h
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-        FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp")
+        RENAME kctsb_api.h)
+
     if(KCTSB_BUILD_STATIC)
         install(TARGETS kctsb_static ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
     endif()

@@ -271,10 +271,35 @@ cd build && ctest --output-on-failure
 
 ## 📖 使用示例
 
+### 统一公共 API 头文件 (v3.4.0+)
+
+从 v3.4.0 开始，kctsb 采用类似 OpenSSL EVP 的设计，**外部用户只需包含单个头文件**：
+
+```c
+// 外部用户只需要这一个头文件
+#include <kctsb_api.h>
+
+// 所有公共 API 都在这个头文件中定义：
+// - 哈希: kctsb_sha256(), kctsb_sha3_256(), kctsb_blake2b(), kctsb_sm3()
+// - AEAD: kctsb_aes_gcm_encrypt/decrypt(), kctsb_chacha20_poly1305_*(), kctsb_sm4_gcm_*()
+// - MAC: kctsb_hmac_sha256(), kctsb_cmac_aes()
+// - 安全: kctsb_secure_compare(), kctsb_secure_zero(), kctsb_random_bytes()
+```
+
+**Release 包内容**:
+```
+release/
+├── linux-x64/ 或 windows-x64/
+│   ├── bin/kctsb[.exe]     # CLI 工具
+│   ├── lib/libkctsb.a      # 静态库
+│   └── include/
+│       └── kctsb_api.h     # ★ 唯一公共头文件 ★
+```
+
 ### C API - AES-GCM 认证加密
 
 ```c
-#include <kctsb/kctsb.h>
+#include <kctsb_api.h>
 
 int main() {
     // 初始化库
@@ -302,7 +327,7 @@ int main() {
 ### C API - ChaCha20-Poly1305 AEAD
 
 ```c
-#include <kctsb/kctsb.h>
+#include <kctsb_api.h>
 
 int main() {
     uint8_t key[32] = { /* 256-bit key */ };
@@ -323,43 +348,59 @@ int main() {
 ### C++ API
 
 ```cpp
-#include <kctsb/kctsb.h>
+#include <kctsb_api.h>  // 包含可选的 C++ namespace kctsb
 
 int main() {
     using namespace kctsb;
 
+    // 使用 C++ 便捷函数
+    std::vector<uint8_t> data = {'H', 'e', 'l', 'l', 'o'};
+    
+    // SHA-256 哈希
+    auto hash = kctsb::sha256(data);
+    
     // 安全随机数
-    auto random_bytes = randomBytes(32);
-
-    // AES-GCM 加密
-    std::array<uint8_t, 16> key = {0x00, 0x01, /* ... */};
-    std::vector<uint8_t> plaintext = {'H', 'e', 'l', 'l', 'o'};
+    auto random = kctsb::random_bytes(32);
 
     // 使用安全比较
     std::vector<uint8_t> a = {1, 2, 3};
     std::vector<uint8_t> b = {1, 2, 3};
-    bool equal = kctsb_secure_compare(a.data(), b.data(), 3) == 1;
+    bool equal = kctsb_secure_compare(a.data(), b.data(), 3) == 0;
 
     return 0;
 }
 ```
 
-## � 跨平台 Release 构建
+## 📦 跨平台 Release 构建
 
 kctsb 支持 Windows, Linux, macOS 三平台的预编译分发：
 
 ```
 release/
-├── bin/                    # Windows/macOS CLI 工具
-│   ├── kctsb               # macOS x64
-│   └── kctsb_benchmark     # macOS x64 benchmark
-├── lib/                    # Windows/macOS 库文件
-├── include/                # 共享头文件
-├── linux-x64/              # Linux x64 专用
-│   ├── bin/kctsb-linux-x64 # Linux CLI (glibc 2.17+)
-│   ├── lib/libkctsb-linux-x64.a  # 静态库 (1.4 MB)
-│   └── include/            # Linux 专用头文件
+├── windows-x64/
+│   ├── bin/kctsb.exe           # CLI 工具
+│   ├── lib/libkctsb.a          # 静态库
+│   └── include/kctsb_api.h     # ★ 唯一公共头文件 ★
+├── linux-x64/
+│   ├── bin/kctsb               # Linux CLI
+│   ├── lib/libkctsb.a          # 静态库
+│   └── include/kctsb_api.h     # ★ 唯一公共头文件 ★
+├── macos-x64/
+│   ├── bin/kctsb               # macOS CLI
+│   ├── lib/libkctsb.a          # 静态库
+│   └── include/kctsb_api.h     # ★ 唯一公共头文件 ★
 └── RELEASE_INFO.txt
+```
+
+### 外部用户集成指南
+
+```c
+// 只需要包含这一个头文件
+#include <kctsb_api.h>
+
+// 编译时链接库
+// Linux/macOS: gcc -o app app.c -I<path>/include -L<path>/lib -lkctsb -lstdc++
+// Windows:     gcc -o app.exe app.c -I<path>\include -L<path>\lib -lkctsb -lstdc++ -lbcrypt
 ```
 
 ### 平台兼容性
@@ -454,12 +495,28 @@ kctsb v3.3.2 提供与 OpenSSL 的性能对比基准测试：
 
 ## 📚 API 文档
 
-详细 API 文档请参阅各头文件中的 Doxygen 注释：
+### 统一公共 API
 
-- [kctsb.h](include/kctsb/kctsb.h) - 主入口和版本信息
+从 v3.4.0 开始，所有公共 API 都集中在单个头文件中：
+
+- **[kctsb_api.h](include/kctsb/kctsb_api.h)** - 唯一公共头文件 (推荐)
+  - 包含所有算法的公共 API
+  - 平台检测和导出宏
+  - 错误码定义
+  - 可选的 C++ 命名空间
+
+### 内部头文件 (仅供库内部使用)
+
+以下头文件供库开发维护使用，外部用户无需关心：
+
 - [core/common.h](include/kctsb/core/common.h) - 错误码和通用定义
-- [crypto/aes.h](include/kctsb/crypto/aes.h) - AES 加密 API
-- [crypto/sha.h](include/kctsb/crypto/sha.h) - SHA 哈希 API
+- [crypto/aes.h](include/kctsb/crypto/aes.h) - AES 加密实现
+- [crypto/sha256.h](include/kctsb/crypto/sha256.h) - SHA-256 实现
+- [crypto/sha3.h](include/kctsb/crypto/sha3.h) - SHA3 实现
+- [crypto/blake2.h](include/kctsb/crypto/blake2.h) - BLAKE2 实现
+- [crypto/chacha20_poly1305.h](include/kctsb/crypto/chacha20_poly1305.h) - ChaCha20-Poly1305 实现
+- [gm/sm3.h](include/kctsb/gm/sm3.h) - SM3 国密哈希
+- [gm/sm4.h](include/kctsb/gm/sm4.h) - SM4 国密对称加密
 
 
 ## ⚠️ 安全声明

@@ -172,10 +172,10 @@ for so_file in "$PROJECT_DIR/build-linux/lib/libkctsb.so"*; do
     fi
 done
 
-# Copy headers
-if [ -d "$PROJECT_DIR/include" ]; then
-    cp -r "$PROJECT_DIR/include/kctsb" "$RELEASE_PLATFORM_DIR/include/"
-    echo "  ✓ Copied headers"
+# Copy headers - ONLY the unified public API header (like OpenSSL's EVP)
+if [ -f "$PROJECT_DIR/include/kctsb/kctsb_api.h" ]; then
+    cp "$PROJECT_DIR/include/kctsb/kctsb_api.h" "$RELEASE_PLATFORM_DIR/include/"
+    echo "  ✓ Copied kctsb_api.h (unified public API)"
 fi
 
 # Generate release info
@@ -197,8 +197,11 @@ glibc: $GLIBC_VERSION (minimum requirement)
 Contents:
 - bin/kctsb              : Command-line tool
 - lib/libkctsb.a         : Static library
-- lib/libkctsb.so*       : Shared library
-- include/kctsb/         : Header files
+- include/kctsb_api.h    : Unified public API header (like OpenSSL's EVP)
+
+Usage:
+    #include <kctsb_api.h>
+    gcc -o myapp myapp.c -L./lib -lkctsb -lgmp -lntl -lpthread
 
 Platform-specific binaries (with suffix):
 - *-$PLATFORM_SUFFIX.*
