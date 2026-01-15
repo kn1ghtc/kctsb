@@ -44,8 +44,8 @@ constexpr std::array<uint32_t, 8> SM3_IV = {
     0xA96F30BC, 0x163138AA, 0xE38DEE4D, 0xB0FB0E4E
 };
 
-// Helper macros
-#define SM3_ROTL32(x, n) (((x) << (n)) | ((x) >> (32 - (n))))
+// Helper macros - use (n) & 31 to avoid shift overflow warnings
+#define SM3_ROTL32(x, n) (((x) << ((n) & 31)) | ((x) >> ((32 - (n)) & 31)))
 
 // Boolean functions
 #define SM3_FF0(x, y, z) ((x) ^ (y) ^ (z))
@@ -78,13 +78,14 @@ static inline void store32_be(uint8_t* p, uint32_t v) noexcept {
 }
 
 /**
- * @brief SM3 compression class
+ * @brief SM3 compression class with loop unrolling optimization
  */
 class SM3Compressor {
 public:
     /**
      * @brief Expand message block to W and W'
      */
+    __attribute__((always_inline))
     static void expand_message(const uint32_t B[16], uint32_t W[68], uint32_t W1[64]) noexcept {
         // W[0..15] = B[0..15]
         for (int i = 0; i < 16; i++) {
@@ -104,14 +105,18 @@ public:
     }
 
     /**
-     * @brief SM3 compression function
+     * @brief SM3 compression function with full loop unrolling
+     * 
+     * Optimizations:
+     * - Separate rounds 0-15 (FF0/GG0) and 16-63 (FF1/GG1)
+     * - Eliminates branch prediction overhead from j<16 tests
+     * - Precomputed T constants for each round
      */
     static void compress(kctsb_sm3_ctx_t* ctx, const uint8_t block[64]) noexcept {
         uint32_t B[16];
         uint32_t W[68], W1[64];
-        uint32_t A, B_v, C, D, E, F, G, H;
+        uint32_t A, Bv, C, D, E, F, G, H;
         uint32_t SS1, SS2, TT1, TT2;
-        uint32_t T;
 
         // Load message block as big-endian words
         for (int i = 0; i < 16; i++) {
@@ -122,55 +127,75 @@ public:
         expand_message(B, W, W1);
 
         // Initialize working variables
-        A = ctx->state[0]; B_v = ctx->state[1];
+        A = ctx->state[0]; Bv = ctx->state[1];
         C = ctx->state[2]; D = ctx->state[3];
         E = ctx->state[4]; F = ctx->state[5];
         G = ctx->state[6]; H = ctx->state[7];
 
-        // 64 rounds
-        for (int j = 0; j < 64; j++) {
-            // Calculate T_j
-            if (j < 16) {
-                T = SM3_T1;
-            } else {
-                T = SM3_T2;
-            }
-            T = SM3_ROTL32(T, j % 32);
+        // Macro for rounds 0-15 (uses FF0, GG0, T1)
+        #define SM3_ROUND_0_15(j) do { \
+            uint32_t T = SM3_ROTL32(SM3_T1, (j)); \
+            SS1 = SM3_ROTL32((SM3_ROTL32(A, 12) + E + T), 7); \
+            SS2 = SS1 ^ SM3_ROTL32(A, 12); \
+            TT1 = SM3_FF0(A, Bv, C) + D + SS2 + W1[j]; \
+            TT2 = SM3_GG0(E, F, G) + H + SS1 + W[j]; \
+            D = C; C = SM3_ROTL32(Bv, 9); Bv = A; A = TT1; \
+            H = G; G = SM3_ROTL32(F, 19); F = E; E = SM3_P0(TT2); \
+        } while(0)
 
-            // SS1 = ((A <<< 12) + E + (T_j <<< j)) <<< 7
-            SS1 = SM3_ROTL32((SM3_ROTL32(A, 12) + E + T), 7);
+        // Macro for rounds 16-63 (uses FF1, GG1, T2)
+        #define SM3_ROUND_16_63(j) do { \
+            uint32_t T = SM3_ROTL32(SM3_T2, ((j) % 32)); \
+            SS1 = SM3_ROTL32((SM3_ROTL32(A, 12) + E + T), 7); \
+            SS2 = SS1 ^ SM3_ROTL32(A, 12); \
+            TT1 = SM3_FF1(A, Bv, C) + D + SS2 + W1[j]; \
+            TT2 = SM3_GG1(E, F, G) + H + SS1 + W[j]; \
+            D = C; C = SM3_ROTL32(Bv, 9); Bv = A; A = TT1; \
+            H = G; G = SM3_ROTL32(F, 19); F = E; E = SM3_P0(TT2); \
+        } while(0)
 
-            // SS2 = SS1 ^ (A <<< 12)
-            SS2 = SS1 ^ SM3_ROTL32(A, 12);
+        // Rounds 0-15: FF0/GG0 path (no branches)
+        SM3_ROUND_0_15(0);  SM3_ROUND_0_15(1);
+        SM3_ROUND_0_15(2);  SM3_ROUND_0_15(3);
+        SM3_ROUND_0_15(4);  SM3_ROUND_0_15(5);
+        SM3_ROUND_0_15(6);  SM3_ROUND_0_15(7);
+        SM3_ROUND_0_15(8);  SM3_ROUND_0_15(9);
+        SM3_ROUND_0_15(10); SM3_ROUND_0_15(11);
+        SM3_ROUND_0_15(12); SM3_ROUND_0_15(13);
+        SM3_ROUND_0_15(14); SM3_ROUND_0_15(15);
 
-            // TT1 = FF_j(A, B, C) + D + SS2 + W'_j
-            if (j < 16) {
-                TT1 = SM3_FF0(A, B_v, C) + D + SS2 + W1[j];
-            } else {
-                TT1 = SM3_FF1(A, B_v, C) + D + SS2 + W1[j];
-            }
+        // Rounds 16-63: FF1/GG1 path (no branches)
+        SM3_ROUND_16_63(16); SM3_ROUND_16_63(17);
+        SM3_ROUND_16_63(18); SM3_ROUND_16_63(19);
+        SM3_ROUND_16_63(20); SM3_ROUND_16_63(21);
+        SM3_ROUND_16_63(22); SM3_ROUND_16_63(23);
+        SM3_ROUND_16_63(24); SM3_ROUND_16_63(25);
+        SM3_ROUND_16_63(26); SM3_ROUND_16_63(27);
+        SM3_ROUND_16_63(28); SM3_ROUND_16_63(29);
+        SM3_ROUND_16_63(30); SM3_ROUND_16_63(31);
+        SM3_ROUND_16_63(32); SM3_ROUND_16_63(33);
+        SM3_ROUND_16_63(34); SM3_ROUND_16_63(35);
+        SM3_ROUND_16_63(36); SM3_ROUND_16_63(37);
+        SM3_ROUND_16_63(38); SM3_ROUND_16_63(39);
+        SM3_ROUND_16_63(40); SM3_ROUND_16_63(41);
+        SM3_ROUND_16_63(42); SM3_ROUND_16_63(43);
+        SM3_ROUND_16_63(44); SM3_ROUND_16_63(45);
+        SM3_ROUND_16_63(46); SM3_ROUND_16_63(47);
+        SM3_ROUND_16_63(48); SM3_ROUND_16_63(49);
+        SM3_ROUND_16_63(50); SM3_ROUND_16_63(51);
+        SM3_ROUND_16_63(52); SM3_ROUND_16_63(53);
+        SM3_ROUND_16_63(54); SM3_ROUND_16_63(55);
+        SM3_ROUND_16_63(56); SM3_ROUND_16_63(57);
+        SM3_ROUND_16_63(58); SM3_ROUND_16_63(59);
+        SM3_ROUND_16_63(60); SM3_ROUND_16_63(61);
+        SM3_ROUND_16_63(62); SM3_ROUND_16_63(63);
 
-            // TT2 = GG_j(E, F, G) + H + SS1 + W_j
-            if (j < 16) {
-                TT2 = SM3_GG0(E, F, G) + H + SS1 + W[j];
-            } else {
-                TT2 = SM3_GG1(E, F, G) + H + SS1 + W[j];
-            }
-
-            // Update working variables
-            D = C;
-            C = SM3_ROTL32(B_v, 9);
-            B_v = A;
-            A = TT1;
-            H = G;
-            G = SM3_ROTL32(F, 19);
-            F = E;
-            E = SM3_P0(TT2);
-        }
+        #undef SM3_ROUND_0_15
+        #undef SM3_ROUND_16_63
 
         // Update state
         ctx->state[0] ^= A;
-        ctx->state[1] ^= B_v;
+        ctx->state[1] ^= Bv;
         ctx->state[2] ^= C;
         ctx->state[3] ^= D;
         ctx->state[4] ^= E;

@@ -100,6 +100,11 @@ static inline uint64_t rotl64(uint64_t x, int n) noexcept {
 
 /**
  * @brief Keccak-f[1600] state transformation class
+ * 
+ * Optimized implementation with:
+ * - In-place theta/chi computation
+ * - Lane-based rho_pi (single-pass)
+ * - Inlined round functions
  */
 class KeccakState {
 public:
@@ -113,15 +118,107 @@ public:
     }
 
     /**
-     * @brief Apply Keccak-f[1600] permutation
+     * @brief Apply Keccak-f[1600] permutation (fully unrolled 24 rounds)
+     * 
+     * Uses in-place computation to minimize temporary storage.
+     * All 24 rounds fully unrolled for maximum performance.
      */
     void permute() noexcept {
-        for (size_t round = 0; round < 24; ++round) {
-            theta();
-            rho_pi();
-            chi();
-            iota(round);
-        }
+        uint64_t* A = state.data();
+        
+        // Temporary variables for theta and chi
+        uint64_t C0, C1, C2, C3, C4, D0, D1, D2, D3, D4;
+        uint64_t B0, B1, B2, B3, B4, B5, B6, B7, B8, B9;
+        uint64_t B10, B11, B12, B13, B14, B15, B16, B17, B18, B19;
+        uint64_t B20, B21, B22, B23, B24;
+        
+        // Macro for one complete round
+        #define KECCAK_ROUND(rc) do { \
+            C0 = A[0] ^ A[5] ^ A[10] ^ A[15] ^ A[20]; \
+            C1 = A[1] ^ A[6] ^ A[11] ^ A[16] ^ A[21]; \
+            C2 = A[2] ^ A[7] ^ A[12] ^ A[17] ^ A[22]; \
+            C3 = A[3] ^ A[8] ^ A[13] ^ A[18] ^ A[23]; \
+            C4 = A[4] ^ A[9] ^ A[14] ^ A[19] ^ A[24]; \
+            D0 = C4 ^ rotl64(C1, 1); \
+            D1 = C0 ^ rotl64(C2, 1); \
+            D2 = C1 ^ rotl64(C3, 1); \
+            D3 = C2 ^ rotl64(C4, 1); \
+            D4 = C3 ^ rotl64(C0, 1); \
+            A[0] ^= D0;  A[1] ^= D1;  A[2] ^= D2;  A[3] ^= D3;  A[4] ^= D4; \
+            A[5] ^= D0;  A[6] ^= D1;  A[7] ^= D2;  A[8] ^= D3;  A[9] ^= D4; \
+            A[10] ^= D0; A[11] ^= D1; A[12] ^= D2; A[13] ^= D3; A[14] ^= D4; \
+            A[15] ^= D0; A[16] ^= D1; A[17] ^= D2; A[18] ^= D3; A[19] ^= D4; \
+            A[20] ^= D0; A[21] ^= D1; A[22] ^= D2; A[23] ^= D3; A[24] ^= D4; \
+            B0  = A[0]; \
+            B1  = rotl64(A[6],  44); \
+            B2  = rotl64(A[12], 43); \
+            B3  = rotl64(A[18], 21); \
+            B4  = rotl64(A[24], 14); \
+            B5  = rotl64(A[3],  28); \
+            B6  = rotl64(A[9],  20); \
+            B7  = rotl64(A[10], 3); \
+            B8  = rotl64(A[16], 45); \
+            B9  = rotl64(A[22], 61); \
+            B10 = rotl64(A[1],  1); \
+            B11 = rotl64(A[7],  6); \
+            B12 = rotl64(A[13], 25); \
+            B13 = rotl64(A[19], 8); \
+            B14 = rotl64(A[20], 18); \
+            B15 = rotl64(A[4],  27); \
+            B16 = rotl64(A[5],  36); \
+            B17 = rotl64(A[11], 10); \
+            B18 = rotl64(A[17], 15); \
+            B19 = rotl64(A[23], 56); \
+            B20 = rotl64(A[2],  62); \
+            B21 = rotl64(A[8],  55); \
+            B22 = rotl64(A[14], 39); \
+            B23 = rotl64(A[15], 41); \
+            B24 = rotl64(A[21], 2); \
+            A[0]  = B0  ^ ((~B1)  & B2);  A[1]  = B1  ^ ((~B2)  & B3); \
+            A[2]  = B2  ^ ((~B3)  & B4);  A[3]  = B3  ^ ((~B4)  & B0); \
+            A[4]  = B4  ^ ((~B0)  & B1); \
+            A[5]  = B5  ^ ((~B6)  & B7);  A[6]  = B6  ^ ((~B7)  & B8); \
+            A[7]  = B7  ^ ((~B8)  & B9);  A[8]  = B8  ^ ((~B9)  & B5); \
+            A[9]  = B9  ^ ((~B5)  & B6); \
+            A[10] = B10 ^ ((~B11) & B12); A[11] = B11 ^ ((~B12) & B13); \
+            A[12] = B12 ^ ((~B13) & B14); A[13] = B13 ^ ((~B14) & B10); \
+            A[14] = B14 ^ ((~B10) & B11); \
+            A[15] = B15 ^ ((~B16) & B17); A[16] = B16 ^ ((~B17) & B18); \
+            A[17] = B17 ^ ((~B18) & B19); A[18] = B18 ^ ((~B19) & B15); \
+            A[19] = B19 ^ ((~B15) & B16); \
+            A[20] = B20 ^ ((~B21) & B22); A[21] = B21 ^ ((~B22) & B23); \
+            A[22] = B22 ^ ((~B23) & B24); A[23] = B23 ^ ((~B24) & B20); \
+            A[24] = B24 ^ ((~B20) & B21); \
+            A[0] ^= (rc); \
+        } while(0)
+
+        // Fully unrolled 24 rounds with inline round constants
+        KECCAK_ROUND(0x0000000000000001ULL);  // Round 0
+        KECCAK_ROUND(0x0000000000008082ULL);  // Round 1
+        KECCAK_ROUND(0x800000000000808aULL);  // Round 2
+        KECCAK_ROUND(0x8000000080008000ULL);  // Round 3
+        KECCAK_ROUND(0x000000000000808bULL);  // Round 4
+        KECCAK_ROUND(0x0000000080000001ULL);  // Round 5
+        KECCAK_ROUND(0x8000000080008081ULL);  // Round 6
+        KECCAK_ROUND(0x8000000000008009ULL);  // Round 7
+        KECCAK_ROUND(0x000000000000008aULL);  // Round 8
+        KECCAK_ROUND(0x0000000000000088ULL);  // Round 9
+        KECCAK_ROUND(0x0000000080008009ULL);  // Round 10
+        KECCAK_ROUND(0x000000008000000aULL);  // Round 11
+        KECCAK_ROUND(0x000000008000808bULL);  // Round 12
+        KECCAK_ROUND(0x800000000000008bULL);  // Round 13
+        KECCAK_ROUND(0x8000000000008089ULL);  // Round 14
+        KECCAK_ROUND(0x8000000000008003ULL);  // Round 15
+        KECCAK_ROUND(0x8000000000008002ULL);  // Round 16
+        KECCAK_ROUND(0x8000000000000080ULL);  // Round 17
+        KECCAK_ROUND(0x000000000000800aULL);  // Round 18
+        KECCAK_ROUND(0x800000008000000aULL);  // Round 19
+        KECCAK_ROUND(0x8000000080008081ULL);  // Round 20
+        KECCAK_ROUND(0x8000000000008080ULL);  // Round 21
+        KECCAK_ROUND(0x0000000080000001ULL);  // Round 22
+        KECCAK_ROUND(0x8000000080008008ULL);  // Round 23
+
+        #undef KECCAK_ROUND
     }
 
     /**
@@ -140,68 +237,6 @@ public:
      */
     void extract(uint8_t* out, size_t len) const noexcept {
         std::memcpy(out, state.data(), len);
-    }
-
-private:
-    /**
-     * @brief θ step - column parity mixing
-     */
-    __attribute__((always_inline))
-    void theta() noexcept {
-        std::array<uint64_t, 5> C{};
-
-        for (size_t x = 0; x < 5; ++x) {
-            C[x] = state[x] ^ state[x + 5] ^ state[x + 10] ^ state[x + 15] ^ state[x + 20];
-        }
-
-        for (size_t x = 0; x < 5; ++x) {
-            uint64_t D = C[(x + 4) % 5] ^ rotl64(C[(x + 1) % 5], 1);
-            for (size_t y = 0; y < 5; ++y) {
-                state[x + 5 * y] ^= D;
-            }
-        }
-    }
-
-    /**
-     * @brief ρ and π steps - rotation and permutation
-     */
-    __attribute__((always_inline))
-    void rho_pi() noexcept {
-        std::array<uint64_t, 25> temp{};
-
-        for (size_t x = 0; x < 5; ++x) {
-            for (size_t y = 0; y < 5; ++y) {
-                size_t new_x = y;
-                size_t new_y = (2 * x + 3 * y) % 5;
-                temp[new_x + 5 * new_y] = rotl64(state[x + 5 * y], KECCAK_RHO[x + 5 * y]);
-            }
-        }
-
-        state = temp;
-    }
-
-    /**
-     * @brief χ step - nonlinear function
-     */
-    __attribute__((always_inline))
-    void chi() noexcept {
-        for (size_t y = 0; y < 5; ++y) {
-            std::array<uint64_t, 5> row;
-            for (size_t x = 0; x < 5; ++x) {
-                row[x] = state[x + 5 * y];
-            }
-            for (size_t x = 0; x < 5; ++x) {
-                state[x + 5 * y] = row[x] ^ ((~row[(x + 1) % 5]) & row[(x + 2) % 5]);
-            }
-        }
-    }
-
-    /**
-     * @brief ι step - XOR round constant
-     */
-    __attribute__((always_inline))
-    void iota(size_t round) noexcept {
-        state[0] ^= KECCAK_RC[round];
     }
 };
 

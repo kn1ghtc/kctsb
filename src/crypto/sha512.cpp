@@ -103,24 +103,25 @@ static inline void store64_be(uint8_t* p, uint64_t v) noexcept {
 }
 
 /**
- * @brief SHA-512 compression class
+ * @brief SHA-512 compression class with optimizations
  */
 class SHA512Compressor {
 public:
     /**
-     * @brief SHA-512 transform (one 128-byte block)
+     * @brief Optimized SHA-512 transform with loop unrolling
+     * 
+     * Optimizations:
+     * - 8-way round unrolling for better ILP
+     * - Inline message schedule computation
+     * - Register-based working variables
      */
     static void transform(kctsb_sha512_ctx_t* ctx, const uint8_t block[128]) noexcept {
         uint64_t W[80];
         uint64_t a, b, c, d, e, f, g, h;
-        uint64_t t1, t2;
 
-        // Prepare message schedule
+        // Load message schedule (first 16 words)
         for (size_t i = 0; i < 16; i++) {
             W[i] = load64_be(block + i * 8);
-        }
-        for (size_t i = 16; i < 80; i++) {
-            W[i] = SIG1(W[i - 2]) + W[i - 7] + SIG0(W[i - 15]) + W[i - 16];
         }
 
         // Initialize working variables
@@ -129,15 +130,102 @@ public:
         e = ctx->state[4]; f = ctx->state[5];
         g = ctx->state[6]; h = ctx->state[7];
 
-        // Main compression loop
-        for (size_t i = 0; i < 80; i++) {
-            t1 = h + EP1(e) + CH(e, f, g) + K512[i] + W[i];
-            t2 = EP0(a) + MAJ(a, b, c);
-            h = g; g = f; f = e;
-            e = d + t1;
-            d = c; c = b; b = a;
-            a = t1 + t2;
-        }
+        // Macro for single round with inline message expansion
+        #define SHA512_ROUND(i, a, b, c, d, e, f, g, h) do { \
+            if ((i) >= 16) { \
+                W[(i)] = SIG1(W[(i) - 2]) + W[(i) - 7] + SIG0(W[(i) - 15]) + W[(i) - 16]; \
+            } \
+            uint64_t t1 = h + EP1(e) + CH(e, f, g) + K512[(i)] + W[(i)]; \
+            uint64_t t2 = EP0(a) + MAJ(a, b, c); \
+            h = g; g = f; f = e; e = d + t1; \
+            d = c; c = b; b = a; a = t1 + t2; \
+        } while(0)
+
+        // Unrolled rounds 0-15 (no message expansion needed)
+        SHA512_ROUND(0, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(1, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(2, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(3, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(4, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(5, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(6, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(7, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(8, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(9, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(10, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(11, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(12, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(13, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(14, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(15, a, b, c, d, e, f, g, h);
+
+        // Unrolled rounds 16-79 (with message expansion)
+        SHA512_ROUND(16, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(17, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(18, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(19, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(20, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(21, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(22, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(23, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(24, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(25, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(26, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(27, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(28, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(29, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(30, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(31, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(32, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(33, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(34, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(35, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(36, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(37, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(38, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(39, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(40, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(41, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(42, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(43, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(44, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(45, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(46, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(47, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(48, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(49, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(50, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(51, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(52, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(53, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(54, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(55, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(56, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(57, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(58, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(59, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(60, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(61, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(62, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(63, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(64, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(65, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(66, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(67, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(68, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(69, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(70, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(71, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(72, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(73, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(74, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(75, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(76, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(77, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(78, a, b, c, d, e, f, g, h);
+        SHA512_ROUND(79, a, b, c, d, e, f, g, h);
+
+        #undef SHA512_ROUND
 
         // Add compressed chunk to current hash value
         ctx->state[0] += a; ctx->state[1] += b;
