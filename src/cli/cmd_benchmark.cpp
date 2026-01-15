@@ -35,6 +35,7 @@ void print_benchmark_help() {
     std::cout << "  Iterations: 100 (warmup: 10)\n\n";
 }
 
+#ifdef KCTSB_BENCHMARK_HAS_OPENSSL
 /**
  * @brief Find benchmark executable path relative to CLI
  */
@@ -59,6 +60,7 @@ static std::string find_benchmark_executable(const char* argv0) {
 
     return "";
 }
+#endif
 
 /**
  * @brief Benchmark subcommand handler

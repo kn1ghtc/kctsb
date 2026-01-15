@@ -34,7 +34,7 @@ const char* kctsb_platform(void) {
     return KCTSB_PLATFORM_NAME;
 }
 
-int kctsb_init(void) {
+kctsb_error_t kctsb_init(void) {
     if (g_kctsb_initialized) {
         return KCTSB_SUCCESS;
     }

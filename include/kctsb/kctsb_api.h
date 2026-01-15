@@ -287,6 +287,18 @@ typedef struct {
  * ============================================================================ */
 
 /**
+ * @brief Get library version string
+ * @return Version string (e.g., "3.4.0")
+ */
+KCTSB_API const char* kctsb_version(void);
+
+/**
+ * @brief Get platform name string
+ * @return Platform name (e.g., "Windows", "Linux", "macOS")
+ */
+KCTSB_API const char* kctsb_platform(void);
+
+/**
  * @brief Initialize kctsb library
  * @return KCTSB_SUCCESS on success
  */

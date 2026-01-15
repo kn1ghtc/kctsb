@@ -425,27 +425,31 @@ kctsb_error_t kctsb_shake128(const uint8_t* data, size_t len,
     std::memset(&ctx, 0, sizeof(ctx));
     ctx.rate = 168;            // (1600 - 256) / 8
     ctx.suffix = 0x1F;         // SHAKE domain separator
+    ctx.absorbed = 0;
 
-    // Absorb
+    // Absorb all input - accumulate until we have a full block
+    uint8_t* state_bytes = reinterpret_cast<uint8_t*>(ctx.state);
+    auto* keccak_state = reinterpret_cast<kctsb::internal::KeccakState*>(&ctx.state);
+
     while (len > 0) {
-        size_t to_absorb = (len < ctx.rate) ? len : ctx.rate;
-        uint8_t* state_bytes = reinterpret_cast<uint8_t*>(ctx.state);
+        size_t to_absorb = (len < (ctx.rate - ctx.absorbed)) ? len : (ctx.rate - ctx.absorbed);
         for (size_t i = 0; i < to_absorb; ++i) {
-            state_bytes[i] ^= data[i];
+            state_bytes[ctx.absorbed + i] ^= data[i];
         }
+        ctx.absorbed += to_absorb;
         data += to_absorb;
         len -= to_absorb;
 
-        auto* keccak_state = reinterpret_cast<kctsb::internal::KeccakState*>(&ctx.state);
-        keccak_state->permute();
+        if (ctx.absorbed == ctx.rate) {
+            keccak_state->permute();
+            ctx.absorbed = 0;
+        }
     }
 
-    // Apply padding
-    uint8_t* state_bytes = reinterpret_cast<uint8_t*>(ctx.state);
-    state_bytes[0] ^= ctx.suffix;
+    // Padding - apply at current absorbed position
+    state_bytes[ctx.absorbed] ^= ctx.suffix;
     state_bytes[ctx.rate - 1] ^= 0x80;
 
-    auto* keccak_state = reinterpret_cast<kctsb::internal::KeccakState*>(&ctx.state);
     keccak_state->permute();
 
     // Squeeze
@@ -473,27 +477,31 @@ kctsb_error_t kctsb_shake256(const uint8_t* data, size_t len,
     std::memset(&ctx, 0, sizeof(ctx));
     ctx.rate = 136;            // (1600 - 512) / 8
     ctx.suffix = 0x1F;         // SHAKE domain separator
+    ctx.absorbed = 0;
 
-    // Absorb all input
+    // Absorb all input - accumulate until we have a full block
+    uint8_t* state_bytes = reinterpret_cast<uint8_t*>(ctx.state);
+    auto* keccak_state = reinterpret_cast<kctsb::internal::KeccakState*>(&ctx.state);
+
     while (len > 0) {
-        size_t to_absorb = (len < ctx.rate) ? len : ctx.rate;
-        uint8_t* state_bytes = reinterpret_cast<uint8_t*>(ctx.state);
+        size_t to_absorb = (len < (ctx.rate - ctx.absorbed)) ? len : (ctx.rate - ctx.absorbed);
         for (size_t i = 0; i < to_absorb; ++i) {
-            state_bytes[i] ^= data[i];
+            state_bytes[ctx.absorbed + i] ^= data[i];
         }
+        ctx.absorbed += to_absorb;
         data += to_absorb;
         len -= to_absorb;
 
-        auto* keccak_state = reinterpret_cast<kctsb::internal::KeccakState*>(&ctx.state);
-        keccak_state->permute();
+        if (ctx.absorbed == ctx.rate) {
+            keccak_state->permute();
+            ctx.absorbed = 0;
+        }
     }
 
-    // Padding
-    uint8_t* state_bytes = reinterpret_cast<uint8_t*>(ctx.state);
-    state_bytes[0] ^= ctx.suffix;
+    // Padding - apply at current absorbed position
+    state_bytes[ctx.absorbed] ^= ctx.suffix;
     state_bytes[ctx.rate - 1] ^= 0x80;
 
-    auto* keccak_state = reinterpret_cast<kctsb::internal::KeccakState*>(&ctx.state);
     keccak_state->permute();
 
     // Squeeze

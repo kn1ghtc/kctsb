@@ -78,9 +78,9 @@ KCTSB_API const char* kctsb_platform(void);
 
 /**
  * @brief Initialize the kctsb library
- * @return 0 on success, non-zero on failure
+ * @return KCTSB_SUCCESS on success, error code on failure
  */
-KCTSB_API int kctsb_init(void);
+KCTSB_API kctsb_error_t kctsb_init(void);
 
 /**
  * @brief Cleanup and free resources used by kctsb

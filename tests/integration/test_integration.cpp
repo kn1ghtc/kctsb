@@ -11,7 +11,7 @@ TEST(IntegrationTest, LibraryInitialization) {
     
     const char* version = kctsb_version();
     EXPECT_NE(version, nullptr);
-    EXPECT_STREQ(version, "3.3.0");
+    EXPECT_STREQ(version, "3.4.0");
     
     const char* platform = kctsb_platform();
     EXPECT_NE(platform, nullptr);

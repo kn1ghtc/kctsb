@@ -89,21 +89,20 @@ kctsb_add_test(test_sha unit/crypto/test_sha.cpp "unit;crypto;hash")
 # v3.4.0: test_sm temporarily disabled - SM3/SM4 implementation timeout issue
 # kctsb_add_test(test_sm unit/crypto/test_sm.cpp "unit;crypto;sm")
 
-# Math tests (includes NTL polynomial tests)
-add_executable(test_math unit/math/test_math.cpp)
-target_link_libraries(test_math PRIVATE
-    kctsb_static
-    GTest::gtest_main
-)
-target_include_directories(test_math PRIVATE
-    ${CMAKE_SOURCE_DIR}/include
-    ${CMAKE_SOURCE_DIR}/src
-)
-if(WIN32)
-    target_link_libraries(test_math PRIVATE bcrypt)
-endif()
-# NTL tests require NTL library
+# Math tests (requires NTL for polynomial operations)
 if(KCTSB_ENABLE_NTL AND NTL_FOUND)
+    add_executable(test_math unit/math/test_math.cpp)
+    target_link_libraries(test_math PRIVATE
+        kctsb_static
+        GTest::gtest_main
+    )
+    target_include_directories(test_math PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/src
+    )
+    if(WIN32)
+        target_link_libraries(test_math PRIVATE bcrypt)
+    endif()
     target_compile_definitions(test_math PRIVATE KCTSB_HAS_NTL)
     target_link_libraries(test_math PRIVATE ${NTL_LIBRARY})
     if(GMP_FOUND)
@@ -112,8 +111,10 @@ if(KCTSB_ENABLE_NTL AND NTL_FOUND)
     if(GF2X_FOUND)
         target_link_libraries(test_math PRIVATE ${GF2X_LIBRARY})
     endif()
+    gtest_discover_tests(test_math PROPERTIES LABELS "unit;math")
+else()
+    message(STATUS "  Skipping test_math: NTL not enabled")
 endif()
-gtest_discover_tests(test_math PROPERTIES LABELS "unit;math")
 
 # ============================================================================
 # INTEGRATION TESTS - Cross-module interaction tests
@@ -156,7 +157,11 @@ kctsb_add_test(test_security_boundaries unit/security/test_security_boundaries.c
 # ============================================================================
 message(STATUS "")
 message(STATUS "Test Configuration Summary:")
-message(STATUS "  Unit Tests:        test_aes, test_hash, test_sha, test_sm, test_math, test_security_boundaries")
+if(KCTSB_ENABLE_NTL AND NTL_FOUND)
+    message(STATUS "  Unit Tests:        test_aes, test_hash, test_sha, test_math, test_security_boundaries")
+else()
+    message(STATUS "  Unit Tests:        test_aes, test_hash, test_sha, test_security_boundaries (NTL disabled)")
+endif()
 message(STATUS "  Integration Tests: test_integration")
 message(STATUS "  Performance Tests: test_benchmark")
 message(STATUS "")

@@ -343,8 +343,10 @@ static void key_expansion(const uint8_t* key, uint32_t* round_keys, int key_len,
 
 // ============================================================================
 // T-Table Key Expansion (little-endian format for T-table operations)
+// Reserved for future non-timing-critical batch operations
 // ============================================================================
 
+__attribute__((unused))
 static void ttable_key_expansion(const uint8_t* key, uint32_t* round_keys, int key_len) {
     int nk = key_len / 4;
     int nr = (key_len == 16) ? 10 : ((key_len == 24) ? 12 : 14);
@@ -436,8 +438,10 @@ static void add_round_key(uint8_t state[16], const uint32_t* round_key) {
 
 // ============================================================================
 // T-Table Block Encryption (fast but cache-timing vulnerable)
+// Reserved for future non-timing-critical batch operations
 // ============================================================================
 
+__attribute__((unused))
 static void ttable_encrypt_block(const uint8_t in[16], uint8_t out[16],
                                   const uint32_t* rk, int rounds) {
     uint32_t s0 = ((uint32_t)in[3] << 24) | ((uint32_t)in[2] << 16) |
@@ -642,11 +646,13 @@ kctsb_error_t kctsb_aes_decrypt_block(const kctsb_aes_ctx_t* ctx,
     bool uses_aesni_format = (ctx->rounds & AESNI_FORMAT_FLAG) != 0;
     if (uses_aesni_format) {
         // AES-NI format stores key as raw bytes - need to regenerate software keys
+        // for decryption since we don't have hardware decrypt key schedule
         uint32_t sw_round_keys[60];
-        uint8_t orig_key[16];
-        memcpy(orig_key, ctx->round_keys, 16);
-        key_expansion(orig_key, sw_round_keys, 16, 10);
-        kctsb_secure_zero(orig_key, 16);
+        int key_len = (ctx->key_bits == 128) ? 16 : ((ctx->key_bits == 192) ? 24 : 32);
+        uint8_t orig_key[32];
+        memcpy(orig_key, ctx->round_keys, key_len);
+        key_expansion(orig_key, sw_round_keys, key_len, actual_rounds);
+        kctsb_secure_zero(orig_key, sizeof(orig_key));
         rk = sw_round_keys;
 
         add_round_key(state, &rk[actual_rounds * 4]);

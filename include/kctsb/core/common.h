@@ -21,22 +21,31 @@ extern "C" {
 // Platform detection
 // ============================================================================
 #if defined(_WIN32) || defined(_WIN64)
+    #ifndef KCTSB_PLATFORM_WINDOWS
     #define KCTSB_PLATFORM_WINDOWS 1
+    #endif
     #define KCTSB_PLATFORM_NAME "Windows"
 #elif defined(__linux__)
+    #ifndef KCTSB_PLATFORM_LINUX
     #define KCTSB_PLATFORM_LINUX 1
+    #endif
     #define KCTSB_PLATFORM_NAME "Linux"
 #elif defined(__APPLE__)
+    #ifndef KCTSB_PLATFORM_MACOS
     #define KCTSB_PLATFORM_MACOS 1
+    #endif
     #define KCTSB_PLATFORM_NAME "macOS"
 #else
+    #ifndef KCTSB_PLATFORM_UNKNOWN
     #define KCTSB_PLATFORM_UNKNOWN 1
+    #endif
     #define KCTSB_PLATFORM_NAME "Unknown"
 #endif
 
 // ============================================================================
 // Export/Import macros for shared library
 // ============================================================================
+#ifndef KCTSB_API
 #ifdef KCTSB_PLATFORM_WINDOWS
     #ifdef KCTSB_SHARED_LIBRARY
         #ifdef KCTSB_BUILDING
@@ -54,10 +63,12 @@ extern "C" {
         #define KCTSB_API
     #endif
 #endif
+#endif
 
 // ============================================================================
-// Error codes
+// Error codes (skip if kctsb.h already included)
 // ============================================================================
+#ifndef KCTSB_API_H
 typedef enum {
     KCTSB_SUCCESS = 0,
     KCTSB_ERROR_INVALID_PARAM = -1,
@@ -74,6 +85,7 @@ typedef enum {
     KCTSB_ERROR_RANDOM_FAILED = -12,    // CSPRNG failure
     KCTSB_ERROR_SECURITY_CHECK = -13    // Security check failed
 } kctsb_error_t;
+#endif
 
 
 // Block cipher modes - v3.0 only supports secure modes

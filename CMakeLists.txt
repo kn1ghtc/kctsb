@@ -157,9 +157,11 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release")
             -funroll-loops
             -fomit-frame-pointer
             -fPIC
-            -fno-rtti
             -fstack-protector-strong
         )
+
+        # C++ only flags (RTTI disabled for smaller binary)
+        add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>)
 
         # LTO flags
         if(KCTSB_LTO_SUPPORTED)

@@ -249,7 +249,7 @@ public:
             if (i < 52) {
                 int next = (idx + 1) % 4;
                 int prev1 = (idx + 3) % 4;
-                int prev2 = (idx + 2) % 4;
+                // prev2 is not needed in this algorithm variant
                 *msgs[idx] = _mm_sha256msg2_epu32(
                     _mm_add_epi32(TMP0, _mm_alignr_epi8(*msgs[next], *msgs[idx], 4)),
                     *msgs[prev1]);

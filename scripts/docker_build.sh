@@ -124,7 +124,7 @@ if [ "$ENTER_SHELL" = true ]; then
     exit 0
 fi
 
-# Build command - use thirdparty dependencies, enable LTO
+# Build command - core crypto only (no NTL/GMP to avoid cross-platform lib issues)
 BUILD_CMD="cd /workspace && \
     rm -rf build-linux && \
     mkdir -p build-linux && \
@@ -137,6 +137,8 @@ BUILD_CMD="cd /workspace && \
         -DKCTSB_BUILD_EXAMPLES=OFF \
         -DKCTSB_BUILD_BENCHMARKS=OFF \
         -DKCTSB_ENABLE_LTO=ON \
+        -DKCTSB_ENABLE_NTL=OFF \
+        -DKCTSB_ENABLE_GMP=OFF \
         -DKCTSB_ENABLE_SEAL=OFF \
         -DKCTSB_ENABLE_HELIB=OFF \
         -DKCTSB_ENABLE_OPENSSL=OFF \

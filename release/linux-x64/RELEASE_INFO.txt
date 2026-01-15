@@ -1,0 +1,25 @@
+kctsb Release Information
+==========================
+Version: 3.4.0
+Platform: Linux x64 (linux-x64)
+Build Type: Release
+Build Date: 2026-01-15 13:02:06 CST
+Compiler: gcc (GCC) 11.2.1 20220127 (Red Hat 11.2.1-9)
+glibc: 2.17 (CentOS 7) (minimum requirement)
+
+Contents:
+- bin/kctsb              : Command-line tool
+- lib/libkctsb.a         : Static library
+- include/kctsb_api.h    : Unified public API header
+
+Integration (like OpenSSL):
+  #include <kctsb_api.h>
+  // Link: -lkctsb -lstdc++
+
+Compatibility:
+- CentOS 7+ / RHEL 7+
+- Ubuntu 18.04+ / Debian 9+
+- Most Linux distributions with glibc >= 2.17
+
+License: Apache License 2.0
+Repository: https://github.com/kn1ghtc/kctsb

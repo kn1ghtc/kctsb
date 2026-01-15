@@ -19,13 +19,8 @@
 #include <vector>
 #include <string>
 
-// v3.4.0 refactored headers (include before kctsb.h to avoid conflicts)
-#include "kctsb/crypto/sha256.h"
-#include "kctsb/crypto/sha512.h"
-#include "kctsb/crypto/sha3.h"
-#include "kctsb/crypto/blake2.h"
-#include "kctsb/crypto/sm/sm3.h"
-#include "kctsb/kctsb.h"  // For kctsb_init()
+// v3.4.0 aggregated header
+#include "kctsb/kctsb.h"
 
 /**
  * @brief Convert byte array to hex string
