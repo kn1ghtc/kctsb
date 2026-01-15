@@ -148,12 +148,13 @@ public:
         uint32_t a, b, c, d, e, f, g, h;
         uint32_t t1, t2;
 
-        // Prepare message schedule
+        // Prepare message schedule (load + expand)
         for (size_t i = 0; i < 16; i++) {
             W[i] = load32_be(block + i * 4);
         }
         for (size_t i = 16; i < 64; i++) {
-            W[i] = SIG1(W[i - 2]) + W[i - 7] + SIG0(W[i - 15]) + W[i - 16];
+            W[i] = W[i - 16];
+            W[i] += SIG0(W[i - 15]) + W[i - 7] + SIG1(W[i - 2]);
         }
 
         // Initialize working variables
@@ -162,14 +163,14 @@ public:
         e = ctx->state[4]; f = ctx->state[5];
         g = ctx->state[6]; h = ctx->state[7];
 
-        // Main compression loop (unrolled for performance)
+        // Main compression loop (optimized for register allocation)
         for (size_t i = 0; i < 64; i++) {
-            t1 = h + EP1(e) + CH(e, f, g) + K256[i] + W[i];
-            t2 = EP0(a) + MAJ(a, b, c);
-            h = g; g = f; f = e;
-            e = d + t1;
-            d = c; c = b; b = a;
-            a = t1 + t2;
+            h += EP1(e) + CH(e, f, g) + K256[i] + W[i];
+            d += h;
+            h += EP0(a) + MAJ(a, b, c);
+            uint32_t tmp = h;
+            h = g; g = f; f = e; e = d;
+            d = c; c = b; b = a; a = tmp;
         }
 
         // Add compressed chunk to current hash value

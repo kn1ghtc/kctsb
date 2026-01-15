@@ -159,7 +159,7 @@ public:
      */
     __attribute__((always_inline))
     static void transform(kctsb_sha512_ctx_t* ctx, const uint8_t block[128]) noexcept {
-        alignas(16) uint64_t W[16];  // Aligned for better cache/SIMD performance
+        alignas(32) uint64_t W[16];  // AVX2-aligned for better SIMD performance
         uint64_t a, b, c, d, e, f, g, h;
 
         // Load first 16 words with byte swap
@@ -187,18 +187,19 @@ public:
         e = ctx->state[4]; f = ctx->state[5];
         g = ctx->state[6]; h = ctx->state[7];
 
-        // Round function macro with message schedule expansion
-        // w_idx is the index into W array, k_idx is the round number
+        // Optimized round function - reduce temporary variables
+        // Inline expansion + round to improve instruction-level parallelism
         #define ROUND(w_idx, k_idx) do { \
-            uint64_t t1 = h + EP1(e) + CH(e, f, g) + K512[k_idx] + W[w_idx]; \
-            uint64_t t2 = EP0(a) + MAJ(a, b, c); \
-            h = g; g = f; f = e; e = d + t1; \
-            d = c; c = b; b = a; a = t1 + t2; \
+            h += EP1(e) + CH(e, f, g) + K512[k_idx] + W[w_idx]; \
+            d += h; \
+            h += EP0(a) + MAJ(a, b, c); \
+            uint64_t tmp = h; h = g; g = f; f = e; e = d; \
+            d = c; c = b; b = a; a = tmp; \
         } while(0)
 
-        // Message schedule expansion macro (in-place)
+        // Message schedule expansion macro (in-place, optimized)
         #define EXPAND(i) \
-            W[i] = SIG1(W[(i+14)&15]) + W[(i+9)&15] + SIG0(W[(i+1)&15]) + W[i]
+            W[i] += SIG1(W[(i+14)&15]) + W[(i+9)&15] + SIG0(W[(i+1)&15])
 
         // Rounds 0-15 (use initial W values)
         ROUND(0, 0);   ROUND(1, 1);   ROUND(2, 2);   ROUND(3, 3);
@@ -324,11 +325,11 @@ void kctsb_sha512_update(kctsb_sha512_ctx_t* ctx,
         ctx->buflen = 0;
     }
 
-    // Process complete blocks with prefetch optimization
+    // Process complete blocks with optimized prefetch strategy
+    // Prefetch 256 bytes ahead (2 blocks) to hide memory latency
     while (len >= KCTSB_SHA512_BLOCK_SIZE) {
-        // Prefetch next block to L1 cache (reduces memory latency)
-        if (len >= 2 * KCTSB_SHA512_BLOCK_SIZE) {
-            KCTSB_PREFETCH(data + KCTSB_SHA512_BLOCK_SIZE);
+        if (len >= 256) {
+            KCTSB_PREFETCH(data + 256);
         }
         kctsb::internal::SHA512Compressor::transform(ctx, data);
         data += KCTSB_SHA512_BLOCK_SIZE;
