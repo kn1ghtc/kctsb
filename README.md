@@ -4,11 +4,11 @@
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](.)
 [![C++](https://img.shields.io/badge/C++-17-blue.svg)](.)
 [![CMake](https://img.shields.io/badge/CMake-3.20+-green.svg)](.)
-[![Version](https://img.shields.io/badge/Version-3.3.3-brightgreen.svg)](.)
+[![Version](https://img.shields.io/badge/Version-3.4.0-brightgreen.svg)](.)
 
 **kctsb** 是一个跨平台的 C/C++ 密码学和安全算法库，专为生产环境和安全研究设计。目标是成为 **OpenSSL 的现代替代品**。
 
-> **v3.3.3 更新**: 安全性强化 - SM4 移除 CBC 模式，仅保留 GCM 认证加密；统一版本管理至 `version.h`；SM2 增加加解密支持和 OpenSSL 基准对比。
+> **v3.4.0 更新**: 完成 "C++ Core + C ABI" 架构重构。移除所有冗余文件，统一为单文件单算法架构。Hash 算法包括 SHA-256/384/512、SHA3、BLAKE2b/s、SM3 完成重构并通过测试。
 
 ## ✨ 特性
 
@@ -76,11 +76,17 @@ kctsb/
 │   └── kctsb/
 │       ├── kctsb.h             # 主入口头文件
 │       ├── core/               # 核心定义
-│       ├── crypto/             # 标准密码算法公共头
-│       │   ├── aes.h, blake.h, chacha.h, etc.
-│       │   ├── hash/           # 哈希算法实现头
+│       ├── crypto/             # 标准密码算法公共头 (v3.4.0 简化)
+│       │   ├── aes.h           # AES-GCM
+│       │   ├── chacha20_poly1305.h  # ChaCha20-Poly1305
+│       │   ├── sha256.h        # SHA-256 (FIPS 180-4)
+│       │   ├── sha512.h        # SHA-512/384 (FIPS 180-4)
+│       │   ├── sha3.h          # SHA3/SHAKE (FIPS 202)
+│       │   ├── blake2.h        # BLAKE2b/s (RFC 7693)
+│       │   ├── sm3.h           # SM3 (GB/T 32905-2016)
+│       │   ├── sm4.h           # SM4-GCM (GB/T 32907-2016)
 │       │   ├── ecc/, rsa/      # 非对称算法头
-│       │   └── sm/             # 国密算法头
+│       │   └── sm/             # 国密算法头 (ZUC)
 │       ├── advanced/           # 高级密码学
 │       │   ├── pqc/            # 后量子密码 (Kyber, Dilithium)
 │       │   ├── zk/             # 零知识证明 (Groth16)
@@ -89,22 +95,22 @@ kctsb/
 │       │   └── whitebox/       # 白盒密码
 │       ├── simd/               # SIMD 硬件加速
 │       │   └── simd.h          # AVX2/AVX-512/AES-NI
-│       ├── internal/           # 内部实现头文件
-│       │   ├── blake2_impl.h
-│       │   ├── keccak_impl.h
-│       │   └── ecc_impl.h      # NTL ECC实现
 │       ├── math/               # 数学工具
 │       └── utils/              # 实用工具
 │
-├── src/                        # ★源代码实现 (禁止放头文件)★
+├── src/                        # ★源代码实现 (v3.4.0 扁平化)★
 │   ├── core/                   # 核心功能
-│   ├── crypto/                 # 密码算法实现
-│   │   ├── aes/                # AES 实现
+│   ├── crypto/                 # 密码算法实现 (单文件单算法)
+│   │   ├── sha256.cpp          # SHA-256 C++ 实现 + C ABI
+│   │   ├── sha512.cpp          # SHA-512/384 C++ 实现 + C ABI
+│   │   ├── sha3.cpp            # SHA3/SHAKE C++ 实现 + C ABI
+│   │   ├── blake2.cpp          # BLAKE2b/s C++ 实现 + C ABI
+│   │   ├── sm3.cpp             # SM3 C++ 实现 + C ABI
+│   │   ├── sm4.cpp             # SM4-GCM C++ 实现 + C ABI
+│   │   ├── aes/                # AES-GCM 实现
 │   │   ├── chacha20/           # ChaCha20-Poly1305
-│   │   ├── hash/               # 哈希算法 (原生实现)
 │   │   ├── ecc/                # 椭圆曲线 (NTL实现)
-│   │   ├── rsa/                # RSA (NTL实现)
-│   │   └── sm/                 # 国密算法 (原生实现)
+│   │   └── rsa/                # RSA (NTL实现)
 │   ├── advanced/               # 高级算法实现
 │   │   ├── pqc/                # 后量子密码实现
 │   │   └── zk/                 # 零知识证明实现
