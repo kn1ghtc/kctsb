@@ -19,7 +19,7 @@ BUILD_DIR="$PROJECT_DIR/build"
 RELEASE_DIR="$PROJECT_DIR/release"
 
 # Version info
-VERSION="3.3.0"
+VERSION="3.4.0"
 
 BUILD_TYPE="Release"
 CLEAN=false
@@ -211,6 +211,14 @@ CMAKE_ARGS=(
     "-DKCTSB_ENABLE_OPENSSL=ON"
     "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
 )
+
+# v3.4.0: Apply maximum optimization flags directly
+if [ "$BUILD_TYPE" = "Release" ]; then
+    # Extreme optimization flags (Principle #2)
+    CMAKE_ARGS+=(
+        "-DCMAKE_CXX_FLAGS=-O3 -march=native -mtune=native -ffast-math -funroll-loops -fomit-frame-pointer -flto -fno-rtti -fno-exceptions -fPIC"
+    )
+fi
 
 if [ "$BENCHMARK" = true ] || [ "$RELEASE" = true ]; then
     CMAKE_ARGS+=("-DKCTSB_BUILD_BENCHMARKS=ON")

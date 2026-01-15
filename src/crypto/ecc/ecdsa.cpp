@@ -17,7 +17,7 @@
  */
 
 #include "kctsb/crypto/ecc/ecdsa.h"
-#include "kctsb/crypto/sha.h"  // For HMAC-SHA256
+#include "kctsb/crypto/sha256.h"  // For SHA-256 hashing
 #include <array>
 #include <cstring>
 #include <stdexcept>

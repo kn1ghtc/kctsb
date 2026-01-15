@@ -25,7 +25,7 @@ add_executable(kctsb_benchmark
     benchmark_hash.cpp
     benchmark_ecc.cpp
     benchmark_rsa.cpp
-    benchmark_sm.cpp
+    # benchmark_sm.cpp  # Disabled: SM2/SM4 functions not yet implemented
 )
 
 target_include_directories(kctsb_benchmark PRIVATE

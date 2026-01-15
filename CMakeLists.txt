@@ -2,30 +2,29 @@
 # kctsb - Knight's Cryptographic Trusted Security Base
 # Cross-platform cryptographic algorithms library
 #
-# Version: 3.3.3 (defined in include/kctsb/version.h - single source of truth)
+# Version: 3.4.0 (defined in include/kctsb/version.h - single source of truth)
 # Copyright (c) 2019-2026 knightc. All rights reserved.
 # Licensed under Apache License 2.0
 #
+# Architecture: C++ Core + C ABI (v3.4.0+)
 # Design Goal: Replace OpenSSL with native implementations
 # ============================================================================
 
 cmake_minimum_required(VERSION 3.20)
 
 project(kctsb
-    VERSION 3.3.3
+    VERSION 3.4.0
     DESCRIPTION "Production-grade cryptographic algorithms library - OpenSSL replacement"
-    LANGUAGES C CXX
+    LANGUAGES C CXX  # v3.4.0: C++ Core + C ABI (C for security.c)
 )
 
 # ============================================================================
-# Build Configuration
+# Build Configuration - C++17 Mandatory (Principle #2)
 # ============================================================================
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
-set(CMAKE_C_STANDARD 11)
-set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)  # Disable GNU extensions for portability
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -44,36 +43,59 @@ message(STATUS "Platform: ${CMAKE_SYSTEM_NAME}")
 message(STATUS "Compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
 
 # ============================================================================
-# Performance Optimization (Maximum Speed + Security)
+# Performance Optimization (Maximum Speed + Minimum Memory - Principle #2)
 # ============================================================================
 
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
     if(MSVC)
-        add_compile_options(/O2 /Oi /Ot /GL /fp:fast)
+        add_compile_options(
+            /O2 /Oi /Ot /GL      # Maximum optimization
+            /fp:fast              # Fast floating-point
+            /GR-                  # Disable RTTI (memory optimization)
+            /EHs-c-               # Disable exceptions (C ABI handles errors)
+        )
         if(CMAKE_SYSTEM_PROCESSOR MATCHES "AMD64|x86_64")
             add_compile_options(/arch:AVX2)
         endif()
         add_link_options(/LTCG)
     else()
-        if(WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-            # MinGW LTO frequently triggers unresolved symbols with large static archives
+        # GCC/Clang unified optimization flags
+        add_compile_options(
+            # Maximum speed optimization
+            -O3
+            -march=native
+            -mtune=native
+            -ffast-math
+            -funroll-loops
+            -fomit-frame-pointer
+            -fPIC
+
+            # Memory optimization (Principle #2)
+            -fno-rtti              # Disable RTTI, reduce object size
+            # Note: Exceptions enabled - required by existing C++ classes
+
+            # LTO (Link-Time Optimization)
+            -flto
+
+            # Security hardening
+            -fstack-protector-strong
+        )
+
+        # Hardware acceleration instructions (x86_64)
+        if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
             add_compile_options(
-                -O3 -march=native -mtune=native
-                -ffast-math -funroll-loops -fomit-frame-pointer
-                -fPIC
-                -fstack-protector-strong
+                -maes -mpclmul         # AES-NI + PCLMUL
+                -msse4.1 -msse4.2      # SSE4
+                -mavx2                 # AVX2
             )
-        else()
-            add_compile_options(
-                -O3 -march=native -mtune=native
-                -ffast-math -funroll-loops -fomit-frame-pointer
-                -flto -fPIC
-                -fstack-protector-strong
-                # Hardware acceleration instructions
-                -maes -mpclmul -msse4.1 -msse4.2 -mavx2
-            )
-            add_link_options(-flto)
         endif()
+
+        # ARM64 NEON (Apple Silicon / ARM servers)
+        if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
+            add_compile_options(-march=armv8-a+crypto)
+        endif()
+
+        add_link_options(-flto)
         add_compile_definitions(_FORTIFY_SOURCE=2)
     endif()
 endif()
@@ -422,18 +444,19 @@ set(KCTSB_CHACHA_SOURCES
     ${KCTSB_SRC_DIR}/crypto/chacha20/chacha20_poly1305.cpp
 )
 
+# v3.4.0 Refactored Hash Sources (C++ Core + C ABI)
 set(KCTSB_HASH_SOURCES
-    ${KCTSB_SRC_DIR}/crypto/hash/keccak.cpp
-    ${KCTSB_SRC_DIR}/crypto/hash/blake2.c
-    ${KCTSB_SRC_DIR}/crypto/hash/sha256.cpp
-    ${KCTSB_SRC_DIR}/crypto/hash/sha512.c
+    ${KCTSB_SRC_DIR}/crypto/sha256.cpp      # v3.4.0: New location
+    ${KCTSB_SRC_DIR}/crypto/sha512.cpp      # v3.4.0: New location
+    ${KCTSB_SRC_DIR}/crypto/sha3.cpp        # v3.4.0: New (Keccak/SHA3)
+    ${KCTSB_SRC_DIR}/crypto/blake2.cpp      # v3.4.0: New location
 )
 
+# v3.4.0 Refactored SM Sources (C++ Core + C ABI, no sm_api.cpp)
 set(KCTSB_SM_SOURCES
-    ${KCTSB_SRC_DIR}/crypto/sm/sm3.c
-    ${KCTSB_SRC_DIR}/crypto/sm/sm4.cpp
-    ${KCTSB_SRC_DIR}/crypto/sm/sm_api.cpp
-    ${KCTSB_SRC_DIR}/crypto/sm/zuc.c
+    ${KCTSB_SRC_DIR}/crypto/sm3.cpp         # v3.4.0: New location
+    ${KCTSB_SRC_DIR}/crypto/sm4.cpp         # v3.4.0: New location
+    ${KCTSB_SRC_DIR}/crypto/sm/zuc.c        # Legacy ZUC (pending refactor)
 )
 
 set(KCTSB_WHITEBOX_SOURCES

@@ -253,9 +253,10 @@ int main(int argc, char* argv[]) {
         benchmark_rsa();
     }
 
-    if (algorithm == "all" || algorithm == "sm") {
-        benchmark_sm();
-    }
+    // SM benchmarks disabled - SM2/SM4 functions not yet implemented
+    // if (algorithm == "all" || algorithm == "sm") {
+    //     benchmark_sm();
+    // }
 
     // Print summary
     print_summary();

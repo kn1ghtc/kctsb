@@ -23,11 +23,13 @@
 
 // Symmetric encryption
 #include "kctsb/crypto/aes.h"
-#include "kctsb/crypto/chacha.h"
+#include "kctsb/crypto/chacha20_poly1305.h"
 
-// Hash functions
-#include "kctsb/crypto/sha.h"
-#include "kctsb/crypto/blake.h"
+// Hash functions (v3.4.0 unified headers)
+#include "kctsb/crypto/sha256.h"
+#include "kctsb/crypto/sha512.h"
+#include "kctsb/crypto/sha3.h"
+#include "kctsb/crypto/blake2.h"
 
 // MAC algorithms
 #include "kctsb/crypto/mac.h"

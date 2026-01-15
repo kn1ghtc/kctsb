@@ -24,13 +24,13 @@
 #define KCTSB_VERSION_MAJOR 3
 
 /** Minor version number (new features, backward compatible) */
-#define KCTSB_VERSION_MINOR 3
+#define KCTSB_VERSION_MINOR 4
 
 /** Patch version number (bug fixes) */
-#define KCTSB_VERSION_PATCH 3
+#define KCTSB_VERSION_PATCH 0
 
 /** Full version string "major.minor.patch" */
-#define KCTSB_VERSION_STRING "3.3.3"
+#define KCTSB_VERSION_STRING "3.4.0"
 
 /** Version as single integer: (major * 10000 + minor * 100 + patch) */
 #define KCTSB_VERSION_NUMBER ((KCTSB_VERSION_MAJOR * 10000) + \
@@ -38,7 +38,7 @@
                               KCTSB_VERSION_PATCH)
 
 /** Release date in YYYY-MM-DD format */
-#define KCTSB_RELEASE_DATE "2026-01-14"
+#define KCTSB_RELEASE_DATE "2026-01-15"
 
 /** Library name */
 #define KCTSB_LIBRARY_NAME "kctsb"
