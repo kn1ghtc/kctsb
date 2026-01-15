@@ -256,12 +256,48 @@ KCTSB_API void kctsb_algorithm_clear(kctsb_algorithm_ctx_t* ctx);
 
 ## 🔧 开发约束
 
+### 编译器要求
+
+**Linux Docker 构建要求 GCC 12+ (2026-01-15)**:
+- **原因**: NTL 11.6.0 的模板代码在 GCC 11 下会产生编译错误
+- **Docker 镜像**: AlmaLinux 9 + gcc-toolset-12 (GCC 12.2.1)
+- **C++ 标准**: C++17 (`-std=c++17`)
+
+| 平台 | 编译器 | 版本要求 | 镜像/工具链 |
+|------|--------|----------|------------|
+| Windows | MinGW-w64 GCC | 13.0+ | Strawberry C |
+| Windows | MSVC | 2022+ | Visual Studio 2022 |
+| Linux Docker | GCC | **12.0+** | AlmaLinux 9 + gcc-toolset-12 |
+| Linux Native | GCC/Clang | 12.0+ | 系统自带 |
+
 ### 依赖管理
 
-**thirdparty 统一目录** (优先):
-- **位置**: `kctsb/thirdparty/`
-- **结构**: `include/` 放头文件，`lib/` 放静态库
-- **CMake**: 优先从 thirdparty 搜索，不再使用 vcpkg（除 benchmark）
+**跨平台 thirdparty 目录结构** (v3.4.0+):
+```
+thirdparty/
+├── win-x64/          # Windows x64 预编译库
+│   ├── lib/          # libntl.a, libgmp.a, libgf2x.a, etc.
+│   └── include/      # 头文件
+├── linux-x64/        # Linux x64 预编译库 (Docker 构建)
+│   ├── lib/          # libntl.a, libgmp.a, libgf2x.a
+│   └── include/      # NTL/, gmp.h, gf2x.h
+├── lib/              # 通用库 (Windows 兼容)
+└── include/          # 通用头文件
+```
+
+**CMake 搜索顺序**:
+1. `thirdparty/${PLATFORM_SUFFIX}/` (平台特定)
+2. `thirdparty/` (通用)
+3. 系统路径
+
+**Linux thirdparty 构建命令**:
+```bash
+# 构建 Linux 平台依赖并提取到 thirdparty/linux-x64/
+./scripts/build_thirdparty_linux.sh
+
+# Docker 构建并测试
+./scripts/docker_build.sh --test
+```
 
 **核心依赖** (2026-01-15):
 | 依赖 | 版本 | 位置 | 状态 | 用途 |

@@ -5,7 +5,8 @@
 #
 # Features:
 # - Platform-specific thirdparty: thirdparty/linux-x64/
-# - LTO enabled (GCC 11+)
+# - GCC 12+ (required for NTL C++17 template support)
+# - LTO enabled
 # - Single-file distribution (like OpenSSL)
 # - Unified public API header (kctsb_api.h)
 #
@@ -14,6 +15,7 @@
 #   ./scripts/docker_build.sh --test             # Build and run tests
 #   ./scripts/docker_build.sh --clean            # Rebuild Docker image
 #   ./scripts/docker_build.sh --shell            # Enter container shell
+#   ./scripts/docker_build.sh --build-deps       # Build thirdparty first
 # ============================================================================
 
 set -e
@@ -26,7 +28,7 @@ THIRDPARTY_DIR="$PROJECT_DIR/thirdparty"
 
 # Version and naming
 VERSION="3.4.0"
-DOCKER_IMAGE="kctsb-builder:centos7"
+DOCKER_IMAGE="kctsb-builder:almalinux9"
 PLATFORM_SUFFIX="linux-x64"
 THIRDPARTY_PLATFORM_DIR="$THIRDPARTY_DIR/$PLATFORM_SUFFIX"
 
@@ -41,6 +43,7 @@ NC='\033[0m'
 CLEAN_BUILD=false
 RUN_TESTS=false
 ENTER_SHELL=false
+BUILD_DEPS=false
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -57,14 +60,19 @@ while [[ $# -gt 0 ]]; do
             ENTER_SHELL=true
             shift
             ;;
+        --build-deps)
+            BUILD_DEPS=true
+            shift
+            ;;
         --help|-h)
             echo "Usage: $0 [options]"
             echo ""
             echo "Options:"
-            echo "  --clean     Rebuild Docker image from scratch"
-            echo "  --test      Run tests after build"
-            echo "  --shell     Enter container shell for debugging"
-            echo "  --help      Show this help"
+            echo "  --clean       Rebuild Docker image from scratch"
+            echo "  --test        Run tests after build"
+            echo "  --shell       Enter container shell for debugging"
+            echo "  --build-deps  Build thirdparty dependencies first"
+            echo "  --help        Show this help"
             echo ""
             echo "Thirdparty search order:"
             echo "  1. thirdparty/$PLATFORM_SUFFIX/"
@@ -80,7 +88,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 echo -e "${CYAN}╔════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${CYAN}║          kctsb Docker Build (Linux x64)                   ║${NC}"
+echo -e "${CYAN}║     kctsb Docker Build (Linux x64 - GCC 12+)              ║${NC}"
 echo -e "${CYAN}╚════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 echo -e "Version:    ${GREEN}$VERSION${NC}"
@@ -88,10 +96,11 @@ echo -e "Platform:   ${GREEN}$PLATFORM_SUFFIX${NC}"
 echo -e "Image:      $DOCKER_IMAGE"
 echo ""
 echo -e "Thirdparty: $THIRDPARTY_PLATFORM_DIR"
-if [ -d "$THIRDPARTY_PLATFORM_DIR" ]; then
-    echo -e "            ${GREEN}(platform-specific found)${NC}"
+if [ -d "$THIRDPARTY_PLATFORM_DIR/lib" ] && [ -f "$THIRDPARTY_PLATFORM_DIR/lib/libntl.a" ]; then
+    echo -e "            ${GREEN}(platform-specific found with NTL)${NC}"
 else
-    echo -e "            ${YELLOW}(using common thirdparty/ or system)${NC}"
+    echo -e "            ${YELLOW}(WARNING: thirdparty/linux-x64 not found!)${NC}"
+    echo -e "            ${YELLOW}Run: ./scripts/build_thirdparty_linux.sh${NC}"
 fi
 echo ""
 
@@ -101,12 +110,30 @@ if ! command -v docker &> /dev/null; then
     exit 1
 fi
 
-# Build Docker image if needed
+# Check for platform-specific thirdparty
+if [ ! -d "$THIRDPARTY_PLATFORM_DIR/lib" ] || [ ! -f "$THIRDPARTY_PLATFORM_DIR/lib/libntl.a" ]; then
+    echo -e "${YELLOW}WARNING: Linux thirdparty not found${NC}"
+    echo -e "${YELLOW}Building thirdparty dependencies first...${NC}"
+    if [ -x "$SCRIPT_DIR/build_thirdparty_linux.sh" ]; then
+        "$SCRIPT_DIR/build_thirdparty_linux.sh"
+    else
+        echo -e "${RED}Error: Run ./scripts/build_thirdparty_linux.sh first${NC}"
+        exit 1
+    fi
+fi
+
+# Build thirdparty if requested
+if [ "$BUILD_DEPS" = true ]; then
+    echo -e "${YELLOW}Building thirdparty dependencies...${NC}"
+    "$SCRIPT_DIR/build_thirdparty_linux.sh"
+fi
+
+# Build Docker image if needed (AlmaLinux 9 with GCC 12+)
 if [ "$CLEAN_BUILD" = true ] || ! docker image inspect "$DOCKER_IMAGE" &> /dev/null; then
-    echo -e "${YELLOW}[1/4] Building Docker image...${NC}"
+    echo -e "${YELLOW}[1/4] Building Docker image (AlmaLinux 9 + GCC 12)...${NC}"
     docker build \
         -t "$DOCKER_IMAGE" \
-        -f "$DOCKER_DIR/Dockerfile.centos7" \
+        -f "$DOCKER_DIR/Dockerfile.almalinux9" \
         "$DOCKER_DIR"
     echo -e "${GREEN}  ✓ Docker image built${NC}"
 else
@@ -124,8 +151,8 @@ if [ "$ENTER_SHELL" = true ]; then
     exit 0
 fi
 
-# Build command - core crypto only (no NTL/GMP to avoid cross-platform lib issues)
-BUILD_CMD="cd /workspace && \
+# Build command - Full feature build with platform-specific thirdparty
+BUILD_CMD="source /opt/rh/gcc-toolset-12/enable && cd /workspace && \
     rm -rf build-linux && \
     mkdir -p build-linux && \
     cd build-linux && \
@@ -137,12 +164,14 @@ BUILD_CMD="cd /workspace && \
         -DKCTSB_BUILD_EXAMPLES=OFF \
         -DKCTSB_BUILD_BENCHMARKS=OFF \
         -DKCTSB_ENABLE_LTO=ON \
-        -DKCTSB_ENABLE_NTL=OFF \
-        -DKCTSB_ENABLE_GMP=OFF \
+        -DKCTSB_ENABLE_NTL=ON \
+        -DKCTSB_ENABLE_GMP=ON \
         -DKCTSB_ENABLE_SEAL=OFF \
         -DKCTSB_ENABLE_HELIB=OFF \
         -DKCTSB_ENABLE_OPENSSL=OFF \
-        -DCMAKE_PREFIX_PATH='/usr/local' && \
+        -DCMAKE_PREFIX_PATH='/workspace/thirdparty/linux-x64' \
+        -DGMP_ROOT='/workspace/thirdparty/linux-x64' \
+        -DNTL_ROOT='/workspace/thirdparty/linux-x64' && \
     cmake --build . --parallel 4"
 
 # Add test command if requested
@@ -205,8 +234,8 @@ fi
 # Generate release info
 echo -e "${YELLOW}[4/4] Generating release info...${NC}"
 
-GCC_VERSION=$(docker run --rm "$DOCKER_IMAGE" gcc --version | head -1)
-GLIBC_VERSION="2.17 (CentOS 7)"
+GCC_VERSION=$(docker run --rm "$DOCKER_IMAGE" bash -c "source /opt/rh/gcc-toolset-12/enable && gcc --version" | head -1)
+GLIBC_VERSION="2.34 (AlmaLinux 9)"
 
 cat > "$RELEASE_PLATFORM_DIR/RELEASE_INFO.txt" << EOF
 kctsb Release Information
@@ -218,6 +247,11 @@ Build Date: $(date '+%Y-%m-%d %H:%M:%S %Z')
 Compiler: $GCC_VERSION
 glibc: $GLIBC_VERSION (minimum requirement)
 
+Features:
+- NTL: Enabled (Number Theory Library)
+- GMP: Enabled (GNU Multiple Precision)
+- LTO: Enabled (Link-Time Optimization)
+
 Contents:
 - bin/kctsb              : Command-line tool
 - lib/libkctsb.a         : Static library
@@ -225,12 +259,13 @@ Contents:
 
 Integration (like OpenSSL):
   #include <kctsb_api.h>
-  // Link: -lkctsb -lstdc++
+  // Link: -lkctsb -lntl -lgmp -lgf2x -lstdc++ -lm
 
 Compatibility:
-- CentOS 7+ / RHEL 7+
-- Ubuntu 18.04+ / Debian 9+
-- Most Linux distributions with glibc >= 2.17
+- AlmaLinux 9+ / RHEL 9+ / Rocky Linux 9+
+- Ubuntu 22.04+ / Debian 12+
+- Fedora 36+
+- Most Linux distributions with glibc >= 2.34
 
 License: Apache License 2.0
 Repository: https://github.com/kn1ghtc/kctsb

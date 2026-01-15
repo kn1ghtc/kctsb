@@ -340,19 +340,34 @@ if(KCTSB_ENABLE_NTL)
     kctsb_find_thirdparty_inc(NTL_INCLUDE_DIRS NTL/ZZ.h)
     kctsb_find_thirdparty_lib(NTL_LIBRARY ntl)
     
+    # gf2x is required by NTL when compiled with NTL_GF2X_LIB=on
+    kctsb_find_thirdparty_lib(GF2X_LIBRARY gf2x)
+    
     if(NTL_INCLUDE_DIRS AND NTL_LIBRARY)
         set(NTL_FOUND TRUE)
         message(STATUS "✓ NTL found: ${NTL_LIBRARY}")
         add_definitions(-DKCTSB_HAS_NTL)
+        
+        # Build NTL link libraries list (NTL depends on gf2x and gmp)
+        set(NTL_LINK_LIBRARIES "${NTL_LIBRARY}")
+        if(GF2X_LIBRARY)
+            list(APPEND NTL_LINK_LIBRARIES "${GF2X_LIBRARY}")
+            message(STATUS "✓ gf2x found: ${GF2X_LIBRARY}")
+        endif()
         
         if(NOT TARGET NTL::NTL)
             add_library(NTL::NTL STATIC IMPORTED)
             set_target_properties(NTL::NTL PROPERTIES
                 IMPORTED_LOCATION "${NTL_LIBRARY}"
                 INTERFACE_INCLUDE_DIRECTORIES "${NTL_INCLUDE_DIRS}")
+            # NTL requires gf2x when compiled with NTL_GF2X_LIB
+            if(GF2X_LIBRARY)
+                set_target_properties(NTL::NTL PROPERTIES
+                    INTERFACE_LINK_LIBRARIES "${GF2X_LIBRARY}")
+            endif()
         endif()
         
-        list(APPEND KCTSB_BUNDLED_LIBS "${NTL_LIBRARY}")
+        list(APPEND KCTSB_BUNDLED_LIBS ${NTL_LINK_LIBRARIES})
     else()
         message(FATAL_ERROR "NTL not found. Place in thirdparty/${KCTSB_PLATFORM_SUFFIX}/ or thirdparty/")
     endif()
