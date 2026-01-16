@@ -447,11 +447,23 @@ void kctsb_sha256_update(kctsb_sha256_ctx_t* ctx,
     }
 
     // Process complete blocks with prefetch optimization
+    // Aggressive prefetching + 4-block batching for better throughput
+    while (len >= 4 * KCTSB_SHA256_BLOCK_SIZE) {
+        // Prefetch 4 blocks ahead (256 bytes, fits L1 cache)
+        KCTSB_PREFETCH(data + 4 * KCTSB_SHA256_BLOCK_SIZE);
+        
+        // Process 4 blocks with pipeline-friendly layout
+        kctsb::internal::SHA256Compressor::transform(ctx, data);
+        kctsb::internal::SHA256Compressor::transform(ctx, data + KCTSB_SHA256_BLOCK_SIZE);
+        kctsb::internal::SHA256Compressor::transform(ctx, data + 2 * KCTSB_SHA256_BLOCK_SIZE);
+        kctsb::internal::SHA256Compressor::transform(ctx, data + 3 * KCTSB_SHA256_BLOCK_SIZE);
+        
+        data += 4 * KCTSB_SHA256_BLOCK_SIZE;
+        len -= 4 * KCTSB_SHA256_BLOCK_SIZE;
+    }
+    
+    // Process remaining blocks
     while (len >= KCTSB_SHA256_BLOCK_SIZE) {
-        // Prefetch next block to reduce memory latency
-        if (len >= 2 * KCTSB_SHA256_BLOCK_SIZE) {
-            KCTSB_PREFETCH(data + KCTSB_SHA256_BLOCK_SIZE);
-        }
         kctsb::internal::SHA256Compressor::transform(ctx, data);
         data += KCTSB_SHA256_BLOCK_SIZE;
         len -= KCTSB_SHA256_BLOCK_SIZE;

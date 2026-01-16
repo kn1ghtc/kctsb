@@ -201,52 +201,31 @@ public:
         #define EXPAND(i) \
             W[i] += SIG1(W[(i+14)&15]) + W[(i+9)&15] + SIG0(W[(i+1)&15])
 
+        // 4-round unrolled batch macro for better ILP
+        #define EXPAND_ROUND_4(i, k) do { \
+            EXPAND(i);     ROUND(i, k);     \
+            EXPAND(i+1);   ROUND(i+1, k+1); \
+            EXPAND(i+2);   ROUND(i+2, k+2); \
+            EXPAND(i+3);   ROUND(i+3, k+3); \
+        } while(0)
+
         // Rounds 0-15 (use initial W values)
         ROUND(0, 0);   ROUND(1, 1);   ROUND(2, 2);   ROUND(3, 3);
         ROUND(4, 4);   ROUND(5, 5);   ROUND(6, 6);   ROUND(7, 7);
         ROUND(8, 8);   ROUND(9, 9);   ROUND(10, 10); ROUND(11, 11);
         ROUND(12, 12); ROUND(13, 13); ROUND(14, 14); ROUND(15, 15);
 
-        // Rounds 16-31
-        EXPAND(0);  ROUND(0, 16);  EXPAND(1);  ROUND(1, 17);
-        EXPAND(2);  ROUND(2, 18);  EXPAND(3);  ROUND(3, 19);
-        EXPAND(4);  ROUND(4, 20);  EXPAND(5);  ROUND(5, 21);
-        EXPAND(6);  ROUND(6, 22);  EXPAND(7);  ROUND(7, 23);
-        EXPAND(8);  ROUND(8, 24);  EXPAND(9);  ROUND(9, 25);
-        EXPAND(10); ROUND(10, 26); EXPAND(11); ROUND(11, 27);
-        EXPAND(12); ROUND(12, 28); EXPAND(13); ROUND(13, 29);
-        EXPAND(14); ROUND(14, 30); EXPAND(15); ROUND(15, 31);
+        // Rounds 16-79 with 4-round batching
+        EXPAND_ROUND_4(0, 16);  EXPAND_ROUND_4(4, 20);
+        EXPAND_ROUND_4(8, 24);  EXPAND_ROUND_4(12, 28);
+        EXPAND_ROUND_4(0, 32);  EXPAND_ROUND_4(4, 36);
+        EXPAND_ROUND_4(8, 40);  EXPAND_ROUND_4(12, 44);
+        EXPAND_ROUND_4(0, 48);  EXPAND_ROUND_4(4, 52);
+        EXPAND_ROUND_4(8, 56);  EXPAND_ROUND_4(12, 60);
+        EXPAND_ROUND_4(0, 64);  EXPAND_ROUND_4(4, 68);
+        EXPAND_ROUND_4(8, 72);  EXPAND_ROUND_4(12, 76);
 
-        // Rounds 32-47
-        EXPAND(0);  ROUND(0, 32);  EXPAND(1);  ROUND(1, 33);
-        EXPAND(2);  ROUND(2, 34);  EXPAND(3);  ROUND(3, 35);
-        EXPAND(4);  ROUND(4, 36);  EXPAND(5);  ROUND(5, 37);
-        EXPAND(6);  ROUND(6, 38);  EXPAND(7);  ROUND(7, 39);
-        EXPAND(8);  ROUND(8, 40);  EXPAND(9);  ROUND(9, 41);
-        EXPAND(10); ROUND(10, 42); EXPAND(11); ROUND(11, 43);
-        EXPAND(12); ROUND(12, 44); EXPAND(13); ROUND(13, 45);
-        EXPAND(14); ROUND(14, 46); EXPAND(15); ROUND(15, 47);
-
-        // Rounds 48-63
-        EXPAND(0);  ROUND(0, 48);  EXPAND(1);  ROUND(1, 49);
-        EXPAND(2);  ROUND(2, 50);  EXPAND(3);  ROUND(3, 51);
-        EXPAND(4);  ROUND(4, 52);  EXPAND(5);  ROUND(5, 53);
-        EXPAND(6);  ROUND(6, 54);  EXPAND(7);  ROUND(7, 55);
-        EXPAND(8);  ROUND(8, 56);  EXPAND(9);  ROUND(9, 57);
-        EXPAND(10); ROUND(10, 58); EXPAND(11); ROUND(11, 59);
-        EXPAND(12); ROUND(12, 60); EXPAND(13); ROUND(13, 61);
-        EXPAND(14); ROUND(14, 62); EXPAND(15); ROUND(15, 63);
-
-        // Rounds 64-79
-        EXPAND(0);  ROUND(0, 64);  EXPAND(1);  ROUND(1, 65);
-        EXPAND(2);  ROUND(2, 66);  EXPAND(3);  ROUND(3, 67);
-        EXPAND(4);  ROUND(4, 68);  EXPAND(5);  ROUND(5, 69);
-        EXPAND(6);  ROUND(6, 70);  EXPAND(7);  ROUND(7, 71);
-        EXPAND(8);  ROUND(8, 72);  EXPAND(9);  ROUND(9, 73);
-        EXPAND(10); ROUND(10, 74); EXPAND(11); ROUND(11, 75);
-        EXPAND(12); ROUND(12, 76); EXPAND(13); ROUND(13, 77);
-        EXPAND(14); ROUND(14, 78); EXPAND(15); ROUND(15, 79);
-
+        #undef EXPAND_ROUND_4
         #undef ROUND
         #undef EXPAND
 
