@@ -1,8 +1,9 @@
 # AGENTS.md - kctsb AI Development Guidelines
 
 > **项目**: kctsb - Knight's Cryptographic Trusted Security Base  
-> **版本**: 3.4.0  
-> **更新时间**: 2026-01-15 (Beijing Time, UTC+8)
+> **版本**: 3.4.1  
+> **更新时间**: 2026-01-16 (Beijing Time, UTC+8)  
+> **重大变更**: 完全移除BLAKE2s支持，统一Debug/Release构建参数
 
 ---
 

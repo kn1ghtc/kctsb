@@ -4,11 +4,11 @@
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](.)
 [![C++](https://img.shields.io/badge/C++-17-blue.svg)](.)
 [![CMake](https://img.shields.io/badge/CMake-3.20+-green.svg)](.)
-[![Version](https://img.shields.io/badge/Version-3.4.0-brightgreen.svg)](.)
+[![Version](https://img.shields.io/badge/Version-3.4.1-brightgreen.svg)](.)
 
 **kctsb** 是一个跨平台的 C/C++ 密码学和安全算法库，专为生产环境和安全研究设计。目标是成为 **OpenSSL 的现代替代品**。
 
-> **v3.4.0 更新**: 完成 "C++ Core + C ABI" 架构重构。移除所有冗余文件，统一为单文件单算法架构。Hash 算法包括 SHA-256/384/512、SHA3、BLAKE2b、SM3 完成重构并通过测试。已移除BLAKE2s，仅保留BLAKE2b。
+> **v3.4.1 更新** (2026年1月16日): 完全移除BLAKE2s支持，统一Debug/Release构建参数确保开发阶段也能验证性能基准。152个单元测试通过。Hash基准: SHA3-256 ~500MB/s（比OpenSSL快12.58%在1KB，整体-7%），BLAKE2b +30-45%领先OpenSSL。
 
 ## ✨ 特性
 
