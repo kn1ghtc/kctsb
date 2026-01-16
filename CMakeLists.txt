@@ -967,15 +967,28 @@ if(KCTSB_BUILD_CLI)
     )
     set_target_properties(kctsb_cli PROPERTIES OUTPUT_NAME kctsb)
 
+    # Static link to eliminate DLL dependencies (GCC runtime)
+    # This creates a fully portable single-file CLI tool
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+        target_link_options(kctsb_cli PRIVATE
+            -static-libgcc
+            -static-libstdc++
+            -static              # Full static linking (including pthread)
+        )
+        message(STATUS "CLI: Full static linking (no DLL deps except Windows system)")
+    endif()
+
     if(KCTSB_BUILD_STATIC)
         target_link_libraries(kctsb_cli PRIVATE kctsb_static)
     else()
         target_link_libraries(kctsb_cli PRIVATE kctsb_shared)
     endif()
 
-    if(KCTSB_ENABLE_OPENSSL AND OPENSSL_FOUND)
-        target_link_libraries(kctsb_cli PRIVATE OpenSSL::SSL OpenSSL::Crypto)
-    endif()
+    # Note: CLI tool does NOT need OpenSSL (that's for benchmarks only)
+    # Remove unnecessary OpenSSL dependency from CLI
+    # if(KCTSB_ENABLE_OPENSSL AND OPENSSL_FOUND)
+    #     target_link_libraries(kctsb_cli PRIVATE OpenSSL::SSL OpenSSL::Crypto)
+    # endif()
 
     message(STATUS "✓ CLI tool: kctsb.exe")
 endif()
