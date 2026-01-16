@@ -1,0 +1,185 @@
+name: Performance Benchmark CI
+
+on:
+  push:
+    branches: [ master, develop ]
+    paths:
+      - 'src/crypto/**'
+      - 'include/kctsb/crypto/**'
+      - 'benchmarks/**'
+      - 'CMakeLists.txt'
+  pull_request:
+    branches: [ master ]
+    paths:
+      - 'src/crypto/**'
+      - 'include/kctsb/crypto/**'
+
+env:
+  # Performance baselines (10MB dataset, MB/s)
+  # These thresholds prevent performance regressions
+  BLAKE2B_MIN_THROUGHPUT: 900
+  SHA256_MIN_THROUGHPUT: 1850
+  SHA512_MIN_THROUGHPUT: 770
+  SHA3_256_MIN_THROUGHPUT: 560
+  SHA3_512_MIN_THROUGHPUT: 320
+  SM3_MIN_THROUGHPUT: 370
+
+jobs:
+  benchmark-windows:
+    runs-on: windows-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    
+    - name: Setup MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        update: true
+        install: >-
+          mingw-w64-x86_64-gcc
+          mingw-w64-x86_64-cmake
+          mingw-w64-x86_64-ninja
+          mingw-w64-x86_64-openssl
+    
+    - name: Build with optimizations
+      shell: msys2 {0}
+      run: |
+        cmake -B build -G Ninja \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_C_COMPILER=gcc \
+          -DCMAKE_CXX_COMPILER=g++ \
+          -DKCTSB_BUILD_BENCHMARKS=ON \
+          -DKCTSB_BUILD_TESTS=OFF
+        cmake --build build --parallel
+    
+    - name: Run hash benchmarks
+      shell: msys2 {0}
+      run: |
+        cd build/bin
+        ./kctsb_benchmark.exe hash > benchmark_results.txt
+        cat benchmark_results.txt
+    
+    - name: Check performance baselines
+      shell: pwsh
+      run: |
+        $results = Get-Content build/bin/benchmark_results.txt
+        $failed = @()
+        
+        # Extract throughput values (format: "BLAKE2b-512  kctsb  1019.21 MB/s")
+        function Get-Throughput {
+          param($algo, $impl)
+          $line = $results | Select-String "$algo\s+$impl\s+(\d+\.\d+) MB/s"
+          if ($line -match '(\d+\.\d+) MB/s') {
+            return [double]$Matches[1]
+          }
+          return 0
+        }
+        
+        $blake2b = Get-Throughput "BLAKE2b-512" "kctsb"
+        $sha256 = Get-Throughput "SHA-256" "kctsb"
+        $sha512 = Get-Throughput "SHA-512" "kctsb"
+        $sha3_256 = Get-Throughput "SHA3-256" "kctsb"
+        $sha3_512 = Get-Throughput "SHA3-512" "kctsb"
+        $sm3 = Get-Throughput "SM3" "kctsb"
+        
+        Write-Host "`n=== Performance Validation ==="
+        Write-Host "BLAKE2b-512: $blake2b MB/s (min: $env:BLAKE2B_MIN_THROUGHPUT)"
+        Write-Host "SHA-256: $sha256 MB/s (min: $env:SHA256_MIN_THROUGHPUT)"
+        Write-Host "SHA-512: $sha512 MB/s (min: $env:SHA512_MIN_THROUGHPUT)"
+        Write-Host "SHA3-256: $sha3_256 MB/s (min: $env:SHA3_256_MIN_THROUGHPUT)"
+        Write-Host "SHA3-512: $sha3_512 MB/s (min: $env:SHA3_512_MIN_THROUGHPUT)"
+        Write-Host "SM3: $sm3 MB/s (min: $env:SM3_MIN_THROUGHPUT)"
+        
+        if ($blake2b -lt $env:BLAKE2B_MIN_THROUGHPUT) {
+          $failed += "BLAKE2b-512: $blake2b < $env:BLAKE2B_MIN_THROUGHPUT"
+        }
+        if ($sha256 -lt $env:SHA256_MIN_THROUGHPUT) {
+          $failed += "SHA-256: $sha256 < $env:SHA256_MIN_THROUGHPUT"
+        }
+        if ($sha512 -lt $env:SHA512_MIN_THROUGHPUT) {
+          $failed += "SHA-512: $sha512 < $env:SHA512_MIN_THROUGHPUT"
+        }
+        if ($sha3_256 -lt $env:SHA3_256_MIN_THROUGHPUT) {
+          $failed += "SHA3-256: $sha3_256 < $env:SHA3_256_MIN_THROUGHPUT"
+        }
+        if ($sha3_512 -lt $env:SHA3_512_MIN_THROUGHPUT) {
+          $failed += "SHA3-512: $sha3_512 < $env:SHA3_512_MIN_THROUGHPUT"
+        }
+        if ($sm3 -lt $env:SM3_MIN_THROUGHPUT) {
+          $failed += "SM3: $sm3 < $env:SM3_MIN_THROUGHPUT"
+        }
+        
+        if ($failed.Count -gt 0) {
+          Write-Host "`n❌ Performance regression detected:"
+          $failed | ForEach-Object { Write-Host "  - $_" }
+          exit 1
+        } else {
+          Write-Host "`n✅ All performance baselines passed"
+        }
+    
+    - name: Upload benchmark results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: benchmark-results-windows
+        path: build/bin/benchmark_results.txt
+
+  benchmark-linux:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake ninja-build libssl-dev
+    
+    - name: Build with optimizations
+      run: |
+        cmake -B build -G Ninja \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DKCTSB_BUILD_BENCHMARKS=ON \
+          -DKCTSB_BUILD_TESTS=OFF
+        cmake --build build --parallel
+    
+    - name: Run hash benchmarks
+      run: |
+        cd build/bin
+        ./kctsb_benchmark hash | tee benchmark_results.txt
+    
+    - name: Check performance baselines (Linux)
+      run: |
+        cd build/bin
+        
+        # Extract throughput (allowing platform variance ±10%)
+        extract_throughput() {
+          grep "$1.*kctsb" benchmark_results.txt | awk '{print $3}' | head -1
+        }
+        
+        blake2b=$(extract_throughput "BLAKE2b-512")
+        sha256=$(extract_throughput "SHA-256")
+        
+        # Linux may have different performance characteristics
+        # Use 90% of Windows baseline as threshold
+        min_blake2b=$((BLAKE2B_MIN_THROUGHPUT * 9 / 10))
+        min_sha256=$((SHA256_MIN_THROUGHPUT * 9 / 10))
+        
+        echo "=== Linux Performance Check ==="
+        echo "BLAKE2b-512: ${blake2b} MB/s (min: ${min_blake2b})"
+        echo "SHA-256: ${sha256} MB/s (min: ${min_sha256})"
+        
+        # Note: Baseline check is informational on Linux
+        # Different CPU/compiler may have different characteristics
+    
+    - name: Upload benchmark results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: benchmark-results-linux
+        path: build/bin/benchmark_results.txt
