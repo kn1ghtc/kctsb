@@ -25,10 +25,11 @@ param(
 
 $ErrorActionPreference = "Continue"
 $ProjectDir = Split-Path $PSScriptRoot -Parent
-$BuildDir = Join-Path $ProjectDir "build"
+$BuildType = if ($Debug) { "Debug" } else { "Release" }
+# Standardized build directories: Debug→build, Release→build-release
+$BuildDir = if ($Debug) { Join-Path $ProjectDir "build" } else { Join-Path $ProjectDir "build-release" }
 $ReleaseDir = Join-Path $ProjectDir "release"
 $ThirdpartyDir = Join-Path $ProjectDir "thirdparty"
-$BuildType = if ($Debug) { "Debug" } else { "Release" }
 $VERSION = "3.4.0"
 $ARCH = $env:PROCESSOR_ARCHITECTURE
 $ARCH_SUFFIX = if ($ARCH -eq "AMD64") { "x64" } else { "arm64" }

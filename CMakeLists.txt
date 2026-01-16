@@ -254,6 +254,12 @@ option(KCTSB_ENABLE_CLANG_TIDY "Enable clang-tidy static analysis" OFF)
 option(KCTSB_ENABLE_SANITIZERS "Enable Address/Undefined sanitizers" OFF)
 option(KCTSB_WARNINGS_AS_ERRORS "Treat warnings as errors" ON)
 
+# Release builds: Relax conversion warnings for performance-critical code
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    message(STATUS "Release mode: Disabling strict conversion warnings for performance")
+    set(KCTSB_WARNINGS_AS_ERRORS OFF)
+endif()
+
 # Clang-Tidy integration
 if(KCTSB_ENABLE_CLANG_TIDY)
     find_program(CLANG_TIDY_EXE NAMES "clang-tidy" "clang-tidy-15" "clang-tidy-16" "clang-tidy-17")

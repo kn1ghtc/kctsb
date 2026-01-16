@@ -8,7 +8,7 @@
       "testsuite": [
         {
           "name": "AES128_Performance",
-          "file": "D:\\pyproject\\kctsb\\tests\\benchmark\\test_benchmark.cpp",
+          "file": "D:\/pyproject\/kctsb\/tests\/benchmark\/test_benchmark.cpp",
           "line": 11
         }
       ]

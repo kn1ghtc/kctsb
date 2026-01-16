@@ -8,62 +8,62 @@
       "testsuite": [
         {
           "name": "ModularExponentiation",
-          "file": "D:\\pyproject\\kctsb\\tests\\unit\\math\\test_math.cpp",
+          "file": "D:\/pyproject\/kctsb\/tests\/unit\/math\/test_math.cpp",
           "line": 45
         },
         {
           "name": "GCD",
-          "file": "D:\\pyproject\\kctsb\\tests\\unit\\math\\test_math.cpp",
+          "file": "D:\/pyproject\/kctsb\/tests\/unit\/math\/test_math.cpp",
           "line": 66
         },
         {
           "name": "ExtendedGCD",
-          "file": "D:\\pyproject\\kctsb\\tests\\unit\\math\\test_math.cpp",
+          "file": "D:\/pyproject\/kctsb\/tests\/unit\/math\/test_math.cpp",
           "line": 85
         },
         {
           "name": "IsPrime",
-          "file": "D:\\pyproject\\kctsb\\tests\\unit\\math\\test_math.cpp",
+          "file": "D:\/pyproject\/kctsb\/tests\/unit\/math\/test_math.cpp",
           "line": 110
         },
         {
           "name": "ModularInverse",
-          "file": "D:\\pyproject\\kctsb\\tests\\unit\\math\\test_math.cpp",
+          "file": "D:\/pyproject\/kctsb\/tests\/unit\/math\/test_math.cpp",
           "line": 135
         },
         {
           "name": "NTL_BigInteger",
-          "file": "D:\\pyproject\\kctsb\\tests\\unit\\math\\test_math.cpp",
+          "file": "D:\/pyproject\/kctsb\/tests\/unit\/math\/test_math.cpp",
           "line": 170
         },
         {
           "name": "NTL_Polynomial",
-          "file": "D:\\pyproject\\kctsb\\tests\\unit\\math\\test_math.cpp",
+          "file": "D:\/pyproject\/kctsb\/tests\/unit\/math\/test_math.cpp",
           "line": 190
         },
         {
           "name": "NTL_GF2Polynomial",
-          "file": "D:\\pyproject\\kctsb\\tests\\unit\\math\\test_math.cpp",
+          "file": "D:\/pyproject\/kctsb\/tests\/unit\/math\/test_math.cpp",
           "line": 241
         },
         {
           "name": "NTL_MillerRabin",
-          "file": "D:\\pyproject\\kctsb\\tests\\unit\\math\\test_math.cpp",
+          "file": "D:\/pyproject\/kctsb\/tests\/unit\/math\/test_math.cpp",
           "line": 259
         },
         {
           "name": "Statistics_Mean",
-          "file": "D:\\pyproject\\kctsb\\tests\\unit\\math\\test_math.cpp",
+          "file": "D:\/pyproject\/kctsb\/tests\/unit\/math\/test_math.cpp",
           "line": 293
         },
         {
           "name": "Statistics_Variance",
-          "file": "D:\\pyproject\\kctsb\\tests\\unit\\math\\test_math.cpp",
+          "file": "D:\/pyproject\/kctsb\/tests\/unit\/math\/test_math.cpp",
           "line": 306
         },
         {
           "name": "Statistics_StdDev",
-          "file": "D:\\pyproject\\kctsb\\tests\\unit\\math\\test_math.cpp",
+          "file": "D:\/pyproject\/kctsb\/tests\/unit\/math\/test_math.cpp",
           "line": 325
         }
       ]

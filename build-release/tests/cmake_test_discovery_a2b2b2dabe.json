@@ -8,27 +8,27 @@
       "testsuite": [
         {
           "name": "EmptyString",
-          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_sha.cpp",
+          "file": "D:\/pyproject\/kctsb\/tests\/unit\/crypto\/test_sha.cpp",
           "line": 31
         },
         {
           "name": "ABC",
-          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_sha.cpp",
+          "file": "D:\/pyproject\/kctsb\/tests\/unit\/crypto\/test_sha.cpp",
           "line": 40
         },
         {
           "name": "LongMessage",
-          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_sha.cpp",
+          "file": "D:\/pyproject\/kctsb\/tests\/unit\/crypto\/test_sha.cpp",
           "line": 49
         },
         {
           "name": "IncrementalUpdate",
-          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_sha.cpp",
+          "file": "D:\/pyproject\/kctsb\/tests\/unit\/crypto\/test_sha.cpp",
           "line": 59
         },
         {
           "name": "MillionAs",
-          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_sha.cpp",
+          "file": "D:\/pyproject\/kctsb\/tests\/unit\/crypto\/test_sha.cpp",
           "line": 73
         }
       ]
@@ -39,22 +39,22 @@
       "testsuite": [
         {
           "name": "EmptyString",
-          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_sha.cpp",
+          "file": "D:\/pyproject\/kctsb\/tests\/unit\/crypto\/test_sha.cpp",
           "line": 94
         },
         {
           "name": "ABC",
-          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_sha.cpp",
+          "file": "D:\/pyproject\/kctsb\/tests\/unit\/crypto\/test_sha.cpp",
           "line": 104
         },
         {
           "name": "LongMessage",
-          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_sha.cpp",
+          "file": "D:\/pyproject\/kctsb\/tests\/unit\/crypto\/test_sha.cpp",
           "line": 114
         },
         {
           "name": "IncrementalUpdate",
-          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_sha.cpp",
+          "file": "D:\/pyproject\/kctsb\/tests\/unit\/crypto\/test_sha.cpp",
           "line": 125
         }
       ]
@@ -65,7 +65,7 @@
       "testsuite": [
         {
           "name": "DifferentOutputSizes",
-          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_sha.cpp",
+          "file": "D:\/pyproject\/kctsb\/tests\/unit\/crypto\/test_sha.cpp",
           "line": 144
         }
       ]
