@@ -5,18 +5,16 @@
 [![C++](https://img.shields.io/badge/C++-17-blue.svg)](.)
 [![CMake](https://img.shields.io/badge/CMake-3.20+-green.svg)](.)
 [![Version](https://img.shields.io/badge/Version-3.4.2-brightgreen.svg)](.)
-[![CI](https://img.shields.io/badge/CI-GitHub%20Actions-blue.svg)](.github/workflows/ci.yml)
 
 **kctsb** 是一个跨平台的 C/C++ 密码学和安全算法库，专为生产环境和安全研究设计。目标是成为 **OpenSSL 的现代替代品**。
 
 > **v3.4.2 更新** (2025年1月19日):  
 > - ✅ **构建系统优化**: CMake配置时间从25s降至9.3s (-63%)，使用mingw64 64位工具链  
 > - ✅ **性能基线建立**: 完整benchmark baseline，SHA3-256 493MB/s, BLAKE2b 934MB/s (+31.77% vs OpenSSL)  
-> - ✅ **CI/CD集成**: GitHub Actions工作流 + 性能门禁 (阻止>5%性能回退)  
 > - ✅ **OpenSSL 3.3.1集成**: 修复查找策略，支持benchmark对比测试  
 > - ✅ **代码质量**: 172个编译警告修复，per-target -Werror策略  
 > - 📊 **Hash测试**: 29/29测试通过 (SHA3, BLAKE2b, SM3, SHA-256/512全部正常)  
-> - 🎯 **下一步**: SHA3-256优化目标567MB/s (当前493MB/s, -13.2% gap)
+> - 🚀 **SHA3优化完成**: 10MB下 SHA3-256 **678MB/s**、SHA3-512 **339MB/s**，均超越 OpenSSL 3.3.1（+12.6% / +6.8%）
 
 ## ✨ 特性
 
@@ -222,6 +220,19 @@ ctest --test-dir build --output-on-failure
 .\build\bin\kctsb.exe hash --sha3-256 "Hello, World!"
 ```
 
+**Windows 环境变量统一（MSYS2）**
+
+为避免多套编译器/`cmake` 冲突，建议在系统环境中固定以下变量，并重启终端生效：
+
+- `MSYS2_ROOT = C:\msys64`
+- `MSYS2_MINGW64_BIN = C:\msys64\mingw64\bin`
+- `CC = C:\msys64\mingw64\bin\gcc.exe`
+- `CXX = C:\msys64\mingw64\bin\g++.exe`
+- `CMAKE_MAKE_PROGRAM = C:\msys64\mingw64\bin\ninja.exe`
+- `VCPKG_ROOT = D:\vcpkg`
+
+确保 `PATH` 以 `C:\msys64\mingw64\bin;C:\msys64\usr\bin` 开头。
+
 ### 构建脚本选项 (v3.2.1)
 
 ```powershell
@@ -298,6 +309,10 @@ cd build && ctest --output-on-failure
 4. 使用 `F5` 调试
 
 ## 📖 使用示例
+
+### Secure Computation Demo (Headless)
+
+`docs/examples/psi/SecureComputationDemo.py` 仅生成 HTML 报告与日志输出，不会弹出图形窗口或生成图像文件。
 
 ### 统一公共 API 头文件 (v3.4.0+)
 
@@ -383,9 +398,9 @@ kctsb v3.3.2 提供与 OpenSSL 的性能对比基准测试：
 
 ## 📊 性能基线 (v3.4.2)
 
-> **Platform**: Windows 11 + MSYS2 MinGW64 GCC 13.2.0  
+> **Platform**: Windows 11 + MSYS2 MinGW64 GCC 15.2.0  
 > **Compiler Flags**: `-O3 -march=native -flto -mavx2 -maes -msha`  
-> **Benchmark Date**: 2025-01-19  
+> **Benchmark Date**: 2026-01-16  
 > **OpenSSL Baseline**: OpenSSL 3.3.1
 
 完整性能数据见 [docs/PERFORMANCE_BASELINE.md](docs/PERFORMANCE_BASELINE.md)。
@@ -394,18 +409,17 @@ kctsb v3.3.2 提供与 OpenSSL 的性能对比基准测试：
 
 | Algorithm    | kctsb (MB/s) | OpenSSL (MB/s) | vs OpenSSL | Status |
 |--------------|--------------|----------------|------------|--------|
-| **BLAKE2b-512** | **934** | 709 | **+31.77%** | 🏆 Best-in-class |
-| **SM3**       | **355** | 235 | **+51.53%** | 🏆 Outstanding |
-| **SHA3-512**  | **292** | 295 | **-1.16%**  | ✅ Near-parity |
-| **SHA3-256**  | **493** | 537 | **-8.29%**  | ⚠️ Optimization target |
-| **SHA-256**   | 1930 | 2092 | -7.77% | ⚠️ OpenSSL uses SHA-NI |
-| **SHA-512**   | 753 | 887 | -15.05% | ⚠️ OpenSSL uses SHA-NI |
+| **BLAKE2b-512** | **985** | 760 | **+29.56%** | 🏆 Best-in-class |
+| **SM3**       | **375** | 256 | **+46.65%** | 🏆 Outstanding |
+| **SHA3-512**  | **339** | 317 | **+6.75%**  | ✅ Faster than OpenSSL |
+| **SHA3-256**  | **678** | 602 | **+12.60%**  | ✅ Faster than OpenSSL |
+| **SHA-256**   | 1988 | 2086 | -4.71% | ⚠️ OpenSSL uses SHA-NI |
+| **SHA-512**   | 729 | 901 | -19.10% | ⚠️ OpenSSL uses SHA-NI |
 
 **性能亮点**:
 - ✅ **BLAKE2b**: 所有数据大小都超越OpenSSL **26-40%**（软件优化设计）
 - ✅ **SM3**: 一致性超越OpenSSL **50-60%**（国密算法高度优化）
-- ✅ **SHA3-512**: 大块数据接近工业级性能 (292 MB/s vs 295 MB/s)
-- ⚠️ **SHA3-256**: 当前493 MB/s，目标567 MB/s (-13.2% gap，v3.5.0优化中)
+- ✅ **SHA3-256/512**: 大块数据已超越 OpenSSL（+12.6% / +6.8%）
 
 ### AEAD Encryption (10MB data)
 
@@ -428,16 +442,11 @@ kctsb v3.3.2 提供与 OpenSSL 的性能对比基准测试：
 
 **Expected**: 70-85% of OpenSSL ✅ (within target range)
 
-### 性能门禁 (CI/CD)
+### 性能验证（手动）
 
-所有PR必须通过性能回退检测：
-- **通用阈值**: 不允许性能下降 >5%
-- **BLAKE2b**: 不允许性能下降 >3% (重点保护优势项)
-- **自动化**: GitHub Actions自动运行 `scripts/check_performance.py`
-- **失败策略**: 性能回退超阈值 → ❌ PR check失败
-- **稳定性**: 所有 GitHub Actions 均已固定到具体 commit SHA，避免 registry 解析警告
-
-参见 [.github/workflows/ci.yml](.github/workflows/ci.yml) 和 [docs/PERFORMANCE_BASELINE.md](docs/PERFORMANCE_BASELINE.md)。
+基准对比以 [docs/PERFORMANCE_BASELINE.md](docs/PERFORMANCE_BASELINE.md) 为准：
+- **目标**: 与 OpenSSL 对比性能差距不超过 5%
+- **方法**: 运行 `kctsb_benchmark` 后人工对比基线数据
 
 
 ## ⚠️ 安全声明
@@ -450,6 +459,10 @@ kctsb v3.0.0 的核心算法（AES-GCM, ChaCha20-Poly1305, **SHA-256/384/512**, 
 1. **代码审计**: 部署前建议进行独立安全审计
 2. **侧信道防护**: 软件实现可能存在时序侧信道，高安全需求建议使用硬件加速
 3. **密钥管理**: 密钥应存储在HSM或安全密钥库中
+
+## 🔒 变更策略
+
+本项目仅允许核心维护者进行代码变更，外部或非授权修改不予接受。
 
 ### 开源协议
 

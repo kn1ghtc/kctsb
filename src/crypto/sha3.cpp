@@ -32,6 +32,14 @@
 #define KCTSB_PREFETCH(addr) _mm_prefetch(reinterpret_cast<const char*>(addr), _MM_HINT_T0)
 #endif
 
+#if defined(_MSC_VER)
+#define KCTSB_RESTRICT __restrict
+#elif defined(__GNUC__) || defined(__clang__)
+#define KCTSB_RESTRICT __restrict__
+#else
+#define KCTSB_RESTRICT
+#endif
+
 // ============================================================================
 // Compile-time feature detection
 // ============================================================================
@@ -357,6 +365,194 @@ private:
 
 } // namespace kctsb::internal
 
+namespace {
+
+/**
+ * @brief XOR a full-rate block into the state with AVX2 (no runtime check).
+ * @param state_bytes State as byte pointer
+ * @param data Input block
+ * @param rate_bytes Rate in bytes
+ */
+inline void xor_block_avx2(uint8_t* KCTSB_RESTRICT state_bytes,
+                           const uint8_t* KCTSB_RESTRICT data,
+                           size_t rate_bytes) noexcept {
+#if KCTSB_HAS_AVX2_KECCAK
+    const size_t vec_bytes = 32;
+    size_t offset = 0;
+    const bool data_aligned = (reinterpret_cast<uintptr_t>(data) & (vec_bytes - 1U)) == 0U;
+    auto* state_words = reinterpret_cast<uint64_t*>(state_bytes);
+    while (rate_bytes - offset >= vec_bytes) {
+        __m256i vdst = _mm256_load_si256(reinterpret_cast<const __m256i*>(state_bytes + offset));
+        __m256i vsrc = data_aligned
+            ? _mm256_load_si256(reinterpret_cast<const __m256i*>(data + offset))
+            : _mm256_loadu_si256(reinterpret_cast<const __m256i*>(data + offset));
+        __m256i vx = _mm256_xor_si256(vdst, vsrc);
+        _mm256_store_si256(reinterpret_cast<__m256i*>(state_bytes + offset), vx);
+        offset += vec_bytes;
+    }
+    for (; offset + 8 <= rate_bytes; offset += 8) {
+        uint64_t lane;
+        std::memcpy(&lane, data + offset, 8);
+        state_words[offset / 8] ^= lane;
+    }
+    for (; offset < rate_bytes; ++offset) {
+        state_bytes[offset] ^= data[offset];
+    }
+#else
+    (void)state_bytes;
+    (void)data;
+    (void)rate_bytes;
+#endif
+}
+
+/**
+ * @brief XOR a full-rate block into the state using 64-bit lanes.
+ * @param state_words State as 64-bit lanes
+ * @param data Input block
+ * @param rate_bytes Rate in bytes
+ */
+inline void xor_block_lanes(uint64_t* KCTSB_RESTRICT state_words,
+                            const uint8_t* KCTSB_RESTRICT data,
+                            size_t rate_bytes) noexcept {
+    const size_t lanes = rate_bytes / 8;
+    const bool aligned = (reinterpret_cast<uintptr_t>(data) & 7U) == 0U;
+
+    if (aligned) {
+        const auto* data_words = reinterpret_cast<const uint64_t*>(data);
+        switch (lanes) {
+            case 17:
+                state_words[0] ^= data_words[0];
+                state_words[1] ^= data_words[1];
+                state_words[2] ^= data_words[2];
+                state_words[3] ^= data_words[3];
+                state_words[4] ^= data_words[4];
+                state_words[5] ^= data_words[5];
+                state_words[6] ^= data_words[6];
+                state_words[7] ^= data_words[7];
+                state_words[8] ^= data_words[8];
+                state_words[9] ^= data_words[9];
+                state_words[10] ^= data_words[10];
+                state_words[11] ^= data_words[11];
+                state_words[12] ^= data_words[12];
+                state_words[13] ^= data_words[13];
+                state_words[14] ^= data_words[14];
+                state_words[15] ^= data_words[15];
+                state_words[16] ^= data_words[16];
+                return;
+            case 21:
+                state_words[0] ^= data_words[0];
+                state_words[1] ^= data_words[1];
+                state_words[2] ^= data_words[2];
+                state_words[3] ^= data_words[3];
+                state_words[4] ^= data_words[4];
+                state_words[5] ^= data_words[5];
+                state_words[6] ^= data_words[6];
+                state_words[7] ^= data_words[7];
+                state_words[8] ^= data_words[8];
+                state_words[9] ^= data_words[9];
+                state_words[10] ^= data_words[10];
+                state_words[11] ^= data_words[11];
+                state_words[12] ^= data_words[12];
+                state_words[13] ^= data_words[13];
+                state_words[14] ^= data_words[14];
+                state_words[15] ^= data_words[15];
+                state_words[16] ^= data_words[16];
+                state_words[17] ^= data_words[17];
+                state_words[18] ^= data_words[18];
+                state_words[19] ^= data_words[19];
+                state_words[20] ^= data_words[20];
+                return;
+            case 9:
+                state_words[0] ^= data_words[0];
+                state_words[1] ^= data_words[1];
+                state_words[2] ^= data_words[2];
+                state_words[3] ^= data_words[3];
+                state_words[4] ^= data_words[4];
+                state_words[5] ^= data_words[5];
+                state_words[6] ^= data_words[6];
+                state_words[7] ^= data_words[7];
+                state_words[8] ^= data_words[8];
+                return;
+            default:
+                for (size_t i = 0; i < lanes; ++i) {
+                    state_words[i] ^= data_words[i];
+                }
+                return;
+        }
+    }
+
+    for (size_t i = 0; i < lanes; ++i) {
+        uint64_t lane;
+        std::memcpy(&lane, data + i * 8, 8);
+        state_words[i] ^= lane;
+    }
+}
+
+/**
+ * @brief Absorb full-rate blocks directly into the Keccak state.
+ * @param ctx SHA3 context
+ * @param data Input data pointer (advanced)
+ * @param len Remaining input length (reduced)
+ */
+inline void absorb_full_blocks(kctsb_sha3_ctx_t* KCTSB_RESTRICT ctx,
+                               const uint8_t*& data,
+                               size_t& len) noexcept {
+    if (ctx->absorbed != 0 || len < ctx->rate) {
+        return;
+    }
+
+    auto* keccak_state = reinterpret_cast<kctsb::internal::KeccakState*>(&ctx->state);
+    auto* KCTSB_RESTRICT state_bytes = reinterpret_cast<uint8_t*>(keccak_state->state.data());
+    auto* KCTSB_RESTRICT state_words = keccak_state->state.data();
+    const size_t rate = ctx->rate;
+    static const bool has_avx2 = kctsb::internal::SIMDDetector::has_avx2();
+    const bool use_avx2 = has_avx2 && rate >= 96 && len >= (rate * 8U);
+
+    while (len >= rate) {
+        KCTSB_PREFETCH(data + 64);
+        if (use_avx2) {
+            xor_block_avx2(state_bytes, data, rate);
+        } else {
+            xor_block_lanes(state_words, data, rate);
+        }
+        keccak_state->permute();
+        data += rate;
+        len -= rate;
+    }
+}
+
+/**
+ * @brief XOR a partial block into the state with 64-bit lanes when aligned.
+ * @param state_bytes State byte view
+ * @param offset Offset within the state
+ * @param data Input data
+ * @param len Bytes to absorb
+ */
+inline void xor_partial_block(uint8_t* KCTSB_RESTRICT state_bytes,
+                              size_t offset,
+                              const uint8_t* KCTSB_RESTRICT data,
+                              size_t len) noexcept {
+    size_t i = 0;
+
+    while (i < len && ((offset + i) & 7U) != 0U) {
+        state_bytes[offset + i] ^= data[i];
+        ++i;
+    }
+
+    for (; i + 8 <= len; i += 8) {
+        uint64_t lane;
+        std::memcpy(&lane, data + i, 8);
+        auto* dst = reinterpret_cast<uint64_t*>(state_bytes + offset + i);
+        *dst ^= lane;
+    }
+
+    for (; i < len; ++i) {
+        state_bytes[offset + i] ^= data[i];
+    }
+}
+
+} // namespace
+
 // ============================================================================
 // C ABI Export (extern "C")
 // ============================================================================
@@ -388,20 +584,24 @@ kctsb_error_t kctsb_sha3_256_update(kctsb_sha3_ctx_t* ctx,
         return KCTSB_ERROR_INVALID_PARAM;
     }
 
-    while (len > 0) {
-        size_t to_absorb = (len < ctx->rate - ctx->absorbed) ? len : (ctx->rate - ctx->absorbed);
+    uint8_t* state_bytes = reinterpret_cast<uint8_t*>(ctx->state);
 
-        uint8_t* state_bytes = reinterpret_cast<uint8_t*>(ctx->state);
-        for (size_t i = 0; i < to_absorb; ++i) {
-            state_bytes[ctx->absorbed + i] ^= data[i];
+    while (len > 0) {
+        absorb_full_blocks(ctx, data, len);
+        if (len == 0) {
+            break;
         }
+
+        const size_t to_absorb = (len < ctx->rate - ctx->absorbed)
+            ? len
+            : (ctx->rate - ctx->absorbed);
+        xor_partial_block(state_bytes, ctx->absorbed, data, to_absorb);
 
         ctx->absorbed += to_absorb;
         data += to_absorb;
         len -= to_absorb;
 
         if (ctx->absorbed == ctx->rate) {
-            // Permute using internal implementation
             auto* keccak_state = reinterpret_cast<kctsb::internal::KeccakState*>(&ctx->state);
             keccak_state->permute();
             ctx->absorbed = 0;
@@ -519,15 +719,23 @@ kctsb_error_t kctsb_shake128(const uint8_t* data, size_t len,
     ctx.suffix = 0x1F;         // SHAKE domain separator
     ctx.absorbed = 0;
 
-    // Absorb all input - accumulate until we have a full block
     uint8_t* state_bytes = reinterpret_cast<uint8_t*>(ctx.state);
     auto* keccak_state = reinterpret_cast<kctsb::internal::KeccakState*>(&ctx.state);
 
     while (len > 0) {
-        size_t to_absorb = (len < (ctx.rate - ctx.absorbed)) ? len : (ctx.rate - ctx.absorbed);
-        for (size_t i = 0; i < to_absorb; ++i) {
-            state_bytes[ctx.absorbed + i] ^= data[i];
+        const uint8_t* input_ptr = data;
+        size_t input_len = len;
+        absorb_full_blocks(&ctx, input_ptr, input_len);
+        data = input_ptr;
+        len = input_len;
+        if (len == 0) {
+            break;
         }
+
+        const size_t to_absorb = (len < (ctx.rate - ctx.absorbed))
+            ? len
+            : (ctx.rate - ctx.absorbed);
+        xor_partial_block(state_bytes, ctx.absorbed, data, to_absorb);
         ctx.absorbed += to_absorb;
         data += to_absorb;
         len -= to_absorb;
@@ -571,15 +779,23 @@ kctsb_error_t kctsb_shake256(const uint8_t* data, size_t len,
     ctx.suffix = 0x1F;         // SHAKE domain separator
     ctx.absorbed = 0;
 
-    // Absorb all input - accumulate until we have a full block
     uint8_t* state_bytes = reinterpret_cast<uint8_t*>(ctx.state);
     auto* keccak_state = reinterpret_cast<kctsb::internal::KeccakState*>(&ctx.state);
 
     while (len > 0) {
-        size_t to_absorb = (len < (ctx.rate - ctx.absorbed)) ? len : (ctx.rate - ctx.absorbed);
-        for (size_t i = 0; i < to_absorb; ++i) {
-            state_bytes[ctx.absorbed + i] ^= data[i];
+        const uint8_t* input_ptr = data;
+        size_t input_len = len;
+        absorb_full_blocks(&ctx, input_ptr, input_len);
+        data = input_ptr;
+        len = input_len;
+        if (len == 0) {
+            break;
         }
+
+        const size_t to_absorb = (len < (ctx.rate - ctx.absorbed))
+            ? len
+            : (ctx.rate - ctx.absorbed);
+        xor_partial_block(state_bytes, ctx.absorbed, data, to_absorb);
         ctx.absorbed += to_absorb;
         data += to_absorb;
         len -= to_absorb;
