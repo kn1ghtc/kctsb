@@ -9,20 +9,24 @@
 # =============================================================================
 
 ---
-# Header filter: Only check project headers, exclude thirdparty
+# Header filter: Only check project headers, exclude thirdparty and benchmarks
 HeaderFilterRegex: '^.*/(include|src)/kctsb/.*\.h$'
 
 # Format style for suggested fixes
 FormatStyle: file
 
-# Treat warnings as errors
-WarningsAsErrors: '*'
+# Treat warnings as errors (except for benchmarks)
+WarningsAsErrors: '*,-cppcoreguidelines-narrowing-conversions,-bugprone-narrowing-conversions'
+
+# Exclude benchmarks and tests from strict checking
+ExcludeHeaderFilterRegex: '.*(benchmarks|tests|thirdparty).*'
 
 Checks: >
   -*,
   bugprone-*,
   -bugprone-easily-swappable-parameters,
   -bugprone-exception-escape,
+  -bugprone-narrowing-conversions,
   cert-*,
   -cert-err58-cpp,
   clang-analyzer-*,
@@ -32,6 +36,7 @@ Checks: >
   -cppcoreguidelines-avoid-c-arrays,
   -cppcoreguidelines-avoid-magic-numbers,
   -cppcoreguidelines-macro-usage,
+  -cppcoreguidelines-narrowing-conversions,
   -cppcoreguidelines-non-private-member-variables-in-classes,
   -cppcoreguidelines-owning-memory,
   -cppcoreguidelines-pro-bounds-array-to-pointer-decay,

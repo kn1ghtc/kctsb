@@ -99,6 +99,10 @@ else()
         -O3 -march=native
         -finput-charset=UTF-8
         -fexec-charset=UTF-8
+        # Disable conversion warnings for benchmarks (intentional size_t -> double conversions)
+        -Wno-conversion
+        -Wno-sign-conversion
+        -Wno-unused-function
     )
 endif()
 

@@ -18,6 +18,14 @@
  * @license Apache License 2.0
  */
 
+// Disable conversion warnings for benchmark code (intentional size_t -> double conversions)
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wconversion"
+#pragma GCC diagnostic ignored "-Wsign-conversion"
+#pragma GCC diagnostic ignored "-Wunused-function"
+#endif
+
 #include <iostream>
 #include <iomanip>
 #include <chrono>
@@ -58,9 +66,12 @@ static void generate_random(uint8_t* buf, size_t len) {
 
 /**
  * @brief Calculate throughput in MB/s
+ * @param bytes Data size in bytes (will be converted to double)
+ * @param ms Time in milliseconds
+ * @return Throughput in MB/s
  */
-static double calculate_throughput(double bytes, double ms) {
-    return (bytes / (1024.0 * 1024.0)) / (ms / 1000.0);
+static double calculate_throughput(size_t bytes, double ms) {
+    return (static_cast<double>(bytes) / (1024.0 * 1024.0)) / (ms / 1000.0);
 }
 
 /**
@@ -129,7 +140,7 @@ static double run_benchmark_iterations(
     // Statistics
     double avg = std::accumulate(times.begin(), times.end(), 0.0) /
                  static_cast<double>(times.size());
-    double throughput = calculate_throughput(static_cast<double>(data_size), avg);
+    double throughput = calculate_throughput(data_size, avg);
 
     // Print result (consistent format with other benchmarks)
     std::cout << std::left << std::setw(25) << name
@@ -343,3 +354,8 @@ void benchmark_hash_functions() {
     std::cout << "  - SM3: GB/T 32905-2016 Chinese national standard" << std::endl;
     std::cout << "  - Ratio > 1.0x means kctsb is faster than OpenSSL" << std::endl;
 }
+
+// Restore diagnostic settings
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif

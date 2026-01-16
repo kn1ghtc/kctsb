@@ -1,12 +1,13 @@
 ﻿# ============================================================================
 # kctsb Build Script for Windows (PowerShell)
-# Version: 3.4.0
+# Version: 3.4.2
 #
 # Features:
 # - Platform-specific thirdparty: thirdparty/win-x64/
 # - LTO enabled (GCC 11+/Clang/MSVC)
-# - Single-file distribution (like OpenSSL)
+# - Single-file distribution (libkctsb_bundled.a - default)
 # - Unified public API header (kctsb_api.h)
+# - Bundled library created automatically on every build
 # ============================================================================
 
 param(
@@ -30,7 +31,7 @@ $BuildType = if ($Debug) { "Debug" } else { "Release" }
 $BuildDir = if ($Debug) { Join-Path $ProjectDir "build" } else { Join-Path $ProjectDir "build-release" }
 $ReleaseDir = Join-Path $ProjectDir "release"
 $ThirdpartyDir = Join-Path $ProjectDir "thirdparty"
-$VERSION = "3.4.0"
+$VERSION = "3.4.2"
 $ARCH = $env:PROCESSOR_ARCHITECTURE
 $ARCH_SUFFIX = if ($ARCH -eq "AMD64") { "x64" } else { "arm64" }
 $PLATFORM_SUFFIX = "win-$ARCH_SUFFIX"
@@ -152,6 +153,101 @@ try {
     if ($Verbose) { $buildCmd += "--verbose" }
     cmake @buildCmd
     if ($LASTEXITCODE -ne 0) { throw "Build failed" }
+    
+    # ====================================================================
+    # Create bundled static library (always, single-file delivery)
+    # ====================================================================
+    Write-Host "   Creating bundled static library..." -ForegroundColor Yellow
+    
+    $staticLib = Join-Path $BuildDir "lib\libkctsb.a"
+    $bundledLib = Join-Path $BuildDir "lib\libkctsb_bundled.a"
+    
+    # Find ar tool
+    $AR = $null
+    $arPaths = @(
+        "C:\msys64\mingw64\bin\ar.exe",
+        "C:\msys64\usr\bin\ar.exe",
+        "C:\Strawberry\c\bin\ar.exe"
+    )
+    foreach ($arPath in $arPaths) {
+        if (Test-Path $arPath) { $AR = $arPath; break }
+    }
+    
+    if ($AR -and (Test-Path $staticLib)) {
+        # Collect all static libraries to bundle
+        $libsToBundle = @($staticLib)
+        
+        # Thirdparty libraries
+        $thirdpartyLibDirs = @(
+            (Join-Path $ThirdpartyPlatformDir "lib"),
+            (Join-Path $ThirdpartyDir "lib")
+        )
+        
+        $depLibs = @("libntl.a", "libgmp.a", "libgf2x.a", "libseal-4.1.a", "libhelib.a")
+        foreach ($libDir in $thirdpartyLibDirs) {
+            if (Test-Path $libDir) {
+                foreach ($depLib in $depLibs) {
+                    $depPath = Join-Path $libDir $depLib
+                    if ((Test-Path $depPath) -and ($libsToBundle -notcontains $depPath)) {
+                        $libsToBundle += $depPath
+                    }
+                }
+            }
+        }
+        
+        if ($libsToBundle.Count -gt 1) {
+            # Create temp directory for extraction
+            $bundleTmpDir = Join-Path $BuildDir "bundle_tmp"
+            if (Test-Path $bundleTmpDir) {
+                Remove-Item -Recurse -Force $bundleTmpDir
+            }
+            New-Item -ItemType Directory -Path $bundleTmpDir | Out-Null
+            
+            Push-Location $bundleTmpDir
+            try {
+                $libIndex = 0
+                foreach ($lib in $libsToBundle) {
+                    $libName = [System.IO.Path]::GetFileNameWithoutExtension($lib)
+                    $prefix = "lib${libIndex}_"
+                    
+                    & $AR x $lib 2>$null
+                    
+                    # Rename extracted .o files with prefix
+                    Get-ChildItem -Filter "*.o" | Where-Object { $_.Name -notmatch "^lib\d+_" } | ForEach-Object {
+                        $newName = "${prefix}$($_.Name)"
+                        Rename-Item $_.FullName $newName
+                    }
+                    $libIndex++
+                }
+                
+                # Create bundled library
+                $objFiles = Get-ChildItem -Filter "*.o" | ForEach-Object { $_.Name }
+                
+                if ($objFiles.Count -gt 0) {
+                    & $AR rcs $bundledLib @objFiles 2>$null
+                    
+                    if (Test-Path $bundledLib) {
+                        $bundledSize = (Get-Item $bundledLib).Length
+                        $bundledSizeMB = [math]::Round($bundledSize / 1MB, 2)
+                        Write-Host "   ✓ Created libkctsb_bundled.a ($bundledSizeMB MB, $($objFiles.Count) objects)" -ForegroundColor Green
+                    }
+                }
+            }
+            finally {
+                Pop-Location
+                if (Test-Path $bundleTmpDir) {
+                    Remove-Item -Recurse -Force $bundleTmpDir
+                }
+            }
+        } else {
+            # No dependencies, just copy as bundled
+            Copy-Item $staticLib $bundledLib -Force
+            Write-Host "   ✓ Created libkctsb_bundled.a (no deps to bundle)" -ForegroundColor Green
+        }
+    } else {
+        Write-Host "   (ar not found or static lib missing)" -ForegroundColor Yellow
+    }
+    
     $STEP++
 
     if ($Test) {

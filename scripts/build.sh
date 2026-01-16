@@ -1,13 +1,14 @@
 #!/bin/bash
 # ============================================================================
 # kctsb Build Script for Linux/macOS
-# Version: 3.4.0
+# Version: 3.4.2
 #
 # Features:
 # - Platform-specific thirdparty: thirdparty/{linux-x64,macos-x64,macos-arm64}/
 # - LTO enabled (GCC 11+/Clang)
-# - Single-file distribution (like OpenSSL)
+# - Single-file distribution (libkctsb_bundled.a - includes all dependencies)
 # - Unified public API header (kctsb_api.h)
+# - Bundled library created on every build (default behavior)
 #
 # Usage:
 #   ./scripts/build.sh                    # Quick release build
@@ -25,7 +26,7 @@ RELEASE_DIR="$PROJECT_DIR/release"
 THIRDPARTY_DIR="$PROJECT_DIR/thirdparty"
 
 # Version info
-VERSION="3.4.0"
+VERSION="3.4.2"
 
 BUILD_TYPE="Release"
 CLEAN=false
@@ -255,6 +256,97 @@ if [ "$VERBOSE" = true ]; then
 fi
 
 eval $BUILD_CMD
+
+# ====================================================================
+# Create bundled static library (default for all builds)
+# ====================================================================
+echo -e "   ${YELLOW}Creating bundled static library...${NC}"
+
+STATIC_LIB="$BUILD_DIR/lib/libkctsb.a"
+if [ -f "$STATIC_LIB" ] && command -v ar &> /dev/null; then
+    # Collect all static libraries to bundle
+    LIBS_TO_BUNDLE=()
+    LIBS_TO_BUNDLE+=("$STATIC_LIB")
+    
+    # Check both platform-specific and common thirdparty directories
+    THIRDPARTY_LIB_DIRS=(
+        "$THIRDPARTY_PLATFORM_DIR/lib"
+        "$THIRDPARTY_DIR/lib"
+    )
+    
+    DEP_LIBS=("libntl.a" "libgmp.a" "libgf2x.a" "libseal-4.1.a" "libhelib.a")
+    
+    for lib_dir in "${THIRDPARTY_LIB_DIRS[@]}"; do
+        if [ -d "$lib_dir" ]; then
+            for dep_lib in "${DEP_LIBS[@]}"; do
+                dep_path="$lib_dir/$dep_lib"
+                if [ -f "$dep_path" ]; then
+                    # Check if already added
+                    already_added=false
+                    for existing in "${LIBS_TO_BUNDLE[@]}"; do
+                        if [ "$existing" = "$dep_path" ]; then
+                            already_added=true
+                            break
+                        fi
+                    done
+                    if [ "$already_added" = false ]; then
+                        LIBS_TO_BUNDLE+=("$dep_path")
+                    fi
+                fi
+            done
+        fi
+    done
+    
+    if [ ${#LIBS_TO_BUNDLE[@]} -gt 1 ]; then
+        # Create temp directory for extraction
+        BUNDLE_TMP_DIR="$BUILD_DIR/bundle_tmp"
+        rm -rf "$BUNDLE_TMP_DIR"
+        mkdir -p "$BUNDLE_TMP_DIR"
+        
+        cd "$BUNDLE_TMP_DIR"
+        
+        # Extract each library with prefixed object files
+        lib_index=0
+        for lib in "${LIBS_TO_BUNDLE[@]}"; do
+            lib_name=$(basename "$lib" .a)
+            prefix="lib${lib_index}_"
+            
+            ar x "$lib" 2>/dev/null || true
+            
+            # Rename extracted .o files with prefix to avoid conflicts
+            for obj in *.o; do
+                if [ -f "$obj" ] && [[ ! "$obj" =~ ^lib[0-9]+_ ]]; then
+                    mv "$obj" "${prefix}${obj}"
+                fi
+            done
+            lib_index=$((lib_index + 1))
+        done
+        
+        # Count total objects
+        obj_count=$(ls -1 *.o 2>/dev/null | wc -l)
+        
+        if [ "$obj_count" -gt 0 ]; then
+            BUNDLED_LIB="$BUILD_DIR/lib/libkctsb_bundled.a"
+            ar rcs "$BUNDLED_LIB" *.o 2>/dev/null
+            
+            if [ -f "$BUNDLED_LIB" ]; then
+                bundled_size=$(du -h "$BUNDLED_LIB" | cut -f1)
+                echo -e "   ${GREEN}✓ Created libkctsb_bundled.a ($bundled_size, $obj_count objects)${NC}"
+            else
+                echo -e "   ${RED}✗ Failed to create bundled library${NC}"
+            fi
+        fi
+        
+        # Cleanup
+        cd "$BUILD_DIR"
+        rm -rf "$BUNDLE_TMP_DIR"
+    else
+        echo -e "   (No dependencies to bundle, using kctsb only)"
+    fi
+else
+    echo -e "   (ar not found or static lib missing, skipping bundled library)"
+fi
+
 STEP=$((STEP + 1))
 
 # Test
