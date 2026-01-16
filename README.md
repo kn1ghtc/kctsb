@@ -435,6 +435,7 @@ kctsb v3.3.2 提供与 OpenSSL 的性能对比基准测试：
 - **BLAKE2b**: 不允许性能下降 >3% (重点保护优势项)
 - **自动化**: GitHub Actions自动运行 `scripts/check_performance.py`
 - **失败策略**: 性能回退超阈值 → ❌ PR check失败
+- **稳定性**: 所有 GitHub Actions 均已固定到具体 commit SHA，避免 registry 解析警告
 
 参见 [.github/workflows/ci.yml](.github/workflows/ci.yml) 和 [docs/PERFORMANCE_BASELINE.md](docs/PERFORMANCE_BASELINE.md)。
 

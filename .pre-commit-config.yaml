@@ -1,0 +1,46 @@
+# Pre-commit hooks for kctsb
+# Install: pip install pre-commit && pre-commit install
+# Run manually: pre-commit run --all-files
+
+repos:
+  # YAML syntax validation
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: check-yaml
+        args: [--unsafe]  # Allow custom YAML tags like !reference
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ['--maxkb=1024']
+
+  # C/C++ formatting check
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v17.0.6
+    hooks:
+      - id: clang-format
+        types_or: [c, c++]
+        files: ^(src|include|tests|benchmarks)/
+
+  # CMake formatting
+  - repo: https://github.com/cheshirekow/cmake-format-precommit
+    rev: v0.6.13
+    hooks:
+      - id: cmake-format
+        additional_dependencies: [cmakelang]
+
+  # GitHub Actions workflow validation
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.6.26
+    hooks:
+      - id: actionlint
+        args: [-shellcheck=]  # Disable shellcheck (optional)
+
+  # Python scripts validation (if any)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.1.9
+    hooks:
+      - id: ruff
+        files: ^scripts/.*\.py$
+        args: [--fix, --exit-non-zero-on-fix]
