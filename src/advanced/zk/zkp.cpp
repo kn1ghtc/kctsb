@@ -677,7 +677,7 @@ QAP QAP::from_r1cs(const ConstraintSystem& cs) {
         std::vector<ZZ> new_t(qap.t_.size() + 1);
         for (size_t j = 0; j < qap.t_.size(); ++j) {
             new_t[j + 1] += qap.t_[j];
-            new_t[j] -= qap.t_[j] * ZZ(i);
+            new_t[j] -= qap.t_[j] * ZZ(static_cast<long>(i));
         }
         qap.t_ = new_t;
     }
@@ -857,7 +857,7 @@ CommonReferenceString Groth16::setup(const Circuit& circuit) {
 
     ZZ t_tau = ZZ(1);  // Evaluate t(τ)
     for (size_t i = 1; i <= qap.num_constraints(); ++i) {
-        t_tau = (t_tau * (tau - ZZ(i))) % r;
+        t_tau = (t_tau * (tau - ZZ(static_cast<long>(i)))) % r;
     }
 
     ZZ tau_pow(1);

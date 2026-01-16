@@ -158,9 +158,6 @@ kctsb_error_t compute_z_value(
     const uint8_t* public_key,
     uint8_t z_value[32]
 ) {
-    auto& ctx = SM2Context::instance();
-    const auto& curve = ctx.curve();
-    
     // Get curve parameters
     ecc::CurveParams params = ecc::get_sm2_params();
     

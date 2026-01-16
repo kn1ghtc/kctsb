@@ -86,7 +86,7 @@ std::vector<uint8_t> hmac_sha256(const std::vector<uint8_t>& key,
  * @brief Generate k using RFC 6979
  */
 ZZ generate_k_rfc6979(const ZZ& q, const ZZ& x, const std::vector<uint8_t>& message_hash) {
-    size_t qlen = NumBytes(q);
+    size_t qlen = static_cast<size_t>(NumBytes(q));
     
     // x to bytes
     std::vector<uint8_t> x_bytes(qlen);
@@ -183,7 +183,7 @@ bool DSAParams::is_valid() const {
 // ============================================================================
 
 std::vector<uint8_t> DSAKeyPair::export_public_key() const {
-    size_t p_len = NumBytes(params.p);
+    size_t p_len = static_cast<size_t>(NumBytes(params.p));
     // NTL BytesFromZZ outputs little-endian, FIPS 186 requires big-endian
     std::vector<uint8_t> le_bytes(p_len);
     BytesFromZZ(le_bytes.data(), public_key, static_cast<long>(p_len));
@@ -196,7 +196,7 @@ std::vector<uint8_t> DSAKeyPair::export_public_key() const {
 }
 
 std::vector<uint8_t> DSAKeyPair::export_private_key() const {
-    size_t q_len = NumBytes(params.q);
+    size_t q_len = static_cast<size_t>(NumBytes(params.q));
     // NTL BytesFromZZ outputs little-endian, FIPS 186 requires big-endian
     std::vector<uint8_t> le_bytes(q_len);
     BytesFromZZ(le_bytes.data(), private_key, static_cast<long>(q_len));
@@ -217,8 +217,8 @@ void DSAKeyPair::clear() {
 // ============================================================================
 
 std::vector<uint8_t> DSASignature::to_bytes() const {
-    size_t r_len = NumBytes(r);
-    size_t s_len = NumBytes(s);
+    size_t r_len = static_cast<size_t>(NumBytes(r));
+    size_t s_len = static_cast<size_t>(NumBytes(s));
     size_t total_len = r_len + s_len + 2;  // 2 bytes for lengths
     
     // NTL BytesFromZZ outputs little-endian, convert to big-endian
@@ -373,7 +373,7 @@ DSAKeyPair DSA::generate_keypair() const {
     keypair.params = params_;
     
     // Generate random private key x in [1, q-1]
-    size_t q_bytes = NumBytes(params_.q);
+    size_t q_bytes = static_cast<size_t>(NumBytes(params_.q));
     std::vector<uint8_t> buffer(q_bytes);
     std::random_device rd;
     
@@ -434,7 +434,7 @@ DSASignature DSA::sign(const uint8_t* message_hash, size_t hash_len,
             k = generate_k_rfc6979(params_.q, private_key, hash_vec);
         } else {
             // Random k
-            size_t q_bytes = NumBytes(params_.q);
+            size_t q_bytes = static_cast<size_t>(NumBytes(params_.q));
             std::vector<uint8_t> k_buf(q_bytes);
             do {
                 for (size_t i = 0; i < q_bytes; ++i) {

@@ -102,7 +102,7 @@ bool DHParams::is_valid() const {
 // ============================================================================
 
 std::vector<uint8_t> DHKeyPair::export_public_key() const {
-    size_t byte_len = NumBytes(public_key);
+    size_t byte_len = static_cast<size_t>(NumBytes(public_key));
     // NTL BytesFromZZ outputs little-endian, PKCS#3 requires big-endian
     std::vector<uint8_t> le_bytes(byte_len);
     BytesFromZZ(le_bytes.data(), public_key, static_cast<long>(byte_len));
@@ -115,7 +115,7 @@ std::vector<uint8_t> DHKeyPair::export_public_key() const {
 }
 
 std::vector<uint8_t> DHKeyPair::export_private_key() const {
-    size_t byte_len = NumBytes(private_key);
+    size_t byte_len = static_cast<size_t>(NumBytes(private_key));
     // NTL BytesFromZZ outputs little-endian, PKCS#3 requires big-endian
     std::vector<uint8_t> le_bytes(byte_len);
     BytesFromZZ(le_bytes.data(), private_key, static_cast<long>(byte_len));
@@ -177,7 +177,7 @@ DHKeyPair DH::generate_keypair() const {
     
     // Generate random private key: 1 < x < q (or p-1)
     ZZ upper = IsZero(params_.q) ? params_.p - 1 : params_.q;
-    size_t byte_len = NumBytes(upper);
+    size_t byte_len = static_cast<size_t>(NumBytes(upper));
     
     std::vector<uint8_t> buffer(byte_len);
     std::random_device rd;

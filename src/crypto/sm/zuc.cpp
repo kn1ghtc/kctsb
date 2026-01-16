@@ -357,14 +357,14 @@ uint32_t kctsb_zuc_eia3(const uint8_t ik[16], uint32_t count, uint8_t bearer,
 
     // Compute MAC
     uint32_t T = 0;
-    for (int i = 0; i < length; i++) {
+    for (uint32_t i = 0; i < static_cast<uint32_t>(length); ++i) {
         if (kctsb::internal::bit_value(message, i)) {
             T ^= kctsb::internal::get_word(k, i);
         }
     }
 
     // T = T ^ k_LENGTH
-    T ^= kctsb::internal::get_word(k, length);
+    T ^= kctsb::internal::get_word(k, static_cast<uint32_t>(length));
 
     // MAC = T ^ k(32*(L-1))
     uint32_t MAC = T ^ kctsb::internal::get_word(k, static_cast<uint32_t>(32 * (L - 1)));

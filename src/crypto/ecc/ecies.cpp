@@ -397,7 +397,7 @@ std::vector<uint8_t> ECIES::aes_gcm_decrypt(
     // Constant-time tag comparison
     uint8_t diff = 0;
     for (size_t i = 0; i < config_.tag_len; ++i) {
-        diff |= expected_tag[i] ^ tag[i];
+        diff |= static_cast<uint8_t>(expected_tag[i] ^ tag[i]);
     }
     
     if (diff != 0) {

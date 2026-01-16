@@ -254,11 +254,9 @@ option(KCTSB_ENABLE_CLANG_TIDY "Enable clang-tidy static analysis" OFF)
 option(KCTSB_ENABLE_SANITIZERS "Enable Address/Undefined sanitizers" OFF)
 option(KCTSB_WARNINGS_AS_ERRORS "Treat warnings as errors" ON)
 
-# Release builds: Relax conversion warnings for performance-critical code
-if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    message(STATUS "Release mode: Disabling strict conversion warnings for performance")
-    set(KCTSB_WARNINGS_AS_ERRORS OFF)
-endif()
+# Strict warning mode: -Werror enforced for ALL build types (Debug/Release)
+# Project code must be warning-clean; thirdparty exemptions handled separately
+message(STATUS "Strict code quality: -Werror enabled globally (v3.4.1+)")
 
 # Clang-Tidy integration
 if(KCTSB_ENABLE_CLANG_TIDY)
@@ -404,6 +402,32 @@ option(KCTSB_BUILD_BENCHMARKS "Build benchmarks (requires OpenSSL)" ON)
 option(KCTSB_BUILD_CLI "Build kctsb.exe CLI tool" ON)
 option(KCTSB_BUILD_EXAMPLES "Build C++ examples" ON)
 option(KCTSB_INSTALL "Generate install target" ON)
+
+# ============================================================================
+# Thirdparty Warning Exemptions (Separate compilation flags)
+# ============================================================================
+# Thirdparty libraries are compiled with relaxed warning settings
+# to avoid noise from external code. Project code is still -Werror strict.
+# ============================================================================
+
+set(THIRDPARTY_WARNING_FLAGS "")
+
+if(NOT MSVC)
+    # For GCC/Clang: Relaxed warnings for thirdparty (no -Werror, no sign-conversion)
+    set(THIRDPARTY_WARNING_FLAGS
+        -Wall -Wextra
+        -Wno-conversion
+        -Wno-sign-conversion
+        -Wno-unused-parameter
+        -Wno-array-bounds
+        -Wno-stringop-overflow
+        -Wno-old-style-cast
+        -Wno-double-promotion
+    )
+else()
+    # For MSVC: Thirdparty with warning level 3 (not 4)
+    set(THIRDPARTY_WARNING_FLAGS /W3)
+endif()
 
 # Core dependencies
 option(KCTSB_ENABLE_NTL "Enable NTL (required for ECC/RSA)" ON)
@@ -774,6 +798,15 @@ if(KCTSB_BUILD_STATIC)
     )
     target_compile_definitions(kctsb_static PRIVATE KCTSB_BUILDING)
     
+    # Enforce strict -Werror warnings for project code (v3.4.1+)
+    if(KCTSB_WARNINGS_AS_ERRORS)
+        if(NOT MSVC)
+            target_compile_options(kctsb_static PRIVATE -Werror)
+        else()
+            target_compile_options(kctsb_static PRIVATE /WX)
+        endif()
+    endif()
+    
     if(KCTSB_ENABLE_SEAL AND SEAL_FOUND)
         target_include_directories(kctsb_static PUBLIC ${SEAL_INCLUDE_DIRS})
     endif()
@@ -820,6 +853,16 @@ if(KCTSB_BUILD_SHARED)
         target_include_directories(kctsb_shared PUBLIC ${SEAL_INCLUDE_DIRS})
     endif()
     target_compile_definitions(kctsb_shared PRIVATE KCTSB_BUILDING KCTSB_SHARED_LIBRARY)
+    
+    # Enforce strict -Werror warnings for project code (v3.4.1+)
+    if(KCTSB_WARNINGS_AS_ERRORS)
+        if(NOT MSVC)
+            target_compile_options(kctsb_shared PRIVATE -Werror)
+        else()
+            target_compile_options(kctsb_shared PRIVATE /WX)
+        endif()
+    endif()
+    
     set_target_properties(kctsb_shared PROPERTIES
         OUTPUT_NAME kctsb VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR})
 

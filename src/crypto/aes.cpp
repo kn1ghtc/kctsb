@@ -324,26 +324,26 @@ static void key_expansion(const uint8_t* key, uint32_t* round_keys, int key_len,
     int nr = rounds;
 
     for (int i = 0; i < nk; i++) {
-        round_keys[i] = ((uint32_t)key[4*i] << 24) |
-                        ((uint32_t)key[4*i+1] << 16) |
-                        ((uint32_t)key[4*i+2] << 8) |
-                        ((uint32_t)key[4*i+3]);
+        round_keys[i] = (static_cast<uint32_t>(key[4*i]) << 24) |
+                        (static_cast<uint32_t>(key[4*i+1]) << 16) |
+                        (static_cast<uint32_t>(key[4*i+2]) << 8) |
+                        (static_cast<uint32_t>(key[4*i+3]));
     }
 
     for (int i = nk; i < nb * (nr + 1); i++) {
         uint32_t temp = round_keys[i - 1];
         if (i % nk == 0) {
             temp = (temp << 8) | (temp >> 24);
-            temp = ((uint32_t)SBOX[(temp >> 24) & 0xff] << 24) |
-                   ((uint32_t)SBOX[(temp >> 16) & 0xff] << 16) |
-                   ((uint32_t)SBOX[(temp >> 8) & 0xff] << 8) |
-                   ((uint32_t)SBOX[temp & 0xff]);
-            temp ^= ((uint32_t)RCON[i / nk] << 24);
+            temp = (static_cast<uint32_t>(SBOX[(temp >> 24) & 0xff]) << 24) |
+                   (static_cast<uint32_t>(SBOX[(temp >> 16) & 0xff]) << 16) |
+                   (static_cast<uint32_t>(SBOX[(temp >> 8) & 0xff]) << 8) |
+                   (static_cast<uint32_t>(SBOX[temp & 0xff]));
+            temp ^= (static_cast<uint32_t>(RCON[i / nk]) << 24);
         } else if (nk > 6 && i % nk == 4) {
-            temp = ((uint32_t)SBOX[(temp >> 24) & 0xff] << 24) |
-                   ((uint32_t)SBOX[(temp >> 16) & 0xff] << 16) |
-                   ((uint32_t)SBOX[(temp >> 8) & 0xff] << 8) |
-                   ((uint32_t)SBOX[temp & 0xff]);
+            temp = (static_cast<uint32_t>(SBOX[(temp >> 24) & 0xff]) << 24) |
+                   (static_cast<uint32_t>(SBOX[(temp >> 16) & 0xff]) << 16) |
+                   (static_cast<uint32_t>(SBOX[(temp >> 8) & 0xff]) << 8) |
+                   (static_cast<uint32_t>(SBOX[temp & 0xff]));
         }
         round_keys[i] = round_keys[i - nk] ^ temp;
     }
@@ -361,10 +361,10 @@ static void ttable_key_expansion(const uint8_t* key, uint32_t* round_keys, int k
     int nw = 4 * (nr + 1);
 
     for (int i = 0; i < nk; i++) {
-        round_keys[i] = ((uint32_t)key[4*i + 3] << 24) |
-                        ((uint32_t)key[4*i + 2] << 16) |
-                        ((uint32_t)key[4*i + 1] << 8) |
-                        ((uint32_t)key[4*i + 0]);
+        round_keys[i] = (static_cast<uint32_t>(key[4*i + 3]) << 24) |
+                        (static_cast<uint32_t>(key[4*i + 2]) << 16) |
+                        (static_cast<uint32_t>(key[4*i + 1]) << 8) |
+                        (static_cast<uint32_t>(key[4*i + 0]));
     }
 
     for (int i = nk; i < nw; i++) {
@@ -452,14 +452,14 @@ static void add_round_key(uint8_t state[16], const uint32_t* round_key) {
 __attribute__((unused))
 static void ttable_encrypt_block(const uint8_t in[16], uint8_t out[16],
                                   const uint32_t* rk, int rounds) {
-    uint32_t s0 = ((uint32_t)in[3] << 24) | ((uint32_t)in[2] << 16) |
-                  ((uint32_t)in[1] << 8) | (uint32_t)in[0];
-    uint32_t s1 = ((uint32_t)in[7] << 24) | ((uint32_t)in[6] << 16) |
-                  ((uint32_t)in[5] << 8) | (uint32_t)in[4];
-    uint32_t s2 = ((uint32_t)in[11] << 24) | ((uint32_t)in[10] << 16) |
-                  ((uint32_t)in[9] << 8) | (uint32_t)in[8];
-    uint32_t s3 = ((uint32_t)in[15] << 24) | ((uint32_t)in[14] << 16) |
-                  ((uint32_t)in[13] << 8) | (uint32_t)in[12];
+    uint32_t s0 = (static_cast<uint32_t>(in[3]) << 24) | (static_cast<uint32_t>(in[2]) << 16) |
+                  (static_cast<uint32_t>(in[1]) << 8) | static_cast<uint32_t>(in[0]);
+    uint32_t s1 = (static_cast<uint32_t>(in[7]) << 24) | (static_cast<uint32_t>(in[6]) << 16) |
+                  (static_cast<uint32_t>(in[5]) << 8) | static_cast<uint32_t>(in[4]);
+    uint32_t s2 = (static_cast<uint32_t>(in[11]) << 24) | (static_cast<uint32_t>(in[10]) << 16) |
+                  (static_cast<uint32_t>(in[9]) << 8) | static_cast<uint32_t>(in[8]);
+    uint32_t s3 = (static_cast<uint32_t>(in[15]) << 24) | (static_cast<uint32_t>(in[14]) << 16) |
+                  (static_cast<uint32_t>(in[13]) << 8) | static_cast<uint32_t>(in[12]);
 
     s0 ^= rk[0]; s1 ^= rk[1]; s2 ^= rk[2]; s3 ^= rk[3];
 
@@ -486,10 +486,10 @@ static void ttable_encrypt_block(const uint8_t in[16], uint8_t out[16],
 
     s0 ^= rk[rk_idx]; s1 ^= rk[rk_idx + 1]; s2 ^= rk[rk_idx + 2]; s3 ^= rk[rk_idx + 3];
 
-    out[0] = (uint8_t)s0; out[1] = (uint8_t)(s0 >> 8); out[2] = (uint8_t)(s0 >> 16); out[3] = (uint8_t)(s0 >> 24);
-    out[4] = (uint8_t)s1; out[5] = (uint8_t)(s1 >> 8); out[6] = (uint8_t)(s1 >> 16); out[7] = (uint8_t)(s1 >> 24);
-    out[8] = (uint8_t)s2; out[9] = (uint8_t)(s2 >> 8); out[10] = (uint8_t)(s2 >> 16); out[11] = (uint8_t)(s2 >> 24);
-    out[12] = (uint8_t)s3; out[13] = (uint8_t)(s3 >> 8); out[14] = (uint8_t)(s3 >> 16); out[15] = (uint8_t)(s3 >> 24);
+    out[0] = static_cast<uint8_t>(s0); out[1] = static_cast<uint8_t>(s0 >> 8); out[2] = static_cast<uint8_t>(s0 >> 16); out[3] = static_cast<uint8_t>(s0 >> 24);
+    out[4] = static_cast<uint8_t>(s1); out[5] = static_cast<uint8_t>(s1 >> 8); out[6] = static_cast<uint8_t>(s1 >> 16); out[7] = static_cast<uint8_t>(s1 >> 24);
+    out[8] = static_cast<uint8_t>(s2); out[9] = static_cast<uint8_t>(s2 >> 8); out[10] = static_cast<uint8_t>(s2 >> 16); out[11] = static_cast<uint8_t>(s2 >> 24);
+    out[12] = static_cast<uint8_t>(s3); out[13] = static_cast<uint8_t>(s3 >> 8); out[14] = static_cast<uint8_t>(s3 >> 16); out[15] = static_cast<uint8_t>(s3 >> 24);
 }
 
 // ============================================================================
@@ -503,12 +503,12 @@ static void ghash_mult(const uint8_t x[16], const uint8_t h[16], uint8_t result[
 
     for (int i = 0; i < 16; i++) {
         for (int j = 7; j >= 0; j--) {
-            uint8_t mask = (uint8_t)(-((x[i] >> j) & 1));
+            uint8_t mask = static_cast<uint8_t>(-static_cast<int8_t>((x[i] >> j) & 1));
             for (int k = 0; k < 16; k++) z[k] ^= (v[k] & mask);
             uint8_t lsb = v[15] & 1;
-            for (int k = 15; k > 0; k--) v[k] = (uint8_t)((v[k] >> 1) | ((v[k-1] & 1) << 7));
+            for (int k = 15; k > 0; k--) v[k] = static_cast<uint8_t>((v[k] >> 1) | ((v[k-1] & 1) << 7));
             v[0] >>= 1;
-            uint8_t lsb_mask = (uint8_t)(-((int8_t)lsb));
+            uint8_t lsb_mask = static_cast<uint8_t>(-static_cast<int8_t>(lsb));
             v[0] ^= (0xe1 & lsb_mask);
         }
     }
@@ -850,8 +850,8 @@ static kctsb_error_t aes_gcm_encrypt_aesni(
         memset(j0_bytes, 0, 16);
         ghash_update(j0_bytes, h_bytes, iv, iv_len);
         alignas(16) uint8_t len_block[16] = {0};
-        uint64_t iv_bits = (uint64_t)iv_len * 8;
-        for (int i = 0; i < 8; i++) len_block[15 - i] = (uint8_t)(iv_bits >> (i * 8));
+        uint64_t iv_bits = static_cast<uint64_t>(iv_len) * 8;
+        for (int i = 0; i < 8; i++) len_block[15 - i] = static_cast<uint8_t>(iv_bits >> (i * 8));
         ghash_update(j0_bytes, h_bytes, len_block, 16);
     }
 
@@ -946,8 +946,8 @@ static kctsb_error_t aes_gcm_encrypt_aesni(
     alignas(16) uint8_t len_block[16] = {0};
     uint64_t aad_bits = aad_len * 8, ct_bits = input_len * 8;
     for (int i = 0; i < 8; i++) {
-        len_block[7 - i] = (uint8_t)(aad_bits >> (i * 8));
-        len_block[15 - i] = (uint8_t)(ct_bits >> (i * 8));
+        len_block[7 - i] = static_cast<uint8_t>(aad_bits >> (i * 8));
+        len_block[15 - i] = static_cast<uint8_t>(ct_bits >> (i * 8));
     }
     ghash_update(ghash_tag, h_bytes, len_block, 16);
 
@@ -1011,8 +1011,8 @@ static kctsb_error_t aes_gcm_decrypt_aesni(
         memset(j0_bytes, 0, 16);
         ghash_update(j0_bytes, h_bytes, iv, iv_len);
         alignas(16) uint8_t len_block[16] = {0};
-        uint64_t iv_bits = (uint64_t)iv_len * 8;
-        for (int i = 0; i < 8; i++) len_block[15 - i] = (uint8_t)(iv_bits >> (i * 8));
+        uint64_t iv_bits = static_cast<uint64_t>(iv_len) * 8;
+        for (int i = 0; i < 8; i++) len_block[15 - i] = static_cast<uint8_t>(iv_bits >> (i * 8));
         ghash_update(j0_bytes, h_bytes, len_block, 16);
     }
 
@@ -1039,8 +1039,8 @@ static kctsb_error_t aes_gcm_decrypt_aesni(
     alignas(16) uint8_t len_block[16] = {0};
     uint64_t aad_bits = aad_len * 8, ct_bits = input_len * 8;
     for (int i = 0; i < 8; i++) {
-        len_block[7 - i] = (uint8_t)(aad_bits >> (i * 8));
-        len_block[15 - i] = (uint8_t)(ct_bits >> (i * 8));
+        len_block[7 - i] = static_cast<uint8_t>(aad_bits >> (i * 8));
+        len_block[15 - i] = static_cast<uint8_t>(ct_bits >> (i * 8));
     }
     ghash_update(ghash_tag, h_bytes, len_block, 16);
 
@@ -1169,8 +1169,8 @@ static kctsb_error_t aes_gcm_encrypt_software(
         memset(j0, 0, 16);
         ghash_update(j0, h, iv, iv_len);
         uint8_t len_block[16] = {0};
-        uint64_t iv_bits = (uint64_t)iv_len * 8;
-        for (int i = 0; i < 8; i++) len_block[15 - i] = (uint8_t)(iv_bits >> (i * 8));
+        uint64_t iv_bits = static_cast<uint64_t>(iv_len) * 8;
+        for (int i = 0; i < 8; i++) len_block[15 - i] = static_cast<uint8_t>(iv_bits >> (i * 8));
         ghash_update(j0, h, len_block, 16);
     }
 
@@ -1200,8 +1200,8 @@ static kctsb_error_t aes_gcm_encrypt_software(
     uint8_t len_block[16] = {0};
     uint64_t aad_bits = aad_len * 8, ct_bits = input_len * 8;
     for (int i = 0; i < 8; i++) {
-        len_block[7 - i] = (uint8_t)(aad_bits >> (i * 8));
-        len_block[15 - i] = (uint8_t)(ct_bits >> (i * 8));
+        len_block[7 - i] = static_cast<uint8_t>(aad_bits >> (i * 8));
+        len_block[15 - i] = static_cast<uint8_t>(ct_bits >> (i * 8));
     }
     ghash_update(ghash_tag, h, len_block, 16);
 
@@ -1283,8 +1283,8 @@ static kctsb_error_t aes_gcm_decrypt_software(
         memset(j0, 0, 16);
         ghash_update(j0, h, iv, iv_len);
         uint8_t len_block[16] = {0};
-        uint64_t iv_bits = (uint64_t)iv_len * 8;
-        for (int i = 0; i < 8; i++) len_block[15 - i] = (uint8_t)(iv_bits >> (i * 8));
+        uint64_t iv_bits = static_cast<uint64_t>(iv_len) * 8;
+        for (int i = 0; i < 8; i++) len_block[15 - i] = static_cast<uint8_t>(iv_bits >> (i * 8));
         ghash_update(j0, h, len_block, 16);
     }
 
@@ -1302,8 +1302,8 @@ static kctsb_error_t aes_gcm_decrypt_software(
     uint8_t len_block[16] = {0};
     uint64_t aad_bits = aad_len * 8, ct_bits = input_len * 8;
     for (int i = 0; i < 8; i++) {
-        len_block[7 - i] = (uint8_t)(aad_bits >> (i * 8));
-        len_block[15 - i] = (uint8_t)(ct_bits >> (i * 8));
+        len_block[7 - i] = static_cast<uint8_t>(aad_bits >> (i * 8));
+        len_block[15 - i] = static_cast<uint8_t>(ct_bits >> (i * 8));
     }
     ghash_update(ghash_tag, h, len_block, 16);
 
@@ -1355,8 +1355,8 @@ kctsb_error_t kctsb_aes_gcm_init(kctsb_aes_gcm_ctx_t* ctx, const uint8_t* key, s
     } else {
         ghash_update(ctx->j0, ctx->h, iv, iv_len);
         uint8_t len_block[16] = {0};
-        uint64_t iv_bits = (uint64_t)iv_len * 8;
-        for (int i = 0; i < 8; i++) len_block[15 - i] = (uint8_t)(iv_bits >> (i * 8));
+        uint64_t iv_bits = static_cast<uint64_t>(iv_len) * 8;
+        for (int i = 0; i < 8; i++) len_block[15 - i] = static_cast<uint8_t>(iv_bits >> (i * 8));
         ghash_update(ctx->j0, ctx->h, len_block, 16);
     }
 
@@ -1409,8 +1409,8 @@ kctsb_error_t kctsb_aes_gcm_final_encrypt(kctsb_aes_gcm_ctx_t* ctx, uint8_t tag[
     uint8_t len_block[16] = {0};
     uint64_t aad_bits = ctx->aad_len * 8, ct_bits = ctx->ct_len * 8;
     for (int i = 0; i < 8; i++) {
-        len_block[7 - i] = (uint8_t)(aad_bits >> (i * 8));
-        len_block[15 - i] = (uint8_t)(ct_bits >> (i * 8));
+        len_block[7 - i] = static_cast<uint8_t>(aad_bits >> (i * 8));
+        len_block[15 - i] = static_cast<uint8_t>(ct_bits >> (i * 8));
     }
     ghash_update(ctx->tag, ctx->h, len_block, 16);
 
@@ -1458,8 +1458,8 @@ kctsb_error_t kctsb_aes_gcm_final_decrypt(kctsb_aes_gcm_ctx_t* ctx, const uint8_
     uint8_t len_block[16] = {0};
     uint64_t aad_bits = ctx->aad_len * 8, ct_bits = ctx->ct_len * 8;
     for (int i = 0; i < 8; i++) {
-        len_block[7 - i] = (uint8_t)(aad_bits >> (i * 8));
-        len_block[15 - i] = (uint8_t)(ct_bits >> (i * 8));
+        len_block[7 - i] = static_cast<uint8_t>(aad_bits >> (i * 8));
+        len_block[15 - i] = static_cast<uint8_t>(ct_bits >> (i * 8));
     }
     ghash_update(ctx->tag, ctx->h, len_block, 16);
 

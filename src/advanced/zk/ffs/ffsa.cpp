@@ -102,7 +102,7 @@ void ffsa_get_modulus(mpz_t result)
 bool_vec_t ffsa_get_bool_vector(int8_t k)
 {
     bool_vec_t a;
-    a.reserve(k);
+    a.reserve(static_cast<size_t>(k));
 
     srand(static_cast<unsigned int>(time(NULL)));
 
@@ -121,7 +121,7 @@ bool_vec_t ffsa_get_bool_vector(int8_t k)
 void ffsa_get_secrets(mpz_vec_t& s, int8_t k, const mpz_t n)
 {
     s.clear();
-    s.reserve(k);
+    s.reserve(static_cast<size_t>(k));
 
     gmp_randstate_t state;
     gmp_randinit_default(state);

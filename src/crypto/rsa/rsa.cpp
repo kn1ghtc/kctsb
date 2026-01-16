@@ -51,7 +51,7 @@ bool RSAPublicKey::is_valid() const {
     }
 
     // Check bit size matches
-    if (bits > 0 && NumBits(n) != bits) {
+    if (bits > 0 && static_cast<int>(NumBits(n)) != bits) {
         return false;
     }
 
@@ -126,9 +126,9 @@ std::string RSAPublicKey::to_pem() const {
     std::string base64;
     size_t i = 0;
     while (i < der.size()) {
-        uint32_t octet_a = i < der.size() ? der[i++] : 0;
-        uint32_t octet_b = i < der.size() ? der[i++] : 0;
-        uint32_t octet_c = i < der.size() ? der[i++] : 0;
+        uint32_t octet_a = i < der.size() ? static_cast<uint32_t>(der[i++]) : 0;
+        uint32_t octet_b = i < der.size() ? static_cast<uint32_t>(der[i++]) : 0;
+        uint32_t octet_c = i < der.size() ? static_cast<uint32_t>(der[i++]) : 0;
 
         uint32_t triple = (octet_a << 16) + (octet_b << 8) + octet_c;
 
@@ -182,13 +182,13 @@ RSAPublicKey RSAPublicKey::from_der(const uint8_t* data, size_t len) {
 
         size_t int_len;
         if (data[pos] < 128) {
-            int_len = data[pos++];
+            int_len = static_cast<size_t>(data[pos++]);
         } else if (data[pos] == 0x81) {
             pos++;
-            int_len = data[pos++];
+            int_len = static_cast<size_t>(data[pos++]);
         } else if (data[pos] == 0x82) {
             pos++;
-            int_len = (static_cast<size_t>(data[pos]) << 8) | data[pos + 1];
+            int_len = (static_cast<size_t>(data[pos]) << 8) | static_cast<size_t>(data[pos + 1]);
             pos += 2;
         } else {
             throw std::invalid_argument("Unsupported integer length");
@@ -210,7 +210,7 @@ RSAPublicKey RSAPublicKey::from_der(const uint8_t* data, size_t len) {
     RSAPublicKey key;
     key.n = parse_integer();
     key.e = parse_integer();
-    key.bits = NumBits(key.n);
+    key.bits = static_cast<int>(NumBits(key.n));
 
     return key;
 }
@@ -453,13 +453,13 @@ std::vector<uint8_t> RSA::i2osp(const ZZ& x, size_t x_len) {
         }
 
         // NTL BytesFromZZ outputs in little-endian, but RSA I2OSP requires big-endian
-        std::vector<uint8_t> le_bytes(num_bytes);
+        std::vector<uint8_t> le_bytes(static_cast<size_t>(num_bytes));
         BytesFromZZ(le_bytes.data(), x, num_bytes);
 
         // Reverse to big-endian and place at the end (with leading zeros if needed)
         size_t offset = x_len - static_cast<size_t>(num_bytes);
-        for (long i = 0; i < num_bytes; ++i) {
-            result[offset + i] = le_bytes[num_bytes - 1 - i];
+        for (size_t i = 0; i < static_cast<size_t>(num_bytes); ++i) {
+            result[offset + i] = le_bytes[static_cast<size_t>(num_bytes) - 1 - i];
         }
     }
 
@@ -504,7 +504,7 @@ std::vector<uint8_t> RSA::mgf1(const uint8_t* seed, size_t seed_len,
         std::vector<uint8_t> hash(hash_len, 0);
         for (size_t i = 0; i < data.size(); ++i) {
             hash[i % hash_len] ^= data[i];
-            hash[(i * 7 + 13) % hash_len] ^= (data[i] << 3) | (data[i] >> 5);
+            hash[(i * 7 + 13) % hash_len] ^= static_cast<uint8_t>((data[i] << 3) | (data[i] >> 5));
         }
 
         T.insert(T.end(), hash.begin(), hash.end());
@@ -651,7 +651,7 @@ std::vector<uint8_t> RSA::eme_oaep_decode(const uint8_t* encoded, size_t encoded
 std::vector<uint8_t> RSA::encrypt_oaep(const uint8_t* plaintext, size_t plaintext_len,
                                        const RSAPublicKey& public_key,
                                        const OAEPParams& params) {
-    size_t k = (public_key.bits + 7) / 8;
+    size_t k = static_cast<size_t>((public_key.bits + 7) / 8);
 
     // EME-OAEP encoding
     std::vector<uint8_t> EM = eme_oaep_encode(plaintext, plaintext_len, k, params);
@@ -669,7 +669,7 @@ std::vector<uint8_t> RSA::encrypt_oaep(const uint8_t* plaintext, size_t plaintex
 std::vector<uint8_t> RSA::decrypt_oaep(const uint8_t* ciphertext, size_t ciphertext_len,
                                        const RSAPrivateKey& private_key,
                                        const OAEPParams& params) {
-    size_t k = (private_key.bits + 7) / 8;
+    size_t k = static_cast<size_t>((private_key.bits + 7) / 8);
 
     if (ciphertext_len != k) {
         throw std::invalid_argument("Invalid ciphertext length");
@@ -694,7 +694,7 @@ std::vector<uint8_t> RSA::decrypt_oaep(const uint8_t* ciphertext, size_t ciphert
 
 std::vector<uint8_t> RSA::encrypt_pkcs1(const uint8_t* plaintext, size_t plaintext_len,
                                         const RSAPublicKey& public_key) {
-    size_t k = (public_key.bits + 7) / 8;
+    size_t k = static_cast<size_t>((public_key.bits + 7) / 8);
 
     if (plaintext_len > k - 11) {
         throw std::invalid_argument("Message too long");
@@ -729,7 +729,7 @@ std::vector<uint8_t> RSA::encrypt_pkcs1(const uint8_t* plaintext, size_t plainte
 
 std::vector<uint8_t> RSA::decrypt_pkcs1(const uint8_t* ciphertext, size_t ciphertext_len,
                                         const RSAPrivateKey& private_key) {
-    size_t k = (private_key.bits + 7) / 8;
+    size_t k = static_cast<size_t>((private_key.bits + 7) / 8);
 
     if (ciphertext_len != k || k < 11) {
         throw std::invalid_argument("Invalid ciphertext");
@@ -788,7 +788,7 @@ std::vector<uint8_t> RSA::emsa_pss_encode(const uint8_t* message_hash, size_t ha
     std::vector<uint8_t> H(hash_len, 0);
     for (size_t i = 0; i < M_prime.size(); ++i) {
         H[i % hash_len] ^= M_prime[i];
-        H[(i * 7 + 13) % hash_len] ^= (M_prime[i] << 3) | (M_prime[i] >> 5);
+        H[(i * 7 + 13) % hash_len] ^= static_cast<uint8_t>((M_prime[i] << 3) | (M_prime[i] >> 5));
     }
 
     // DB = PS || 0x01 || salt
@@ -889,7 +889,7 @@ bool RSA::emsa_pss_verify(const uint8_t* message_hash, size_t hash_len,
     std::vector<uint8_t> H_prime(hash_len, 0);
     for (size_t i = 0; i < M_prime.size(); ++i) {
         H_prime[i % hash_len] ^= M_prime[i];
-        H_prime[(i * 7 + 13) % hash_len] ^= (M_prime[i] << 3) | (M_prime[i] >> 5);
+        H_prime[(i * 7 + 13) % hash_len] ^= static_cast<uint8_t>((M_prime[i] << 3) | (M_prime[i] >> 5));
     }
 
     // Compare H and H'
@@ -906,7 +906,7 @@ bool RSA::emsa_pss_verify(const uint8_t* message_hash, size_t hash_len,
 std::vector<uint8_t> RSA::sign_pss(const uint8_t* message_hash, size_t hash_len,
                                    const RSAPrivateKey& private_key,
                                    const PSSParams& params) {
-    size_t mod_bits = NumBits(private_key.n);
+    size_t mod_bits = static_cast<size_t>(NumBits(private_key.n));
     size_t em_len = (mod_bits + 7) / 8;
 
     // EMSA-PSS encoding
@@ -926,7 +926,7 @@ bool RSA::verify_pss(const uint8_t* message_hash, size_t hash_len,
                      const uint8_t* signature, size_t sig_len,
                      const RSAPublicKey& public_key,
                      const PSSParams& params) {
-    size_t mod_bits = NumBits(public_key.n);
+    size_t mod_bits = static_cast<size_t>(NumBits(public_key.n));
     size_t em_len = (mod_bits + 7) / 8;
 
     if (sig_len != em_len) {
@@ -957,7 +957,7 @@ bool RSA::verify_pss(const uint8_t* message_hash, size_t hash_len,
 std::vector<uint8_t> RSA::sign_pkcs1(const uint8_t* message_hash, size_t hash_len,
                                      const RSAPrivateKey& private_key,
                                      const std::string& hash_algorithm) {
-    size_t k = (private_key.bits + 7) / 8;
+    size_t k = static_cast<size_t>((private_key.bits + 7) / 8);
 
     // DigestInfo for SHA-256
     static const uint8_t sha256_prefix[] = {
@@ -994,7 +994,7 @@ bool RSA::verify_pkcs1(const uint8_t* message_hash, size_t hash_len,
                        const uint8_t* signature, size_t sig_len,
                        const RSAPublicKey& public_key,
                        const std::string& hash_algorithm) {
-    size_t k = (public_key.bits + 7) / 8;
+    size_t k = static_cast<size_t>((public_key.bits + 7) / 8);
 
     if (sig_len != k) {
         return false;

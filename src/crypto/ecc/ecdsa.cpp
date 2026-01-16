@@ -201,7 +201,7 @@ bool ECDSAKeyPair::is_valid(const ECCurve& curve) const {
 
 std::vector<uint8_t> ECDSAKeyPair::export_public_key(const ECCurve& curve) const {
     AffinePoint aff = curve.to_affine(public_key);
-    size_t field_size = (curve.get_bit_size() + 7) / 8;
+    size_t field_size = static_cast<size_t>((curve.get_bit_size() + 7) / 8);
 
     std::vector<uint8_t> result(1 + 2 * field_size);
     int len = curve.point_to_bytes(aff, result.data(), result.size());
@@ -237,7 +237,7 @@ ECDSA::ECDSA(CurveType curve_type) : curve_(curve_type) {}
 ECDSA::ECDSA(const std::string& curve_name) : curve_(ECCurve::from_name(curve_name)) {}
 
 size_t ECDSA::get_field_size() const {
-    return (curve_.get_bit_size() + 7) / 8;
+    return static_cast<size_t>((curve_.get_bit_size() + 7) / 8);
 }
 
 size_t ECDSA::get_signature_size_der() const {
@@ -403,7 +403,7 @@ ZZ ECDSA::bits2int(const uint8_t* data, size_t len) const {
 
 ZZ ECDSA::generate_k_random() const {
     const ZZ& n = curve_.get_order();
-    size_t byte_len = NumBytes(n);
+    size_t byte_len = static_cast<size_t>(NumBytes(n));
 
     std::vector<uint8_t> buffer(byte_len);
 
@@ -431,7 +431,7 @@ ZZ ECDSA::generate_k_random() const {
 ZZ ECDSA::generate_k_rfc6979(const ZZ& e, const ZZ& private_key) const {
     // RFC 6979 deterministic k generation using HMAC-DRBG
     const ZZ& n = curve_.get_order();
-    size_t qlen = NumBytes(n);
+    size_t qlen = static_cast<size_t>(NumBytes(n));
     size_t hlen = 32;  // SHA-256 output length
 
     // Convert inputs to byte arrays (RFC 6979 uses big-endian)

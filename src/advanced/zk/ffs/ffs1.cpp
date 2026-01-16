@@ -25,11 +25,11 @@ class NumberGenerator{
     int32_t max = 10000;
     std::vector<int> primeNumbers;
 
-    void GeneratePrimeNumbers(int32_t min, int32_t max)
+    void GeneratePrimeNumbers(int32_t min_val, int32_t max_val)
     {
         primeNumbers.clear();
 
-        for (int32_t i = min; i != max + 1; i++) {
+        for (int32_t i = min_val; i != max_val + 1; i++) {
             int32_t j;
             for (j = 2; j < i; j++) {
                 if (i % j == 0) {
@@ -49,8 +49,8 @@ public:
     int32_t GetLargePrimeNumber() {
         GeneratePrimeNumbers(min, max);
 
-        int32_t index = GetRandomNumber(0, primeNumbers.size());
-        return primeNumbers[ index ]; }
+        int32_t index = GetRandomNumber(0, static_cast<int32_t>(primeNumbers.size()));
+        return primeNumbers[static_cast<size_t>(index)]; }
 };
 
 
@@ -81,7 +81,7 @@ int32_t getCoprime(int32_t n)
 
 int test_ffs1_main()
 {
-    srand(time(NULL));
+    srand(static_cast<unsigned int>(time(NULL)));
 
     // Security parameter k determines iteration count (not used in single-round demo)
     // int32_t k = 5;
@@ -121,7 +121,7 @@ int test_ffs1_main()
     std::cout << "Calculate y = r * s^e: ";
     std::cin >> y;
 #else
-    y = r * pow(s, e);
+    y = static_cast<int32_t>(r * std::pow(s, e));
     y = y % n;
     p("y = " << y);
 #endif
@@ -129,7 +129,7 @@ int test_ffs1_main()
     int32_t y_sq_mod_n = (y * y) % n;
     p("y^2 mod n = " << y_sq_mod_n);
 
-    int32_t test = (x * (int)pow(v, e)) % n;
+    int32_t test = (x * static_cast<int32_t>(std::pow(v, e))) % n;
     p("test = " << test);
 
     if (y_sq_mod_n == test) {

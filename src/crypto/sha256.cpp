@@ -124,7 +124,7 @@ inline bool check_sha_ni() noexcept {
 __attribute__((always_inline))
 static inline uint32_t load32_be(const uint8_t* p) noexcept {
     return (static_cast<uint32_t>(p[0]) << 24) | (static_cast<uint32_t>(p[1]) << 16) |
-           (static_cast<uint32_t>(p[2]) << 8) | p[3];
+           (static_cast<uint32_t>(p[2]) << 8) | static_cast<uint32_t>(p[3]);
 }
 
 __attribute__((always_inline))
@@ -526,7 +526,7 @@ void kctsb_sha256(const uint8_t* data, size_t len,
 
 void kctsb_sha256_clear(kctsb_sha256_ctx_t* ctx) {
     if (ctx) {
-        volatile uint8_t* p = reinterpret_cast<volatile uint8_t*>(ctx);
+        volatile unsigned char* p = reinterpret_cast<volatile unsigned char*>(ctx);
         for (size_t i = 0; i < sizeof(*ctx); ++i) {
             p[i] = 0;
         }

@@ -76,7 +76,7 @@ static void generate_tbox(wbox_aes_ctx_t *ctx, u8 round_keys[11][16]) {
     for (int round = 0; round < 10; round++) {
         for (int byte_idx = 0; byte_idx < 16; byte_idx++) {
             for (int x = 0; x < 256; x++) {
-                ctx->TBoxes[round][byte_idx][x] = sbox[x ^ round_keys[round][byte_idx]];
+                ctx->TBoxes[round][byte_idx][x] = sbox[(u8)(x ^ round_keys[round][byte_idx])];
             }
         }
     }
@@ -201,10 +201,10 @@ int wbox_aes_encrypt(const wbox_aes_ctx_t *ctx, const u8 input[16], u8 output[16
                         ctx->TyiBoxes[round][col * 4 + 2][state[col * 4 + 2]] ^
                         ctx->TyiBoxes[round][col * 4 + 3][state[col * 4 + 3]];
             
-            state[col * 4 + 0] = (u8)(temp[col] >> 24);
-            state[col * 4 + 1] = (u8)(temp[col] >> 16);
-            state[col * 4 + 2] = (u8)(temp[col] >> 8);
-            state[col * 4 + 3] = (u8)(temp[col]);
+            state[col * 4 + 0] = (u8)((temp[col] >> 24) & 0xFF);
+            state[col * 4 + 1] = (u8)((temp[col] >> 16) & 0xFF);
+            state[col * 4 + 2] = (u8)((temp[col] >> 8) & 0xFF);
+            state[col * 4 + 3] = (u8)(temp[col] & 0xFF);
         }
     }
     
@@ -221,7 +221,7 @@ int wbox_aes_encrypt(const wbox_aes_ctx_t *ctx, const u8 input[16], u8 output[16
 void wbox_aes_cleanup(wbox_aes_ctx_t *ctx) {
     if (ctx) {
         /* Secure cleanup */
-        volatile u8 *p = (volatile u8 *)ctx;
+        volatile unsigned char *p = (volatile unsigned char *)ctx;
         for (size_t i = 0; i < sizeof(wbox_aes_ctx_t); i++) {
             p[i] = 0;
         }

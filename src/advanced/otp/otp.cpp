@@ -127,14 +127,14 @@ kctsb_error_t compute_hmac(
  */
 uint32_t dynamic_truncate(const uint8_t* hmac, size_t hmac_len) {
     // Offset is last nibble of last byte
-    int offset = hmac[hmac_len - 1] & 0x0F;
+    int offset = static_cast<int>(hmac[hmac_len - 1] & 0x0F);
     
     // Extract 4 bytes at offset, mask MSB
     uint32_t binary_code = 
         (static_cast<uint32_t>(hmac[offset] & 0x7F) << 24) |
-        (static_cast<uint32_t>(hmac[offset + 1]) << 16) |
-        (static_cast<uint32_t>(hmac[offset + 2]) << 8) |
-        static_cast<uint32_t>(hmac[offset + 3]);
+        (static_cast<uint32_t>(hmac[static_cast<size_t>(offset) + 1]) << 16) |
+        (static_cast<uint32_t>(hmac[static_cast<size_t>(offset) + 2]) << 8) |
+        static_cast<uint32_t>(hmac[static_cast<size_t>(offset) + 3]);
     
     return binary_code;
 }
@@ -320,7 +320,7 @@ kctsb_error_t kctsb_totp_verify(
         // Handle underflow for negative offsets
         uint64_t check_counter = (i < 0 && time_counter < static_cast<uint64_t>(-i))
             ? 0
-            : time_counter + i;
+            : time_counter + static_cast<uint64_t>(i);
         
         uint32_t expected;
         kctsb_error_t err = kctsb_hotp_generate(
@@ -398,7 +398,8 @@ size_t kctsb_otp_secret_to_base32(
         return 0;
     }
     
-    size_t i = 0, j = 0;
+    size_t i = 0;
+    size_t j = 0;
     uint32_t buffer = 0;
     int bits = 0;
     
@@ -409,14 +410,14 @@ size_t kctsb_otp_secret_to_base32(
         
         while (bits >= 5) {
             bits -= 5;
-            base32[j++] = BASE32_ALPHABET[(buffer >> bits) & 0x1F];
+            base32[j++] = BASE32_ALPHABET[static_cast<size_t>((buffer >> bits) & 0x1F)];
         }
     }
     
     // Handle remaining bits
     if (bits > 0) {
         buffer <<= (5 - bits);
-        base32[j++] = BASE32_ALPHABET[buffer & 0x1F];
+        base32[j++] = BASE32_ALPHABET[static_cast<size_t>(buffer & 0x1F)];
     }
     
     // Add padding
@@ -453,7 +454,8 @@ size_t kctsb_otp_secret_from_base32(
         return 0;
     }
     
-    size_t i = 0, j = 0;
+    size_t i = 0;
+    size_t j = 0;
     uint32_t buffer = 0;
     int bits = 0;
     
@@ -463,7 +465,7 @@ size_t kctsb_otp_secret_from_base32(
             return 0;  // Invalid character
         }
         
-        buffer = (buffer << 5) | val;
+        buffer = (buffer << 5) | static_cast<uint32_t>(val);
         bits += 5;
         
         if (bits >= 8) {

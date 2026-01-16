@@ -475,7 +475,7 @@ int ECCurve::point_to_bytes(const AffinePoint& P, unsigned char* out, size_t out
         return 1;
     }
     
-    size_t field_size = (bit_size_ + 7) / 8;
+    size_t field_size = static_cast<size_t>((bit_size_ + 7) / 8);
     size_t required_len = 1 + 2 * field_size;
     
     if (out_len < required_len) {
@@ -516,7 +516,7 @@ AffinePoint ECCurve::point_from_bytes(const unsigned char* in, size_t in_len) co
         return AffinePoint();
     }
     
-    size_t field_size = (bit_size_ + 7) / 8;
+    size_t field_size = static_cast<size_t>((bit_size_ + 7) / 8);
     
     if (in[0] == 0x04) {
         // Uncompressed format

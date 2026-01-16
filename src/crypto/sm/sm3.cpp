@@ -159,7 +159,7 @@ public:
         }
 
         // W[16..67] with 4-way unrolling for better ILP
-        for (int i = 16; i < 68; i += 4) {
+        for (size_t i = 16; i < 68; i += 4) {
             uint32_t tmp0 = W[i-16] ^ W[i-9] ^ SM3_ROTL32(W[i-3], 15);
             W[i] = SM3_P1(tmp0) ^ SM3_ROTL32(W[i-13], 7) ^ W[i-6];
             
@@ -174,7 +174,7 @@ public:
         }
 
         // W'[0..63] = W[i] ^ W[i+4] with vectorization hint
-        for (int i = 0; i < 64; i += 4) {
+        for (size_t i = 0; i < 64; i += 4) {
             W1[i]   = W[i]   ^ W[i+4];
             W1[i+1] = W[i+1] ^ W[i+5];
             W1[i+2] = W[i+2] ^ W[i+6];
@@ -260,7 +260,7 @@ public:
         SM3_ROUND_0_15(12); SM3_ROUND_0_15(13); SM3_ROUND_0_15(14); SM3_ROUND_0_15(15);
 
         // Rounds 16-63: FF1/GG1 path (4-way unrolled per iteration)
-        for (int j = 16; j < 64; j += 4) {
+        for (size_t j = 16; j < 64; j += 4) {
             SM3_ROUND_16_63(j);
             SM3_ROUND_16_63(j + 1);
             SM3_ROUND_16_63(j + 2);
@@ -366,7 +366,7 @@ void kctsb_sm3_final(kctsb_sm3_ctx_t* ctx, uint8_t digest[32]) {
 
     // Output digest
     for (int i = 0; i < 8; i++) {
-        kctsb::internal::store32_be(digest + i * 4, ctx->state[i]);
+        kctsb::internal::store32_be(digest + static_cast<size_t>(i) * 4, ctx->state[i]);
     }
 
     // Clear sensitive data

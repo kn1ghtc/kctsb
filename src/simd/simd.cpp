@@ -297,20 +297,20 @@ void chacha20_block_simd(uint8_t output[64], const ChaChaState& input) {
     if (has_feature(SIMDFeature::AVX2)) {
         // AVX2 vectorized double round
         __m256i row0 = _mm256_setr_epi32(
-            working.state[0], working.state[1], working.state[2], working.state[3],
-            working.state[0], working.state[1], working.state[2], working.state[3]
+            static_cast<int32_t>(working.state[0]), static_cast<int32_t>(working.state[1]), static_cast<int32_t>(working.state[2]), static_cast<int32_t>(working.state[3]),
+            static_cast<int32_t>(working.state[0]), static_cast<int32_t>(working.state[1]), static_cast<int32_t>(working.state[2]), static_cast<int32_t>(working.state[3])
         );
         __m256i row1 = _mm256_setr_epi32(
-            working.state[4], working.state[5], working.state[6], working.state[7],
-            working.state[4], working.state[5], working.state[6], working.state[7]
+            static_cast<int32_t>(working.state[4]), static_cast<int32_t>(working.state[5]), static_cast<int32_t>(working.state[6]), static_cast<int32_t>(working.state[7]),
+            static_cast<int32_t>(working.state[4]), static_cast<int32_t>(working.state[5]), static_cast<int32_t>(working.state[6]), static_cast<int32_t>(working.state[7])
         );
         __m256i row2 = _mm256_setr_epi32(
-            working.state[8], working.state[9], working.state[10], working.state[11],
-            working.state[8], working.state[9], working.state[10], working.state[11]
+            static_cast<int32_t>(working.state[8]), static_cast<int32_t>(working.state[9]), static_cast<int32_t>(working.state[10]), static_cast<int32_t>(working.state[11]),
+            static_cast<int32_t>(working.state[8]), static_cast<int32_t>(working.state[9]), static_cast<int32_t>(working.state[10]), static_cast<int32_t>(working.state[11])
         );
         __m256i row3 = _mm256_setr_epi32(
-            working.state[12], working.state[13], working.state[14], working.state[15],
-            working.state[12], working.state[13], working.state[14], working.state[15]
+            static_cast<int32_t>(working.state[12]), static_cast<int32_t>(working.state[13]), static_cast<int32_t>(working.state[14]), static_cast<int32_t>(working.state[15]),
+            static_cast<int32_t>(working.state[12]), static_cast<int32_t>(working.state[13]), static_cast<int32_t>(working.state[14]), static_cast<int32_t>(working.state[15])
         );
 
         // 10 double rounds
@@ -707,8 +707,8 @@ static inline __m128i gf128_reduce(__m128i H, __m128i X) {
     tmp7 = _mm_xor_si128(tmp7, tmp9);
 
     tmp8 = _mm_shuffle_epi32(tmp7, 0x93);
-    tmp7 = _mm_and_si128(tmp8, _mm_set_epi32(0, 0xffffffff, 0xffffffff, 0xffffffff));
-    tmp8 = _mm_and_si128(tmp8, _mm_set_epi32(0xffffffff, 0, 0, 0));
+    tmp7 = _mm_and_si128(tmp8, _mm_set_epi32(0, static_cast<int32_t>(0xffffffff), static_cast<int32_t>(0xffffffff), static_cast<int32_t>(0xffffffff)));
+    tmp8 = _mm_and_si128(tmp8, _mm_set_epi32(static_cast<int32_t>(0xffffffff), 0, 0, 0));
 
     tmp3 = _mm_xor_si128(tmp3, tmp7);
     tmp6 = _mm_xor_si128(tmp6, tmp8);
@@ -807,7 +807,7 @@ void poly_add_simd(uint32_t* result, const uint32_t* a, const uint32_t* b,
                    size_t n, uint32_t q) {
 #if defined(KCTSB_HAS_AVX2)
     if (has_feature(SIMDFeature::AVX2) && n >= 8) {
-        __m256i vq = _mm256_set1_epi32(q);
+        __m256i vq = _mm256_set1_epi32(static_cast<int32_t>(q));
 
         size_t i = 0;
         for (; i + 8 <= n; i += 8) {
@@ -842,7 +842,7 @@ void poly_sub_simd(uint32_t* result, const uint32_t* a, const uint32_t* b,
                    size_t n, uint32_t q) {
 #if defined(KCTSB_HAS_AVX2)
     if (has_feature(SIMDFeature::AVX2) && n >= 8) {
-        __m256i vq = _mm256_set1_epi32(q);
+        __m256i vq = _mm256_set1_epi32(static_cast<int32_t>(q));
 
         size_t i = 0;
         for (; i + 8 <= n; i += 8) {
@@ -901,11 +901,10 @@ void secure_zero(void* ptr, size_t len) {
 #if defined(_MSC_VER)
     SecureZeroMemory(ptr, len);
 #else
-    volatile uint8_t* p = static_cast<volatile uint8_t*>(ptr);
-    while (len--) {
-        *p++ = 0;
+    volatile unsigned char* p = static_cast<volatile unsigned char*>(ptr);
+    for (size_t i = 0; i < len; ++i) {
+        p[i] = 0;
     }
-    __asm__ __volatile__("" : : "r"(ptr) : "memory");
 #endif
 }
 
