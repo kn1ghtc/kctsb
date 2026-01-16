@@ -1,15 +1,73 @@
 # AGENTS.md - kctsb AI Development Guidelines
 
 > **项目**: kctsb - Knight's Cryptographic Trusted Security Base  
-> **版本**: 3.4.1  
-> **更新时间**: 2026-01-16 (Beijing Time, UTC+8)  
-> **重大变更**: 完全移除BLAKE2s支持，统一Debug/Release构建参数
+> **版本**: 3.4.2  
+> **更新时间**: 2026-01-17 (Beijing Time, UTC+8)  
+> **重大变更**: AES 安全加固 (T-table 移除, constexpr S-Box), 单文件静态库交付
 
 ---
 
 ## 🎯 项目概述
 
 kctsb (Knight's Cryptographic Trusted Security Base) 是一个**生产级**跨平台C++密码学和安全算法库，可用于安全研究、生产部署和算法验证。
+
+---
+
+## 🔐 v3.4.2 安全更新
+
+### AES 侧信道防护 (2026-01-17)
+
+**移除 T-table 查找表，防止缓存时序攻击：**
+
+| 组件 | 状态 | 说明 |
+|------|------|------|
+| `Te0-Te3` 查找表 | ❌ 已移除 | 原用于 AES 加密的 4KB T-table |
+| `Te4` (S-Box table) | ❌ 已移除 | 原用于最后一轮的 S-Box 查找 |
+| `TTABLE_RCON` | ❌ 已移除 | 原用于密钥扩展的轮常量 |
+| `ttable_key_expansion()` | ❌ 已移除 | 基于 T-table 的密钥扩展 |
+| `ttable_encrypt_block()` | ❌ 已移除 | 基于 T-table 的块加密 |
+
+**新增 constexpr S-Box 编译期生成：**
+
+```cpp
+// 编译期 S-Box 生成 (GF(2^8) 有限域计算)
+static constexpr std::array<uint8_t, 256> generate_aes_sbox() noexcept {
+    // 使用 GF(2^8) 乘法逆元 + 仿射变换
+    // 完全在编译期计算，运行时零开销
+}
+
+static constexpr std::array<uint8_t, 256> AES_SBOX = generate_aes_sbox();
+static constexpr std::array<uint8_t, 256> AES_SBOX_INV = generate_aes_inv_sbox();
+```
+
+**AES 实现路径：**
+
+| 路径 | 硬件要求 | 安全特性 | 性能 |
+|------|----------|----------|------|
+| AES-NI | x86_64 + AES-NI | 常量时间 (硬件保证) | ~1.6-1.8 GB/s |
+| 软件后备 | 任意 CPU | 常量时间 (无 T-table) | ~300-500 MB/s |
+
+### 单文件静态库交付 (2026-01-17)
+
+**新增 bundled 静态库，包含所有依赖：**
+
+```
+release/{platform}/lib/
+├── libkctsb.a              # 独立库 (需要 NTL/GMP)
+├── libkctsb_bundled.a      # 单文件库 (包含 NTL/GMP/SEAL)
+└── libkctsb.dll/.so/.dylib # 动态库
+```
+
+**使用方式：**
+
+```bash
+# Option 1: 使用 bundled 库 (单文件，无外部依赖)
+g++ -o myapp myapp.cpp -lkctsb_bundled -lstdc++ -lbcrypt  # Windows
+g++ -o myapp myapp.cpp -lkctsb_bundled -lstdc++ -lpthread # Linux
+
+# Option 2: 使用独立库 (需要链接依赖)
+g++ -o myapp myapp.cpp -lkctsb -lntl -lgmp -lstdc++
+```
 
 ---
 
@@ -502,8 +560,24 @@ thirdparty/
 # 一键构建 + 测试
 .\scripts\build.ps1 -All
 
-# 构建 + benchmark (需要 vcpkg)
-.\scripts\build.ps1 -Full -UseVcpkg
+# 构建 + 创建 release (含 bundled 库)
+.\scripts\build.ps1 -Release
+
+# 构建 NTL bundled 库 (NTL + GMP + gf2x)
+.\scripts\build_ntl_bundled.ps1
+```
+
+### Linux/macOS
+
+```bash
+# 一键构建 + 测试
+./scripts/build.sh --all
+
+# 构建 + 创建 release (含 bundled 库)
+./scripts/build.sh --release
+
+# 构建 NTL bundled 库
+./scripts/build_ntl_bundled.sh
 ```
 
 ### 手动构建

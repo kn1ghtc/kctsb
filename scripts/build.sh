@@ -352,14 +352,116 @@ if [ "$RELEASE" = true ]; then
         echo "  ✓ Copied kctsb_api.h (unified public API)"
     fi
 
+    # ====================================================================
+    # Create bundled static library (single-file with all dependencies)
+    # ====================================================================
+    echo "  Creating bundled static library..."
+    
+    STATIC_LIB="$BUILD_DIR/lib/libkctsb.a"
+    if [ -f "$STATIC_LIB" ] && command -v ar &> /dev/null; then
+        # Collect all static libraries to bundle
+        LIBS_TO_BUNDLE=()
+        LIBS_TO_BUNDLE+=("$STATIC_LIB")
+        
+        # Check both platform-specific and common thirdparty directories
+        THIRDPARTY_LIB_DIRS=(
+            "$THIRDPARTY_PLATFORM_DIR/lib"
+            "$THIRDPARTY_DIR/lib"
+        )
+        
+        DEP_LIBS=("libntl.a" "libgmp.a" "libgf2x.a" "libseal-4.1.a" "libhelib.a")
+        
+        for lib_dir in "${THIRDPARTY_LIB_DIRS[@]}"; do
+            if [ -d "$lib_dir" ]; then
+                for dep_lib in "${DEP_LIBS[@]}"; do
+                    dep_path="$lib_dir/$dep_lib"
+                    if [ -f "$dep_path" ]; then
+                        # Check if already added
+                        already_added=false
+                        for existing in "${LIBS_TO_BUNDLE[@]}"; do
+                            if [ "$existing" = "$dep_path" ]; then
+                                already_added=true
+                                break
+                            fi
+                        done
+                        if [ "$already_added" = false ]; then
+                            LIBS_TO_BUNDLE+=("$dep_path")
+                        fi
+                    fi
+                done
+            fi
+        done
+        
+        if [ ${#LIBS_TO_BUNDLE[@]} -gt 1 ]; then
+            # Create temp directory for extraction
+            BUNDLE_TMP_DIR="$BUILD_DIR/bundle_tmp"
+            rm -rf "$BUNDLE_TMP_DIR"
+            mkdir -p "$BUNDLE_TMP_DIR"
+            
+            cd "$BUNDLE_TMP_DIR"
+            
+            # Extract each library with prefixed object files
+            lib_index=0
+            for lib in "${LIBS_TO_BUNDLE[@]}"; do
+                lib_name=$(basename "$lib" .a)
+                prefix="lib${lib_index}_"
+                
+                echo "     Extracting $lib_name..."
+                ar x "$lib" 2>/dev/null || true
+                
+                # Rename extracted .o files with prefix to avoid conflicts
+                for obj in *.o; do
+                    if [ -f "$obj" ] && [[ ! "$obj" =~ ^lib[0-9]+_ ]]; then
+                        mv "$obj" "${prefix}${obj}"
+                    fi
+                done
+                lib_index=$((lib_index + 1))
+            done
+            
+            # Count total objects
+            obj_count=$(ls -1 *.o 2>/dev/null | wc -l)
+            
+            if [ "$obj_count" -gt 0 ]; then
+                echo "     Creating libkctsb_bundled.a ($obj_count objects)..."
+                BUNDLED_LIB="$RELEASE_PLATFORM_DIR/lib/libkctsb_bundled.a"
+                ar rcs "$BUNDLED_LIB" *.o 2>/dev/null
+                
+                if [ -f "$BUNDLED_LIB" ]; then
+                    bundled_size=$(ls -lh "$BUNDLED_LIB" | awk '{print $5}')
+                    echo -e "  ${GREEN}✓ Created libkctsb_bundled.a ($bundled_size)${NC}"
+                else
+                    echo -e "  ${RED}✗ Failed to create bundled library${NC}"
+                fi
+            fi
+            
+            # Cleanup
+            cd "$PROJECT_DIR"
+            rm -rf "$BUNDLE_TMP_DIR"
+        else
+            echo "  (No dependencies to bundle)"
+        fi
+    else
+        echo "  (ar not found or static lib missing, skipping bundled library)"
+    fi
+
     # Generate release info
     COMPILER_INFO=$(cc --version 2>/dev/null | head -1 || echo "Unknown")
+    
+    # Check for bundled library
+    BUNDLED_LIB_PATH="$RELEASE_PLATFORM_DIR/lib/libkctsb_bundled.a"
+    BUNDLED_INFO=""
+    if [ -f "$BUNDLED_LIB_PATH" ]; then
+        bundled_size=$(ls -lh "$BUNDLED_LIB_PATH" | awk '{print $5}')
+        BUNDLED_INFO="- lib/libkctsb_bundled.a    : Bundled static library ($bundled_size, includes NTL/GMP/SEAL)"
+    fi
     
     # Platform-specific link instructions
     if [ "$OS_NAME" = "macOS" ]; then
         LINK_INSTRUCTION="// Link: -lkctsb -lc++ -framework Security"
+        BUNDLED_LINK="// Link: -lkctsb_bundled -lc++ -framework Security"
     else
-        LINK_INSTRUCTION="// Link: -lkctsb -lstdc++"
+        LINK_INSTRUCTION="// Link: -lkctsb -lntl -lgmp -lstdc++"
+        BUNDLED_LINK="// Link: -lkctsb_bundled -lstdc++"
     fi
     
     cat > "$RELEASE_PLATFORM_DIR/RELEASE_INFO.txt" << EOF
@@ -374,13 +476,19 @@ Compiler: ${COMPILER_INFO}
 Contents:
 - bin/kctsb              : Command-line tool
 - bin/kctsb_benchmark    : Performance benchmark (if built)
-- lib/libkctsb.a         : Static library
+- lib/libkctsb.a         : Static library (requires NTL/GMP)
+${BUNDLED_INFO}
 - lib/libkctsb.dylib     : Dynamic library (macOS)
 - lib/libkctsb.so*       : Shared library (Linux)
 - include/kctsb_api.h    : Unified public API header
 
 Integration (like OpenSSL):
   #include <kctsb_api.h>
+  
+  // Option 1: Use bundled library (single file, no external deps)
+  ${BUNDLED_LINK}
+  
+  // Option 2: Use separate libraries  
   ${LINK_INSTRUCTION}
 
 License: Apache License 2.0

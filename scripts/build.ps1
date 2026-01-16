@@ -226,6 +226,107 @@ try {
             Write-Host "   Copied libkctsb.dll" -ForegroundColor Green
         }
 
+        # ====================================================================
+        # Create bundled static library (single-file with all dependencies)
+        # ====================================================================
+        Write-Host "   Creating bundled static library..." -ForegroundColor Yellow
+        
+        # Find ar tool (prefer MSYS2, fallback to Strawberry Perl)
+        $AR = $null
+        $arPaths = @(
+            "C:\msys64\mingw64\bin\ar.exe",
+            "C:\msys64\usr\bin\ar.exe",
+            "C:\Strawberry\c\bin\ar.exe"
+        )
+        foreach ($arPath in $arPaths) {
+            if (Test-Path $arPath) { $AR = $arPath; break }
+        }
+        
+        if ($AR) {
+            # Collect all static libraries to bundle
+            $libsToBundle = @()
+            
+            # kctsb library (required)
+            if (Test-Path $staticLib) {
+                $libsToBundle += $staticLib
+            }
+            
+            # Thirdparty libraries (check both platform-specific and common)
+            $thirdpartyLibDirs = @(
+                (Join-Path $ThirdpartyPlatformDir "lib"),
+                (Join-Path $ThirdpartyDir "lib")
+            )
+            
+            $depLibs = @("libntl.a", "libgmp.a", "libgf2x.a", "libseal-4.1.a", "libhelib.a")
+            foreach ($libDir in $thirdpartyLibDirs) {
+                if (Test-Path $libDir) {
+                    foreach ($depLib in $depLibs) {
+                        $depPath = Join-Path $libDir $depLib
+                        if ((Test-Path $depPath) -and ($libsToBundle -notcontains $depPath)) {
+                            $libsToBundle += $depPath
+                        }
+                    }
+                }
+            }
+            
+            if ($libsToBundle.Count -gt 1) {
+                # Create temp directory for extraction
+                $bundleTmpDir = Join-Path $BuildDir "bundle_tmp"
+                if (Test-Path $bundleTmpDir) {
+                    Remove-Item -Recurse -Force $bundleTmpDir
+                }
+                New-Item -ItemType Directory -Path $bundleTmpDir | Out-Null
+                
+                Push-Location $bundleTmpDir
+                try {
+                    # Extract each library and prefix object files to avoid name conflicts
+                    $libIndex = 0
+                    foreach ($lib in $libsToBundle) {
+                        $libName = [System.IO.Path]::GetFileNameWithoutExtension($lib)
+                        $prefix = "lib${libIndex}_"
+                        
+                        Write-Host "     Extracting $libName..." -ForegroundColor DarkGray
+                        & $AR x $lib 2>$null
+                        
+                        # Rename extracted .o files with prefix
+                        Get-ChildItem -Filter "*.o" | Where-Object { $_.Name -notmatch "^lib\d+_" } | ForEach-Object {
+                            $newName = "${prefix}$($_.Name)"
+                            Rename-Item $_.FullName $newName
+                        }
+                        $libIndex++
+                    }
+                    
+                    # Create bundled library
+                    $bundledLib = Join-Path $releaseLib "libkctsb_bundled.a"
+                    $objFiles = Get-ChildItem -Filter "*.o" | ForEach-Object { $_.Name }
+                    
+                    if ($objFiles.Count -gt 0) {
+                        Write-Host "     Creating libkctsb_bundled.a ($($objFiles.Count) objects)..." -ForegroundColor DarkGray
+                        & $AR rcs $bundledLib @objFiles 2>$null
+                        
+                        if (Test-Path $bundledLib) {
+                            $bundledSize = (Get-Item $bundledLib).Length
+                            $bundledSizeMB = [math]::Round($bundledSize / 1MB, 2)
+                            Write-Host "   Created libkctsb_bundled.a ($bundledSizeMB MB)" -ForegroundColor Green
+                        } else {
+                            Write-Host "   Failed to create bundled library" -ForegroundColor Red
+                        }
+                    }
+                }
+                finally {
+                    Pop-Location
+                    # Cleanup temp directory
+                    if (Test-Path $bundleTmpDir) {
+                        Remove-Item -Recurse -Force $bundleTmpDir
+                    }
+                }
+            } else {
+                Write-Host "   No dependencies to bundle (only kctsb)" -ForegroundColor Yellow
+            }
+        } else {
+            Write-Host "   ar not found, skipping bundled library" -ForegroundColor Yellow
+        }
+
         # Copy ONLY the unified public API header
         $apiHeader = Join-Path $ProjectDir "include\kctsb\kctsb_api.h"
         if (Test-Path $apiHeader) {
@@ -236,6 +337,14 @@ try {
         # Generate release info
         $compilerVer = (& gcc --version 2>$null | Select-Object -First 1)
         if (-not $compilerVer) { $compilerVer = "Unknown" }
+        
+        # Check bundled library
+        $bundledLibPath = Join-Path $releaseLib "libkctsb_bundled.a"
+        $hasBundled = Test-Path $bundledLibPath
+        $bundledInfo = if ($hasBundled) { 
+            $sz = [math]::Round((Get-Item $bundledLibPath).Length / 1MB, 2)
+            "- lib/libkctsb_bundled.a    : Bundled static library ($sz MB, includes NTL/GMP/SEAL)"
+        } else { "" }
         
         $info = @"
 kctsb Release Information
@@ -249,13 +358,19 @@ Compiler: $compilerVer
 Contents:
 - bin/kctsb.exe              : Command-line tool
 - bin/kctsb_benchmark.exe    : Performance benchmark (if built)
-- lib/libkctsb.a             : Static library
+- lib/libkctsb.a             : Static library (requires NTL/GMP)
+$bundledInfo
 - lib/libkctsb.dll           : Dynamic library (if built)
 - include/kctsb_api.h        : Unified public API header
 
 Integration (like OpenSSL):
   #include <kctsb_api.h>
-  // Link: -lkctsb -lstdc++ -lbcrypt
+  
+  // Option 1: Use bundled library (single file, no external deps)
+  // Link: -lkctsb_bundled -lstdc++ -lbcrypt
+  
+  // Option 2: Use separate libraries  
+  // Link: -lkctsb -lntl -lgmp -lstdc++ -lbcrypt
 
 License: Apache License 2.0
 Repository: https://github.com/kn1ghtc/kctsb
