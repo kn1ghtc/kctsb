@@ -8,16 +8,15 @@
 
 **kctsb** 是一个跨平台的 C/C++ 密码学和安全算法库，专为生产环境和安全研究设计。目标是成为 **OpenSSL 的现代替代品**。
 
-> **v3.4.2 更新** (2025年1月19日):  
+> **v3.4.2 更新** (2026年1月16日):  
+> - ✅ **CLI全静态链接**: Windows/Linux CLI工具消除GCC运行时DLL依赖，单文件可执行  
+> - ✅ **Bundled库完善**: libkctsb_bundled.a 包含所有依赖（NTL/GMP/SEAL/HElib），类似OpenSSL单文件分发  
+> - ✅ **跨平台验证**: Docker AlmaLinux 9 构建通过，Windows/Linux CLI均验证运行正常  
 > - ✅ **构建系统优化**: CMake配置时间从25s降至9.3s (-63%)，使用mingw64 64位工具链  
 > - ✅ **性能基线建立**: 完整benchmark baseline，SHA3-256 493MB/s, BLAKE2b 934MB/s (+31.77% vs OpenSSL)  
 > - ✅ **OpenSSL 3.3.1集成**: 修复查找策略，支持benchmark对比测试  
 > - ✅ **代码质量**: 172个编译警告修复，per-target -Werror策略  
 > - ✅ **SHA-512 压缩优化**: OpenSSL 风格轮函数调度 + 16-word 环形消息调度，提升 ILP 并降低分支开销  
-> - ✅ **开发流程精简**: 移除 pre-commit 本地检查与相关配置，避免阻塞提交  
-> - ✅ **构建告警清理**: 修复 benchmark 与测试中的显式类型转换告警  
-> - ✅ **类型规范修订**: 长度/索引统一使用 size_t，清理编码规范告警  
-> - ✅ **性能基线更新**: build-release 下完成 hash 基线刷新（OpenSSL 3.3.1）  
 > - 📊 **Hash测试**: 29/29测试通过 (SHA3, BLAKE2b, SM3, SHA-256/512全部正常)  
 > - 🚀 **SHA3优化完成**: 10MB下 SHA3-256 **678MB/s**、SHA3-512 **339MB/s**，均超越 OpenSSL 3.3.1（+12.6% / +6.8%）
 
@@ -139,14 +138,17 @@ kctsb/
 │   └── lib/                    # libntl.a, libgf2x.a, libgmp.a, etc.
 ├── release/                    # ★跨平台发布目录★
 │   ├── win-x64/                # Windows x64 构建产物
-│   │   ├── kctsb_api.h         # 唯一公共头文件
-│   │   ├── libkctsb.a          # 静态库
-│   │   ├── libkctsb.dll        # 动态库
-│   │   └── kctsb.exe           # CLI 工具
+│   │   ├── bin/kctsb.exe       # CLI 工具 (全静态链接)
+│   │   ├── lib/
+│   │   │   ├── libkctsb.a      # 静态库
+│   │   │   └── libkctsb_bundled.a  # ★ 打包库（含所有依赖）★
+│   │   └── include/kctsb_api.h # 唯一公共头文件
 │   └── linux-x64/              # Linux x64 构建产物
-│       ├── kctsb_api.h         # 唯一公共头文件
-│       ├── libkctsb.a          # 静态库
-│       └── kctsb               # CLI 工具
+│       ├── bin/kctsb           # CLI 工具 (全静态链接)
+│       ├── lib/
+│       │   ├── libkctsb.a      # 静态库
+│       │   └── libkctsb_bundled.a  # ★ 打包库（含所有依赖）★
+│       └── include/kctsb_api.h # 唯一公共头文件
 ├── docs/                       # 文档
 │   ├── releases/               # 版本发布说明
 │   └── third-party-dependencies.md  # 源码安装指南
@@ -334,14 +336,70 @@ cd build && ctest --output-on-failure
 // - 安全: kctsb_secure_compare(), kctsb_secure_zero(), kctsb_random_bytes()
 ```
 
-**Release 包内容**:
+**Release 包内容** (v3.4.2):
 ```
 release/
-├── linux-x64/ 或 windows-x64/
-│   ├── bin/kctsb[.exe]     # CLI 工具
-│   ├── lib/libkctsb.a      # 静态库
-│   └── include/
-│       └── kctsb_api.h     # ★ 唯一公共头文件 ★
+├── linux-x64/
+│   ├── bin/kctsb                    # CLI 工具 (1.5 MB, 全静态链接)
+│   ├── lib/
+│   │   ├── libkctsb.a               # 静态库 (4.7 MB, 需链接 NTL/GMP 等)
+│   │   └── libkctsb_bundled.a       # ★ 打包库 (13 MB, 包含所有依赖) ★
+│   └── include/kctsb_api.h          # 唯一公共头文件
+│
+└── win-x64/
+    ├── bin/kctsb.exe                # CLI 工具 (3.3 MB, 仅需Windows系统DLL)
+    ├── lib/
+    │   ├── libkctsb.a               # 静态库 (4.7 MB)
+    │   └── libkctsb_bundled.a       # ★ 打包库 (6.2 MB) ★
+    └── include/kctsb_api.h          # 唯一公共头文件
+```
+
+### 库文件选择指南
+
+| 库文件 | 大小 | 依赖 | 适用场景 |
+|--------|------|------|----------|
+| `libkctsb.a` | ~5 MB | 需额外链接 NTL/GMP/SEAL/HElib | 已有这些库的项目 |
+| `libkctsb_bundled.a` | ~13 MB (Linux) / ~6 MB (Win) | **无额外依赖** | ★ 推荐：新项目、快速集成 ★ |
+| `libkctsb.dll/.so` | ~3 MB | 运行时加载 | 多进程共享、热更新 |
+
+### 集成示例 (推荐: Bundled 库)
+
+**Linux (GCC)**:
+```bash
+# 方法1: 使用 bundled 库（推荐，单文件链接）
+g++ -O3 myapp.cpp -I./include -L./lib -lkctsb_bundled -lz -lpthread -ldl -o myapp
+
+# 方法2: 使用标准库（需要链接所有依赖）
+g++ -O3 myapp.cpp -I./include -L./lib \
+    -lkctsb -lntl -lgmp -lgf2x -lseal-4.1 -lhelib \
+    -lz -lpthread -o myapp
+```
+
+**Windows (MinGW-w64)**:
+```powershell
+# 方法1: 使用 bundled 库（推荐）
+g++ -O3 myapp.cpp -I.\include -L.\lib -lkctsb_bundled -lbcrypt -lws2_32 -o myapp.exe
+
+# 方法2: 标准库
+g++ -O3 myapp.cpp -I.\include -L.\lib `
+    -lkctsb -lntl -lgmp -lgf2x -lseal-4.1 -lhelib `
+    -lbcrypt -lws2_32 -o myapp.exe
+```
+
+**CMake 项目集成**:
+```cmake
+# 使用 bundled 库（推荐）
+add_executable(myapp main.cpp)
+target_include_directories(myapp PRIVATE ${KCTSB_DIR}/include)
+target_link_libraries(myapp PRIVATE
+    ${KCTSB_DIR}/lib/libkctsb_bundled.a
+    ZLIB::ZLIB
+    Threads::Threads
+    ${CMAKE_DL_LIBS}
+)
+if(WIN32)
+    target_link_libraries(myapp PRIVATE bcrypt ws2_32)
+endif()
 ```
 
 ## CMake 选项

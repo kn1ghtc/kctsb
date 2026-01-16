@@ -1,0 +1,27 @@
+kctsb Release Information
+==========================
+Version: 3.4.2
+Platform: Windows (win-x64)
+Build Type: Release
+Build Date: 2026-01-16 18:17:15 +08:00
+Compiler: gcc.exe (Rev9, Built by MSYS2 project) 15.2.0
+
+Contents:
+- bin/kctsb.exe              : Command-line tool
+- bin/kctsb_benchmark.exe    : Performance benchmark (if built)
+- lib/libkctsb.a             : Static library (requires NTL/GMP)
+- lib/libkctsb_bundled.a    : Bundled static library (6.17 MB, includes NTL/GMP/SEAL)
+- lib/libkctsb.dll           : Dynamic library (if built)
+- include/kctsb_api.h        : Unified public API header
+
+Integration (like OpenSSL):
+  #include <kctsb_api.h>
+  
+  // Option 1: Use bundled library (single file, no external deps)
+  // Link: -lkctsb_bundled -lstdc++ -lbcrypt
+  
+  // Option 2: Use separate libraries  
+  // Link: -lkctsb -lntl -lgmp -lstdc++ -lbcrypt
+
+License: Apache License 2.0
+Repository: https://github.com/kn1ghtc/kctsb

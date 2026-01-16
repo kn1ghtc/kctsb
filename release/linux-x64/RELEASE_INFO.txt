@@ -1,31 +1,28 @@
 kctsb Release Information
 ==========================
-Version: 3.4.0
+Version: 3.4.2
 Platform: Linux x64 (linux-x64)
-Build Type: Release
-Build Date: 2026-01-15 13:19:52 CST
+Build Type: Release (LTO enabled)
+Build Date: 2026-01-16 18:14 CST
 Compiler: gcc (GCC) 12.2.1 20221121 (Red Hat 12.2.1-7)
 glibc: 2.34 (AlmaLinux 9) (minimum requirement)
 
 Features:
 - NTL: Enabled (Number Theory Library)
 - GMP: Enabled (GNU Multiple Precision)
+- SEAL: Enabled (Microsoft SEAL Homomorphic Encryption)
+- HElib: Enabled (IBM HElib FHE)
 - LTO: Enabled (Link-Time Optimization)
 
 Contents:
-- bin/kctsb              : Command-line tool
-- lib/libkctsb.a         : Static library
+- bin/kctsb              : Command-line tool (links libkctsb_bundled.a)
+- lib/libkctsb.a         : Static library (requires separate NTL/GMP/SEAL/HElib)
+- lib/libkctsb_bundled.a : Bundled static library (all-in-one, like OpenSSL)
 - include/kctsb_api.h    : Unified public API header
 
-Integration (like OpenSSL):
-  #include <kctsb_api.h>
-  // Link: -lkctsb -lntl -lgmp -lgf2x -lstdc++ -lm
+Integration:
+  Option 1 (Bundled, Recommended):
+    g++ myapp.cpp -I./include -L./lib -lkctsb_bundled -lz -lpthread -ldl -o myapp
 
-Compatibility:
-- AlmaLinux 9+ / RHEL 9+ / Rocky Linux 9+
-- Ubuntu 22.04+ / Debian 12+
-- Fedora 36+
-- Most Linux distributions with glibc >= 2.34
-
-License: Apache License 2.0
-Repository: https://github.com/kn1ghtc/kctsb
+  Option 2 (Separate):
+    g++ myapp.cpp -I./include -L./lib -lkctsb -lntl -lgmp -lgf2x -lseal-4.1 -lhelib -lz -lpthread -o myapp
