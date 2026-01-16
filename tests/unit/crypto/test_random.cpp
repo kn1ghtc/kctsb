@@ -186,7 +186,8 @@ TEST_F(RandomTest, RandomRange_Bounds) {
 TEST_F(RandomTest, RandomRange_Distribution) {
     constexpr uint32_t MAX = 10;
     constexpr size_t NUM_SAMPLES = 10000;
-    std::vector<size_t> counts(MAX, 0);
+    const size_t max_size = static_cast<size_t>(MAX);
+    std::vector<size_t> counts(max_size, 0);
 
     for (size_t i = 0; i < NUM_SAMPLES; ++i) {
         uint32_t val = kctsb_random_range(MAX);
@@ -195,7 +196,7 @@ TEST_F(RandomTest, RandomRange_Distribution) {
 
     // Check rough uniformity: each bucket should have ~1000 samples
     double expected = static_cast<double>(NUM_SAMPLES) / static_cast<double>(MAX);
-    for (size_t i = 0; i < MAX; ++i) {
+    for (size_t i = 0; i < max_size; ++i) {
         EXPECT_GT(counts[i], expected * 0.8)
             << "Bucket " << i << " has too few samples";
         EXPECT_LT(counts[i], expected * 1.2)
@@ -205,7 +206,7 @@ TEST_F(RandomTest, RandomRange_Distribution) {
 
 TEST_F(RandomTest, RandomRange_SmallMax) {
     // Edge case: max = 1 should always return 0
-    for (int i = 0; i < 100; ++i) {
+    for (size_t i = 0; i < 100; ++i) {
         EXPECT_EQ(kctsb_random_range(1), 0u);
     }
 }
@@ -223,7 +224,8 @@ TEST_F(RandomTest, RandomRange_PowerOfTwo) {
 TEST_F(RandomTest, RandomRange_NonPowerOfTwo) {
     constexpr uint32_t MAX = 137;  // Non-power-of-two
     constexpr size_t NUM_SAMPLES = 5000;
-    std::vector<size_t> counts(MAX, 0);
+    const size_t max_size = static_cast<size_t>(MAX);
+    std::vector<size_t> counts(max_size, 0);
 
     for (size_t i = 0; i < NUM_SAMPLES; ++i) {
         uint32_t val = kctsb_random_range(MAX);
@@ -232,7 +234,7 @@ TEST_F(RandomTest, RandomRange_NonPowerOfTwo) {
     }
 
     // All values should be hit at least once
-    for (uint32_t i = 0; i < MAX; ++i) {
+    for (size_t i = 0; i < max_size; ++i) {
         EXPECT_GT(counts[i], 0u) << "Value " << i << " was never generated";
     }
 }
@@ -248,14 +250,15 @@ TEST_F(RandomTest, MonobitTest) {
     std::vector<uint8_t> buf(NUM_BYTES);
     kctsb_random_bytes(buf.data(), NUM_BYTES);
 
-    int ones = 0;
+    size_t ones = 0;
     for (uint8_t byte : buf) {
-        ones += __builtin_popcount(byte);
+        ones += static_cast<size_t>(__builtin_popcount(byte));
     }
 
     // The sum should be approximately half of total bits
     // P-value threshold: |ones - 4000| / sqrt(2000) < 2.58 (99% confidence)
-    double s_obs = std::abs(ones - static_cast<int>(NUM_BITS / 2)) / std::sqrt(NUM_BITS / 4.0);
+    double ones_diff = std::abs(static_cast<double>(ones) - (static_cast<double>(NUM_BITS) / 2.0));
+    double s_obs = ones_diff / std::sqrt(static_cast<double>(NUM_BITS) / 4.0);
     EXPECT_LT(s_obs, 2.58) << "Monobit test failed: too many or too few ones";
 }
 
@@ -265,11 +268,11 @@ TEST_F(RandomTest, RunsTest) {
     std::vector<uint8_t> buf(NUM_BYTES);
     kctsb_random_bytes(buf.data(), NUM_BYTES);
 
-    int runs = 1;  // Start with 1 run
+    size_t runs = 1;  // Start with 1 run
     uint8_t prev_bit = buf[0] & 1;
 
     for (size_t i = 0; i < NUM_BYTES; ++i) {
-        for (int j = (i == 0 ? 1 : 0); j < 8; ++j) {
+        for (size_t j = (i == 0 ? 1 : 0); j < 8; ++j) {
             uint8_t curr_bit = (buf[i] >> j) & 1;
             if (curr_bit != prev_bit) {
                 runs++;
@@ -320,7 +323,7 @@ TEST_F(RandomTest, CppWrapper_U64) {
 }
 
 TEST_F(RandomTest, CppWrapper_Range) {
-    for (int i = 0; i < 1000; ++i) {
+    for (size_t i = 0; i < 1000; ++i) {
         uint32_t val = kctsb::randomRange(100);
         EXPECT_LT(val, 100u);
     }

@@ -83,7 +83,7 @@ static double benchmark_openssl_aes128_gcm_encrypt(
 
     ciphertext.resize(plaintext.size() + GCM_TAG_SIZE);
     int len = 0;
-    int ciphertext_len = 0;
+    std::size_t ciphertext_len = 0;
 
     auto start = Clock::now();
 
@@ -92,19 +92,23 @@ static double benchmark_openssl_aes128_gcm_encrypt(
     EVP_EncryptInit_ex(ctx, nullptr, nullptr, key, iv);
     EVP_EncryptUpdate(ctx, ciphertext.data(), &len, plaintext.data(),
                       static_cast<int>(plaintext.size()));
-    ciphertext_len = len;
+    if (len < 0) {
+        EVP_CIPHER_CTX_free(ctx);
+        return -1.0;
+    }
+    ciphertext_len = static_cast<std::size_t>(len);
     EVP_EncryptFinal_ex(ctx, ciphertext.data() + len, &len);
-    ciphertext_len += len;
+    if (len < 0) {
+        EVP_CIPHER_CTX_free(ctx);
+        return -1.0;
+    }
+    ciphertext_len += static_cast<std::size_t>(len);
     EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, GCM_TAG_SIZE, tag);
 
     auto end = Clock::now();
     Duration elapsed = end - start;
 
-    if (ciphertext_len < 0) {
-        EVP_CIPHER_CTX_free(ctx);
-        return -1.0;
-    }
-    ciphertext.resize(static_cast<size_t>(ciphertext_len));
+    ciphertext.resize(ciphertext_len);
     EVP_CIPHER_CTX_free(ctx);
 
     return elapsed.count();
@@ -125,7 +129,7 @@ static double benchmark_openssl_aes128_gcm_decrypt(
 
     plaintext.resize(ciphertext.size());
     int len = 0;
-    int plaintext_len = 0;
+    std::size_t plaintext_len = 0;
 
     auto start = Clock::now();
 
@@ -134,7 +138,11 @@ static double benchmark_openssl_aes128_gcm_decrypt(
     EVP_DecryptInit_ex(ctx, nullptr, nullptr, key, iv);
     EVP_DecryptUpdate(ctx, plaintext.data(), &len, ciphertext.data(),
                       static_cast<int>(ciphertext.size()));
-    plaintext_len = len;
+    if (len < 0) {
+        EVP_CIPHER_CTX_free(ctx);
+        return -1.0;
+    }
+    plaintext_len = static_cast<std::size_t>(len);
     EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, GCM_TAG_SIZE,
                         const_cast<uint8_t*>(tag));
     int ret = EVP_DecryptFinal_ex(ctx, plaintext.data() + len, &len);
@@ -143,12 +151,12 @@ static double benchmark_openssl_aes128_gcm_decrypt(
     Duration elapsed = end - start;
 
     if (ret > 0) {
-        plaintext_len += len;
-        if (plaintext_len < 0) {
+        if (len < 0) {
             EVP_CIPHER_CTX_free(ctx);
             return -1.0;
         }
-        plaintext.resize(static_cast<size_t>(plaintext_len));
+        plaintext_len += static_cast<std::size_t>(len);
+        plaintext.resize(plaintext_len);
     }
 
     EVP_CIPHER_CTX_free(ctx);
@@ -170,7 +178,7 @@ static double benchmark_openssl_aes_gcm_encrypt(
 
     ciphertext.resize(plaintext.size() + GCM_TAG_SIZE);
     int len = 0;
-    int ciphertext_len = 0;
+    std::size_t ciphertext_len = 0;
 
     auto start = Clock::now();
 
@@ -179,19 +187,23 @@ static double benchmark_openssl_aes_gcm_encrypt(
     EVP_EncryptInit_ex(ctx, nullptr, nullptr, key, iv);
     EVP_EncryptUpdate(ctx, ciphertext.data(), &len, plaintext.data(),
                       static_cast<int>(plaintext.size()));
-    ciphertext_len = len;
+    if (len < 0) {
+        EVP_CIPHER_CTX_free(ctx);
+        return -1.0;
+    }
+    ciphertext_len = static_cast<std::size_t>(len);
     EVP_EncryptFinal_ex(ctx, ciphertext.data() + len, &len);
-    ciphertext_len += len;
+    if (len < 0) {
+        EVP_CIPHER_CTX_free(ctx);
+        return -1.0;
+    }
+    ciphertext_len += static_cast<std::size_t>(len);
     EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, GCM_TAG_SIZE, tag);
 
     auto end = Clock::now();
     Duration elapsed = end - start;
 
-    if (ciphertext_len < 0) {
-        EVP_CIPHER_CTX_free(ctx);
-        return -1.0;
-    }
-    ciphertext.resize(static_cast<size_t>(ciphertext_len));
+    ciphertext.resize(ciphertext_len);
     EVP_CIPHER_CTX_free(ctx);
 
     return elapsed.count();
@@ -212,7 +224,7 @@ static double benchmark_openssl_aes_gcm_decrypt(
 
     plaintext.resize(ciphertext.size());
     int len = 0;
-    int plaintext_len = 0;
+    std::size_t plaintext_len = 0;
 
     auto start = Clock::now();
 
@@ -221,7 +233,11 @@ static double benchmark_openssl_aes_gcm_decrypt(
     EVP_DecryptInit_ex(ctx, nullptr, nullptr, key, iv);
     EVP_DecryptUpdate(ctx, plaintext.data(), &len, ciphertext.data(),
                       static_cast<int>(ciphertext.size()));
-    plaintext_len = len;
+    if (len < 0) {
+        EVP_CIPHER_CTX_free(ctx);
+        return -1.0;
+    }
+    plaintext_len = static_cast<std::size_t>(len);
     EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, GCM_TAG_SIZE,
                         const_cast<uint8_t*>(tag));
     int ret = EVP_DecryptFinal_ex(ctx, plaintext.data() + len, &len);
@@ -230,12 +246,12 @@ static double benchmark_openssl_aes_gcm_decrypt(
     Duration elapsed = end - start;
 
     if (ret > 0) {
-        plaintext_len += len;
-        if (plaintext_len < 0) {
+        if (len < 0) {
             EVP_CIPHER_CTX_free(ctx);
             return -1.0;
         }
-        plaintext.resize(static_cast<size_t>(plaintext_len));
+        plaintext_len += static_cast<std::size_t>(len);
+        plaintext.resize(plaintext_len);
     }
 
     EVP_CIPHER_CTX_free(ctx);

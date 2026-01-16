@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 #include "kctsb/crypto/aes.h"
 #include <chrono>
+#include <cstddef>
 #include <iostream>
 
 TEST(BenchmarkTest, AES128_Performance) {
@@ -24,24 +25,22 @@ TEST(BenchmarkTest, AES128_Performance) {
     
     uint8_t ciphertext[16];
     
-    constexpr int iterations = 100000;
+    constexpr std::size_t iterations = 100000;
     
     auto start = std::chrono::high_resolution_clock::now();
     
-    for (int i = 0; i < iterations; i++) {
+    for (std::size_t i = 0; i < iterations; ++i) {
         kctsb_aes_encrypt_block(&ctx, plaintext, ciphertext);
     }
     
     auto end = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-    
-    double seconds = static_cast<double>(duration.count()) / 1000000.0;
-    double blocks_per_second = static_cast<double>(iterations) / seconds;
+    std::chrono::duration<double> seconds = end - start;
+    double blocks_per_second = static_cast<double>(iterations) / seconds.count();
     double mb_per_second = (blocks_per_second * 16) / (1024 * 1024);
     
     std::cout << "AES-128 Encryption Performance:" << std::endl;
     std::cout << "  Iterations: " << iterations << std::endl;
-    std::cout << "  Total time: " << duration.count() << " microseconds" << std::endl;
+    std::cout << "  Total time: " << seconds.count() << " seconds" << std::endl;
     std::cout << "  Blocks/second: " << blocks_per_second << std::endl;
     std::cout << "  Throughput: " << mb_per_second << " MB/s" << std::endl;
     

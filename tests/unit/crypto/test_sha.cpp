@@ -78,7 +78,7 @@ TEST(SHA256Test, MillionAs) {
 
     memset(block, 'a', sizeof(block));
     kctsb_sha256_init(&ctx);
-    for (int i = 0; i < 1000; i++) {
+    for (size_t i = 0; i < 1000; ++i) {
         kctsb_sha256_update(&ctx, block, sizeof(block));
     }
     kctsb_sha256_final(&ctx, digest);

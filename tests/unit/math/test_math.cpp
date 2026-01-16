@@ -295,7 +295,7 @@ TEST_F(MathTest, Statistics_Mean) {
 
     double sum = 0;
     for (double x : data) sum += x;
-    double mean = sum / data.size();
+    double mean = sum / static_cast<double>(data.size());
 
     EXPECT_DOUBLE_EQ(mean, 3.0);
 }
@@ -314,7 +314,7 @@ TEST_F(MathTest, Statistics_Variance) {
     for (double x : data) {
         variance += (x - mean) * (x - mean);
     }
-    variance /= data.size();
+    variance /= static_cast<double>(data.size());
 
     EXPECT_DOUBLE_EQ(variance, 4.0);
 }
