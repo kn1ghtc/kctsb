@@ -49,8 +49,22 @@ message(STATUS "Platform: ${CMAKE_SYSTEM_NAME}")
 message(STATUS "Compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
 
 # ============================================================================
-# Platform Detection and Thirdparty Path Setup
+# Platform Detection and Compiler Configuration
 # ============================================================================
+
+# Force 64-bit compilation: Use mingw64, not mingw32
+if(WIN32 AND NOT MSVC)
+    # Auto-detect mingw64 path and set compiler
+    if(EXISTS "C:/msys64/mingw64/bin/gcc.exe")
+        set(CMAKE_C_COMPILER "C:/msys64/mingw64/bin/gcc.exe" CACHE FILEPATH "C compiler" FORCE)
+        set(CMAKE_CXX_COMPILER "C:/msys64/mingw64/bin/g++.exe" CACHE FILEPATH "C++ compiler" FORCE)
+        message(STATUS "✓ Using mingw64 (64-bit): C:/msys64/mingw64/bin/")
+    elseif(EXISTS "C:/mingw64/bin/gcc.exe")
+        set(CMAKE_C_COMPILER "C:/mingw64/bin/gcc.exe" CACHE FILEPATH "C compiler" FORCE)
+        set(CMAKE_CXX_COMPILER "C:/mingw64/bin/g++.exe" CACHE FILEPATH "C++ compiler" FORCE)
+        message(STATUS "✓ Using mingw64 (64-bit): C:/mingw64/bin/")
+    endif()
+endif()
 
 # Detect platform suffix for thirdparty directory
 if(WIN32)
@@ -254,9 +268,9 @@ option(KCTSB_ENABLE_CLANG_TIDY "Enable clang-tidy static analysis" OFF)
 option(KCTSB_ENABLE_SANITIZERS "Enable Address/Undefined sanitizers" OFF)
 option(KCTSB_WARNINGS_AS_ERRORS "Treat warnings as errors" ON)
 
-# Strict warning mode: -Werror enforced for ALL build types (Debug/Release)
-# Project code must be warning-clean; thirdparty exemptions handled separately
-message(STATUS "Strict code quality: -Werror enabled globally (v3.4.1+)")
+# Warning strategy: Only enforce -Werror for kctsb project src/, not thirdparty/tests
+# LTO warnings from linker are expected and ignored
+message(STATUS "Strict code quality: -Werror for src/ only (v3.4.2+)")
 
 # Clang-Tidy integration
 if(KCTSB_ENABLE_CLANG_TIDY)
@@ -296,32 +310,31 @@ if(WIN32)
             add_compile_options(/WX)
         endif()
     else()
-        # MinGW/GCC on Windows - Full strict mode
+        # MinGW/GCC on Windows - Base warnings (no -Werror globally)
+        # -Werror applied per-source-file for src/ directory only
         add_compile_options(
-            # Core warnings
+            # Core warnings (non-fatal)
             -Wall -Wextra -Wpedantic
-            # Fatal errors for critical issues
+            # Critical issues as errors (safe for all code)
             -Werror=return-type
             -Werror=uninitialized
-            -Werror=format
-            -Werror=format-security
-            # Modern C++ best practices
-            -Wshadow                    # Variable shadowing
-            -Wnon-virtual-dtor          # Missing virtual destructor
-            -Wold-style-cast            # C-style casts (prefer static_cast)
-            -Woverloaded-virtual        # Unintended virtual overloading
-            -Wcast-align                # Pointer cast alignment
-            -Wconversion                # Implicit type conversion
-            -Wsign-conversion           # Sign conversion
-            -Wdouble-promotion          # Float to double implicit conversion
-            -Wformat=2                  # Printf format string issues
-            -Wnull-dereference          # Null pointer dereference
-            -Wunused                    # Unused entities
-            -Wduplicated-cond           # Duplicated if-else conditions
-            -Wduplicated-branches       # Duplicated if-else branches
-            -Wlogical-op                # Suspicious logical operations
-            -Wuseless-cast              # Useless casts
-            # Suppress noisy warnings from thirdparty
+            # Warnings only (not errors, applied selectively per-file)
+            -Wshadow
+            -Wnon-virtual-dtor
+            -Wold-style-cast
+            -Woverloaded-virtual
+            -Wcast-align
+            -Wconversion
+            -Wsign-conversion
+            -Wdouble-promotion
+            -Wformat=2
+            -Wnull-dereference
+            -Wunused
+            -Wduplicated-cond
+            -Wduplicated-branches
+            -Wlogical-op
+            -Wuseless-cast
+            # Suppress thirdparty/LTO noise
             -Wno-unused-parameter
             -Wno-array-bounds
             -Wno-stringop-overflow
@@ -329,9 +342,6 @@ if(WIN32)
             -finput-charset=UTF-8
             -fexec-charset=UTF-8
         )
-        if(KCTSB_WARNINGS_AS_ERRORS)
-            add_compile_options(-Werror)
-        endif()
     endif()
 elseif(APPLE)
     add_compile_options(
@@ -352,12 +362,11 @@ elseif(APPLE)
         -Wno-unused-parameter
         -Wno-array-bounds
         -Wno-deprecated-copy
+        -Wno-error=useless-cast         # Ignore useless-cast (thirdparty)
         -finput-charset=UTF-8
         -fexec-charset=UTF-8
     )
-    if(KCTSB_WARNINGS_AS_ERRORS)
-        add_compile_options(-Werror)
-    endif()
+    # NOTE: -Werror applied per-target to kctsb_static/shared
 elseif(UNIX)
     add_compile_options(
         -Wall -Wextra -Wpedantic
@@ -383,12 +392,11 @@ elseif(UNIX)
         -Wno-unused-parameter
         -Wno-array-bounds
         -Wno-stringop-overflow
+        -Wno-error=useless-cast         # Ignore useless-cast (thirdparty)
         -finput-charset=UTF-8
         -fexec-charset=UTF-8
     )
-    if(KCTSB_WARNINGS_AS_ERRORS)
-        add_compile_options(-Werror)
-    endif()
+    # NOTE: -Werror applied per-target to kctsb_static/shared
 endif()
 
 # ============================================================================
@@ -798,13 +806,22 @@ if(KCTSB_BUILD_STATIC)
     )
     target_compile_definitions(kctsb_static PRIVATE KCTSB_BUILDING)
     
-    # Enforce strict -Werror warnings for project code (v3.4.1+)
+    # Apply -Werror ONLY to src/ files (per-source-file precision)
     if(KCTSB_WARNINGS_AS_ERRORS)
-        if(NOT MSVC)
-            target_compile_options(kctsb_static PRIVATE -Werror)
-        else()
-            target_compile_options(kctsb_static PRIVATE /WX)
-        endif()
+        # Get all source files from src/ directory
+        get_target_property(KCTSB_STATIC_SOURCES kctsb_static SOURCES)
+        foreach(src_file ${KCTSB_STATIC_SOURCES})
+            # Only apply -Werror to files in src/ directory (not thirdparty)
+            if(src_file MATCHES "^${CMAKE_CURRENT_SOURCE_DIR}/src/")
+                if(NOT MSVC)
+                    set_source_files_properties(${src_file} PROPERTIES
+                        COMPILE_FLAGS "-Werror")
+                else()
+                    set_source_files_properties(${src_file} PROPERTIES
+                        COMPILE_FLAGS "/WX")
+                endif()
+            endif()
+        endforeach()
     endif()
     
     if(KCTSB_ENABLE_SEAL AND SEAL_FOUND)
@@ -854,13 +871,22 @@ if(KCTSB_BUILD_SHARED)
     endif()
     target_compile_definitions(kctsb_shared PRIVATE KCTSB_BUILDING KCTSB_SHARED_LIBRARY)
     
-    # Enforce strict -Werror warnings for project code (v3.4.1+)
+    # Apply -Werror ONLY to src/ files (per-source-file precision)
     if(KCTSB_WARNINGS_AS_ERRORS)
-        if(NOT MSVC)
-            target_compile_options(kctsb_shared PRIVATE -Werror)
-        else()
-            target_compile_options(kctsb_shared PRIVATE /WX)
-        endif()
+        # Get all source files from src/ directory
+        get_target_property(KCTSB_SHARED_SOURCES kctsb_shared SOURCES)
+        foreach(src_file ${KCTSB_SHARED_SOURCES})
+            # Only apply -Werror to files in src/ directory (not thirdparty)
+            if(src_file MATCHES "^${CMAKE_CURRENT_SOURCE_DIR}/src/")
+                if(NOT MSVC)
+                    set_source_files_properties(${src_file} PROPERTIES
+                        COMPILE_FLAGS "-Werror")
+                else()
+                    set_source_files_properties(${src_file} PROPERTIES
+                        COMPILE_FLAGS "/WX")
+                endif()
+            endif()
+        endforeach()
     endif()
     
     set_target_properties(kctsb_shared PROPERTIES

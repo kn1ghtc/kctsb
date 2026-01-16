@@ -156,7 +156,7 @@ void ffsa_get_secrets(mpz_vec_t& s, int8_t k, const mpz_t n)
                 continue;
             
             // Check for duplicates
-            for(int8_t j = 0; j < i; j++)
+            for(size_t j = 0; j < static_cast<size_t>(i); j++)
             {
                 if(mpz_cmp(intermediate, *s[j]) == 0)
                 {

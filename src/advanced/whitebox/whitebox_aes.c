@@ -86,14 +86,15 @@ static void generate_tbox(wbox_aes_ctx_t *ctx, u8 round_keys[11][16]) {
 static void generate_tyi_tables(wbox_aes_ctx_t *ctx) {
     /* Tyi tables encode MixColumns operation */
     for (int x = 0; x < 256; x++) {
-        ctx->TyiTables[0][x] = ((u32)gf_mul(2, x) << 24) | ((u32)x << 16) | 
-                               ((u32)x << 8) | (u32)gf_mul(3, x);
-        ctx->TyiTables[1][x] = ((u32)gf_mul(3, x) << 24) | ((u32)gf_mul(2, x) << 16) | 
-                               ((u32)x << 8) | (u32)x;
-        ctx->TyiTables[2][x] = ((u32)x << 24) | ((u32)gf_mul(3, x) << 16) | 
-                               ((u32)gf_mul(2, x) << 8) | (u32)x;
-        ctx->TyiTables[3][x] = ((u32)x << 24) | ((u32)x << 16) | 
-                               ((u32)gf_mul(3, x) << 8) | (u32)gf_mul(2, x);
+        u8 x_u8 = (u8)x;  /* Convert loop counter to u8 once */
+        ctx->TyiTables[0][x] = ((u32)gf_mul(2, x_u8) << 24) | ((u32)x_u8 << 16) | 
+                               ((u32)x_u8 << 8) | (u32)gf_mul(3, x_u8);
+        ctx->TyiTables[1][x] = ((u32)gf_mul(3, x_u8) << 24) | ((u32)gf_mul(2, x_u8) << 16) | 
+                               ((u32)x_u8 << 8) | (u32)x_u8;
+        ctx->TyiTables[2][x] = ((u32)x_u8 << 24) | ((u32)gf_mul(3, x_u8) << 16) | 
+                               ((u32)gf_mul(2, x_u8) << 8) | (u32)x_u8;
+        ctx->TyiTables[3][x] = ((u32)x_u8 << 24) | ((u32)x_u8 << 16) | 
+                               ((u32)gf_mul(3, x_u8) << 8) | (u32)gf_mul(2, x_u8);
     }
 }
 
@@ -120,7 +121,7 @@ static void generate_xor_tables(wbox_aes_ctx_t *ctx) {
         for (int tbl = 0; tbl < 96; tbl++) {
             for (int a = 0; a < 16; a++) {
                 for (int b = 0; b < 16; b++) {
-                    ctx->xorTable[round][tbl][a][b] = a ^ b;
+                    ctx->xorTable[round][tbl][a][b] = (u8)(a ^ b);
                 }
             }
         }

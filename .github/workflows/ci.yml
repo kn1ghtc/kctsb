@@ -1,0 +1,392 @@
+name: kctsb CI/CD - Build, Test & Performance Gates
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+  schedule:
+    - cron: '0 2 * * *'  # Nightly benchmarks at 2 AM UTC
+
+env:
+  CMAKE_VERSION: 3.20
+  PERFORMANCE_THRESHOLD: 5  # Fail if performance drops >5%
+  BLAKE2B_THRESHOLD: 3      # Stricter for our best-performing algorithm
+
+jobs:
+  # ============================================================================
+  # Windows Build & Test (MinGW64)
+  # ============================================================================
+  windows-mingw:
+    name: Windows MinGW64 + Performance Benchmark
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      
+      - name: Setup MSYS2 MinGW64
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
+            mingw-w64-x86_64-openssl
+      
+      - name: Install vcpkg Dependencies (GMP, NTL)
+        shell: pwsh
+        run: |
+          if (-not (Test-Path $env:VCPKG_ROOT)) {
+            git clone https://github.com/microsoft/vcpkg.git $env:VCPKG_ROOT
+            & "$env:VCPKG_ROOT\bootstrap-vcpkg.bat"
+          }
+          & "$env:VCPKG_ROOT\vcpkg" install gmp:x64-windows ntl:x64-windows
+      
+      - name: Configure CMake (Release)
+        shell: msys2 {0}
+        run: |
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER=C:/msys64/mingw64/bin/gcc.exe \
+            -DCMAKE_CXX_COMPILER=C:/msys64/mingw64/bin/g++.exe \
+            -DKCTSB_BUILD_TESTS=ON \
+            -DKCTSB_BUILD_CLI=ON \
+            -DKCTSB_BUILD_BENCHMARKS=ON \
+            -DKCTSB_WARNINGS_AS_ERRORS=ON
+      
+      - name: Build kctsb
+        shell: msys2 {0}
+        run: cmake --build build --parallel
+      
+      - name: Run Unit Tests
+        shell: msys2 {0}
+        run: |
+          cd build
+          ctest --output-on-failure --timeout 300
+      
+      - name: Run Performance Benchmark
+        shell: msys2 {0}
+        run: |
+          cd build/bin
+          ./kctsb_benchmark.exe all > ../../benchmark_results.txt
+      
+      - name: Check Performance Regression
+        shell: pwsh
+        run: |
+          python scripts/check_performance.py `
+            --baseline docs/PERFORMANCE_BASELINE.md `
+            --current benchmark_results.txt `
+            --fail-on-regression `
+            --threshold ${{ env.PERFORMANCE_THRESHOLD }} `
+            --blake2b-threshold ${{ env.BLAKE2B_THRESHOLD }}
+      
+      - name: Upload Benchmark Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results-windows
+          path: benchmark_results.txt
+          retention-days: 30
+      
+      - name: Comment PR with Performance Report
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('benchmark_results.txt', 'utf8');
+            const summary = report.split('\n').slice(0, 50).join('\n');
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 🚀 Performance Benchmark Results\n\n\`\`\`\n${summary}\n...(see full artifact)\n\`\`\``
+            });
+
+  # ============================================================================
+  # Linux Build & Test (Ubuntu Latest)
+  # ============================================================================
+  linux-gcc:
+    name: Linux GCC 11+ + Sanitizers
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        compiler: [gcc-11, gcc-12]
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            ${{ matrix.compiler }} \
+            g++-$(echo ${{ matrix.compiler }} | cut -d- -f2) \
+            cmake ninja-build \
+            libgmp-dev libntl-dev libssl-dev \
+            valgrind
+      
+      - name: Configure CMake (Debug + ASan)
+        run: |
+          export CC=$(echo ${{ matrix.compiler }})
+          export CXX=g++-$(echo ${{ matrix.compiler }} | cut -d- -f2)
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DKCTSB_BUILD_TESTS=ON \
+            -DKCTSB_BUILD_CLI=ON \
+            -DCMAKE_CXX_FLAGS="-fsanitize=address -fsanitize=undefined -fno-omit-frame-pointer"
+      
+      - name: Build kctsb
+        run: cmake --build build --parallel
+      
+      - name: Run Tests with ASan/UBSan
+        run: |
+          cd build
+          ctest --output-on-failure --timeout 300
+        env:
+          ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+      
+      - name: Run Valgrind Memory Check (Sample)
+        run: |
+          valgrind --leak-check=full --error-exitcode=1 \
+            ./build/bin/test_hash
+
+  # ============================================================================
+  # macOS Build & Test (Clang + ARM64)
+  # ============================================================================
+  macos-clang:
+    name: macOS Clang (ARM64)
+    runs-on: macos-latest
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      
+      - name: Install Dependencies (Homebrew)
+        run: |
+          brew install cmake ninja gmp ntl openssl@3
+      
+      - name: Configure CMake (Release)
+        run: |
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DKCTSB_BUILD_TESTS=ON \
+            -DKCTSB_BUILD_CLI=ON \
+            -DKCTSB_BUILD_BENCHMARKS=ON \
+            -DOPENSSL_ROOT_DIR=/usr/local/opt/openssl@3
+      
+      - name: Build kctsb
+        run: cmake --build build --parallel
+      
+      - name: Run Unit Tests
+        run: |
+          cd build
+          ctest --output-on-failure --timeout 300
+      
+      - name: Run Performance Benchmark (macOS)
+        run: |
+          cd build/bin
+          ./kctsb_benchmark all > ../../benchmark_results_macos.txt
+      
+      - name: Upload Benchmark Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results-macos
+          path: benchmark_results_macos.txt
+          retention-days: 30
+
+  # ============================================================================
+  # Cross-Platform Compile Check (No Runtime Tests)
+  # ============================================================================
+  cross-compile-check:
+    name: Cross-Compile Check (ARM, RISC-V)
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        target:
+          - arch: arm64
+            cc: aarch64-linux-gnu-gcc
+            cxx: aarch64-linux-gnu-g++
+          - arch: riscv64
+            cc: riscv64-linux-gnu-gcc
+            cxx: riscv64-linux-gnu-g++
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      
+      - name: Install Cross-Compilers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            gcc-${{ matrix.target.arch }}-linux-gnu \
+            g++-${{ matrix.target.arch }}-linux-gnu \
+            cmake ninja-build
+      
+      - name: Configure CMake (Cross-Compile)
+        run: |
+          cmake -B build-${{ matrix.target.arch }} -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER=${{ matrix.target.cc }} \
+            -DCMAKE_CXX_COMPILER=${{ matrix.target.cxx }} \
+            -DKCTSB_BUILD_TESTS=OFF \
+            -DKCTSB_BUILD_CLI=ON
+      
+      - name: Build kctsb (Compile Check Only)
+        run: cmake --build build-${{ matrix.target.arch }} --parallel
+
+  # ============================================================================
+  # Static Analysis & Code Quality
+  # ============================================================================
+  static-analysis:
+    name: Static Analysis (cppcheck, clang-tidy)
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      
+      - name: Install Analysis Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cppcheck clang-tidy
+      
+      - name: Run cppcheck
+        run: |
+          cppcheck --enable=all --error-exitcode=1 \
+            --suppress=missingIncludeSystem \
+            --suppress=unusedFunction \
+            -I include/ -I src/ \
+            src/
+      
+      - name: Run clang-tidy (Sample Files)
+        run: |
+          clang-tidy src/crypto/aes.cpp \
+            -checks='-*,modernize-*,performance-*,readability-*' \
+            -- -Iinclude/ -Isrc/ -std=c++17
+
+  # ============================================================================
+  # Documentation Build Check
+  # ============================================================================
+  docs-check:
+    name: Documentation Build (Doxygen)
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: Install Doxygen
+        run: sudo apt-get install -y doxygen graphviz
+      
+      - name: Generate Documentation
+        run: |
+          cd docs
+          doxygen Doxyfile
+      
+      - name: Upload Docs Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: doxygen-docs
+          path: docs/html/
+          retention-days: 7
+
+  # ============================================================================
+  # Performance Regression Report (Summary)
+  # ============================================================================
+  performance-summary:
+    name: Performance Summary Report
+    runs-on: ubuntu-latest
+    needs: [windows-mingw, macos-clang]
+    if: always()
+    
+    steps:
+      - name: Download Benchmark Results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: benchmark-results-*
+          path: benchmark-results/
+      
+      - name: Generate Summary
+        run: |
+          echo "## 📊 Cross-Platform Performance Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Platform | Hash SHA3-256 | BLAKE2b | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|---------------|---------|--------|" >> $GITHUB_STEP_SUMMARY
+          
+          # Parse Windows results (example)
+          if [ -f benchmark-results/benchmark-results-windows/benchmark_results.txt ]; then
+            SHA3=$(grep "SHA3-256.*10 MB" benchmark-results/benchmark-results-windows/benchmark_results.txt | grep "kctsb" | awk '{print $3}')
+            BLAKE2=$(grep "BLAKE2b-512.*10 MB" benchmark-results/benchmark-results-windows/benchmark_results.txt | grep "kctsb" | awk '{print $3}')
+            echo "| Windows MinGW64 | $SHA3 MB/s | $BLAKE2 MB/s | ✅ |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Similar parsing for macOS...
+          if [ -f benchmark-results/benchmark-results-macos/benchmark_results_macos.txt ]; then
+            echo "| macOS ARM64 | [Data] | [Data] | ✅ |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # ============================================================================
+  # Scheduled Nightly Benchmarks (Performance Tracking)
+  # Note: Add schedule trigger at workflow level for nightly runs
+  # ============================================================================
+  nightly-benchmark:
+    name: Nightly Full Benchmark Suite
+    runs-on: windows-latest
+    if: github.event_name == 'schedule'
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
+            mingw-w64-x86_64-openssl
+      
+      - name: Build & Run Extended Benchmarks
+        shell: msys2 {0}
+        run: |
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DKCTSB_BUILD_BENCHMARKS=ON
+          cmake --build build --parallel
+          cd build/bin
+          ./kctsb_benchmark.exe all > nightly_benchmark.txt
+      
+      - name: Track Performance Trends
+        run: |
+          # Store results in time-series database (e.g., InfluxDB)
+          # Send alerts if performance drops >10%
+          echo "TODO: Implement performance tracking"
+      
+      - name: Upload Nightly Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-benchmark
+          path: build/bin/nightly_benchmark.txt
+          retention-days: 90

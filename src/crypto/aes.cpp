@@ -437,10 +437,10 @@ static void inv_mix_columns(uint8_t state[16]) {
 
 static void add_round_key(uint8_t state[16], const uint32_t* round_key) {
     for (int i = 0; i < 4; i++) {
-        state[i*4]   ^= (round_key[i] >> 24) & 0xff;
-        state[i*4+1] ^= (round_key[i] >> 16) & 0xff;
-        state[i*4+2] ^= (round_key[i] >> 8) & 0xff;
-        state[i*4+3] ^= round_key[i] & 0xff;
+        state[i*4]   ^= static_cast<uint8_t>((round_key[i] >> 24) & 0xff);
+        state[i*4+1] ^= static_cast<uint8_t>((round_key[i] >> 16) & 0xff);
+        state[i*4+2] ^= static_cast<uint8_t>((round_key[i] >> 8) & 0xff);
+        state[i*4+3] ^= static_cast<uint8_t>(round_key[i] & 0xff);
     }
 }
 
@@ -658,7 +658,7 @@ kctsb_error_t kctsb_aes_decrypt_block(const kctsb_aes_ctx_t* ctx,
         uint32_t sw_round_keys[60];
         int key_len = (ctx->key_bits == 128) ? 16 : ((ctx->key_bits == 192) ? 24 : 32);
         uint8_t orig_key[32];
-        memcpy(orig_key, ctx->round_keys, key_len);
+        memcpy(orig_key, ctx->round_keys, static_cast<size_t>(key_len));
         key_expansion(orig_key, sw_round_keys, key_len, actual_rounds);
         kctsb_secure_zero(orig_key, sizeof(orig_key));
         rk = sw_round_keys;

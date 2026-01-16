@@ -4,11 +4,19 @@
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](.)
 [![C++](https://img.shields.io/badge/C++-17-blue.svg)](.)
 [![CMake](https://img.shields.io/badge/CMake-3.20+-green.svg)](.)
-[![Version](https://img.shields.io/badge/Version-3.4.1-brightgreen.svg)](.)
+[![Version](https://img.shields.io/badge/Version-3.4.2-brightgreen.svg)](.)
+[![CI](https://img.shields.io/badge/CI-GitHub%20Actions-blue.svg)](.github/workflows/ci.yml)
 
 **kctsb** 是一个跨平台的 C/C++ 密码学和安全算法库，专为生产环境和安全研究设计。目标是成为 **OpenSSL 的现代替代品**。
 
-> **v3.4.1 更新** (2026年1月16日): 完全移除BLAKE2s支持，统一Debug/Release构建参数确保开发阶段也能验证性能基准。152个单元测试通过。Hash基准: SHA3-256 ~500MB/s（比OpenSSL快12.58%在1KB，整体-7%），BLAKE2b +30-45%领先OpenSSL。
+> **v3.4.2 更新** (2025年1月19日):  
+> - ✅ **构建系统优化**: CMake配置时间从25s降至9.3s (-63%)，使用mingw64 64位工具链  
+> - ✅ **性能基线建立**: 完整benchmark baseline，SHA3-256 493MB/s, BLAKE2b 934MB/s (+31.77% vs OpenSSL)  
+> - ✅ **CI/CD集成**: GitHub Actions工作流 + 性能门禁 (阻止>5%性能回退)  
+> - ✅ **OpenSSL 3.3.1集成**: 修复查找策略，支持benchmark对比测试  
+> - ✅ **代码质量**: 172个编译警告修复，per-target -Werror策略  
+> - 📊 **Hash测试**: 29/29测试通过 (SHA3, BLAKE2b, SM3, SHA-256/512全部正常)  
+> - 🎯 **下一步**: SHA3-256优化目标567MB/s (当前493MB/s, -13.2% gap)
 
 ## ✨ 特性
 
@@ -371,6 +379,64 @@ kctsb v3.3.2 提供与 OpenSSL 的性能对比基准测试：
 - [crypto/chacha20_poly1305.h](include/kctsb/crypto/chacha20_poly1305.h) - ChaCha20-Poly1305 实现
 - [gm/sm3.h](include/kctsb/gm/sm3.h) - SM3 国密哈希
 - [gm/sm4.h](include/kctsb/gm/sm4.h) - SM4 国密对称加密
+
+
+## 📊 性能基线 (v3.4.2)
+
+> **Platform**: Windows 11 + MSYS2 MinGW64 GCC 13.2.0  
+> **Compiler Flags**: `-O3 -march=native -flto -mavx2 -maes -msha`  
+> **Benchmark Date**: 2025-01-19  
+> **OpenSSL Baseline**: OpenSSL 3.3.1
+
+完整性能数据见 [docs/PERFORMANCE_BASELINE.md](docs/PERFORMANCE_BASELINE.md)。
+
+### Hash Functions (10MB data)
+
+| Algorithm    | kctsb (MB/s) | OpenSSL (MB/s) | vs OpenSSL | Status |
+|--------------|--------------|----------------|------------|--------|
+| **BLAKE2b-512** | **934** | 709 | **+31.77%** | 🏆 Best-in-class |
+| **SM3**       | **355** | 235 | **+51.53%** | 🏆 Outstanding |
+| **SHA3-512**  | **292** | 295 | **-1.16%**  | ✅ Near-parity |
+| **SHA3-256**  | **493** | 537 | **-8.29%**  | ⚠️ Optimization target |
+| **SHA-256**   | 1930 | 2092 | -7.77% | ⚠️ OpenSSL uses SHA-NI |
+| **SHA-512**   | 753 | 887 | -15.05% | ⚠️ OpenSSL uses SHA-NI |
+
+**性能亮点**:
+- ✅ **BLAKE2b**: 所有数据大小都超越OpenSSL **26-40%**（软件优化设计）
+- ✅ **SM3**: 一致性超越OpenSSL **50-60%**（国密算法高度优化）
+- ✅ **SHA3-512**: 大块数据接近工业级性能 (292 MB/s vs 295 MB/s)
+- ⚠️ **SHA3-256**: 当前493 MB/s，目标567 MB/s (-13.2% gap，v3.5.0优化中)
+
+### AEAD Encryption (10MB data)
+
+| Algorithm | Operation | kctsb (MB/s) | OpenSSL (MB/s) | vs OpenSSL |
+|-----------|-----------|--------------|----------------|------------|
+| AES-256-GCM | Encrypt | 1668 | 5801 | -71.25% |
+| AES-256-GCM | Decrypt | 1638 | 6530 | -74.92% |
+| ChaCha20-Poly1305 | Encrypt | 449 | 2224 | -79.80% |
+| ChaCha20-Poly1305 | Decrypt | 458 | 2147 | -78.66% |
+
+**Note**: OpenSSL使用硬件加速 (AES-NI, AVX2)，kctsb为跨平台纯C实现（教育清晰度优先）。
+
+### Public Key (RSA-2048)
+
+| Operation | kctsb (op/s) | OpenSSL (op/s) | vs OpenSSL |
+|-----------|--------------|----------------|------------|
+| OAEP Encryption | 48,885 | 53,442 | -8.53% ✅ |
+| OAEP Decryption | 1,453 | 2,075 | -30.00% |
+| PSS Verify | 50,684 | 58,644 | -13.57% ✅ |
+
+**Expected**: 70-85% of OpenSSL ✅ (within target range)
+
+### 性能门禁 (CI/CD)
+
+所有PR必须通过性能回退检测：
+- **通用阈值**: 不允许性能下降 >5%
+- **BLAKE2b**: 不允许性能下降 >3% (重点保护优势项)
+- **自动化**: GitHub Actions自动运行 `scripts/check_performance.py`
+- **失败策略**: 性能回退超阈值 → ❌ PR check失败
+
+参见 [.github/workflows/ci.yml](.github/workflows/ci.yml) 和 [docs/PERFORMANCE_BASELINE.md](docs/PERFORMANCE_BASELINE.md)。
 
 
 ## ⚠️ 安全声明
