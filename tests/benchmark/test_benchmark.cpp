@@ -35,8 +35,8 @@ TEST(BenchmarkTest, AES128_Performance) {
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
     
-    double seconds = duration.count() / 1000000.0;
-    double blocks_per_second = iterations / seconds;
+    double seconds = static_cast<double>(duration.count()) / 1000000.0;
+    double blocks_per_second = static_cast<double>(iterations) / seconds;
     double mb_per_second = (blocks_per_second * 16) / (1024 * 1024);
     
     std::cout << "AES-128 Encryption Performance:" << std::endl;

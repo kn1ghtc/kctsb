@@ -29,6 +29,7 @@
 #include <algorithm>
 #include <numeric>
 #include <functional>
+#include <limits>
 
 // OpenSSL headers
 #include <openssl/evp.h>
@@ -78,7 +79,7 @@ static void generate_random(uint8_t* buf, size_t len) {
 /**
  * @brief Calculate throughput in MB/s
  */
-static double calculate_throughput(size_t bytes, double ms) {
+static double calculate_throughput(double bytes, double ms) {
     return (bytes / (1024.0 * 1024.0)) / (ms / 1000.0);
 }
 
@@ -106,7 +107,8 @@ static void run_benchmark(
     }
 
     // Calculate statistics
-    double avg = std::accumulate(times.begin(), times.end(), 0.0) / times.size();
+    double avg = std::accumulate(times.begin(), times.end(), 0.0) /
+                 static_cast<double>(times.size());
     double min_val = *std::min_element(times.begin(), times.end());
 
     // Print result
@@ -117,7 +119,7 @@ static void run_benchmark(
               << std::setw(12) << min_val << " ms";
 
     if (show_throughput && data_size > 0) {
-        double throughput = calculate_throughput(data_size, avg);
+        double throughput = calculate_throughput(static_cast<double>(data_size), avg);
         std::cout << std::setw(12) << std::setprecision(2) << throughput << " MB/s";
     }
     std::cout << std::endl;
@@ -212,7 +214,11 @@ void benchmark_sm2() {
                 EVP_PKEY_CTX* sign_pctx = nullptr;
 
                 EVP_DigestSignInit(md_ctx, &sign_pctx, EVP_sm3(), nullptr, openssl_keypair);
-                EVP_PKEY_CTX_set1_id(sign_pctx, user_id, user_id_len);
+                if (user_id_len > static_cast<size_t>(std::numeric_limits<int>::max())) {
+                    EVP_MD_CTX_free(md_ctx);
+                    return -1.0;
+                }
+                EVP_PKEY_CTX_set1_id(sign_pctx, user_id, static_cast<int>(user_id_len));
 
                 size_t sig_len = 0;
                 EVP_DigestSign(md_ctx, nullptr, &sig_len, message, sizeof(message));
@@ -239,7 +245,11 @@ void benchmark_sm2() {
                 EVP_PKEY_CTX* verify_pctx = nullptr;
 
                 EVP_DigestVerifyInit(md_ctx, &verify_pctx, EVP_sm3(), nullptr, openssl_keypair);
-                EVP_PKEY_CTX_set1_id(verify_pctx, user_id, user_id_len);
+                if (user_id_len > static_cast<size_t>(std::numeric_limits<int>::max())) {
+                    EVP_MD_CTX_free(md_ctx);
+                    return -1.0;
+                }
+                EVP_PKEY_CTX_set1_id(verify_pctx, user_id, static_cast<int>(user_id_len));
 
                 int ret = EVP_DigestVerify(md_ctx, openssl_signature.data(), openssl_signature.size(),
                                            message, sizeof(message));

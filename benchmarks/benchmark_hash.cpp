@@ -59,7 +59,7 @@ static void generate_random(uint8_t* buf, size_t len) {
 /**
  * @brief Calculate throughput in MB/s
  */
-static double calculate_throughput(size_t bytes, double ms) {
+static double calculate_throughput(double bytes, double ms) {
     return (bytes / (1024.0 * 1024.0)) / (ms / 1000.0);
 }
 
@@ -127,8 +127,9 @@ static double run_benchmark_iterations(
     }
 
     // Statistics
-    double avg = std::accumulate(times.begin(), times.end(), 0.0) / times.size();
-    double throughput = calculate_throughput(data_size, avg);
+    double avg = std::accumulate(times.begin(), times.end(), 0.0) /
+                 static_cast<double>(times.size());
+    double throughput = calculate_throughput(static_cast<double>(data_size), avg);
 
     // Print result (consistent format with other benchmarks)
     std::cout << std::left << std::setw(25) << name
@@ -280,12 +281,7 @@ void benchmark_hash_functions() {
     kctsb_init();
 
     for (size_t data_size : TEST_SIZES) {
-        std::string size_str;
-        if (data_size >= 1024 * 1024) {
-            size_str = std::to_string(data_size / (1024 * 1024)) + " MB";
-        } else {
-            size_str = std::to_string(data_size / 1024) + " KB";
-        }
+        std::string size_str = format_size(data_size);
 
         std::cout << "\n--- Data Size: " << size_str << " ---" << std::endl;
         std::cout << std::left << std::setw(25) << "Algorithm"

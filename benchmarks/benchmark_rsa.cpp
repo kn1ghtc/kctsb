@@ -228,7 +228,8 @@ static void run_benchmark(
     }
 
     // Calculate statistics
-    double avg = std::accumulate(times.begin(), times.end(), 0.0) / times.size();
+    double avg = std::accumulate(times.begin(), times.end(), 0.0) /
+                 static_cast<double>(times.size());
     double min_time = *std::min_element(times.begin(), times.end());
     double ops_per_sec = 1000.0 / avg;
 
@@ -315,7 +316,7 @@ void benchmark_rsa() {
         EVP_PKEY_CTX_free(keygen_ctx);
 
         // Calculate max plaintext size for OAEP
-        size_t max_pt_size = (key_bits / 8) - 2 * HASH_SIZE - 2;
+        size_t max_pt_size = (static_cast<size_t>(key_bits) / 8) - 2 * HASH_SIZE - 2;
         size_t pt_size = std::min(sizeof(plaintext), max_pt_size);
 
 #ifdef KCTSB_HAS_RSA

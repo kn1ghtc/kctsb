@@ -195,7 +195,8 @@ static void run_benchmark(
     }
 
     // Calculate statistics
-    double avg = std::accumulate(times.begin(), times.end(), 0.0) / times.size();
+    double avg = std::accumulate(times.begin(), times.end(), 0.0) /
+                 static_cast<double>(times.size());
     double min_time = *std::min_element(times.begin(), times.end());
     (void)*std::max_element(times.begin(), times.end()); // max_time for future use
     double ops_per_sec = 1000.0 / avg;

@@ -58,7 +58,7 @@ static void generate_random(uint8_t* buf, size_t len) {
 /**
  * @brief Calculate throughput in MB/s
  */
-static double calculate_throughput(size_t bytes, double ms) {
+static double calculate_throughput(double bytes, double ms) {
     return (bytes / (1024.0 * 1024.0)) / (ms / 1000.0);
 }
 
@@ -149,8 +149,9 @@ static double run_benchmark_iterations(
     }
     
     // Statistics
-    double avg = std::accumulate(times.begin(), times.end(), 0.0) / times.size();
-    double throughput = calculate_throughput(data_size, avg);
+    double avg = std::accumulate(times.begin(), times.end(), 0.0) /
+                 static_cast<double>(times.size());
+    double throughput = calculate_throughput(static_cast<double>(data_size), avg);
     
     std::cout << std::left << std::setw(25) << name
               << std::setw(15) << impl

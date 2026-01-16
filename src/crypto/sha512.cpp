@@ -321,8 +321,10 @@ void kctsb_sha512_update(kctsb_sha512_ctx_t* ctx,
 
     // Process complete blocks with adaptive prefetch strategy
     while (len >= 4 * KCTSB_SHA512_BLOCK_SIZE) {
-        if (len >= 8 * KCTSB_SHA512_BLOCK_SIZE) {
+        if (len >= 16 * KCTSB_SHA512_BLOCK_SIZE) {
             KCTSB_PREFETCH(data + 4 * KCTSB_SHA512_BLOCK_SIZE);
+        } else if (len >= 8 * KCTSB_SHA512_BLOCK_SIZE) {
+            KCTSB_PREFETCH(data + 2 * KCTSB_SHA512_BLOCK_SIZE);
         }
         kctsb::internal::SHA512Compressor::transform(ctx, data);
         kctsb::internal::SHA512Compressor::transform(ctx, data + KCTSB_SHA512_BLOCK_SIZE);
@@ -333,6 +335,9 @@ void kctsb_sha512_update(kctsb_sha512_ctx_t* ctx,
     }
 
     while (len >= 2 * KCTSB_SHA512_BLOCK_SIZE) {
+        if (len >= 4 * KCTSB_SHA512_BLOCK_SIZE) {
+            KCTSB_PREFETCH(data + 2 * KCTSB_SHA512_BLOCK_SIZE);
+        }
         kctsb::internal::SHA512Compressor::transform(ctx, data);
         kctsb::internal::SHA512Compressor::transform(ctx, data + KCTSB_SHA512_BLOCK_SIZE);
         data += 2 * KCTSB_SHA512_BLOCK_SIZE;

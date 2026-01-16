@@ -64,7 +64,7 @@ static void generate_random(uint8_t* buf, size_t len) {
 /**
  * @brief Calculate throughput in MB/s
  */
-static double calculate_throughput(size_t bytes, double ms) {
+static double calculate_throughput(double bytes, double ms) {
     return (bytes / (1024.0 * 1024.0)) / (ms / 1000.0);
 }
 
@@ -100,7 +100,11 @@ static double benchmark_openssl_aes128_gcm_encrypt(
     auto end = Clock::now();
     Duration elapsed = end - start;
 
-    ciphertext.resize(ciphertext_len);
+    if (ciphertext_len < 0) {
+        EVP_CIPHER_CTX_free(ctx);
+        return -1.0;
+    }
+    ciphertext.resize(static_cast<size_t>(ciphertext_len));
     EVP_CIPHER_CTX_free(ctx);
 
     return elapsed.count();
@@ -140,7 +144,11 @@ static double benchmark_openssl_aes128_gcm_decrypt(
 
     if (ret > 0) {
         plaintext_len += len;
-        plaintext.resize(plaintext_len);
+        if (plaintext_len < 0) {
+            EVP_CIPHER_CTX_free(ctx);
+            return -1.0;
+        }
+        plaintext.resize(static_cast<size_t>(plaintext_len));
     }
 
     EVP_CIPHER_CTX_free(ctx);
@@ -179,7 +187,11 @@ static double benchmark_openssl_aes_gcm_encrypt(
     auto end = Clock::now();
     Duration elapsed = end - start;
 
-    ciphertext.resize(ciphertext_len);
+    if (ciphertext_len < 0) {
+        EVP_CIPHER_CTX_free(ctx);
+        return -1.0;
+    }
+    ciphertext.resize(static_cast<size_t>(ciphertext_len));
     EVP_CIPHER_CTX_free(ctx);
 
     return elapsed.count();
@@ -219,7 +231,11 @@ static double benchmark_openssl_aes_gcm_decrypt(
 
     if (ret > 0) {
         plaintext_len += len;
-        plaintext.resize(plaintext_len);
+        if (plaintext_len < 0) {
+            EVP_CIPHER_CTX_free(ctx);
+            return -1.0;
+        }
+        plaintext.resize(static_cast<size_t>(plaintext_len));
     }
 
     EVP_CIPHER_CTX_free(ctx);
@@ -250,8 +266,9 @@ static double run_benchmark_iterations(
     }
 
     // Calculate statistics
-    double avg = std::accumulate(times.begin(), times.end(), 0.0) / times.size();
-    double throughput = calculate_throughput(data_size, avg);
+    double avg = std::accumulate(times.begin(), times.end(), 0.0) /
+                 static_cast<double>(times.size());
+    double throughput = calculate_throughput(static_cast<double>(data_size), avg);
 
     // Print result
     std::cout << std::left << std::setw(25) << name

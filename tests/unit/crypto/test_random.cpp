@@ -157,10 +157,10 @@ TEST_F(RandomTest, RandomU32_Distribution) {
     }
 
     // Chi-squared test for uniformity
-    double expected = static_cast<double>(NUM_SAMPLES) / NUM_BUCKETS;
+    double expected = static_cast<double>(NUM_SAMPLES) / static_cast<double>(NUM_BUCKETS);
     double chi_squared = 0.0;
     for (size_t count : buckets) {
-        double diff = count - expected;
+        double diff = static_cast<double>(count) - expected;
         chi_squared += (diff * diff) / expected;
     }
 
@@ -194,7 +194,7 @@ TEST_F(RandomTest, RandomRange_Distribution) {
     }
 
     // Check rough uniformity: each bucket should have ~1000 samples
-    double expected = static_cast<double>(NUM_SAMPLES) / MAX;
+    double expected = static_cast<double>(NUM_SAMPLES) / static_cast<double>(MAX);
     for (size_t i = 0; i < MAX; ++i) {
         EXPECT_GT(counts[i], expected * 0.8)
             << "Bucket " << i << " has too few samples";
@@ -281,8 +281,9 @@ TEST_F(RandomTest, RunsTest) {
     // Expected runs ≈ (n-1)/2 + 1 for random bits
     // Allow 20% deviation
     size_t expected_runs = (NUM_BYTES * 8 - 1) / 2 + 1;
-    EXPECT_GT(runs, expected_runs * 0.8);
-    EXPECT_LT(runs, expected_runs * 1.2);
+    double expected_runs_double = static_cast<double>(expected_runs);
+    EXPECT_GT(static_cast<double>(runs), expected_runs_double * 0.8);
+    EXPECT_LT(static_cast<double>(runs), expected_runs_double * 1.2);
 }
 
 // ============================================================================
@@ -343,7 +344,7 @@ TEST_F(RandomTest, LargeBuffer) {
     }
 
     // Each byte value should appear ~4096 times
-    for (int i = 0; i < 256; ++i) {
+    for (size_t i = 0; i < freq.size(); ++i) {
         EXPECT_GT(freq[i], 3000u) << "Byte " << i << " appears too infrequently";
         EXPECT_LT(freq[i], 5500u) << "Byte " << i << " appears too frequently";
     }
