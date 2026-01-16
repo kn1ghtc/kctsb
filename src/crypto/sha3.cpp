@@ -24,6 +24,14 @@
 #include <cstring>
 #include <cstdint>
 
+// 预取宏（编译器/平台自适应）
+#if defined(__GNUC__) || defined(__clang__)
+#define KCTSB_PREFETCH(addr) __builtin_prefetch((addr))
+#else
+#include <xmmintrin.h>
+#define KCTSB_PREFETCH(addr) _mm_prefetch(reinterpret_cast<const char*>(addr), _MM_HINT_T0)
+#endif
+
 // ============================================================================
 // Compile-time feature detection
 // ============================================================================
@@ -95,6 +103,8 @@ private:
  */
 __attribute__((always_inline))
 static inline uint64_t rotl64(uint64_t x, int n) noexcept {
+    // 使用内联并让编译器尽可能生成单条ROL指令；
+    // 在GCC/Clang上，常量旋转通常可被识别为单条指令。
     return (x << n) | (x >> (64 - n));
 }
 
@@ -123,6 +133,7 @@ public:
      * Uses in-place computation to minimize temporary storage.
      * All 24 rounds fully unrolled for maximum performance.
      */
+    __attribute__((hot, flatten))
     void permute() noexcept {
         uint64_t* A = state.data();
         
@@ -225,10 +236,42 @@ public:
      * @brief XOR data into state (absorb)
      */
     void xor_block(const uint8_t* data, size_t rate_bytes) noexcept {
+        // 优先采用64位lane批量XOR；在AVX2可用时，使用向量化memxor加速。
+#if KCTSB_HAS_AVX2_KECCAK
+        if (SIMDDetector::has_avx2()) {
+            // 以32字节为单位进行向量化XOR；尽量覆盖rate区域。
+            const size_t vec_bytes = 32;
+            size_t offset = 0;
+            // 注意：state按uint64_t[25]布局，此处按字节视图处理，确保不越界。
+            while (rate_bytes - offset >= vec_bytes) {
+                __m256i vdst = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(reinterpret_cast<const uint8_t*>(state.data()) + offset));
+                __m256i vsrc = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(data + offset));
+                __m256i vx = _mm256_xor_si256(vdst, vsrc);
+                _mm256_storeu_si256(reinterpret_cast<__m256i*>(reinterpret_cast<uint8_t*>(state.data()) + offset), vx);
+                offset += vec_bytes;
+            }
+            // 处理剩余部分（按64位lane）
+            for (; offset + 8 <= rate_bytes; offset += 8) {
+                uint64_t lane;
+                std::memcpy(&lane, data + offset, 8);
+                state[offset / 8] ^= lane;
+            }
+            // 处理尾部字节
+            for (; offset < rate_bytes; ++offset) {
+                reinterpret_cast<uint8_t*>(state.data())[offset] ^= data[offset];
+            }
+            return;
+        }
+#endif
+        // 无AVX2时采用64位lane批量XOR
         for (size_t i = 0; i < rate_bytes / 8; ++i) {
             uint64_t lane;
             std::memcpy(&lane, data + i * 8, 8);
             state[i] ^= lane;
+        }
+        // 处理尾部字节
+        for (size_t i = (rate_bytes / 8) * 8; i < rate_bytes; ++i) {
+            reinterpret_cast<uint8_t*>(state.data())[i] ^= data[i];
         }
     }
 
@@ -260,18 +303,15 @@ public:
             size_t to_absorb = std::min(len, rate_ - absorbed_);
             
             // Fast path: use 64-bit XOR when aligned
-            if (absorbed_ == 0 && to_absorb >= 8) {
-                size_t lanes = to_absorb / 8;
-                for (size_t i = 0; i < lanes; ++i) {
-                    uint64_t lane;
-                    std::memcpy(&lane, data + i * 8, 8);
-                    state_.state[i] ^= lane;
-                }
-                size_t consumed = lanes * 8;
-                absorbed_ = consumed;
-                data += consumed;
-                len -= consumed;
-                to_absorb -= consumed;
+            if (absorbed_ == 0 && to_absorb >= 32) {
+                // 预取下一块数据以提升吞吐
+                KCTSB_PREFETCH(data + 64);
+                size_t consume = to_absorb; // 尽可能一次性吸收rate内的可用字节
+                state_.xor_block(data, consume);
+                absorbed_ += consume;
+                data += consume;
+                len -= consume;
+                to_absorb = 0;
             }
             
             // Handle remaining bytes

@@ -1,0 +1,92 @@
+{
+  "tests": 16,
+  "name": "AllTests",
+  "testsuites": [
+    {
+      "name": "IntegrationTest",
+      "tests": 16,
+      "testsuite": [
+        {
+          "name": "LibraryInitialization",
+          "file": "D:\\pyproject\\kctsb\\tests\\integration\\test_integration.cpp",
+          "line": 27
+        },
+        {
+          "name": "MultipleInitCleanup",
+          "file": "D:\\pyproject\\kctsb\\tests\\integration\\test_integration.cpp",
+          "line": 40
+        },
+        {
+          "name": "SecureRandom",
+          "file": "D:\\pyproject\\kctsb\\tests\\integration\\test_integration.cpp",
+          "line": 52
+        },
+        {
+          "name": "SecureCompare",
+          "file": "D:\\pyproject\\kctsb\\tests\\integration\\test_integration.cpp",
+          "line": 72
+        },
+        {
+          "name": "ErrorStrings",
+          "file": "D:\\pyproject\\kctsb\\tests\\integration\\test_integration.cpp",
+          "line": 86
+        },
+        {
+          "name": "AES256GCM_EncryptDecrypt",
+          "file": "D:\\pyproject\\kctsb\\tests\\integration\\test_integration.cpp",
+          "line": 96
+        },
+        {
+          "name": "AES256GCM_TamperedCiphertext",
+          "file": "D:\\pyproject\\kctsb\\tests\\integration\\test_integration.cpp",
+          "line": 149
+        },
+        {
+          "name": "AES256GCM_StreamingAPI",
+          "file": "D:\\pyproject\\kctsb\\tests\\integration\\test_integration.cpp",
+          "line": 188
+        },
+        {
+          "name": "HashChaining_SHA256",
+          "file": "D:\\pyproject\\kctsb\\tests\\integration\\test_integration.cpp",
+          "line": 236
+        },
+        {
+          "name": "HashVerification_SM3",
+          "file": "D:\\pyproject\\kctsb\\tests\\integration\\test_integration.cpp",
+          "line": 259
+        },
+        {
+          "name": "SM4GCM_EncryptDecrypt",
+          "file": "D:\\pyproject\\kctsb\\tests\\integration\\test_integration.cpp",
+          "line": 284
+        },
+        {
+          "name": "ChaCha20Poly1305_EncryptDecrypt",
+          "file": "D:\\pyproject\\kctsb\\tests\\integration\\test_integration.cpp",
+          "line": 327
+        },
+        {
+          "name": "HMAC_MessageAuthentication",
+          "file": "D:\\pyproject\\kctsb\\tests\\integration\\test_integration.cpp",
+          "line": 370
+        },
+        {
+          "name": "KeyDerivation_HashThenEncrypt",
+          "file": "D:\\pyproject\\kctsb\\tests\\integration\\test_integration.cpp",
+          "line": 409
+        },
+        {
+          "name": "SecureZero",
+          "file": "D:\\pyproject\\kctsb\\tests\\integration\\test_integration.cpp",
+          "line": 446
+        },
+        {
+          "name": "LargeDataProcessing",
+          "file": "D:\\pyproject\\kctsb\\tests\\integration\\test_integration.cpp",
+          "line": 469
+        }
+      ]
+    }
+  ]
+}

@@ -8,7 +8,7 @@
 
 **kctsb** 是一个跨平台的 C/C++ 密码学和安全算法库，专为生产环境和安全研究设计。目标是成为 **OpenSSL 的现代替代品**。
 
-> **v3.4.0 更新**: 完成 "C++ Core + C ABI" 架构重构。移除所有冗余文件，统一为单文件单算法架构。Hash 算法包括 SHA-256/384/512、SHA3、BLAKE2b/s、SM3 完成重构并通过测试。
+> **v3.4.0 更新**: 完成 "C++ Core + C ABI" 架构重构。移除所有冗余文件，统一为单文件单算法架构。Hash 算法包括 SHA-256/384/512、SHA3、BLAKE2b、SM3 完成重构并通过测试。已移除BLAKE2s，仅保留BLAKE2b。
 
 ## ✨ 特性
 
@@ -51,7 +51,7 @@
 - **SHA** - SHA-1/256/384/512 (SHA-NI 加速)
 - **SHA3** - SHA3-256 (AVX2 优化)
 - **SM3** - 国密 SM3 哈希
-- **BLAKE2/3** - 高性能哈希
+- **BLAKE2b** - RFC 7693 高性能哈希
 
 ### 安全原语
 - **常量时间操作** - 防止时序攻击
@@ -82,7 +82,7 @@ kctsb/
 │       │   ├── sha256.h        # SHA-256 (FIPS 180-4)
 │       │   ├── sha512.h        # SHA-512/384 (FIPS 180-4)
 │       │   ├── sha3.h          # SHA3/SHAKE (FIPS 202)
-│       │   ├── blake2.h        # BLAKE2b/s (RFC 7693)
+│       │   ├── blake2.h        # BLAKE2b (RFC 7693)
 │       │   ├── sm3.h           # SM3 (GB/T 32905-2016)
 │       │   ├── sm4.h           # SM4-GCM (GB/T 32907-2016)
 │       │   ├── ecc/, rsa/      # 非对称算法头
@@ -104,7 +104,7 @@ kctsb/
 │   │   ├── sha256.cpp          # SHA-256 C++ 实现 + C ABI
 │   │   ├── sha512.cpp          # SHA-512/384 C++ 实现 + C ABI
 │   │   ├── sha3.cpp            # SHA3/SHAKE C++ 实现 + C ABI
-│   │   ├── blake2.cpp          # BLAKE2b/s C++ 实现 + C ABI
+│   │   ├── blake2.cpp          # BLAKE2b C++ 实现 + C ABI
 │   │   ├── sm3.cpp             # SM3 C++ 实现 + C ABI
 │   │   ├── sm4.cpp             # SM4-GCM C++ 实现 + C ABI
 │   │   ├── aes/                # AES-GCM 实现
@@ -149,7 +149,7 @@ kctsb/
 |------|------|------|------|
 | AES-CTR/GCM | 无 | ✅ 生产可用 | 原生C实现 + AES-NI |
 | ChaCha20-Poly1305 | 无 | ✅ 生产可用 | 原生C实现 + AVX2 |
-| Hash (SHA-3/BLAKE2) | 无 | ✅ 生产可用 | Keccak/BLAKE2原生 |
+| Hash (SHA-3/BLAKE2b) | 无 | ✅ 生产可用 | Keccak/BLAKE2b原生 |
 | SM3/SM4/ZUC | 无 | ✅ 生产可用 | 国密原生实现 |
 | RSA-OAEP/PSS | NTL | ✅ 生产可用 | PKCS#1 v2.2 |
 | ECC/ECDSA/ECDH/ECIES | NTL | ✅ 生产可用 | **完整重构** |
@@ -377,7 +377,7 @@ kctsb v3.3.2 提供与 OpenSSL 的性能对比基准测试：
 
 ### 生产环境使用
 
-kctsb v3.0.0 的核心算法（AES-GCM, ChaCha20-Poly1305, **SHA-256/384/512**, SHA3, BLAKE2, SM3/SM4）经过标准测试向量验证，可用于生产环境。
+kctsb v3.0.0 的核心算法（AES-GCM, ChaCha20-Poly1305, **SHA-256/384/512**, SHA3, BLAKE2b, SM3/SM4）经过标准测试向量验证，可用于生产环境。
 
 **使用建议**：
 1. **代码审计**: 部署前建议进行独立安全审计
@@ -405,7 +405,7 @@ Copyright © 2019-2026 knightc. All rights reserved.
 - [FIPS 197 (AES)](https://csrc.nist.gov/publications/detail/fips/197/final)
 - [FIPS 202 (SHA-3)](https://csrc.nist.gov/publications/detail/fips/202/final)
 - [RFC 7539 (ChaCha20-Poly1305)](https://tools.ietf.org/html/rfc7539)
-- [RFC 7693 (BLAKE2)](https://tools.ietf.org/html/rfc7693)
+- [RFC 7693 (BLAKE2b)](https://tools.ietf.org/html/rfc7693)
 - GM/T 0002-2012 (SM4), GM/T 0003-2012 (SM2), GM/T 0004-2012 (SM3)
 
 ### 依赖库

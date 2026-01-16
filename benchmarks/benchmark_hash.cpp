@@ -250,23 +250,6 @@ static double benchmark_blake2b_512_kctsb(const uint8_t* data, size_t size) {
     });
 }
 
-static double benchmark_blake2s_256_openssl(const uint8_t* data, size_t size) {
-    uint8_t digest[32];
-    return run_benchmark_iterations("BLAKE2s-256", "OpenSSL", size, [&]() {
-        return benchmark_openssl_hash(EVP_blake2s256(), data, size, digest);
-    });
-}
-
-static double benchmark_blake2s_256_kctsb(const uint8_t* data, size_t size) {
-    uint8_t digest[32];
-    return run_benchmark_iterations("BLAKE2s-256", "kctsb", size, [&]() {
-        auto start = Clock::now();
-        kctsb_blake2s(data, size, digest, 32);
-        auto end = Clock::now();
-        return std::chrono::duration<double, std::milli>(end - start).count();
-    });
-}
-
 static double benchmark_sm3_openssl(const uint8_t* data, size_t size) {
     uint8_t digest[32];
     return run_benchmark_iterations("SM3", "OpenSSL", size, [&]() {
@@ -343,11 +326,6 @@ void benchmark_hash_functions() {
         kc_tp = benchmark_blake2b_512_kctsb(data.data(), data_size);
         print_ratio(kc_tp, ssl_tp);
 
-        // BLAKE2s-256
-        ssl_tp = benchmark_blake2s_256_openssl(data.data(), data_size);
-        kc_tp = benchmark_blake2s_256_kctsb(data.data(), data_size);
-        print_ratio(kc_tp, ssl_tp);
-
         // SM3
         ssl_tp = benchmark_sm3_openssl(data.data(), data_size);
         kc_tp = benchmark_sm3_kctsb(data.data(), data_size);
@@ -359,7 +337,7 @@ void benchmark_hash_functions() {
     std::cout << "  Benchmark Summary" << std::endl;
     std::cout << std::string(70, '=') << std::endl;
     std::cout << "Algorithms tested: SHA-256, SHA-512, SHA3-256, SHA3-512," << std::endl;
-    std::cout << "                   BLAKE2b-512, BLAKE2s-256, SM3" << std::endl;
+    std::cout << "                   BLAKE2b-512, SM3" << std::endl;
     std::cout << "Iterations per test: " << BENCHMARK_ITERATIONS << std::endl;
     std::cout << "Warmup iterations: " << WARMUP_ITERATIONS << std::endl;
     std::cout << "\nNotes:" << std::endl;

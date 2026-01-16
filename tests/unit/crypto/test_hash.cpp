@@ -7,7 +7,7 @@
  * - SHA-512/384: FIPS 180-4 test vectors
  * - SHA3-256/512: FIPS 202 test vectors
  * - SHAKE128/256: FIPS 202 XOF test vectors
- * - BLAKE2b/BLAKE2s: RFC 7693 test vectors
+ * - BLAKE2b: RFC 7693 test vectors
  * - SM3: GB/T 32905-2016 test vectors
  *
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
@@ -273,38 +273,8 @@ TEST_F(HashTest, BLAKE2b_Incremental) {
     EXPECT_EQ(memcmp(digest1, digest2, 64), 0);
 }
 
-// ============================================================================
-// BLAKE2s Tests (RFC 7693)
-// ============================================================================
+// BLAKE2s has been removed. Use BLAKE2b exclusively.
 
-TEST_F(HashTest, BLAKE2s_Empty) {
-    kctsb_blake2s_ctx_t ctx;
-    uint8_t output[32];
-
-    kctsb_blake2s_init(&ctx, 32);
-    kctsb_blake2s_final(&ctx, output);
-
-    // BLAKE2s-256 empty input
-    const char* expected_hex =
-        "69217a3079908094e11121d042354a7c"
-        "1f55b6482ca1a51e1b250dfd1ed0eef9";
-
-    EXPECT_EQ(bytes_to_hex(output, 32), expected_hex);
-}
-
-TEST_F(HashTest, BLAKE2s_ABC) {
-    uint8_t output[32];
-    const uint8_t input[] = "abc";
-
-    kctsb_blake2s(input, 3, output, 32);
-
-    // BLAKE2s-256("abc")
-    const char* expected_hex =
-        "508c5e8c327c14e2e1a72ba34eeb452f"
-        "37458b209ed63a294d999b4c86675982";
-
-    EXPECT_EQ(bytes_to_hex(output, 32), expected_hex);
-}
 
 // ============================================================================
 // SM3 Tests (GB/T 32905-2016)
@@ -465,21 +435,16 @@ TEST_F(HashTest, DifferentAlgorithms_ProduceDifferentOutputs) {
 
     uint8_t sha256_out[32];
     uint8_t sha3_256_out[32];
-    uint8_t blake2s_out[32];
     uint8_t sm3_out[32];
 
     kctsb_sha256(input, input_len, sha256_out);
     kctsb_sha3_256(input, input_len, sha3_256_out);
-    kctsb_blake2s(input, input_len, blake2s_out, 32);
     kctsb_sm3(input, input_len, sm3_out);
 
     // All should produce different outputs
     EXPECT_NE(memcmp(sha256_out, sha3_256_out, 32), 0);
-    EXPECT_NE(memcmp(sha256_out, blake2s_out, 32), 0);
     EXPECT_NE(memcmp(sha256_out, sm3_out, 32), 0);
-    EXPECT_NE(memcmp(sha3_256_out, blake2s_out, 32), 0);
     EXPECT_NE(memcmp(sha3_256_out, sm3_out, 32), 0);
-    EXPECT_NE(memcmp(blake2s_out, sm3_out, 32), 0);
 }
 
 // ============================================================================

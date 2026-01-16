@@ -1,0 +1,77 @@
+{
+  "tests": 13,
+  "name": "AllTests",
+  "testsuites": [
+    {
+      "name": "MACTest",
+      "tests": 13,
+      "testsuite": [
+        {
+          "name": "HMAC_SHA256_RFC4231_TC1",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_mac.cpp",
+          "line": 64
+        },
+        {
+          "name": "HMAC_SHA256_RFC4231_TC2",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_mac.cpp",
+          "line": 88
+        },
+        {
+          "name": "HMAC_SHA256_RFC4231_TC3",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_mac.cpp",
+          "line": 111
+        },
+        {
+          "name": "HMAC_SHA256_RFC4231_TC4",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_mac.cpp",
+          "line": 134
+        },
+        {
+          "name": "HMAC_SHA256_RFC4231_TC6_LongKey",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_mac.cpp",
+          "line": 155
+        },
+        {
+          "name": "HMAC_SHA256_Incremental",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_mac.cpp",
+          "line": 177
+        },
+        {
+          "name": "HMAC_SHA256_EmptyMessage",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_mac.cpp",
+          "line": 202
+        },
+        {
+          "name": "HMAC_SHA512_RFC4231_TC1",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_mac.cpp",
+          "line": 227
+        },
+        {
+          "name": "HMAC_SHA512_RFC4231_TC2",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_mac.cpp",
+          "line": 251
+        },
+        {
+          "name": "HMAC_SHA512_Incremental",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_mac.cpp",
+          "line": 271
+        },
+        {
+          "name": "HMAC_SHA256_Deterministic",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_mac.cpp",
+          "line": 299
+        },
+        {
+          "name": "HMAC_SHA256_LargeMessage",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_mac.cpp",
+          "line": 315
+        },
+        {
+          "name": "HMAC_KeyDerivation_Consistency",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_mac.cpp",
+          "line": 336
+        }
+      ]
+    }
+  ]
+}

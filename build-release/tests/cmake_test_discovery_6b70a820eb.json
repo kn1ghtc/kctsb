@@ -1,0 +1,157 @@
+{
+  "tests": 29,
+  "name": "AllTests",
+  "testsuites": [
+    {
+      "name": "HashTest",
+      "tests": 29,
+      "testsuite": [
+        {
+          "name": "SHA256_Empty",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_hash.cpp",
+          "line": 49
+        },
+        {
+          "name": "SHA256_ABC",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_hash.cpp",
+          "line": 60
+        },
+        {
+          "name": "SHA256_TwoBlocks",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_hash.cpp",
+          "line": 72
+        },
+        {
+          "name": "SHA256_Incremental",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_hash.cpp",
+          "line": 84
+        },
+        {
+          "name": "SHA512_Empty",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_hash.cpp",
+          "line": 105
+        },
+        {
+          "name": "SHA512_ABC",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_hash.cpp",
+          "line": 118
+        },
+        {
+          "name": "SHA3_256_Empty",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_hash.cpp",
+          "line": 136
+        },
+        {
+          "name": "SHA3_256_ABC",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_hash.cpp",
+          "line": 147
+        },
+        {
+          "name": "SHA3_512_ABC",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_hash.cpp",
+          "line": 163
+        },
+        {
+          "name": "SHAKE128_Empty",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_hash.cpp",
+          "line": 181
+        },
+        {
+          "name": "SHAKE256_ABC",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_hash.cpp",
+          "line": 193
+        },
+        {
+          "name": "BLAKE2b_Empty",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_hash.cpp",
+          "line": 212
+        },
+        {
+          "name": "BLAKE2b_ABC",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_hash.cpp",
+          "line": 229
+        },
+        {
+          "name": "BLAKE2b_256",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_hash.cpp",
+          "line": 245
+        },
+        {
+          "name": "BLAKE2b_Incremental",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_hash.cpp",
+          "line": 259
+        },
+        {
+          "name": "SM3_Empty",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_hash.cpp",
+          "line": 283
+        },
+        {
+          "name": "SM3_ABC",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_hash.cpp",
+          "line": 295
+        },
+        {
+          "name": "SM3_StandardVector",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_hash.cpp",
+          "line": 308
+        },
+        {
+          "name": "SM3_Incremental",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_hash.cpp",
+          "line": 321
+        },
+        {
+          "name": "SM3_SelfTest",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_hash.cpp",
+          "line": 338
+        },
+        {
+          "name": "Deterministic_SHA256",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_hash.cpp",
+          "line": 348
+        },
+        {
+          "name": "Deterministic_SHA3",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_hash.cpp",
+          "line": 359
+        },
+        {
+          "name": "Deterministic_BLAKE2b",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_hash.cpp",
+          "line": 370
+        },
+        {
+          "name": "Deterministic_SM3",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_hash.cpp",
+          "line": 381
+        },
+        {
+          "name": "AvalancheEffect_SHA256",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_hash.cpp",
+          "line": 392
+        },
+        {
+          "name": "AvalancheEffect_SHA3",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_hash.cpp",
+          "line": 411
+        },
+        {
+          "name": "DifferentAlgorithms_ProduceDifferentOutputs",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_hash.cpp",
+          "line": 432
+        },
+        {
+          "name": "LargeInput",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_hash.cpp",
+          "line": 454
+        },
+        {
+          "name": "SingleByteInputs",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_hash.cpp",
+          "line": 479
+        }
+      ]
+    }
+  ]
+}

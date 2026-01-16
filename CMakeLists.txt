@@ -161,47 +161,52 @@ if(KCTSB_ENABLE_LTO)
 endif()
 
 # ============================================================================
-# Performance Optimization
+# Performance Optimization (UNIFIED: Debug & Release both use -O3)
+# ============================================================================
+# Both Debug and Release use aggressive optimization to:
+# 1. Enable fair performance testing in Debug builds
+# 2. Catch performance regressions early
+# 3. Maintain consistent SIMD/inlining behavior across build types
+# Benchmarking is ONLY performed in Release builds (single source of truth)
 # ============================================================================
 
-if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    if(MSVC)
-        add_compile_options(
-            /O2 /Oi /Ot /GL      # Maximum optimization
-            /fp:fast              # Fast floating-point
-            /GR-                  # Disable RTTI
-            /EHs-c-               # Disable exceptions
-        )
-        if(CMAKE_SYSTEM_PROCESSOR MATCHES "AMD64|x86_64")
-            add_compile_options(/arch:AVX2)
-        endif()
-        if(KCTSB_LTO_SUPPORTED)
-            add_link_options(/LTCG)
-        endif()
-    else()
-        # GCC/Clang unified optimization flags
-        add_compile_options(
-            -O3
-            -march=native
-            -mtune=native
-            -ffast-math
-            -funroll-loops
-            -fomit-frame-pointer
-            -fPIC
-            -fstack-protector-strong
-        )
-
-        # C++ only flags (RTTI disabled for smaller binary)
-        add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>)
-
-        # LTO flags
-        if(KCTSB_LTO_SUPPORTED)
-            add_compile_options(-flto)
-            add_link_options(-flto)
-        endif()
-
-        add_compile_definitions(_FORTIFY_SOURCE=2)
+if(MSVC)
+    # MSVC optimization flags for both Debug and Release
+    add_compile_options(
+        /O2 /Oi /Ot /GL      # Maximum optimization
+        /fp:fast              # Fast floating-point
+        /GR-                  # Disable RTTI
+        /EHs-c-               # Disable exceptions
+    )
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "AMD64|x86_64")
+        add_compile_options(/arch:AVX2)
     endif()
+    if(KCTSB_LTO_SUPPORTED)
+        add_link_options(/LTCG)
+    endif()
+else()
+    # GCC/Clang unified optimization flags (both Debug and Release)
+    add_compile_options(
+        -O3
+        -march=native
+        -mtune=native
+        -ffast-math
+        -funroll-loops
+        -fomit-frame-pointer
+        -fPIC
+        -fstack-protector-strong
+    )
+
+    # C++ only flags (RTTI disabled for smaller binary)
+    add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>)
+
+    # LTO flags
+    if(KCTSB_LTO_SUPPORTED)
+        add_compile_options(-flto)
+        add_link_options(-flto)
+    endif()
+
+    add_compile_definitions(_FORTIFY_SOURCE=2)
 endif()
 
 # ============================================================================

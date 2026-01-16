@@ -1,0 +1,5 @@
+if(EXISTS "D:/pyproject/kctsb/build-release/tests/test_sm[1]_tests.cmake")
+  include("D:/pyproject/kctsb/build-release/tests/test_sm[1]_tests.cmake")
+else()
+  add_test(test_sm_NOT_BUILT test_sm_NOT_BUILT)
+endif()

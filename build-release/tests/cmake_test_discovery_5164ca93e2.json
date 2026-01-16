@@ -1,0 +1,117 @@
+{
+  "tests": 21,
+  "name": "AllTests",
+  "testsuites": [
+    {
+      "name": "RandomTest",
+      "tests": 21,
+      "testsuite": [
+        {
+          "name": "RandomBytes_Basic",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_random.cpp",
+          "line": 37
+        },
+        {
+          "name": "RandomBytes_NotAllZero",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_random.cpp",
+          "line": 52
+        },
+        {
+          "name": "RandomBytes_NotAllOnes",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_random.cpp",
+          "line": 66
+        },
+        {
+          "name": "RandomBytes_VariousSizes",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_random.cpp",
+          "line": 81
+        },
+        {
+          "name": "RandomBytes_ZeroLength",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_random.cpp",
+          "line": 103
+        },
+        {
+          "name": "RandomBytes_NullPointer",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_random.cpp",
+          "line": 113
+        },
+        {
+          "name": "RandomU32_Uniqueness",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_random.cpp",
+          "line": 122
+        },
+        {
+          "name": "RandomU64_Uniqueness",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_random.cpp",
+          "line": 135
+        },
+        {
+          "name": "RandomU32_Distribution",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_random.cpp",
+          "line": 148
+        },
+        {
+          "name": "RandomRange_Bounds",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_random.cpp",
+          "line": 176
+        },
+        {
+          "name": "RandomRange_Distribution",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_random.cpp",
+          "line": 186
+        },
+        {
+          "name": "RandomRange_SmallMax",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_random.cpp",
+          "line": 206
+        },
+        {
+          "name": "RandomRange_PowerOfTwo",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_random.cpp",
+          "line": 213
+        },
+        {
+          "name": "RandomRange_NonPowerOfTwo",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_random.cpp",
+          "line": 223
+        },
+        {
+          "name": "MonobitTest",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_random.cpp",
+          "line": 244
+        },
+        {
+          "name": "RunsTest",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_random.cpp",
+          "line": 262
+        },
+        {
+          "name": "CppWrapper_ByteVec",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_random.cpp",
+          "line": 293
+        },
+        {
+          "name": "CppWrapper_U32",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_random.cpp",
+          "line": 308
+        },
+        {
+          "name": "CppWrapper_U64",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_random.cpp",
+          "line": 315
+        },
+        {
+          "name": "CppWrapper_Range",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_random.cpp",
+          "line": 321
+        },
+        {
+          "name": "LargeBuffer",
+          "file": "D:\\pyproject\\kctsb\\tests\\unit\\crypto\\test_random.cpp",
+          "line": 333
+        }
+      ]
+    }
+  ]
+}
