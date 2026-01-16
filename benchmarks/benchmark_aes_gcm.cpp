@@ -469,8 +469,9 @@ void benchmark_aes_128_gcm() {
                   << std::setw(15) << "Implementation"
                   << std::right << std::setw(13) << "Throughput"
                   << std::setw(10) << "Avg Time"
+                  << std::setw(13) << "Ratio"
                   << std::endl;
-        std::cout << std::string(63, '-') << std::endl;
+        std::cout << std::string(76, '-') << std::endl;
 
         // Generate test data
         std::vector<uint8_t> plaintext(data_size);
@@ -478,8 +479,12 @@ void benchmark_aes_128_gcm() {
         std::vector<uint8_t> decrypted;
         generate_random(plaintext.data(), data_size);
 
+        // Throughput variables for ratio calculation
+        double ssl_enc_tp = 0.0, ssl_dec_tp = 0.0;
+        double kc_enc_tp = 0.0, kc_dec_tp = 0.0;
+
         // OpenSSL AES-128 Encryption
-        run_benchmark_iterations(
+        ssl_enc_tp = run_benchmark_iterations(
             "AES-128-GCM Encrypt", "OpenSSL", data_size,
             [&]() {
                 return benchmark_openssl_aes128_gcm_encrypt(
@@ -488,7 +493,7 @@ void benchmark_aes_128_gcm() {
         );
 
         // OpenSSL AES-128 Decryption
-        run_benchmark_iterations(
+        ssl_dec_tp = run_benchmark_iterations(
             "AES-128-GCM Decrypt", "OpenSSL", data_size,
             [&]() {
                 return benchmark_openssl_aes128_gcm_decrypt(
@@ -503,7 +508,7 @@ void benchmark_aes_128_gcm() {
             std::vector<uint8_t> kctsb_ct(data_size);
             uint8_t kctsb_tag[GCM_TAG_SIZE];
 
-            run_benchmark_iterations(
+            kc_enc_tp = run_benchmark_iterations(
                 "AES-128-GCM Encrypt", "kctsb", data_size,
                 [&]() {
                     auto start = Clock::now();
@@ -519,10 +524,11 @@ void benchmark_aes_128_gcm() {
                     return elapsed.count();
                 }
             );
+            print_ratio(kc_enc_tp, ssl_enc_tp);
 
             // kctsb AES-128 Decryption
             std::vector<uint8_t> kctsb_pt(data_size);
-            run_benchmark_iterations(
+            kc_dec_tp = run_benchmark_iterations(
                 "AES-128-GCM Decrypt", "kctsb", data_size,
                 [&]() {
                     auto start = Clock::now();
@@ -539,6 +545,7 @@ void benchmark_aes_128_gcm() {
                     return elapsed.count();
                 }
             );
+            print_ratio(kc_dec_tp, ssl_dec_tp);
         } else {
             std::cout << "AES-128-GCM Encrypt      kctsb          (init failed)" << std::endl;
             std::cout << "AES-128-GCM Decrypt      kctsb          (init failed)" << std::endl;
