@@ -19,6 +19,7 @@
 #include <string>
 
 #include "kctsb/kctsb.h"
+#include "kctsb/version.h"
 
 // ============================================================================
 // Library Lifecycle Tests
@@ -29,7 +30,7 @@ TEST(IntegrationTest, LibraryInitialization) {
 
     const char* version = kctsb_version();
     EXPECT_NE(version, nullptr);
-    EXPECT_STREQ(version, "3.4.0");
+    EXPECT_STREQ(version, KCTSB_VERSION_STRING);
 
     const char* platform = kctsb_platform();
     EXPECT_NE(platform, nullptr);

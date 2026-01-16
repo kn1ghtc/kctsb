@@ -216,8 +216,8 @@ perf stat -e cycles,instructions,cache-misses ./test_sha3
    - 预期结果：700+ MB/s
 
 4. **周期4**:
-   - 性能CI集成（GitHub Actions）
-   - 设置性能门槛（防止回退）
+   - 性能回归人工复核流程
+   - 设置手动阈值对比（防止回退）
    - 发布v3.5.0
 
 ---
@@ -243,7 +243,7 @@ perf stat -e cycles,instructions,cache-misses ./test_sha3
    - 缓解：多编译器测试（GCC 13+, Clang 16+, MSVC 2022）
 
 3. **性能回退**: 优化过程中不小心导致性能下降
-   - 缓解：性能CI防线（性能门槛告警）
+   - 缓解：手动基准对比与复核
 
 4. **安全风险**: 汇编级优化可能引入侧信道漏洞
    - 缓解：使用__restrict而非内联汇编

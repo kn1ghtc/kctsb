@@ -321,9 +321,7 @@ void kctsb_sha512_update(kctsb_sha512_ctx_t* ctx,
 
     // Process complete blocks with adaptive prefetch strategy
     while (len >= 4 * KCTSB_SHA512_BLOCK_SIZE) {
-        if (len >= 16 * KCTSB_SHA512_BLOCK_SIZE) {
-            KCTSB_PREFETCH(data + 6 * KCTSB_SHA512_BLOCK_SIZE);
-        } else if (len >= 8 * KCTSB_SHA512_BLOCK_SIZE) {
+        if (len >= 8 * KCTSB_SHA512_BLOCK_SIZE) {
             KCTSB_PREFETCH(data + 4 * KCTSB_SHA512_BLOCK_SIZE);
         }
         kctsb::internal::SHA512Compressor::transform(ctx, data);

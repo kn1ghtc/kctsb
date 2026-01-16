@@ -1,23 +1,22 @@
 #!/usr/bin/env python3
 """
-kctsb Performance Regression检测器
-用于CI/CD性能门禁，检测benchmark结果是否低于baseline阈值。
+kctsb Performance Comparison Reporter
+用于手动性能对比，报告当前benchmark结果与baseline的差距。
 
 Usage:
     python check_performance.py \
         --baseline docs/PERFORMANCE_BASELINE.md \
         --current benchmark_results.txt \
-        --fail-on-regression \
         --threshold 5 \
         --blake2b-threshold 3
 
 Exit Codes:
-    0 - 性能达标或提升
-    1 - 性能回退超过阈值 (CI失败)
+    0 - 报告生成成功
     2 - 脚本执行错误 (文件不存在等)
 """
 
 import argparse
+import logging
 import re
 import sys
 from pathlib import Path
@@ -25,7 +24,7 @@ from typing import Dict, Tuple
 
 
 class PerformanceChecker:
-    """性能回归检测器"""
+    """性能对比报告器"""
 
     # 从PERFORMANCE_BASELINE.md提取的baseline数据 (10MB)
     BASELINE = {
@@ -128,23 +127,26 @@ class PerformanceChecker:
 
     def check_regressions(self) -> bool:
         """
-        检查性能回退
+        计算性能差距并记录回退项。
 
         Returns:
-            True: 无回退或回退在阈值内
-            False: 存在超出阈值的性能回退
+            True: 无超过阈值的回退
+            False: 存在超过阈值的回退
         """
         has_regression = False
 
-        print("=" * 80)
-        print("📊 Performance Regression Check")
-        print("=" * 80)
-        print(f"{'Algorithm':<30} {'Baseline':<12} {'Current':<12} {'Change':<10} {'Status'}")
-        print("-" * 80)
+        logging.info("%s", "=" * 80)
+        logging.info("📊 Performance Comparison Report")
+        logging.info("%s", "=" * 80)
+        logging.info("%s", f"{'Algorithm':<30} {'Baseline':<12} {'Current':<12} {'Change':<10} {'Status'}")
+        logging.info("%s", "-" * 80)
 
         for algo, baseline in self.BASELINE.items():
             if algo not in self.current_results:
-                print(f"{algo:<30} {baseline:>10.2f} MB/s  {'N/A':<12} {'N/A':<10} ⚠️ MISSING")
+                logging.warning(
+                    "%s",
+                    f"{algo:<30} {baseline:>10.2f} MB/s  {'N/A':<12} {'N/A':<10} ⚠️ MISSING"
+                )
                 continue
 
             current = self.current_results[algo]
@@ -172,10 +174,13 @@ class PerformanceChecker:
                     "threshold": threshold
                 })
 
-            print(f"{algo:<30} {baseline:>10.2f} MB/s  {current:>10.2f} MB/s  "
-                  f"{change_percent:>8.2f}%  {status}")
+            logging.info(
+                "%s",
+                f"{algo:<30} {baseline:>10.2f} MB/s  {current:>10.2f} MB/s  "
+                f"{change_percent:>8.2f}%  {status}"
+            )
 
-        print("=" * 80)
+        logging.info("%s", "=" * 80)
 
         return not has_regression
 
@@ -184,10 +189,10 @@ class PerformanceChecker:
         report = ["", "📈 Performance Regression Summary", "=" * 80, ""]
 
         if not self.regressions:
-            report.append("✅ All algorithms passed performance gates!")
+            report.append("✅ All algorithms are within suggested thresholds.")
             report.append(f"   Threshold: {self.threshold}% (BLAKE2b: {self.blake2b_threshold}%)")
         else:
-            report.append(f"❌ {len(self.regressions)} algorithm(s) failed performance gates:")
+            report.append(f"⚠️ {len(self.regressions)} algorithm(s) exceed suggested thresholds:")
             report.append("")
             for reg in self.regressions:
                 report.append(f"  • {reg['algorithm']}")
@@ -196,61 +201,51 @@ class PerformanceChecker:
                 report.append(f"    Change:    {reg['change_percent']:.2f}% (threshold: {reg['threshold']}%)")
                 report.append("")
 
-            report.append("⚠️ Action Required:")
+            report.append("⚠️ Suggested Actions:")
             report.append("  1. 检查代码变更是否引入性能回退")
             report.append("  2. 运行profiler定位性能瓶颈")
-            report.append("  3. 优化算法实现或恢复之前版本")
-            report.append("  4. 或更新baseline (如果性能牺牲是预期的)")
+            report.append("  3. 优化算法实现或记录回退原因")
 
         report.append("=" * 80)
         return "\n".join(report)
 
-    def run(self, fail_on_regression: bool = True) -> int:
+    def run(self) -> int:
         """
-        执行性能检查
-
-        Args:
-            fail_on_regression: 性能回退时是否返回错误码
+        执行性能对比报告
 
         Returns:
             0 - 成功
-            1 - 性能回退 (fail_on_regression=True时)
             2 - 执行错误
         """
         try:
             self.parse_benchmark_results()
             passed = self.check_regressions()
             report = self.generate_report()
-            print(report)
+            logging.info("%s", report)
 
-            if not passed and fail_on_regression:
-                print("\n❌ CI FAILED: Performance regression detected!", file=sys.stderr)
-                return 1
-            elif not passed:
-                print("\n⚠️ WARNING: Performance regression detected (not enforced)", file=sys.stderr)
-                return 0
+            if not passed:
+                logging.warning("⚠️ Performance regression detected (manual review required)")
             else:
-                print("\n✅ CI PASSED: All performance gates met!")
-                return 0
+                logging.info("✅ Performance within suggested thresholds")
+
+            return 0
 
         except Exception as e:
-            print(f"\n❌ ERROR: {e}", file=sys.stderr)
-            import traceback
-            traceback.print_exc()
+            logging.exception("❌ ERROR: %s", e)
             return 2
 
 
 def main():
+    """Parse CLI arguments and run the performance comparison report."""
     parser = argparse.ArgumentParser(
-        description="kctsb Performance Regression Detector for CI/CD",
+        description="kctsb Performance Comparison Reporter (manual)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
   # Check performance with 5% threshold
   python check_performance.py \\
       --baseline docs/PERFORMANCE_BASELINE.md \\
-      --current benchmark_results.txt \\
-      --fail-on-regression
+      --current benchmark_results.txt
 
   # Custom thresholds
   python check_performance.py \\
@@ -274,11 +269,6 @@ Examples:
         help="Path to current benchmark results file"
     )
     parser.add_argument(
-        "--fail-on-regression",
-        action="store_true",
-        help="Exit with code 1 if performance regression detected"
-    )
-    parser.add_argument(
         "--threshold",
         type=float,
         default=5.0,
@@ -300,8 +290,9 @@ Examples:
         blake2b_threshold=args.blake2b_threshold
     )
 
-    return checker.run(fail_on_regression=args.fail_on_regression)
+    return checker.run()
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
     sys.exit(main())

@@ -27,10 +27,10 @@
 #define KCTSB_VERSION_MINOR 4
 
 /** Patch version number (bug fixes) */
-#define KCTSB_VERSION_PATCH 0
+#define KCTSB_VERSION_PATCH 2
 
 /** Full version string "major.minor.patch" */
-#define KCTSB_VERSION_STRING "3.4.0"
+#define KCTSB_VERSION_STRING "3.4.2"
 
 /** Version as single integer: (major * 10000 + minor * 100 + patch) */
 #define KCTSB_VERSION_NUMBER ((KCTSB_VERSION_MAJOR * 10000) + \

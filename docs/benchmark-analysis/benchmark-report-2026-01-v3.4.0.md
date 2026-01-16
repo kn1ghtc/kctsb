@@ -206,7 +206,7 @@ kctsb:   609.45 MB/s (+0.67%)
 | 任务 | 状态 | 备注 |
 |------|------|------|
 | ARM NEON 支持 | 待实现 | Apple Silicon |
-| Linux CI/CD | 待配置 | GitHub Actions |
+| Linux构建验证 | 待配置 | 手动运行 |
 
 ---
 

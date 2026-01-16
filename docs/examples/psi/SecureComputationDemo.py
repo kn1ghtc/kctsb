@@ -24,8 +24,6 @@ import tempfile
 import os
 from pathlib import Path
 from typing import Dict, List, Tuple, Any
-import matplotlib.pyplot as plt
-import pandas as pd
 import logging
 
 logging.basicConfig(

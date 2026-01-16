@@ -45,6 +45,10 @@ import numpy as np
 from typing import List, Set, Tuple, Dict, Any, Optional
 from dataclasses import dataclass, asdict
 from abc import ABC, abstractmethod
+
+# 配置 matplotlib 使用非交互式后端，避免弹窗
+import matplotlib
+matplotlib.use('Agg')  # 非交互式后端，仅保存图片不显示
 import matplotlib.pyplot as plt
 import seaborn as sns
 from collections import defaultdict
@@ -1070,7 +1074,9 @@ class PSIBenchmark:
             plt.savefig(save_path, dpi=300, bbox_inches='tight')
             logger.info(f"Benchmark visualization saved to: {save_path}")
         
-        plt.show()
+        # 移除 plt.show()，仅保存图片，不弹窗显示
+        # plt.show()  # 已禁用：使用 Agg 后端避免弹窗
+        plt.close()  # 释放资源
     
     def generate_comparison_report(self) -> str:
         """生成协议比较报告"""
