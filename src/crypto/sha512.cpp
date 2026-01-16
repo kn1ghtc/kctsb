@@ -48,7 +48,7 @@
 #include <immintrin.h>
 #endif
 
-#if defined(__BMI2__) && defined(_MSC_VER)
+#if defined(__BMI2__)
 #define KCTSB_HAS_BMI2 1
 #include <immintrin.h>
 #else
@@ -97,13 +97,11 @@ constexpr std::array<uint64_t, 8> H512_INIT = {
     0x1f83d9abfb41bd6bULL, 0x5be0cd19137e2179ULL
 };
 
-// Helper macros - optimized rotation with BMI2 RORX instruction
-// Standard rotation - compiler will optimize to RORX with -mbmi2
-// GCC and Clang recognize this pattern and generate optimal code
+// Helper macros - optimized rotation with BMI2 RORX instruction (MSVC)
 __attribute__((always_inline))
-static inline uint64_t rotr64(uint64_t x, int n) noexcept {
-#if KCTSB_HAS_BMI2
-    return _rorx_u64(x, static_cast<unsigned int>(n));
+static inline uint64_t rotr64(uint64_t x, unsigned int n) noexcept {
+#if KCTSB_HAS_BMI2 && defined(_MSC_VER)
+    return _rorx_u64(x, n);
 #else
     return (x >> n) | (x << (64 - n));
 #endif
@@ -175,77 +173,77 @@ public:
      */
     __attribute__((always_inline))
     static void transform(kctsb_sha512_ctx_t* ctx, const uint8_t block[128]) noexcept {
-        alignas(32) uint64_t W[16];  // AVX2-aligned for better SIMD performance
+        alignas(64) uint64_t W[16];
         uint64_t a, b, c, d, e, f, g, h;
+        uint64_t s0, s1, t1, t2;
 
-        // Load first 16 words with byte swap
-        // Note: Could use AVX2 for parallel loads, but bswap64 is already very fast
-        W[0]  = load64_be(block);
-        W[1]  = load64_be(block + 8);
-        W[2]  = load64_be(block + 16);
-        W[3]  = load64_be(block + 24);
-        W[4]  = load64_be(block + 32);
-        W[5]  = load64_be(block + 40);
-        W[6]  = load64_be(block + 48);
-        W[7]  = load64_be(block + 56);
-        W[8]  = load64_be(block + 64);
-        W[9]  = load64_be(block + 72);
-        W[10] = load64_be(block + 80);
-        W[11] = load64_be(block + 88);
-        W[12] = load64_be(block + 96);
-        W[13] = load64_be(block + 104);
-        W[14] = load64_be(block + 112);
-        W[15] = load64_be(block + 120);
-
-        // Initialize working variables
         a = ctx->state[0]; b = ctx->state[1];
         c = ctx->state[2]; d = ctx->state[3];
         e = ctx->state[4]; f = ctx->state[5];
         g = ctx->state[6]; h = ctx->state[7];
 
-        // Optimized round function - reduce temporary variables
-        // Inline expansion + round to improve instruction-level parallelism
-        #define ROUND(w_idx, k_idx) do { \
-            h += EP1(e) + CH(e, f, g) + K512[k_idx] + W[w_idx]; \
-            d += h; \
-            h += EP0(a) + MAJ(a, b, c); \
-            uint64_t tmp = h; h = g; g = f; f = e; e = d; \
-            d = c; c = b; b = a; a = tmp; \
+        for (size_t i = 0; i < 16; ++i) {
+            W[i] = load64_be(block + i * 8);
+        }
+
+        #define ROUND_00_15(i, a_, b_, c_, d_, e_, f_, g_, h_) do { \
+            t1 = (h_) + EP1((e_)) + CH((e_), (f_), (g_)) + K512[i] + W[(i) & 0x0F]; \
+            t2 = EP0((a_)) + MAJ((a_), (b_), (c_)); \
+            (d_) += t1; \
+            (h_) = t1 + t2; \
         } while(0)
 
-        // Message schedule expansion macro (in-place, optimized)
-        #define EXPAND(i) \
-            W[i] += SIG1(W[(i+14)&15]) + W[(i+9)&15] + SIG0(W[(i+1)&15])
-
-        // 4-round unrolled batch macro for better ILP
-        #define EXPAND_ROUND_4(i, k) do { \
-            EXPAND(i);     ROUND(i, k);     \
-            EXPAND(i+1);   ROUND(i+1, k+1); \
-            EXPAND(i+2);   ROUND(i+2, k+2); \
-            EXPAND(i+3);   ROUND(i+3, k+3); \
+        #define ROUND_16_80(i, a_, b_, c_, d_, e_, f_, g_, h_) do { \
+            s0 = W[((i) + 1) & 0x0F]; \
+            s0 = SIG0(s0); \
+            s1 = W[((i) + 14) & 0x0F]; \
+            s1 = SIG1(s1); \
+            W[(i) & 0x0F] += s0 + s1 + W[((i) + 9) & 0x0F]; \
+            t1 = (h_) + EP1((e_)) + CH((e_), (f_), (g_)) + K512[i] + W[(i) & 0x0F]; \
+            t2 = EP0((a_)) + MAJ((a_), (b_), (c_)); \
+            (d_) += t1; \
+            (h_) = t1 + t2; \
         } while(0)
 
-        // Rounds 0-15 (use initial W values)
-        ROUND(0, 0);   ROUND(1, 1);   ROUND(2, 2);   ROUND(3, 3);
-        ROUND(4, 4);   ROUND(5, 5);   ROUND(6, 6);   ROUND(7, 7);
-        ROUND(8, 8);   ROUND(9, 9);   ROUND(10, 10); ROUND(11, 11);
-        ROUND(12, 12); ROUND(13, 13); ROUND(14, 14); ROUND(15, 15);
+        ROUND_00_15(0, a, b, c, d, e, f, g, h);
+        ROUND_00_15(1, h, a, b, c, d, e, f, g);
+        ROUND_00_15(2, g, h, a, b, c, d, e, f);
+        ROUND_00_15(3, f, g, h, a, b, c, d, e);
+        ROUND_00_15(4, e, f, g, h, a, b, c, d);
+        ROUND_00_15(5, d, e, f, g, h, a, b, c);
+        ROUND_00_15(6, c, d, e, f, g, h, a, b);
+        ROUND_00_15(7, b, c, d, e, f, g, h, a);
+        ROUND_00_15(8, a, b, c, d, e, f, g, h);
+        ROUND_00_15(9, h, a, b, c, d, e, f, g);
+        ROUND_00_15(10, g, h, a, b, c, d, e, f);
+        ROUND_00_15(11, f, g, h, a, b, c, d, e);
+        ROUND_00_15(12, e, f, g, h, a, b, c, d);
+        ROUND_00_15(13, d, e, f, g, h, a, b, c);
+        ROUND_00_15(14, c, d, e, f, g, h, a, b);
+        ROUND_00_15(15, b, c, d, e, f, g, h, a);
 
-        // Rounds 16-79 with 4-round batching
-        EXPAND_ROUND_4(0, 16);  EXPAND_ROUND_4(4, 20);
-        EXPAND_ROUND_4(8, 24);  EXPAND_ROUND_4(12, 28);
-        EXPAND_ROUND_4(0, 32);  EXPAND_ROUND_4(4, 36);
-        EXPAND_ROUND_4(8, 40);  EXPAND_ROUND_4(12, 44);
-        EXPAND_ROUND_4(0, 48);  EXPAND_ROUND_4(4, 52);
-        EXPAND_ROUND_4(8, 56);  EXPAND_ROUND_4(12, 60);
-        EXPAND_ROUND_4(0, 64);  EXPAND_ROUND_4(4, 68);
-        EXPAND_ROUND_4(8, 72);  EXPAND_ROUND_4(12, 76);
+        for (size_t i = 16; i < 80; i += 16) {
+            ROUND_16_80(i + 0, a, b, c, d, e, f, g, h);
+            ROUND_16_80(i + 1, h, a, b, c, d, e, f, g);
+            ROUND_16_80(i + 2, g, h, a, b, c, d, e, f);
+            ROUND_16_80(i + 3, f, g, h, a, b, c, d, e);
+            ROUND_16_80(i + 4, e, f, g, h, a, b, c, d);
+            ROUND_16_80(i + 5, d, e, f, g, h, a, b, c);
+            ROUND_16_80(i + 6, c, d, e, f, g, h, a, b);
+            ROUND_16_80(i + 7, b, c, d, e, f, g, h, a);
+            ROUND_16_80(i + 8, a, b, c, d, e, f, g, h);
+            ROUND_16_80(i + 9, h, a, b, c, d, e, f, g);
+            ROUND_16_80(i + 10, g, h, a, b, c, d, e, f);
+            ROUND_16_80(i + 11, f, g, h, a, b, c, d, e);
+            ROUND_16_80(i + 12, e, f, g, h, a, b, c, d);
+            ROUND_16_80(i + 13, d, e, f, g, h, a, b, c);
+            ROUND_16_80(i + 14, c, d, e, f, g, h, a, b);
+            ROUND_16_80(i + 15, b, c, d, e, f, g, h, a);
+        }
 
-        #undef EXPAND_ROUND_4
-        #undef ROUND
-        #undef EXPAND
+        #undef ROUND_16_80
+        #undef ROUND_00_15
 
-        // Add compressed chunk to current hash value
         ctx->state[0] += a; ctx->state[1] += b;
         ctx->state[2] += c; ctx->state[3] += d;
         ctx->state[4] += e; ctx->state[5] += f;
@@ -262,6 +260,7 @@ public:
 #undef SIG1
 
 } // namespace kctsb::internal
+
 
 // ============================================================================
 // C ABI Export (extern "C")
@@ -320,10 +319,13 @@ void kctsb_sha512_update(kctsb_sha512_ctx_t* ctx,
         ctx->buflen = 0;
     }
 
-    // Process complete blocks with optimized prefetch strategy
-    // Prefetch 512 bytes ahead (4 blocks) to hide memory latency
+    // Process complete blocks with adaptive prefetch strategy
     while (len >= 4 * KCTSB_SHA512_BLOCK_SIZE) {
-        KCTSB_PREFETCH(data + 4 * KCTSB_SHA512_BLOCK_SIZE);
+        if (len >= 16 * KCTSB_SHA512_BLOCK_SIZE) {
+            KCTSB_PREFETCH(data + 6 * KCTSB_SHA512_BLOCK_SIZE);
+        } else if (len >= 8 * KCTSB_SHA512_BLOCK_SIZE) {
+            KCTSB_PREFETCH(data + 4 * KCTSB_SHA512_BLOCK_SIZE);
+        }
         kctsb::internal::SHA512Compressor::transform(ctx, data);
         kctsb::internal::SHA512Compressor::transform(ctx, data + KCTSB_SHA512_BLOCK_SIZE);
         kctsb::internal::SHA512Compressor::transform(ctx, data + 2 * KCTSB_SHA512_BLOCK_SIZE);
@@ -333,7 +335,6 @@ void kctsb_sha512_update(kctsb_sha512_ctx_t* ctx,
     }
 
     while (len >= 2 * KCTSB_SHA512_BLOCK_SIZE) {
-        KCTSB_PREFETCH(data + 2 * KCTSB_SHA512_BLOCK_SIZE);
         kctsb::internal::SHA512Compressor::transform(ctx, data);
         kctsb::internal::SHA512Compressor::transform(ctx, data + KCTSB_SHA512_BLOCK_SIZE);
         data += 2 * KCTSB_SHA512_BLOCK_SIZE;

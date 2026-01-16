@@ -13,6 +13,7 @@
 > - ✅ **性能基线建立**: 完整benchmark baseline，SHA3-256 493MB/s, BLAKE2b 934MB/s (+31.77% vs OpenSSL)  
 > - ✅ **OpenSSL 3.3.1集成**: 修复查找策略，支持benchmark对比测试  
 > - ✅ **代码质量**: 172个编译警告修复，per-target -Werror策略  
+> - ✅ **SHA-512 压缩优化**: OpenSSL 风格轮函数调度 + 16-word 环形消息调度，提升 ILP 并降低分支开销  
 > - 📊 **Hash测试**: 29/29测试通过 (SHA3, BLAKE2b, SM3, SHA-256/512全部正常)  
 > - 🚀 **SHA3优化完成**: 10MB下 SHA3-256 **678MB/s**、SHA3-512 **339MB/s**，均超越 OpenSSL 3.3.1（+12.6% / +6.8%）
 
@@ -203,21 +204,21 @@ cmake -B build -G Ninja `
     -DKCTSB_BUILD_TESTS=ON
 
 # 构建
-cmake --build build --parallel
+cmake --build build-release --parallel
 或者
-ninja.exe -C build -j8 2>&1
+ninja.exe -C build-release -j8 2>&1
 
 或直接一句话：
 ```shell
- $env:PATH = "C:\msys64\mingw64\bin;$env:PATH"; cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER="C:/msys64/mingw64/bin/gcc.exe" -DCMAKE_CXX_COMPILER="C:/msys64/mingw64/bin/g++.exe" -DKCTSB_BUILD_TESTS=ON -DKCTSB_BUILD_CLI=ON -DKCTSB_BUILD_BENCHMARKS=ON -DKCTSB_WARNINGS_AS_ERRORS=OFF 2>&1 | Select-Object -Last 5; ninja -C build -j8 2>&1 | Select-Object -Last 10
+$env:PATH="C:\msys64\mingw64\bin;$env:PATH"; cmake --build build-release --parallel; .\build-release\bin\kctsb_benchmark.exe hash
 
 ```
 # 运行测试
 ctest --test-dir build --output-on-failure
 
 # 使用CLI工具
-.\build\bin\kctsb.exe version
-.\build\bin\kctsb.exe hash --sha3-256 "Hello, World!"
+.\build-release\bin\kctsb.exe version
+.\build-release\bin\kctsb.exe hash --sha3-256 "Hello, World!"
 ```
 
 **Windows 环境变量统一（MSYS2）**
