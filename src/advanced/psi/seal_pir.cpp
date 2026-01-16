@@ -161,10 +161,9 @@ int SEALPIRImpl::query(size_t target_index, kctsb_pir_result_t* result) {
         result->is_correct = std::abs(retrieved - expected) < tolerance;
 
         // Estimate communication bytes
-        result->communication_bytes = static_cast<size_t>(
+        result->communication_bytes =
             selection_encrypted.size() * sizeof(uint64_t) +  // Query
-            result_encrypted.size() * sizeof(uint64_t)       // Response
-        );
+            result_encrypted.size() * sizeof(uint64_t);       // Response
 
     } catch (const std::exception& e) {
         std::strncpy(result->error_message, e.what(), sizeof(result->error_message) - 1);

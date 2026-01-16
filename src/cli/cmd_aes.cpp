@@ -121,7 +121,8 @@ int cmd_aes(int argc, char* argv[]) {
         std::cout << "Read " << input_data.size() << " bytes from " << input_file << "\n";
 
         // Derive key from password (simplified - production should use PBKDF2)
-        std::vector<unsigned char> key(keysize / 8);
+        size_t key_len = static_cast<size_t>(keysize / 8);
+        std::vector<unsigned char> key(key_len);
         std::memset(key.data(), 0, key.size());
         std::memcpy(key.data(), key_str.data(),
                     std::min(key.size(), key_str.size()));

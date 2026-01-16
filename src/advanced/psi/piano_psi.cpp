@@ -102,14 +102,14 @@ size_t PianoPSIImpl::compute_hash(int64_t element, size_t function_index, size_t
     std::hash<int64_t> hasher;
 
     // MurmurHash-style mixing
-    uint64_t h = static_cast<uint64_t>(hasher(element)) ^ seed;
+    uint64_t h = hasher(element) ^ seed;
     h ^= h >> 16;
     h *= 0x85ebca6bULL;
     h ^= h >> 13;
     h *= 0xc2b2ae35ULL;
     h ^= h >> 16;
 
-    return static_cast<size_t>(h % table_size);
+    return h % table_size;
 }
 
 bool PianoPSIImpl::insert_cuckoo_element(std::vector<CuckooEntry>& table, int64_t element) {
@@ -144,7 +144,8 @@ std::vector<CuckooEntry> PianoPSIImpl::build_cuckoo_table(
     const std::unordered_set<int64_t>& elements
 ) {
     // Conservative sizing strategy for better success rate
-    size_t initial_size = static_cast<size_t>(elements.size() / config_.load_factor_threshold);
+    const double elements_count = static_cast<double>(elements.size());
+    size_t initial_size = static_cast<size_t>(std::ceil(elements_count / config_.load_factor_threshold));
     initial_size = std::max(initial_size, elements.size() * 2);
     size_t table_size = std::max(initial_size, config_.hash_table_size);
 
@@ -170,7 +171,7 @@ std::vector<CuckooEntry> PianoPSIImpl::build_cuckoo_table(
 
         // More aggressive rehashing
         rehash_attempts++;
-        table_size = static_cast<size_t>(table_size * 1.5);
+        table_size = static_cast<size_t>(static_cast<double>(table_size) * 1.5);
     }
 
     // Final attempt with very large table
@@ -290,7 +291,8 @@ int PianoPSIImpl::compute(
         for (const auto& entry : server_table) {
             if (entry.is_occupied) occupied_count++;
         }
-        result->hash_table_load_factor = static_cast<double>(occupied_count) / server_table.size();
+        result->hash_table_load_factor = static_cast<double>(occupied_count) /
+            static_cast<double>(server_table.size());
 
         // Client generates sublinear query indices
         auto client_start = std::chrono::high_resolution_clock::now();

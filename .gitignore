@@ -41,6 +41,8 @@ build/
 cmake-build-*/
 out/
 install/
+build-release/
+build-release/**
 
 # IDE files
 .idea/
@@ -95,4 +97,4 @@ deps/
 deps/ntl-11.6.0
 deps/ntl-build
 build-linux/
-build-release/
+build-release/*

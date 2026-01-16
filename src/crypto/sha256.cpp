@@ -143,6 +143,7 @@ public:
     /**
      * @brief Scalar implementation of SHA-256 transform
      */
+    __attribute__((always_inline))
     static void transform_scalar(kctsb_sha256_ctx_t* ctx, const uint8_t block[64]) noexcept {
         uint32_t W[64];
         uint32_t a, b, c, d, e, f, g, h;
@@ -188,6 +189,7 @@ public:
      * SHA-NI state layout after shuffle:
      *   STATE0 = ABEF, STATE1 = CDGH
      */
+    __attribute__((always_inline))
     static void transform_shani(uint32_t state[8], const uint8_t block[64]) noexcept {
         __m128i STATE0, STATE1;
         __m128i MSG, TMP;
@@ -429,49 +431,102 @@ void kctsb_sha256_update(kctsb_sha256_ctx_t* ctx,
         return;
     }
 
-    size_t buffer_space = KCTSB_SHA256_BLOCK_SIZE - (ctx->count & 0x3F);
     ctx->count += len;
 
-    // If buffer has partial data and new data doesn't fill it
+    const bool use_shani =
+#if KCTSB_HAS_SHA_NI
+        kctsb::internal::check_sha_ni();
+#else
+        false;
+#endif
+
+    size_t buffer_space = KCTSB_SHA256_BLOCK_SIZE - ctx->buflen;
+
     if (buffer_space > len) {
-        std::memcpy(ctx->buffer + KCTSB_SHA256_BLOCK_SIZE - buffer_space, data, len);
+        std::memcpy(ctx->buffer + ctx->buflen, data, len);
+        ctx->buflen += len;
         return;
     }
 
-    // Fill buffer and process
-    if (buffer_space < KCTSB_SHA256_BLOCK_SIZE) {
-        std::memcpy(ctx->buffer + KCTSB_SHA256_BLOCK_SIZE - buffer_space, data, buffer_space);
-        kctsb::internal::SHA256Compressor::transform(ctx, ctx->buffer);
+    if (ctx->buflen > 0) {
+        std::memcpy(ctx->buffer + ctx->buflen, data, buffer_space);
+#if KCTSB_HAS_SHA_NI
+        if (use_shani) {
+            kctsb::internal::SHA256Compressor::transform_shani(ctx->state, ctx->buffer);
+        } else {
+            kctsb::internal::SHA256Compressor::transform_scalar(ctx, ctx->buffer);
+        }
+#else
+        kctsb::internal::SHA256Compressor::transform_scalar(ctx, ctx->buffer);
+#endif
         data += buffer_space;
         len -= buffer_space;
+        ctx->buflen = 0;
     }
 
-    // Process complete blocks with prefetch optimization
-    // Aggressive prefetching + 4-block batching for better throughput
-    while (len >= 4 * KCTSB_SHA256_BLOCK_SIZE) {
-        // Prefetch 4 blocks ahead (256 bytes, fits L1 cache)
-        KCTSB_PREFETCH(data + 4 * KCTSB_SHA256_BLOCK_SIZE);
-        
-        // Process 4 blocks with pipeline-friendly layout
-        kctsb::internal::SHA256Compressor::transform(ctx, data);
-        kctsb::internal::SHA256Compressor::transform(ctx, data + KCTSB_SHA256_BLOCK_SIZE);
-        kctsb::internal::SHA256Compressor::transform(ctx, data + 2 * KCTSB_SHA256_BLOCK_SIZE);
-        kctsb::internal::SHA256Compressor::transform(ctx, data + 3 * KCTSB_SHA256_BLOCK_SIZE);
-        
-        data += 4 * KCTSB_SHA256_BLOCK_SIZE;
-        len -= 4 * KCTSB_SHA256_BLOCK_SIZE;
-    }
-    
-    // Process remaining blocks
-    while (len >= KCTSB_SHA256_BLOCK_SIZE) {
-        kctsb::internal::SHA256Compressor::transform(ctx, data);
-        data += KCTSB_SHA256_BLOCK_SIZE;
-        len -= KCTSB_SHA256_BLOCK_SIZE;
+    if (use_shani) {
+#if KCTSB_HAS_SHA_NI
+        while (len >= 8 * KCTSB_SHA256_BLOCK_SIZE) {
+            KCTSB_PREFETCH(data + 8 * KCTSB_SHA256_BLOCK_SIZE);
+            kctsb::internal::SHA256Compressor::transform_shani(ctx->state, data);
+            kctsb::internal::SHA256Compressor::transform_shani(ctx->state, data + KCTSB_SHA256_BLOCK_SIZE);
+            kctsb::internal::SHA256Compressor::transform_shani(ctx->state, data + 2 * KCTSB_SHA256_BLOCK_SIZE);
+            kctsb::internal::SHA256Compressor::transform_shani(ctx->state, data + 3 * KCTSB_SHA256_BLOCK_SIZE);
+            kctsb::internal::SHA256Compressor::transform_shani(ctx->state, data + 4 * KCTSB_SHA256_BLOCK_SIZE);
+            kctsb::internal::SHA256Compressor::transform_shani(ctx->state, data + 5 * KCTSB_SHA256_BLOCK_SIZE);
+            kctsb::internal::SHA256Compressor::transform_shani(ctx->state, data + 6 * KCTSB_SHA256_BLOCK_SIZE);
+            kctsb::internal::SHA256Compressor::transform_shani(ctx->state, data + 7 * KCTSB_SHA256_BLOCK_SIZE);
+            data += 8 * KCTSB_SHA256_BLOCK_SIZE;
+            len -= 8 * KCTSB_SHA256_BLOCK_SIZE;
+        }
+        while (len >= 4 * KCTSB_SHA256_BLOCK_SIZE) {
+            KCTSB_PREFETCH(data + 4 * KCTSB_SHA256_BLOCK_SIZE);
+            kctsb::internal::SHA256Compressor::transform_shani(ctx->state, data);
+            kctsb::internal::SHA256Compressor::transform_shani(ctx->state, data + KCTSB_SHA256_BLOCK_SIZE);
+            kctsb::internal::SHA256Compressor::transform_shani(ctx->state, data + 2 * KCTSB_SHA256_BLOCK_SIZE);
+            kctsb::internal::SHA256Compressor::transform_shani(ctx->state, data + 3 * KCTSB_SHA256_BLOCK_SIZE);
+            data += 4 * KCTSB_SHA256_BLOCK_SIZE;
+            len -= 4 * KCTSB_SHA256_BLOCK_SIZE;
+        }
+        while (len >= KCTSB_SHA256_BLOCK_SIZE) {
+            kctsb::internal::SHA256Compressor::transform_shani(ctx->state, data);
+            data += KCTSB_SHA256_BLOCK_SIZE;
+            len -= KCTSB_SHA256_BLOCK_SIZE;
+        }
+#endif
+    } else {
+        while (len >= 8 * KCTSB_SHA256_BLOCK_SIZE) {
+            KCTSB_PREFETCH(data + 8 * KCTSB_SHA256_BLOCK_SIZE);
+            kctsb::internal::SHA256Compressor::transform_scalar(ctx, data);
+            kctsb::internal::SHA256Compressor::transform_scalar(ctx, data + KCTSB_SHA256_BLOCK_SIZE);
+            kctsb::internal::SHA256Compressor::transform_scalar(ctx, data + 2 * KCTSB_SHA256_BLOCK_SIZE);
+            kctsb::internal::SHA256Compressor::transform_scalar(ctx, data + 3 * KCTSB_SHA256_BLOCK_SIZE);
+            kctsb::internal::SHA256Compressor::transform_scalar(ctx, data + 4 * KCTSB_SHA256_BLOCK_SIZE);
+            kctsb::internal::SHA256Compressor::transform_scalar(ctx, data + 5 * KCTSB_SHA256_BLOCK_SIZE);
+            kctsb::internal::SHA256Compressor::transform_scalar(ctx, data + 6 * KCTSB_SHA256_BLOCK_SIZE);
+            kctsb::internal::SHA256Compressor::transform_scalar(ctx, data + 7 * KCTSB_SHA256_BLOCK_SIZE);
+            data += 8 * KCTSB_SHA256_BLOCK_SIZE;
+            len -= 8 * KCTSB_SHA256_BLOCK_SIZE;
+        }
+        while (len >= 4 * KCTSB_SHA256_BLOCK_SIZE) {
+            KCTSB_PREFETCH(data + 4 * KCTSB_SHA256_BLOCK_SIZE);
+            kctsb::internal::SHA256Compressor::transform_scalar(ctx, data);
+            kctsb::internal::SHA256Compressor::transform_scalar(ctx, data + KCTSB_SHA256_BLOCK_SIZE);
+            kctsb::internal::SHA256Compressor::transform_scalar(ctx, data + 2 * KCTSB_SHA256_BLOCK_SIZE);
+            kctsb::internal::SHA256Compressor::transform_scalar(ctx, data + 3 * KCTSB_SHA256_BLOCK_SIZE);
+            data += 4 * KCTSB_SHA256_BLOCK_SIZE;
+            len -= 4 * KCTSB_SHA256_BLOCK_SIZE;
+        }
+        while (len >= KCTSB_SHA256_BLOCK_SIZE) {
+            kctsb::internal::SHA256Compressor::transform_scalar(ctx, data);
+            data += KCTSB_SHA256_BLOCK_SIZE;
+            len -= KCTSB_SHA256_BLOCK_SIZE;
+        }
     }
 
-    // Save remaining data
     if (len > 0) {
         std::memcpy(ctx->buffer, data, len);
+        ctx->buflen = len;
     }
 }
 

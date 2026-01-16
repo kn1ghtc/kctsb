@@ -285,7 +285,7 @@ size_t kctsb_base64_decode(const char* b64, size_t b64_len, uint8_t* data, size_
             continue;
         }
 
-        int8_t val = BASE64_DECODE[(uint8_t)c];
+        int8_t val = BASE64_DECODE[static_cast<uint8_t>(c)];
 
         if (val == -2) { // Padding '='
             break;
@@ -294,12 +294,12 @@ size_t kctsb_base64_decode(const char* b64, size_t b64_len, uint8_t* data, size_
             return 0;
         }
 
-        buf = (buf << 6) | val;
+        buf = (buf << 6) | static_cast<uint32_t>(val);
         bits += 6;
 
         if (bits >= 8) {
             bits -= 8;
-            data[j++] = (uint8_t)(buf >> bits);
+            data[j++] = static_cast<uint8_t>(buf >> bits);
         }
     }
 
@@ -570,7 +570,7 @@ ByteVec base64DecodeSafe(const std::string& b64) noexcept {
 bool isValidBase64(const std::string& str) noexcept {
     for (char c : str) {
         if (c == ' ' || c == '\n' || c == '\r' || c == '\t') continue;
-        int8_t val = BASE64_DECODE[(uint8_t)c];
+        int8_t val = BASE64_DECODE[static_cast<uint8_t>(c)];
         if (val == -1) return false;
     }
     return true;
@@ -746,7 +746,7 @@ bool secureCompare(const ByteVec& a, const ByteVec& b) noexcept {
 
     volatile uint8_t result = 0;
     for (size_t i = 0; i < a.size(); i++) {
-        result |= a[i] ^ b[i];
+        result |= static_cast<uint8_t>(a[i] ^ b[i]);
     }
     return result == 0;
 }

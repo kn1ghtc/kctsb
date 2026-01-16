@@ -7,6 +7,7 @@
 //
 
 #include <stdio.h>
+#include <cmath>
 
 #include "kctsb/math/math.h"
 #include <NTL/GF2X.h>
@@ -22,7 +23,7 @@ using namespace std;
     k /= gcd;
 }
 
-//一次性运算求 向量的 lcm/gcd
+// Compute vector LCM/GCD in a single pass.
 vec_ZZ lcm_gcd_vec(const vec_ZZ& v,int typemode){
     
     vec_ZZ vec_out;
@@ -31,8 +32,8 @@ vec_ZZ lcm_gcd_vec(const vec_ZZ& v,int typemode){
     i=0;
     j=0;
 
-     n= v.length();
-    m= ceil(n/2.0);//向上取整，必须是非整数，即 2---》2.0
+    n= v.length();
+    m = static_cast<long>(std::ceil(static_cast<double>(n) / 2.0)); // Round up n/2.
       vec_out.SetLength(m);
     switch (typemode) {
         case 1:
@@ -68,7 +69,7 @@ vec_ZZ lcm_gcd_vec(const vec_ZZ& v,int typemode){
     return vec_out;
 }
 
-//求 n 个数的最大公约数/最小公倍数
+// Compute GCD/LCM for n numbers.
 vec_ZZ lcm_gcd_vec(const vec_ZZ& v,int typemode,long endleng){
     
     vec_ZZ vec_out;
@@ -86,7 +87,7 @@ vec_ZZ lcm_gcd_vec(const vec_ZZ& v,int typemode,long endleng){
 
 
 
-//array can use "for" to assignment，but vector can't。if must，can use vector.push_back
+// Arrays can use index assignment; vectors can use push_back when needed.
 void array_to_vec(const ZZ arr[],vec_ZZ &v,long len) {
    // long n= v.length();
     
@@ -108,60 +109,60 @@ void array_to_vec(const int arr[],vec_ZZ &v,long len) {
 }
 
 void array2_to_mat(const vector< vector<ZZ> > arr,mat_ZZ &v){
-    long m= v.NumRows();
-    long n= v.NumCols();
+    long m = v.NumRows();
+    long n = v.NumCols();
     
-    for (int i=0;i<=m-1;i++){
-        for (int j=0; j<=n-1; j++) {
-            v[i][j]=arr[i][j];
+    for (long i = 0; i < m; ++i){
+        for (long j = 0; j < n; ++j) {
+            v[i][j] = arr[static_cast<size_t>(i)][static_cast<size_t>(j)];
         }
     }
     
 }
 
 void array2_to_mat(const vector< vector<int> > arr,mat_ZZ &v){
-    long m= v.NumRows();
-    long n= v.NumCols();
+    long m = v.NumRows();
+    long n = v.NumCols();
     
-    for (int i=0;i<=m-1;i++){
-        for (int j=0; j<=n-1; j++) {
-            v[i][j]=to_ZZ(arr[i][j]);
+    for (long i = 0; i < m; ++i){
+        for (long j = 0; j < n; ++j) {
+            v[i][j] = to_ZZ(arr[static_cast<size_t>(i)][static_cast<size_t>(j)]);
         }
     }
     
 }
 
 void array2_to_mat(const vector< vector<int> > arr,mat_GF2 &v){
-    long m= v.NumRows();
-    long n= v.NumCols();
+    long m = v.NumRows();
+    long n = v.NumCols();
     
-    for (int i=0;i<=m-1;i++){
-        for (int j=0; j<=n-1; j++) {
-            v[i][j]=to_GF2(arr[i][j]);
+    for (long i = 0; i < m; ++i){
+        for (long j = 0; j < n; ++j) {
+            v[i][j] = to_GF2(arr[static_cast<size_t>(i)][static_cast<size_t>(j)]);
         }
     }
     
 }
 
 void array2_to_mat(const vector< vector<ZZ> > arr,mat_GF2 &v){
-    long m= v.NumRows();
-    long n= v.NumCols();
+    long m = v.NumRows();
+    long n = v.NumCols();
     
-    for (int i=0;i<=m-1;i++){
-        for (int j=0; j<=n-1; j++) {
-            v[i][j]=to_GF2(arr[i][j]);
+    for (long i = 0; i < m; ++i){
+        for (long j = 0; j < n; ++j) {
+            v[i][j] = to_GF2(arr[static_cast<size_t>(i)][static_cast<size_t>(j)]);
         }
     }
     
 }
 
 void array2_to_mat(const vector< vector<GF2> > arr,mat_GF2 &v){
-    long m= v.NumRows();
-    long n= v.NumCols();
+    long m = v.NumRows();
+    long n = v.NumCols();
     
-    for (int i=0;i<=m-1;i++){
-        for (int j=0; j<=n-1; j++) {
-            v[i][j]=arr[i][j];
+    for (long i = 0; i < m; ++i){
+        for (long j = 0; j < n; ++j) {
+            v[i][j] = arr[static_cast<size_t>(i)][static_cast<size_t>(j)];
         }
     }
     
@@ -170,8 +171,8 @@ void array2_to_mat(const vector< vector<GF2> > arr,mat_GF2 &v){
 void array2_to_mat(const vector< vector<int> > arr,mat_GF2E &v){
     
     
-    long m= v.NumRows();
-    long n= v.NumCols();
+    long m = v.NumRows();
+    long n = v.NumCols();
     
 //    const GF2X P(INIT_MONO,8);
 //    GF2E::init(P);
@@ -183,9 +184,9 @@ void array2_to_mat(const vector< vector<int> > arr,mat_GF2E &v){
     SetCoeff(P, 0, 1);
     GF2E::init(P);
     
-    for (int i=0;i<=m-1;i++){
-        for (int j=0; j<=n-1; j++) {
-            v[i][j]=to_GF2E(arr[i][j]);
+    for (long i = 0; i < m; ++i){
+        for (long j = 0; j < n; ++j) {
+            v[i][j] = to_GF2E(arr[static_cast<size_t>(i)][static_cast<size_t>(j)]);
         }
     }
     
@@ -193,16 +194,16 @@ void array2_to_mat(const vector< vector<int> > arr,mat_GF2E &v){
 
 void array2_to_mat(const vector< vector<int> > arr,mat_ZZ_p &v){
   
-    v.SetDims(arr.size(),arr[0].size());
+    v.SetDims(static_cast<long>(arr.size()), static_cast<long>(arr[0].size()));
     
-    long m= v.NumRows();
-    long n= v.NumCols();
+    long m = v.NumRows();
+    long n = v.NumCols();
     
     ZZ_p::init(ZZ(256));
     
-    for (int i=0;i<=m-1;i++){
-        for (int j=0; j<=n-1; j++) {
-            v[i][j]=to_ZZ_p(long(arr[i][j]));
+    for (long i = 0; i < m; ++i){
+        for (long j = 0; j < n; ++j) {
+            v[i][j] = to_ZZ_p(static_cast<long>(arr[static_cast<size_t>(i)][static_cast<size_t>(j)]));
         }
     }
     
@@ -212,7 +213,7 @@ void array2_to_mat(const vector< vector<int> > arr,mat_ZZ_p &v){
 //void inv_array2_to_mat(const mat_GF2E &v, vector< vector<int> > &arr) //gf2e --> int  ?????
 
 
-//to_ZZX(vec);可以把一个一维数组/向量 转为多项式（系数更换）
+// to_ZZX(vec) converts a 1D vector into a polynomial (coefficient mapping).
 void kc_lagrange(vec_vec_ZZ_p &pointMat,vec_zz_p &coeffVec) {
     
 }

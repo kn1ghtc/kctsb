@@ -127,14 +127,14 @@ kctsb_error_t compute_hmac(
  */
 uint32_t dynamic_truncate(const uint8_t* hmac, size_t hmac_len) {
     // Offset is last nibble of last byte
-    int offset = static_cast<int>(hmac[hmac_len - 1] & 0x0F);
+    size_t offset = static_cast<size_t>(hmac[hmac_len - 1] & 0x0FU);
     
     // Extract 4 bytes at offset, mask MSB
     uint32_t binary_code = 
         (static_cast<uint32_t>(hmac[offset] & 0x7F) << 24) |
-        (static_cast<uint32_t>(hmac[static_cast<size_t>(offset) + 1]) << 16) |
-        (static_cast<uint32_t>(hmac[static_cast<size_t>(offset) + 2]) << 8) |
-        static_cast<uint32_t>(hmac[static_cast<size_t>(offset) + 3]);
+        (static_cast<uint32_t>(hmac[offset + 1]) << 16) |
+        (static_cast<uint32_t>(hmac[offset + 2]) << 8) |
+        static_cast<uint32_t>(hmac[offset + 3]);
     
     return binary_code;
 }
@@ -234,7 +234,7 @@ kctsb_error_t kctsb_hotp_verify(
         uint32_t expected;
         kctsb_error_t err = kctsb_hotp_generate(
             secret, secret_len,
-            counter + i,
+            counter + static_cast<uint64_t>(i),
             digits, algorithm,
             &expected
         );
@@ -246,7 +246,7 @@ kctsb_error_t kctsb_hotp_verify(
         // Constant-time comparison (timing-safe)
         if (expected == otp_value) {
             if (new_counter != nullptr) {
-                *new_counter = counter + i + 1;  // Next counter
+                *new_counter = counter + static_cast<uint64_t>(i) + 1;  // Next counter
             }
             return KCTSB_SUCCESS;
         }
@@ -368,7 +368,8 @@ uint32_t kctsb_totp_remaining_seconds(uint64_t unix_time, uint32_t time_step) {
     if (time_step == 0) {
         return 0;
     }
-    return time_step - (unix_time % time_step);
+    uint32_t remainder = static_cast<uint32_t>(unix_time % time_step);
+    return time_step - remainder;
 }
 
 kctsb_error_t kctsb_otp_generate_secret(uint8_t* secret, size_t secret_len) {
@@ -534,15 +535,17 @@ size_t kctsb_otp_generate_uri(
     
     // Add period for TOTP or counter for HOTP
     if (std::strcmp(type, "totp") == 0) {
+        size_t remaining = uri_size - static_cast<size_t>(written);
         int added = snprintf(
-            uri + written, uri_size - written,
+            uri + written, remaining,
             "&period=%lu", static_cast<unsigned long>(period)
         );
         if (added < 0) return 0;
         written += added;
     } else if (std::strcmp(type, "hotp") == 0) {
+        size_t remaining = uri_size - static_cast<size_t>(written);
         int added = snprintf(
-            uri + written, uri_size - written,
+            uri + written, remaining,
             "&counter=%lu", static_cast<unsigned long>(period)
         );
         if (added < 0) return 0;

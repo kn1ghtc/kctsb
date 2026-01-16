@@ -1,5 +1,0 @@
-if(EXISTS "D:/pyproject/kctsb/build-release/tests/test_security_boundaries[1]_tests.cmake")
-  include("D:/pyproject/kctsb/build-release/tests/test_security_boundaries[1]_tests.cmake")
-else()
-  add_test(test_security_boundaries_NOT_BUILT test_security_boundaries_NOT_BUILT)
-endif()

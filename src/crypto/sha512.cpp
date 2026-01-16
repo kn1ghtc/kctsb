@@ -48,6 +48,13 @@
 #include <immintrin.h>
 #endif
 
+#if defined(__BMI2__) && defined(_MSC_VER)
+#define KCTSB_HAS_BMI2 1
+#include <immintrin.h>
+#else
+#define KCTSB_HAS_BMI2 0
+#endif
+
 // ============================================================================
 // C++ Internal Implementation
 // ============================================================================
@@ -93,7 +100,16 @@ constexpr std::array<uint64_t, 8> H512_INIT = {
 // Helper macros - optimized rotation with BMI2 RORX instruction
 // Standard rotation - compiler will optimize to RORX with -mbmi2
 // GCC and Clang recognize this pattern and generate optimal code
-#define ROR64(x, n) (((x) >> (n)) | ((x) << (64 - (n))))
+__attribute__((always_inline))
+static inline uint64_t rotr64(uint64_t x, int n) noexcept {
+#if KCTSB_HAS_BMI2
+    return _rorx_u64(x, static_cast<unsigned int>(n));
+#else
+    return (x >> n) | (x << (64 - n));
+#endif
+}
+
+#define ROR64(x, n) rotr64((x), (n))
 
 #define CH(x, y, z)  (((x) & (y)) ^ (~(x) & (z)))
 #define MAJ(x, y, z) (((x) & (y)) ^ ((x) & (z)) ^ ((y) & (z)))
@@ -305,11 +321,26 @@ void kctsb_sha512_update(kctsb_sha512_ctx_t* ctx,
     }
 
     // Process complete blocks with optimized prefetch strategy
-    // Prefetch 256 bytes ahead (2 blocks) to hide memory latency
-    while (len >= KCTSB_SHA512_BLOCK_SIZE) {
-        if (len >= 256) {
-            KCTSB_PREFETCH(data + 256);
-        }
+    // Prefetch 512 bytes ahead (4 blocks) to hide memory latency
+    while (len >= 4 * KCTSB_SHA512_BLOCK_SIZE) {
+        KCTSB_PREFETCH(data + 4 * KCTSB_SHA512_BLOCK_SIZE);
+        kctsb::internal::SHA512Compressor::transform(ctx, data);
+        kctsb::internal::SHA512Compressor::transform(ctx, data + KCTSB_SHA512_BLOCK_SIZE);
+        kctsb::internal::SHA512Compressor::transform(ctx, data + 2 * KCTSB_SHA512_BLOCK_SIZE);
+        kctsb::internal::SHA512Compressor::transform(ctx, data + 3 * KCTSB_SHA512_BLOCK_SIZE);
+        data += 4 * KCTSB_SHA512_BLOCK_SIZE;
+        len -= 4 * KCTSB_SHA512_BLOCK_SIZE;
+    }
+
+    while (len >= 2 * KCTSB_SHA512_BLOCK_SIZE) {
+        KCTSB_PREFETCH(data + 2 * KCTSB_SHA512_BLOCK_SIZE);
+        kctsb::internal::SHA512Compressor::transform(ctx, data);
+        kctsb::internal::SHA512Compressor::transform(ctx, data + KCTSB_SHA512_BLOCK_SIZE);
+        data += 2 * KCTSB_SHA512_BLOCK_SIZE;
+        len -= 2 * KCTSB_SHA512_BLOCK_SIZE;
+    }
+
+    if (len >= KCTSB_SHA512_BLOCK_SIZE) {
         kctsb::internal::SHA512Compressor::transform(ctx, data);
         data += KCTSB_SHA512_BLOCK_SIZE;
         len -= KCTSB_SHA512_BLOCK_SIZE;

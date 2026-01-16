@@ -1,5 +1,0 @@
-if(EXISTS "D:/pyproject/kctsb/build-release/tests/test_sha[1]_tests.cmake")
-  include("D:/pyproject/kctsb/build-release/tests/test_sha[1]_tests.cmake")
-else()
-  add_test(test_sha_NOT_BUILT test_sha_NOT_BUILT)
-endif()

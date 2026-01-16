@@ -320,9 +320,9 @@ if(WIN32)
             -Werror=uninitialized
             # Warnings only (not errors, applied selectively per-file)
             -Wshadow
-            -Wnon-virtual-dtor
-            -Wold-style-cast
-            -Woverloaded-virtual
+            $<$<COMPILE_LANGUAGE:CXX>:-Wnon-virtual-dtor>
+            $<$<COMPILE_LANGUAGE:CXX>:-Wold-style-cast>
+            $<$<COMPILE_LANGUAGE:CXX>:-Woverloaded-virtual>
             -Wcast-align
             -Wconversion
             -Wsign-conversion
@@ -333,7 +333,7 @@ if(WIN32)
             -Wduplicated-cond
             -Wduplicated-branches
             -Wlogical-op
-            -Wuseless-cast
+            $<$<COMPILE_LANGUAGE:CXX>:-Wuseless-cast>
             # Suppress thirdparty/LTO noise
             -Wno-unused-parameter
             -Wno-array-bounds
@@ -349,9 +349,9 @@ elseif(APPLE)
         -Werror=return-type
         -Werror=uninitialized
         -Wshadow
-        -Wnon-virtual-dtor
-        -Wold-style-cast
-        -Woverloaded-virtual
+        $<$<COMPILE_LANGUAGE:CXX>:-Wnon-virtual-dtor>
+        $<$<COMPILE_LANGUAGE:CXX>:-Wold-style-cast>
+        $<$<COMPILE_LANGUAGE:CXX>:-Woverloaded-virtual>
         -Wcast-align
         -Wconversion
         -Wsign-conversion
@@ -375,9 +375,9 @@ elseif(UNIX)
         -Werror=format
         -Werror=format-security
         -Wshadow
-        -Wnon-virtual-dtor
-        -Wold-style-cast
-        -Woverloaded-virtual
+        $<$<COMPILE_LANGUAGE:CXX>:-Wnon-virtual-dtor>
+        $<$<COMPILE_LANGUAGE:CXX>:-Wold-style-cast>
+        $<$<COMPILE_LANGUAGE:CXX>:-Woverloaded-virtual>
         -Wcast-align
         -Wconversion
         -Wsign-conversion
@@ -388,7 +388,7 @@ elseif(UNIX)
         -Wduplicated-cond
         -Wduplicated-branches
         -Wlogical-op
-        -Wuseless-cast
+        $<$<COMPILE_LANGUAGE:CXX>:-Wuseless-cast>
         -Wno-unused-parameter
         -Wno-array-bounds
         -Wno-stringop-overflow
@@ -397,6 +397,10 @@ elseif(UNIX)
         -fexec-charset=UTF-8
     )
     # NOTE: -Werror applied per-target to kctsb_static/shared
+endif()
+
+if(NOT MSVC)
+    add_link_options(-Wno-stringop-overflow -Wno-array-bounds)
 endif()
 
 # ============================================================================
@@ -538,7 +542,8 @@ if(KCTSB_ENABLE_NTL)
             add_library(NTL::NTL STATIC IMPORTED)
             set_target_properties(NTL::NTL PROPERTIES
                 IMPORTED_LOCATION "${NTL_LIBRARY}"
-                INTERFACE_INCLUDE_DIRECTORIES "${NTL_INCLUDE_DIRS}")
+                INTERFACE_INCLUDE_DIRECTORIES "${NTL_INCLUDE_DIRS}"
+                INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${NTL_INCLUDE_DIRS}")
             # NTL requires gf2x when compiled with NTL_GF2X_LIB
             if(GF2X_LIBRARY)
                 set_target_properties(NTL::NTL PROPERTIES
@@ -787,6 +792,16 @@ set(KCTSB_ALL_SOURCES
 )
 
 # ============================================================================
+# Source Boundary Enforcement (src/ only)
+# ============================================================================
+
+foreach(kctsb_src_file IN LISTS KCTSB_ALL_SOURCES)
+    if(NOT kctsb_src_file MATCHES "^${KCTSB_SRC_DIR}/")
+        message(FATAL_ERROR "Invalid source outside src/: ${kctsb_src_file}")
+    endif()
+endforeach()
+
+# ============================================================================
 # Library Targets
 # ============================================================================
 
@@ -800,9 +815,11 @@ if(KCTSB_BUILD_STATIC)
     add_library(kctsb_static STATIC ${KCTSB_ALL_SOURCES})
     target_include_directories(kctsb_static PUBLIC
         $<BUILD_INTERFACE:${KCTSB_INCLUDE_DIR}>
+        $<INSTALL_INTERFACE:include>
+    )
+    target_include_directories(kctsb_static SYSTEM PUBLIC
         $<BUILD_INTERFACE:${KCTSB_THIRDPARTY_PLATFORM_DIR}/include>
         $<BUILD_INTERFACE:${KCTSB_THIRDPARTY_DIR}/include>
-        $<INSTALL_INTERFACE:include>
     )
     target_compile_definitions(kctsb_static PRIVATE KCTSB_BUILDING)
     
@@ -861,9 +878,11 @@ if(KCTSB_BUILD_SHARED)
     add_library(kctsb_shared SHARED ${KCTSB_ALL_SOURCES})
     target_include_directories(kctsb_shared PUBLIC
         $<BUILD_INTERFACE:${KCTSB_INCLUDE_DIR}>
+        $<INSTALL_INTERFACE:include>
+    )
+    target_include_directories(kctsb_shared SYSTEM PUBLIC
         $<BUILD_INTERFACE:${KCTSB_THIRDPARTY_PLATFORM_DIR}/include>
         $<BUILD_INTERFACE:${KCTSB_THIRDPARTY_DIR}/include>
-        $<INSTALL_INTERFACE:include>
     )
     
     if(KCTSB_ENABLE_SEAL AND SEAL_FOUND)
@@ -941,6 +960,8 @@ if(KCTSB_BUILD_CLI)
     add_executable(kctsb_cli ${KCTSB_CLI_SOURCES})
     target_include_directories(kctsb_cli PRIVATE
         ${KCTSB_INCLUDE_DIR}
+    )
+    target_include_directories(kctsb_cli SYSTEM PRIVATE
         ${KCTSB_THIRDPARTY_PLATFORM_DIR}/include
         ${KCTSB_THIRDPARTY_DIR}/include
     )

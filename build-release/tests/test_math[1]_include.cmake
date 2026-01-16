@@ -1,5 +1,0 @@
-if(EXISTS "D:/pyproject/kctsb/build-release/tests/test_math[1]_tests.cmake")
-  include("D:/pyproject/kctsb/build-release/tests/test_math[1]_tests.cmake")
-else()
-  add_test(test_math_NOT_BUILT test_math_NOT_BUILT)
-endif()
