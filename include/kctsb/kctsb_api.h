@@ -1031,6 +1031,32 @@ KCTSB_API void kctsb_cmac_aes(const uint8_t key[16],
                                const uint8_t* data, size_t len,
                                uint8_t mac[16]);
 
+/**
+ * @brief Compute HMAC-SHA512 in one call
+ * @param key Key data
+ * @param key_len Key length
+ * @param data Input data
+ * @param len Input length
+ * @param mac 64-byte output MAC
+ */
+KCTSB_API void kctsb_hmac_sha512(const uint8_t* key, size_t key_len,
+                                  const uint8_t* data, size_t len,
+                                  uint8_t mac[64]);
+
+/**
+ * @brief Compute GMAC (GCM-based MAC) in one call
+ * @param key 16-byte AES key
+ * @param iv Initialization vector
+ * @param iv_len IV length (typically 12 bytes)
+ * @param aad Additional authenticated data
+ * @param aad_len AAD length
+ * @param tag 16-byte output tag
+ */
+KCTSB_API void kctsb_gmac(const uint8_t key[16],
+                           const uint8_t* iv, size_t iv_len,
+                           const uint8_t* aad, size_t aad_len,
+                           uint8_t tag[16]);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif

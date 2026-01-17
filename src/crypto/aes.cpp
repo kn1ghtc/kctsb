@@ -379,6 +379,239 @@ static void ghash_update(uint8_t tag[16], const uint8_t h[16], const uint8_t* da
 }
 
 // ============================================================================
+// High-Performance One-Shot GHASH for AES-GCM (PCLMUL acceleration)
+// Precomputes H powers ONCE and processes AAD + CT + LEN in a single pass
+// ============================================================================
+#if defined(KCTSB_HAS_PCLMUL) || defined(__PCLMUL__)
+
+// Inline GF(2^128) Karatsuba multiplication without reduction
+static inline void gcm_karatsuba(const __m128i H, const __m128i X,
+                                  __m128i& lo, __m128i& hi, __m128i& mid) {
+    // Karatsuba: (H0 + H1*z^64)(X0 + X1*z^64) using 3 multiplications
+    __m128i H_hi = _mm_shuffle_epi32(H, 0x4E);   // Swap high/low 64-bit halves
+    __m128i X_hi = _mm_shuffle_epi32(X, 0x4E);
+    
+    lo = _mm_clmulepi64_si128(H, X, 0x00);      // H0 * X0
+    hi = _mm_clmulepi64_si128(H, X, 0x11);      // H1 * X1
+    
+    __m128i H_sum = _mm_xor_si128(H, H_hi);     // H0 + H1
+    __m128i X_sum = _mm_xor_si128(X, X_hi);     // X0 + X1
+    mid = _mm_clmulepi64_si128(H_sum, X_sum, 0x00);  // (H0+H1)*(X0+X1)
+    mid = _mm_xor_si128(mid, lo);
+    mid = _mm_xor_si128(mid, hi);               // mid = H0*X1 + H1*X0
+}
+
+// Inline modular reduction (polynomial: x^128 + x^7 + x^2 + x + 1)
+static inline __m128i gcm_reduce(const __m128i lo, const __m128i hi, const __m128i mid) {
+    // Combine: full = hi*z^128 + mid*z^64 + lo
+    __m128i mid_lo = _mm_slli_si128(mid, 8);
+    __m128i mid_hi = _mm_srli_si128(mid, 8);
+    __m128i full_lo = _mm_xor_si128(lo, mid_lo);
+    __m128i full_hi = _mm_xor_si128(hi, mid_hi);
+    
+    // Barrett reduction for GF(2^128)
+    __m128i tmp1 = _mm_srli_epi32(full_lo, 31);
+    __m128i tmp2 = _mm_srli_epi32(full_lo, 30);
+    __m128i tmp3 = _mm_srli_epi32(full_lo, 25);
+    
+    tmp1 = _mm_xor_si128(tmp1, tmp2);
+    tmp1 = _mm_xor_si128(tmp1, tmp3);
+    
+    __m128i tmp4 = _mm_shuffle_epi32(tmp1, 0x93);
+    tmp1 = _mm_and_si128(tmp4, _mm_set_epi32(0, static_cast<int32_t>(0xffffffff), 
+                                              static_cast<int32_t>(0xffffffff), 
+                                              static_cast<int32_t>(0xffffffff)));
+    tmp4 = _mm_and_si128(tmp4, _mm_set_epi32(static_cast<int32_t>(0xffffffff), 0, 0, 0));
+    
+    full_lo = _mm_xor_si128(full_lo, tmp1);
+    full_hi = _mm_xor_si128(full_hi, tmp4);
+    
+    __m128i tmp5 = _mm_slli_epi32(full_lo, 1);
+    __m128i tmp6 = _mm_slli_epi32(full_lo, 2);
+    __m128i tmp7 = _mm_slli_epi32(full_lo, 7);
+    
+    tmp5 = _mm_xor_si128(tmp5, tmp6);
+    tmp5 = _mm_xor_si128(tmp5, tmp7);
+    tmp5 = _mm_xor_si128(tmp5, full_lo);
+    
+    __m128i tmp8 = _mm_srli_si128(tmp5, 4);
+    tmp5 = _mm_slli_si128(tmp5, 12);
+    full_lo = _mm_xor_si128(full_lo, tmp5);
+    
+    __m128i tmp9 = _mm_srli_epi32(full_lo, 1);
+    __m128i tmp10 = _mm_srli_epi32(full_lo, 2);
+    tmp8 = _mm_xor_si128(tmp8, _mm_srli_epi32(full_lo, 7));
+    
+    tmp9 = _mm_xor_si128(tmp9, tmp10);
+    tmp9 = _mm_xor_si128(tmp9, tmp8);
+    tmp9 = _mm_xor_si128(tmp9, full_lo);
+    
+    return _mm_xor_si128(full_hi, tmp9);
+}
+
+// Full GF(2^128) multiplication with reduction
+static inline __m128i gcm_gf_mul(const __m128i H, const __m128i X) {
+    __m128i lo, hi, mid;
+    gcm_karatsuba(H, X, lo, hi, mid);
+    return gcm_reduce(lo, hi, mid);
+}
+
+// 8-block parallel GHASH update (reduces code duplication)
+// Y = (Y ^ X0) * H8 + X1 * H7 + ... + X7 * H1
+static inline __m128i ghash_8blocks_parallel(
+    __m128i Y,
+    const __m128i X0, const __m128i X1, const __m128i X2, const __m128i X3,
+    const __m128i X4, const __m128i X5, const __m128i X6, const __m128i X7,
+    const __m128i H8, const __m128i H7, const __m128i H6, const __m128i H5,
+    const __m128i H4, const __m128i H3, const __m128i H2, const __m128i H1)
+{
+    __m128i X0_xor = _mm_xor_si128(X0, Y);
+    __m128i lo0, hi0, mid0, lo1, hi1, mid1, lo2, hi2, mid2, lo3, hi3, mid3;
+    __m128i lo4, hi4, mid4, lo5, hi5, mid5, lo6, hi6, mid6, lo7, hi7, mid7;
+    gcm_karatsuba(H8, X0_xor, lo0, hi0, mid0);
+    gcm_karatsuba(H7, X1, lo1, hi1, mid1);
+    gcm_karatsuba(H6, X2, lo2, hi2, mid2);
+    gcm_karatsuba(H5, X3, lo3, hi3, mid3);
+    gcm_karatsuba(H4, X4, lo4, hi4, mid4);
+    gcm_karatsuba(H3, X5, lo5, hi5, mid5);
+    gcm_karatsuba(H2, X6, lo6, hi6, mid6);
+    gcm_karatsuba(H1, X7, lo7, hi7, mid7);
+    
+    __m128i lo_acc = _mm_xor_si128(_mm_xor_si128(_mm_xor_si128(lo0, lo1), _mm_xor_si128(lo2, lo3)),
+                                   _mm_xor_si128(_mm_xor_si128(lo4, lo5), _mm_xor_si128(lo6, lo7)));
+    __m128i hi_acc = _mm_xor_si128(_mm_xor_si128(_mm_xor_si128(hi0, hi1), _mm_xor_si128(hi2, hi3)),
+                                   _mm_xor_si128(_mm_xor_si128(hi4, hi5), _mm_xor_si128(hi6, hi7)));
+    __m128i mid_acc = _mm_xor_si128(_mm_xor_si128(_mm_xor_si128(mid0, mid1), _mm_xor_si128(mid2, mid3)),
+                                    _mm_xor_si128(_mm_xor_si128(mid4, mid5), _mm_xor_si128(mid6, mid7)));
+    return gcm_reduce(lo_acc, hi_acc, mid_acc);
+}
+
+// 4-block parallel GHASH update
+static inline __m128i ghash_4blocks_parallel(
+    __m128i Y,
+    const __m128i X0, const __m128i X1, const __m128i X2, const __m128i X3,
+    const __m128i H4, const __m128i H3, const __m128i H2, const __m128i H1)
+{
+    __m128i X0_xor = _mm_xor_si128(X0, Y);
+    __m128i lo0, hi0, mid0, lo1, hi1, mid1, lo2, hi2, mid2, lo3, hi3, mid3;
+    gcm_karatsuba(H4, X0_xor, lo0, hi0, mid0);
+    gcm_karatsuba(H3, X1, lo1, hi1, mid1);
+    gcm_karatsuba(H2, X2, lo2, hi2, mid2);
+    gcm_karatsuba(H1, X3, lo3, hi3, mid3);
+    
+    __m128i lo_acc = _mm_xor_si128(_mm_xor_si128(lo0, lo1), _mm_xor_si128(lo2, lo3));
+    __m128i hi_acc = _mm_xor_si128(_mm_xor_si128(hi0, hi1), _mm_xor_si128(hi2, hi3));
+    __m128i mid_acc = _mm_xor_si128(_mm_xor_si128(mid0, mid1), _mm_xor_si128(mid2, mid3));
+    return gcm_reduce(lo_acc, hi_acc, mid_acc);
+}
+
+// High-performance one-shot GHASH for GCM
+// Processes AAD, ciphertext, and length block in a single optimized pass
+static void ghash_oneshot_gcm(
+    uint8_t tag[16],
+    const uint8_t h[16],
+    const uint8_t* aad, size_t aad_len,
+    const uint8_t* ct, size_t ct_len)
+{
+    const __m128i bswap = _mm_set_epi8(0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15);
+    
+    // Load and byte-swap H
+    __m128i H = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(h)), bswap);
+    __m128i Y = _mm_setzero_si128();
+    
+    // Precompute H powers ONCE: H^1 to H^8
+    __m128i H2 = gcm_gf_mul(H, H);
+    __m128i H3 = gcm_gf_mul(H2, H);
+    __m128i H4 = gcm_gf_mul(H2, H2);
+    __m128i H5 = gcm_gf_mul(H4, H);
+    __m128i H6 = gcm_gf_mul(H3, H3);
+    __m128i H7 = gcm_gf_mul(H6, H);
+    __m128i H8 = gcm_gf_mul(H4, H4);
+    
+    // Helper lambda for processing data with 8-way parallelism + prefetch
+    auto process_data = [&](const uint8_t* data, size_t len) {
+        // 8-block parallel processing (128 bytes at a time)
+        while (len >= 128) {
+            if (len >= 256) {
+                _mm_prefetch(reinterpret_cast<const char*>(data + 128), _MM_HINT_T0);
+                _mm_prefetch(reinterpret_cast<const char*>(data + 192), _MM_HINT_T0);
+            }
+            
+            __m128i X0 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(data)), bswap);
+            __m128i X1 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(data + 16)), bswap);
+            __m128i X2 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(data + 32)), bswap);
+            __m128i X3 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(data + 48)), bswap);
+            __m128i X4 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(data + 64)), bswap);
+            __m128i X5 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(data + 80)), bswap);
+            __m128i X6 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(data + 96)), bswap);
+            __m128i X7 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(data + 112)), bswap);
+            
+            Y = ghash_8blocks_parallel(Y, X0, X1, X2, X3, X4, X5, X6, X7,
+                                        H8, H7, H6, H5, H4, H3, H2, H);
+            data += 128;
+            len -= 128;
+        }
+        
+        // 4-block processing (64 bytes)
+        while (len >= 64) {
+            __m128i X0 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(data)), bswap);
+            __m128i X1 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(data + 16)), bswap);
+            __m128i X2 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(data + 32)), bswap);
+            __m128i X3 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(data + 48)), bswap);
+            Y = ghash_4blocks_parallel(Y, X0, X1, X2, X3, H4, H3, H2, H);
+            data += 64;
+            len -= 64;
+        }
+        
+        // Serial processing for remaining blocks
+        while (len >= 16) {
+            __m128i X = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(data)), bswap);
+            Y = _mm_xor_si128(Y, X);
+            Y = gcm_gf_mul(H, Y);
+            data += 16;
+            len -= 16;
+        }
+        
+        // Handle partial block with zero padding
+        if (len > 0) {
+            uint8_t block[16] = {0};
+            memcpy(block, data, len);
+            __m128i X = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(block)), bswap);
+            Y = _mm_xor_si128(Y, X);
+            Y = gcm_gf_mul(H, Y);
+        }
+    };
+    
+    // Process AAD (padded to 16-byte boundary)
+    if (aad && aad_len > 0) {
+        process_data(aad, aad_len);
+    }
+    
+    // Process ciphertext (padded to 16-byte boundary)
+    if (ct && ct_len > 0) {
+        process_data(ct, ct_len);
+    }
+    
+    // Process length block: [aad_bits (64-bit BE) || ct_bits (64-bit BE)]
+    alignas(16) uint8_t len_block[16] = {0};
+    uint64_t aad_bits = aad_len * 8;
+    uint64_t ct_bits = ct_len * 8;
+    for (int i = 0; i < 8; i++) {
+        len_block[7 - i] = static_cast<uint8_t>(aad_bits >> (i * 8));
+        len_block[15 - i] = static_cast<uint8_t>(ct_bits >> (i * 8));
+    }
+    __m128i L = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(len_block)), bswap);
+    Y = _mm_xor_si128(Y, L);
+    Y = gcm_gf_mul(H, Y);
+    
+    // Store result (byte-swapped back)
+    Y = _mm_shuffle_epi8(Y, bswap);
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(tag), Y);
+}
+
+#endif // KCTSB_HAS_PCLMUL
+
+// ============================================================================
 // Public C API
 // ============================================================================
 
@@ -748,7 +981,270 @@ static kctsb_error_t aes_gcm_encrypt_aesni(
     inc_counter(counter_bytes);
     __m128i counter = _mm_loadu_si128(reinterpret_cast<const __m128i*>(counter_bytes));
 
-    // CTR encryption with 8-block parallelism for maximum throughput
+    // =========================================================================
+    // Fused CTR encryption + GHASH (PCLMUL path)
+    // Single memory read for input, single write to output
+    // GHASH computed inline while data is in registers/L1 cache
+    // =========================================================================
+#if defined(KCTSB_HAS_PCLMUL) || defined(__PCLMUL__)
+    if (check_pclmul()) {
+        const __m128i bswap = _mm_set_epi8(0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15);
+        
+        // Convert H to GHASH format and precompute powers
+        __m128i Hg = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(h_bytes)), bswap);
+        __m128i H2 = gcm_gf_mul(Hg, Hg);
+        __m128i H3 = gcm_gf_mul(H2, Hg);
+        __m128i H4 = gcm_gf_mul(H2, H2);
+        __m128i H5 = gcm_gf_mul(H4, Hg);
+        __m128i H6 = gcm_gf_mul(H3, H3);
+        __m128i H7 = gcm_gf_mul(H6, Hg);
+        __m128i H8 = gcm_gf_mul(H4, H4);
+        
+        __m128i Y = _mm_setzero_si128();  // Running GHASH state
+        
+        // Process AAD with 8-way parallelism
+        if (aad && aad_len > 0) {
+            const uint8_t* aad_ptr = aad;
+            size_t aad_remaining = aad_len;
+            
+            while (aad_remaining >= 128) {
+                __m128i A0 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(aad_ptr)), bswap);
+                __m128i A1 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(aad_ptr + 16)), bswap);
+                __m128i A2 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(aad_ptr + 32)), bswap);
+                __m128i A3 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(aad_ptr + 48)), bswap);
+                __m128i A4 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(aad_ptr + 64)), bswap);
+                __m128i A5 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(aad_ptr + 80)), bswap);
+                __m128i A6 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(aad_ptr + 96)), bswap);
+                __m128i A7 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(aad_ptr + 112)), bswap);
+                
+                Y = ghash_8blocks_parallel(Y, A0, A1, A2, A3, A4, A5, A6, A7,
+                                            H8, H7, H6, H5, H4, H3, H2, Hg);
+                aad_ptr += 128;
+                aad_remaining -= 128;
+            }
+            while (aad_remaining >= 16) {
+                __m128i A = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(aad_ptr)), bswap);
+                Y = _mm_xor_si128(Y, A);
+                Y = gcm_gf_mul(Hg, Y);
+                aad_ptr += 16;
+                aad_remaining -= 16;
+            }
+            if (aad_remaining > 0) {
+                uint8_t block[16] = {0};
+                memcpy(block, aad_ptr, aad_remaining);
+                __m128i A = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(block)), bswap);
+                Y = _mm_xor_si128(Y, A);
+                Y = gcm_gf_mul(Hg, Y);
+            }
+        }
+        
+        // Fused CTR + GHASH: encrypt then immediately hash while data is hot
+        size_t offset = 0;
+        
+        // Pipeline approach: GHASH batch N while encrypting batch N+1
+        // First batch: just encrypt, no GHASH yet
+        __m128i prev_ct0, prev_ct1, prev_ct2, prev_ct3;
+        __m128i prev_ct4, prev_ct5, prev_ct6, prev_ct7;
+        bool have_prev = false;
+        
+        // 8-block pipelined CTR + GHASH
+        while (offset + 128 <= input_len) {
+            // Prefetch next batch
+            if (offset + 256 <= input_len) {
+                _mm_prefetch(reinterpret_cast<const char*>(input + offset + 128), _MM_HINT_T0);
+                _mm_prefetch(reinterpret_cast<const char*>(input + offset + 192), _MM_HINT_T0);
+            }
+            
+            // Generate counters
+            __m128i c0, c1, c2, c3, c4, c5, c6, c7;
+            gen_8_counters_fast(counter, c0, c1, c2, c3, c4, c5, c6, c7);
+            counter = add_counter_be32(counter, 8);
+            
+            // AES encryption
+            if (is_aes256) {
+                aes256_encrypt_8blocks_ni(c0, c1, c2, c3, c4, c5, c6, c7, rk);
+            } else {
+                aes128_encrypt_8blocks_ni(c0, c1, c2, c3, c4, c5, c6, c7, rk);
+            }
+            
+            // Load plaintext
+            __m128i p0 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset));
+            __m128i p1 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 16));
+            __m128i p2 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 32));
+            __m128i p3 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 48));
+            __m128i p4 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 64));
+            __m128i p5 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 80));
+            __m128i p6 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 96));
+            __m128i p7 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 112));
+            
+            // XOR with keystream
+            __m128i ct0 = _mm_xor_si128(p0, c0);
+            __m128i ct1 = _mm_xor_si128(p1, c1);
+            __m128i ct2 = _mm_xor_si128(p2, c2);
+            __m128i ct3 = _mm_xor_si128(p3, c3);
+            __m128i ct4 = _mm_xor_si128(p4, c4);
+            __m128i ct5 = _mm_xor_si128(p5, c5);
+            __m128i ct6 = _mm_xor_si128(p6, c6);
+            __m128i ct7 = _mm_xor_si128(p7, c7);
+            
+            // Store ciphertext
+            _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset), ct0);
+            _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset + 16), ct1);
+            _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset + 32), ct2);
+            _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset + 48), ct3);
+            _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset + 64), ct4);
+            _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset + 80), ct5);
+            _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset + 96), ct6);
+            _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset + 112), ct7);
+            
+            // GHASH on previous batch (if any)
+            if (have_prev) {
+                __m128i X0 = _mm_shuffle_epi8(prev_ct0, bswap);
+                __m128i X1 = _mm_shuffle_epi8(prev_ct1, bswap);
+                __m128i X2 = _mm_shuffle_epi8(prev_ct2, bswap);
+                __m128i X3 = _mm_shuffle_epi8(prev_ct3, bswap);
+                __m128i X4 = _mm_shuffle_epi8(prev_ct4, bswap);
+                __m128i X5 = _mm_shuffle_epi8(prev_ct5, bswap);
+                __m128i X6 = _mm_shuffle_epi8(prev_ct6, bswap);
+                __m128i X7 = _mm_shuffle_epi8(prev_ct7, bswap);
+                Y = ghash_8blocks_parallel(Y, X0, X1, X2, X3, X4, X5, X6, X7,
+                                            H8, H7, H6, H5, H4, H3, H2, Hg);
+            }
+            
+            // Save current batch for next iteration's GHASH
+            prev_ct0 = ct0; prev_ct1 = ct1; prev_ct2 = ct2; prev_ct3 = ct3;
+            prev_ct4 = ct4; prev_ct5 = ct5; prev_ct6 = ct6; prev_ct7 = ct7;
+            have_prev = true;
+            
+            offset += 128;
+        }
+        
+        // GHASH the last 8-block batch
+        if (have_prev) {
+            __m128i X0 = _mm_shuffle_epi8(prev_ct0, bswap);
+            __m128i X1 = _mm_shuffle_epi8(prev_ct1, bswap);
+            __m128i X2 = _mm_shuffle_epi8(prev_ct2, bswap);
+            __m128i X3 = _mm_shuffle_epi8(prev_ct3, bswap);
+            __m128i X4 = _mm_shuffle_epi8(prev_ct4, bswap);
+            __m128i X5 = _mm_shuffle_epi8(prev_ct5, bswap);
+            __m128i X6 = _mm_shuffle_epi8(prev_ct6, bswap);
+            __m128i X7 = _mm_shuffle_epi8(prev_ct7, bswap);
+            Y = ghash_8blocks_parallel(Y, X0, X1, X2, X3, X4, X5, X6, X7,
+                                        H8, H7, H6, H5, H4, H3, H2, Hg);
+        }
+        
+        // 4-block fused CTR + GHASH
+        while (offset + 64 <= input_len) {
+            __m128i c0, c1, c2, c3;
+            gen_4_counters_fast(counter, c0, c1, c2, c3);
+            counter = add_counter_be32(counter, 4);
+            
+            if (is_aes256) {
+                aes256_encrypt_4blocks_ni(c0, c1, c2, c3, rk);
+            } else {
+                aes128_encrypt_4blocks_ni(c0, c1, c2, c3, rk);
+            }
+            
+            __m128i p0 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset));
+            __m128i p1 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 16));
+            __m128i p2 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 32));
+            __m128i p3 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 48));
+            
+            __m128i ct0 = _mm_xor_si128(p0, c0);
+            __m128i ct1 = _mm_xor_si128(p1, c1);
+            __m128i ct2 = _mm_xor_si128(p2, c2);
+            __m128i ct3 = _mm_xor_si128(p3, c3);
+            
+            _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset), ct0);
+            _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset + 16), ct1);
+            _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset + 32), ct2);
+            _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset + 48), ct3);
+            
+            // GHASH on 4 blocks
+            __m128i X0 = _mm_shuffle_epi8(ct0, bswap);
+            __m128i X1 = _mm_shuffle_epi8(ct1, bswap);
+            __m128i X2 = _mm_shuffle_epi8(ct2, bswap);
+            __m128i X3 = _mm_shuffle_epi8(ct3, bswap);
+            Y = ghash_4blocks_parallel(Y, X0, X1, X2, X3, H4, H3, H2, Hg);
+            
+            offset += 64;
+        }
+        
+        // Handle remaining blocks serially
+        while (offset < input_len) {
+            __m128i ks = counter;
+            if (is_aes256) {
+                ks = _mm_xor_si128(ks, rk[0]);
+                for (int i = 1; i < 14; ++i) ks = _mm_aesenc_si128(ks, rk[i]);
+                ks = _mm_aesenclast_si128(ks, rk[14]);
+            } else {
+                ks = _mm_xor_si128(ks, rk[0]);
+                for (int i = 1; i < 10; ++i) ks = _mm_aesenc_si128(ks, rk[i]);
+                ks = _mm_aesenclast_si128(ks, rk[10]);
+            }
+            
+            size_t bytes = (input_len - offset < 16) ? (input_len - offset) : 16;
+            
+            if (bytes == 16) {
+                __m128i pt = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset));
+                __m128i ct = _mm_xor_si128(pt, ks);
+                _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset), ct);
+                __m128i X = _mm_shuffle_epi8(ct, bswap);
+                Y = _mm_xor_si128(Y, X);
+                Y = gcm_gf_mul(Hg, Y);
+            } else {
+                alignas(16) uint8_t keystream[16];
+                _mm_storeu_si128(reinterpret_cast<__m128i*>(keystream), ks);
+                uint8_t ct_block[16] = {0};
+                for (size_t j = 0; j < bytes; j++) {
+                    ct_block[j] = input[offset + j] ^ keystream[j];
+                    output[offset + j] = ct_block[j];
+                }
+                __m128i X = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(ct_block)), bswap);
+                Y = _mm_xor_si128(Y, X);
+                Y = gcm_gf_mul(Hg, Y);
+            }
+            counter = inc_counter_be32_fast(counter);
+            offset += bytes;
+        }
+        
+        // Add length block and finalize
+        alignas(16) uint8_t len_block[16] = {0};
+        uint64_t aad_bits = aad_len * 8, ct_bits = input_len * 8;
+        for (int i = 0; i < 8; i++) {
+            len_block[7 - i] = static_cast<uint8_t>(aad_bits >> (i * 8));
+            len_block[15 - i] = static_cast<uint8_t>(ct_bits >> (i * 8));
+        }
+        __m128i L = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(len_block)), bswap);
+        Y = _mm_xor_si128(Y, L);
+        Y = gcm_gf_mul(Hg, Y);
+        
+        // Compute final tag
+        __m128i j0 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(j0_bytes));
+        __m128i enc_j0;
+        if (is_aes256) {
+            enc_j0 = _mm_xor_si128(j0, rk[0]);
+            for (int i = 1; i < 14; ++i) enc_j0 = _mm_aesenc_si128(enc_j0, rk[i]);
+            enc_j0 = _mm_aesenclast_si128(enc_j0, rk[14]);
+        } else {
+            enc_j0 = _mm_xor_si128(j0, rk[0]);
+            for (int i = 1; i < 10; ++i) enc_j0 = _mm_aesenc_si128(enc_j0, rk[i]);
+            enc_j0 = _mm_aesenclast_si128(enc_j0, rk[10]);
+        }
+        
+        Y = _mm_shuffle_epi8(Y, bswap);
+        __m128i final_tag = _mm_xor_si128(enc_j0, Y);
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(tag), final_tag);
+        
+        kctsb_secure_zero(h_bytes, 16);
+        kctsb_secure_zero(j0_bytes, 16);
+        return KCTSB_SUCCESS;
+    }
+#endif // KCTSB_HAS_PCLMUL
+
+    // =========================================================================
+    // Software fallback: CTR encryption then GHASH
+    // =========================================================================
     size_t offset = 0;
     
     // Process 8 blocks at a time (128 bytes)
@@ -763,7 +1259,6 @@ static kctsb_error_t aes_gcm_encrypt_aesni(
             aes128_encrypt_8blocks_ni(c0, c1, c2, c3, c4, c5, c6, c7, rk);
         }
 
-        // XOR with plaintext (8 blocks)
         __m128i p0 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset));
         __m128i p1 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 16));
         __m128i p2 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 32));
@@ -810,11 +1305,8 @@ static kctsb_error_t aes_gcm_encrypt_aesni(
         offset += 64;
     }
 
-    // Handle remaining blocks (1-3 blocks or partial)
+    // Handle remaining blocks
     while (offset < input_len) {
-        alignas(16) uint8_t keystream[16];
-        _mm_storeu_si128(reinterpret_cast<__m128i*>(counter_bytes), counter);
-
         __m128i ks = counter;
         if (is_aes256) {
             ks = _mm_xor_si128(ks, rk[0]);
@@ -825,6 +1317,8 @@ static kctsb_error_t aes_gcm_encrypt_aesni(
             for (int i = 1; i < 10; ++i) ks = _mm_aesenc_si128(ks, rk[i]);
             ks = _mm_aesenclast_si128(ks, rk[10]);
         }
+
+        alignas(16) uint8_t keystream[16];
         _mm_storeu_si128(reinterpret_cast<__m128i*>(keystream), ks);
 
         size_t bytes = (input_len - offset < 16) ? (input_len - offset) : 16;
@@ -836,33 +1330,41 @@ static kctsb_error_t aes_gcm_encrypt_aesni(
         offset += bytes;
     }
 
-    // GHASH authentication
+    // =========================================================================
+    // GHASH authentication using high-performance one-shot function
+    // =========================================================================
     alignas(16) uint8_t ghash_tag[16] = {0};
-    if (aad && aad_len > 0) {
-        ghash_update(ghash_tag, h_bytes, aad, aad_len);
-        size_t aad_padding = (16 - (aad_len % 16)) % 16;
-        if (aad_padding > 0) {
-            uint8_t pad[16] = {0};
-            ghash_update(ghash_tag, h_bytes, pad, aad_padding);
+#if defined(KCTSB_HAS_PCLMUL) || defined(__PCLMUL__)
+    if (check_pclmul()) {
+        ghash_oneshot_gcm(ghash_tag, h_bytes, aad, aad_len, output, input_len);
+    } else
+#endif
+    {
+        // Software fallback
+        if (aad && aad_len > 0) {
+            ghash_update(ghash_tag, h_bytes, aad, aad_len);
+            size_t aad_padding = (16 - (aad_len % 16)) % 16;
+            if (aad_padding > 0) {
+                uint8_t pad[16] = {0};
+                ghash_update(ghash_tag, h_bytes, pad, aad_padding);
+            }
         }
-    }
-    if (input_len > 0) {
-        ghash_update(ghash_tag, h_bytes, output, input_len);
-        size_t ct_padding = (16 - (input_len % 16)) % 16;
-        if (ct_padding > 0) {
-            uint8_t pad[16] = {0};
-            ghash_update(ghash_tag, h_bytes, pad, ct_padding);
+        if (input_len > 0) {
+            ghash_update(ghash_tag, h_bytes, output, input_len);
+            size_t ct_padding = (16 - (input_len % 16)) % 16;
+            if (ct_padding > 0) {
+                uint8_t pad[16] = {0};
+                ghash_update(ghash_tag, h_bytes, pad, ct_padding);
+            }
         }
+        alignas(16) uint8_t len_block[16] = {0};
+        uint64_t aad_bits = aad_len * 8, ct_bits = input_len * 8;
+        for (int i = 0; i < 8; i++) {
+            len_block[7 - i] = static_cast<uint8_t>(aad_bits >> (i * 8));
+            len_block[15 - i] = static_cast<uint8_t>(ct_bits >> (i * 8));
+        }
+        ghash_update(ghash_tag, h_bytes, len_block, 16);
     }
-
-    // Add length block
-    alignas(16) uint8_t len_block[16] = {0};
-    uint64_t aad_bits = aad_len * 8, ct_bits = input_len * 8;
-    for (int i = 0; i < 8; i++) {
-        len_block[7 - i] = static_cast<uint8_t>(aad_bits >> (i * 8));
-        len_block[15 - i] = static_cast<uint8_t>(ct_bits >> (i * 8));
-    }
-    ghash_update(ghash_tag, h_bytes, len_block, 16);
 
     // Compute final tag: tag = E(K, J0) XOR GHASH
     __m128i j0 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(j0_bytes));
@@ -931,31 +1433,38 @@ static kctsb_error_t aes_gcm_decrypt_aesni(
 
     // Verify tag BEFORE decryption (authenticate-then-decrypt)
     alignas(16) uint8_t ghash_tag[16] = {0};
-    if (aad && aad_len > 0) {
-        ghash_update(ghash_tag, h_bytes, aad, aad_len);
-        size_t aad_padding = (16 - (aad_len % 16)) % 16;
-        if (aad_padding > 0) {
-            uint8_t pad[16] = {0};
-            ghash_update(ghash_tag, h_bytes, pad, aad_padding);
+#if defined(KCTSB_HAS_PCLMUL) || defined(__PCLMUL__)
+    if (check_pclmul()) {
+        ghash_oneshot_gcm(ghash_tag, h_bytes, aad, aad_len, input, input_len);
+    } else
+#endif
+    {
+        // Software fallback with separate calls
+        if (aad && aad_len > 0) {
+            ghash_update(ghash_tag, h_bytes, aad, aad_len);
+            size_t aad_padding = (16 - (aad_len % 16)) % 16;
+            if (aad_padding > 0) {
+                uint8_t pad[16] = {0};
+                ghash_update(ghash_tag, h_bytes, pad, aad_padding);
+            }
         }
-    }
-    if (input_len > 0) {
-        ghash_update(ghash_tag, h_bytes, input, input_len);
-        size_t ct_padding = (16 - (input_len % 16)) % 16;
-        if (ct_padding > 0) {
-            uint8_t pad[16] = {0};
-            ghash_update(ghash_tag, h_bytes, pad, ct_padding);
+        if (input_len > 0) {
+            ghash_update(ghash_tag, h_bytes, input, input_len);
+            size_t ct_padding = (16 - (input_len % 16)) % 16;
+            if (ct_padding > 0) {
+                uint8_t pad[16] = {0};
+                ghash_update(ghash_tag, h_bytes, pad, ct_padding);
+            }
         }
+        // Add length block
+        alignas(16) uint8_t len_block[16] = {0};
+        uint64_t aad_bits = aad_len * 8, ct_bits = input_len * 8;
+        for (int i = 0; i < 8; i++) {
+            len_block[7 - i] = static_cast<uint8_t>(aad_bits >> (i * 8));
+            len_block[15 - i] = static_cast<uint8_t>(ct_bits >> (i * 8));
+        }
+        ghash_update(ghash_tag, h_bytes, len_block, 16);
     }
-
-    // Add length block
-    alignas(16) uint8_t len_block[16] = {0};
-    uint64_t aad_bits = aad_len * 8, ct_bits = input_len * 8;
-    for (int i = 0; i < 8; i++) {
-        len_block[7 - i] = static_cast<uint8_t>(aad_bits >> (i * 8));
-        len_block[15 - i] = static_cast<uint8_t>(ct_bits >> (i * 8));
-    }
-    ghash_update(ghash_tag, h_bytes, len_block, 16);
 
     // Compute expected tag
     __m128i j0 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(j0_bytes));
@@ -986,7 +1495,7 @@ static kctsb_error_t aes_gcm_decrypt_aesni(
         return KCTSB_ERROR_AUTH_FAILED;
     }
 
-    // Decryption with 8-block parallel CTR (same as encryption in CTR mode)
+    // Decryption with 8-block parallel CTR + prefetch optimization
     alignas(16) uint8_t counter_bytes[16];
     memcpy(counter_bytes, j0_bytes, 16);
     inc_counter(counter_bytes);
@@ -994,8 +1503,25 @@ static kctsb_error_t aes_gcm_decrypt_aesni(
 
     size_t offset = 0;
     
-    // Process 8 blocks at a time (128 bytes) for maximum parallelism
+    // Process 8 blocks at a time (128 bytes) with prefetching
     while (offset + 128 <= input_len) {
+        // Prefetch next 256 bytes for better memory bandwidth
+        if (offset + 256 <= input_len) {
+            _mm_prefetch(reinterpret_cast<const char*>(input + offset + 128), _MM_HINT_T0);
+            _mm_prefetch(reinterpret_cast<const char*>(input + offset + 192), _MM_HINT_T0);
+        }
+        
+        // Load 8 ciphertext blocks FIRST (before AES to hide latency)
+        __m128i ct0 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset));
+        __m128i ct1 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 16));
+        __m128i ct2 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 32));
+        __m128i ct3 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 48));
+        __m128i ct4 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 64));
+        __m128i ct5 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 80));
+        __m128i ct6 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 96));
+        __m128i ct7 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 112));
+        
+        // Generate and encrypt 8 counters (AES pipeline hides memory latency)
         __m128i c0, c1, c2, c3, c4, c5, c6, c7;
         gen_8_counters_fast(counter, c0, c1, c2, c3, c4, c5, c6, c7);
         counter = add_counter_be32(counter, 8);
@@ -1005,16 +1531,6 @@ static kctsb_error_t aes_gcm_decrypt_aesni(
         } else {
             aes128_encrypt_8blocks_ni(c0, c1, c2, c3, c4, c5, c6, c7, rk);
         }
-        
-        // Load 8 ciphertext blocks
-        __m128i ct0 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset));
-        __m128i ct1 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 16));
-        __m128i ct2 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 32));
-        __m128i ct3 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 48));
-        __m128i ct4 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 64));
-        __m128i ct5 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 80));
-        __m128i ct6 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 96));
-        __m128i ct7 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 112));
         
         // XOR with keystream to get plaintext
         __m128i p0 = _mm_xor_si128(ct0, c0);
@@ -1914,3 +2430,15 @@ ByteVec AES::generateIV(size_t len) {
 }
 
 } // namespace kctsb
+
+// ============================================================================
+// C ABI Export (Do not remove - required by mac.cpp GMAC acceleration)
+// ============================================================================
+extern "C" void kctsb_aes_gcm_ghash_update_internal(
+    uint8_t tag[16],
+    const uint8_t h[16],
+    const uint8_t* data,
+    size_t len
+) {
+    ghash_update(tag, h, data, len);
+}

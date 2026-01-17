@@ -13,6 +13,7 @@
  *   aes     - AES-256-GCM and AES-128-GCM
  *   chacha  - ChaCha20-Poly1305
  *   hash    - SHA3-256, BLAKE2b hash functions
+ *   mac     - HMAC/CMAC/GMAC
  *   ecc     - Elliptic curve (ECDSA, ECDH)
  *   rsa     - RSA-2048/4096 operations
  *   sm      - Chinese national crypto (SM2/SM3/SM4)
@@ -43,6 +44,7 @@ void benchmark_aes_gcm();
 void benchmark_aes_128_gcm();
 void benchmark_chacha20_poly1305();
 void benchmark_hash_functions();
+void benchmark_mac();
 void benchmark_ecc();
 void benchmark_rsa();
 void benchmark_sm();
@@ -147,6 +149,7 @@ void print_usage(const char* program_name) {
     std::cout << "  aes     - AES-256-GCM and AES-128-GCM\n";
     std::cout << "  chacha  - ChaCha20-Poly1305\n";
     std::cout << "  hash    - SHA3-256, BLAKE2b hash functions\n";
+    std::cout << "  mac     - HMAC/CMAC/GMAC\n";
     std::cout << "  ecc     - Elliptic curve (ECDSA, ECDH)\n";
     std::cout << "  rsa     - RSA-2048/4096 operations\n";
     std::cout << "  sm      - Chinese national crypto (SM2/SM3/SM4)\n";
@@ -196,7 +199,9 @@ int main(int argc, char* argv[]) {
     }
 
     // Valid algorithms
-    std::set<std::string> valid_algorithms = {"all", "aes", "chacha", "hash", "ecc", "rsa", "sm", "help", "-h", "--help"};
+    std::set<std::string> valid_algorithms = {
+        "all", "aes", "chacha", "hash", "mac", "ecc", "rsa", "sm", "help", "-h", "--help"
+    };
 
     if (valid_algorithms.find(algorithm) == valid_algorithms.end()) {
         std::cerr << "Error: Unknown algorithm '" << algorithm << "'\n";
@@ -243,6 +248,10 @@ int main(int argc, char* argv[]) {
 
     if (algorithm == "all" || algorithm == "hash") {
         benchmark_hash_functions();
+    }
+
+    if (algorithm == "all" || algorithm == "mac") {
+        benchmark_mac();
     }
 
     if (algorithm == "all" || algorithm == "ecc") {

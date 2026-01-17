@@ -23,6 +23,7 @@ add_executable(kctsb_benchmark
     benchmark_aes_gcm.cpp
     benchmark_chacha20.cpp
     benchmark_hash.cpp
+    benchmark_mac.cpp
     benchmark_ecc.cpp
     benchmark_rsa.cpp
     benchmark_sm.cpp

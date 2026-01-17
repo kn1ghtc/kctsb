@@ -77,7 +77,7 @@
 
 ## 🏗️ 项目结构
 
-```
+```shell
 kctsb/
 ├── CMakeLists.txt              # 主构建配置 (CMake 3.20+, Ninja推荐)
 ├── README.md                   # 项目文档
@@ -213,20 +213,19 @@ cmake -B build -G Ninja `
 
 # 构建
 cmake --build build-release --parallel
-或者
+#或者
 ninja.exe -C build-release -j8 2>&1
 
-或直接一句话：
-```shell
+#或直接一句话：
 $env:PATH="C:\msys64\mingw64\bin;$env:PATH"; cmake -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DKCTSB_BUILD_BENCHMARKS=ON
-$env:PATH="C:\msys64\mingw64\bin;$env:PATH"; cmake --build build-release --parallel; .\build-release\bin\kctsb_benchmark.exe hash
-
-
+$env:PATH="C:\msys64\mingw64\bin;$env:PATH"; cmake --build build-release --parallel; .\build-release\bin\kctsb_benchmark.exe aes
 ```
+
 # 运行测试
 ctest --test-dir build --output-on-failure
 
 # 使用CLI工具
+```shell
 .\build-release\bin\kctsb.exe version
 .\build-release\bin\kctsb.exe hash --sha3-256 "Hello, World!"
 ```
@@ -251,7 +250,7 @@ ctest --test-dir build --output-on-failure
 .\scripts\build.ps1 -All
 
 # 完整构建 + 所有测试 + OpenSSL对比基准测试
-.\scripts\build.ps1 -Full -UseVcpkg
+.\scripts\build.ps1 -Full 
 
 # 仅构建，不运行测试
 .\scripts\build.ps1 -Clean
@@ -433,8 +432,30 @@ kctsb v3.3.2 提供与 OpenSSL 的性能对比基准测试：
 # 运行性能测试
 ./scripts/build.sh --benchmark
 # 或直接运行
-./build/bin/kctsb_benchmark
+./build/bin/kctsb_benchmark xxx
 ```
+
+### MAC Benchmarks (HMAC/CMAC/GMAC)
+
+```bash
+# 运行 MAC 基准测试
+./build/bin/kctsb_benchmark mac
+```
+
+对比范围：HMAC-SHA256/512、CMAC-AES128、GMAC-AES128。
+
+**MAC 性能数据 (1KB data, v3.4.2 优化后)**:
+
+| Algorithm | kctsb (MB/s) | OpenSSL (MB/s) | vs OpenSSL |
+|-----------|--------------|----------------|------------|
+| HMAC-SHA256 | **1368** | 477 | **+187%** 🏆 |
+| HMAC-SHA512 | **490** | 307 | **+60%** 🏆 |
+| CMAC-AES128 | **1397** | 995 | **+40%** 🏆 |
+| GMAC-AES128 | **3658** | 1661 | **+120%** 🏆 |
+
+**优化亮点**: 
+- ✅ **1KB 小数据全面超越 OpenSSL** - 适合 TLS 握手、API 签名、JWT 验证等场景
+- ✅ **GMAC 8-block 并行 GHASH** - PCLMUL + Karatsuba 延迟归约，复用 aes.cpp 高速实现
 
 
 ## 📚 API 文档
