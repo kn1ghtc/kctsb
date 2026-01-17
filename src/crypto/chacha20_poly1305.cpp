@@ -67,6 +67,16 @@ static inline uint32_t load32_le(const uint8_t* p) {
 }
 
 /**
+ * @brief Load 64-bit little-endian value
+ */
+static inline uint64_t load64_le(const uint8_t* p) {
+    return static_cast<uint64_t>(p[0]) | (static_cast<uint64_t>(p[1]) << 8) |
+           (static_cast<uint64_t>(p[2]) << 16) | (static_cast<uint64_t>(p[3]) << 24) |
+           (static_cast<uint64_t>(p[4]) << 32) | (static_cast<uint64_t>(p[5]) << 40) |
+           (static_cast<uint64_t>(p[6]) << 48) | (static_cast<uint64_t>(p[7]) << 56);
+}
+
+/**
  * @brief Store 32-bit little-endian value
  */
 static inline void store32_le(uint8_t* p, uint32_t v) {
@@ -754,6 +764,420 @@ void kctsb_chacha20_clear(kctsb_chacha20_ctx_t* ctx) {
 // Poly1305 Implementation
 // ============================================================================
 
+// Mask constants for radix-2^26
+static constexpr uint32_t MASK26 = (1U << 26) - 1;
+
+#ifdef KCTSB_HAS_UINT128
+/**
+ * @brief Multiply two values in radix-2^44 representation
+ * 
+ * Computes out = a * b mod (2^130 - 5) in radix-2^44
+ * @param out Output (3 limbs)
+ * @param a First operand (3 limbs)
+ * @param b Second operand (3 limbs) 
+ */
+static void poly1305_mul_r44(uint64_t out[3], const uint64_t a[3], const uint64_t b[3]) {
+    const uint64_t MASK44 = (1ULL << 44) - 1;
+    const uint64_t MASK42 = (1ULL << 42) - 1;
+    
+    uint64_t a0 = a[0], a1 = a[1], a2 = a[2];
+    uint64_t b0 = b[0], b1 = b[1], b2 = b[2];
+    
+    // Pre-compute 5*b for reduction
+    // In radix-2^44: 2^130 ≡ 5 (mod 2^130-5), so overflow wraps with factor 5
+    uint64_t s1 = b1 * 5;
+    uint64_t s2 = b2 * 5;
+    
+    // Schoolbook multiplication with modular reduction
+    uint128_t d0 = static_cast<uint128_t>(a0) * b0 + 
+                   static_cast<uint128_t>(a1) * s2 + 
+                   static_cast<uint128_t>(a2) * s1;
+    uint128_t d1 = static_cast<uint128_t>(a0) * b1 + 
+                   static_cast<uint128_t>(a1) * b0 + 
+                   static_cast<uint128_t>(a2) * s2;
+    uint128_t d2 = static_cast<uint128_t>(a0) * b2 + 
+                   static_cast<uint128_t>(a1) * b1 + 
+                   static_cast<uint128_t>(a2) * b0;
+    
+    // Carry propagation
+    uint64_t c;
+    c = static_cast<uint64_t>(d0 >> 44);
+    out[0] = static_cast<uint64_t>(d0) & MASK44;
+    d1 += c;
+    c = static_cast<uint64_t>(d1 >> 44);
+    out[1] = static_cast<uint64_t>(d1) & MASK44;
+    d2 += c;
+    c = static_cast<uint64_t>(d2 >> 42);
+    out[2] = static_cast<uint64_t>(d2) & MASK42;
+    out[0] += c * 5;
+    c = out[0] >> 44;
+    out[0] &= MASK44;
+    out[1] += c;
+}
+/**
+ * @brief Process 4 blocks using parallel Horner method with delayed carry
+ * 
+ * Computes: h' = (h + m0)*r^4 + m1*r^3 + m2*r^2 + m3*r
+ * 
+ * Key optimization: All 5 multiplications are computed in parallel (no data dependency),
+ * then accumulated together with only ONE carry propagation at the end.
+ * This maximizes instruction-level parallelism (ILP).
+ * 
+ * @param ctx Poly1305 context with precomputed r^2, r^3, r^4
+ * @param blocks 64 bytes (4 consecutive 16-byte blocks)
+ */
+static void poly1305_4blocks_128(kctsb_poly1305_ctx_t* ctx, const uint8_t blocks[64]) {
+    const uint64_t MASK44 = (1ULL << 44) - 1;
+    const uint64_t MASK42 = (1ULL << 42) - 1;
+    
+    // Load r powers (precomputed in init)
+    // r^1
+    uint64_t r10 = ctx->r44[0], r11 = ctx->r44[1], r12 = ctx->r44[2];
+    uint64_t s11 = ctx->s44[1], s12 = ctx->s44[2];
+    // r^2
+    uint64_t r20 = ctx->r2_44[0], r21 = ctx->r2_44[1], r22 = ctx->r2_44[2];
+    uint64_t s21 = ctx->s2_44[1], s22 = ctx->s2_44[2];
+    // r^3
+    uint64_t r30 = ctx->r3_44[0], r31 = ctx->r3_44[1], r32 = ctx->r3_44[2];
+    uint64_t s31 = ctx->s3_44[1], s32 = ctx->s3_44[2];
+    // r^4
+    uint64_t r40 = ctx->r4_44[0], r41 = ctx->r4_44[1], r42 = ctx->r4_44[2];
+    uint64_t s41 = ctx->s4_44[1], s42 = ctx->s4_44[2];
+    
+    // Load accumulator h
+    uint64_t h0 = ctx->h44[0];
+    uint64_t h1 = ctx->h44[1];
+    uint64_t h2 = ctx->h44[2];
+    
+    // Load 4 message blocks and convert to radix-2^44
+    uint64_t m0_0, m0_1, m0_2;  // m[0]
+    uint64_t m1_0, m1_1, m1_2;  // m[1]
+    uint64_t m2_0, m2_1, m2_2;  // m[2]
+    uint64_t m3_0, m3_1, m3_2;  // m[3]
+    
+    #define LOAD_BLOCK_44(blk, m_0, m_1, m_2) do { \
+        uint64_t t0 = load64_le(&(blk)[0]); \
+        uint64_t t1 = load64_le(&(blk)[8]); \
+        m_0 = t0 & MASK44; \
+        m_1 = ((t0 >> 44) | (t1 << 20)) & MASK44; \
+        m_2 = ((t1 >> 24) & MASK42) + (1ULL << 40); \
+    } while(0)
+    
+    LOAD_BLOCK_44(&blocks[0], m0_0, m0_1, m0_2);
+    LOAD_BLOCK_44(&blocks[16], m1_0, m1_1, m1_2);
+    LOAD_BLOCK_44(&blocks[32], m2_0, m2_1, m2_2);
+    LOAD_BLOCK_44(&blocks[48], m3_0, m3_1, m3_2);
+    #undef LOAD_BLOCK_44
+    
+    // === Parallel computation: all 5 products computed independently ===
+    // Product 0: (h + m0) * r^4
+    uint64_t a0 = h0 + m0_0;
+    uint64_t a1 = h1 + m0_1;
+    uint64_t a2 = h2 + m0_2;
+    
+    uint128_t d0_0 = static_cast<uint128_t>(a0) * r40 + 
+                     static_cast<uint128_t>(a1) * s42 + 
+                     static_cast<uint128_t>(a2) * s41;
+    uint128_t d0_1 = static_cast<uint128_t>(a0) * r41 + 
+                     static_cast<uint128_t>(a1) * r40 + 
+                     static_cast<uint128_t>(a2) * s42;
+    uint128_t d0_2 = static_cast<uint128_t>(a0) * r42 + 
+                     static_cast<uint128_t>(a1) * r41 + 
+                     static_cast<uint128_t>(a2) * r40;
+    
+    // Product 1: m1 * r^3
+    uint128_t d1_0 = static_cast<uint128_t>(m1_0) * r30 + 
+                     static_cast<uint128_t>(m1_1) * s32 + 
+                     static_cast<uint128_t>(m1_2) * s31;
+    uint128_t d1_1 = static_cast<uint128_t>(m1_0) * r31 + 
+                     static_cast<uint128_t>(m1_1) * r30 + 
+                     static_cast<uint128_t>(m1_2) * s32;
+    uint128_t d1_2 = static_cast<uint128_t>(m1_0) * r32 + 
+                     static_cast<uint128_t>(m1_1) * r31 + 
+                     static_cast<uint128_t>(m1_2) * r30;
+    
+    // Product 2: m2 * r^2
+    uint128_t d2_0 = static_cast<uint128_t>(m2_0) * r20 + 
+                     static_cast<uint128_t>(m2_1) * s22 + 
+                     static_cast<uint128_t>(m2_2) * s21;
+    uint128_t d2_1 = static_cast<uint128_t>(m2_0) * r21 + 
+                     static_cast<uint128_t>(m2_1) * r20 + 
+                     static_cast<uint128_t>(m2_2) * s22;
+    uint128_t d2_2 = static_cast<uint128_t>(m2_0) * r22 + 
+                     static_cast<uint128_t>(m2_1) * r21 + 
+                     static_cast<uint128_t>(m2_2) * r20;
+    
+    // Product 3: m3 * r^1
+    uint128_t d3_0 = static_cast<uint128_t>(m3_0) * r10 + 
+                     static_cast<uint128_t>(m3_1) * s12 + 
+                     static_cast<uint128_t>(m3_2) * s11;
+    uint128_t d3_1 = static_cast<uint128_t>(m3_0) * r11 + 
+                     static_cast<uint128_t>(m3_1) * r10 + 
+                     static_cast<uint128_t>(m3_2) * s12;
+    uint128_t d3_2 = static_cast<uint128_t>(m3_0) * r12 + 
+                     static_cast<uint128_t>(m3_1) * r11 + 
+                     static_cast<uint128_t>(m3_2) * r10;
+    
+    // === Accumulate all products ===
+    uint128_t sum0 = d0_0 + d1_0 + d2_0 + d3_0;
+    uint128_t sum1 = d0_1 + d1_1 + d2_1 + d3_1;
+    uint128_t sum2 = d0_2 + d1_2 + d2_2 + d3_2;
+    
+    // === Single carry propagation ===
+    uint64_t c;
+    c = static_cast<uint64_t>(sum0 >> 44);
+    h0 = static_cast<uint64_t>(sum0) & MASK44;
+    sum1 += c;
+    c = static_cast<uint64_t>(sum1 >> 44);
+    h1 = static_cast<uint64_t>(sum1) & MASK44;
+    sum2 += c;
+    c = static_cast<uint64_t>(sum2 >> 42);
+    h2 = static_cast<uint64_t>(sum2) & MASK42;
+    h0 += c * 5;
+    c = h0 >> 44;
+    h0 &= MASK44;
+    h1 += c;
+    
+    // Store back
+    ctx->h44[0] = h0;
+    ctx->h44[1] = h1;
+    ctx->h44[2] = h2;
+}
+
+/**
+ * @brief Process 8 blocks using two rounds of parallel Horner method
+ * 
+ * Processes 8 consecutive 16-byte blocks by calling poly1305_4blocks_128 twice.
+ * This leverages the parallel Horner optimization for both sets of 4 blocks.
+ */
+static void poly1305_8blocks_128(kctsb_poly1305_ctx_t* ctx, const uint8_t blocks[128]) {
+    poly1305_4blocks_128(ctx, &blocks[0]);
+    poly1305_4blocks_128(ctx, &blocks[64]);
+}
+#endif // KCTSB_HAS_UINT128
+
+#ifdef KCTSB_HAS_AVX2
+/**
+ * @brief Multiply two values in radix-2^26 representation
+ * 
+ * Computes out = a * b mod (2^130 - 5) in radix-2^26
+ * @param out Output (5 limbs)
+ * @param a First operand (5 limbs)
+ * @param b Second operand (5 limbs) 
+ */
+static void poly1305_mul_r26(uint32_t out[5], const uint32_t a[5], const uint32_t b[5]) {
+    // Pre-compute 5*b for reduction
+    uint64_t b0 = b[0], b1 = b[1], b2 = b[2], b3 = b[3], b4 = b[4];
+    uint64_t s1 = b1 * 5, s2 = b2 * 5, s3 = b3 * 5, s4 = b4 * 5;
+    
+    uint64_t a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3], a4 = a[4];
+    
+    // Schoolbook multiplication with modular reduction
+    uint64_t d0 = a0*b0 + a1*s4 + a2*s3 + a3*s2 + a4*s1;
+    uint64_t d1 = a0*b1 + a1*b0 + a2*s4 + a3*s3 + a4*s2;
+    uint64_t d2 = a0*b2 + a1*b1 + a2*b0 + a3*s4 + a4*s3;
+    uint64_t d3 = a0*b3 + a1*b2 + a2*b1 + a3*b0 + a4*s4;
+    uint64_t d4 = a0*b4 + a1*b3 + a2*b2 + a3*b1 + a4*b0;
+    
+    // Carry propagation
+    uint64_t c;
+    c = d0 >> 26; d1 += c; d0 &= MASK26;
+    c = d1 >> 26; d2 += c; d1 &= MASK26;
+    c = d2 >> 26; d3 += c; d2 &= MASK26;
+    c = d3 >> 26; d4 += c; d3 &= MASK26;
+    c = d4 >> 26; d0 += c * 5; d4 &= MASK26;
+    c = d0 >> 26; d1 += c; d0 &= MASK26;
+    
+    out[0] = static_cast<uint32_t>(d0);
+    out[1] = static_cast<uint32_t>(d1);
+    out[2] = static_cast<uint32_t>(d2);
+    out[3] = static_cast<uint32_t>(d3);
+    out[4] = static_cast<uint32_t>(d4);
+}
+
+/**
+ * @brief AVX2 SIMD vectorized Poly1305 (true 4-lane parallel)
+ * 
+ * Uses AVX2 _mm256_mul_epu32 to process 4 blocks truly in parallel.
+ * Each lane handles one message block with its corresponding r power.
+ */
+static void poly1305_blocks_avx2_simd(kctsb_poly1305_ctx_t* ctx, const uint8_t blocks[64]) {
+    // Load precomputed r powers into vectors
+    // r_vec[i] = (r^4, r^3, r^2, r^1)[limb i] for each limb
+    __m256i r_vec[5], s_vec[5];
+    
+    // Pack r^4, r^3, r^2, r^1 into vectors (one per limb)
+    for (int limb = 0; limb < 5; limb++) {
+        r_vec[limb] = _mm256_setr_epi32(
+            static_cast<int32_t>(ctx->r4_26[limb]), static_cast<int32_t>(ctx->r3_26[limb]),
+            static_cast<int32_t>(ctx->r2_26[limb]), static_cast<int32_t>(ctx->r26[limb]),
+            0, 0, 0, 0  // Upper half unused in mul_epu32
+        );
+        // Pre-compute 5*r for modular reduction
+        s_vec[limb] = _mm256_setr_epi32(
+            static_cast<int32_t>(ctx->s4_26[limb]), static_cast<int32_t>(ctx->s3_26[limb]),
+            static_cast<int32_t>(ctx->s2_26[limb]), static_cast<int32_t>(ctx->s1_26[limb]),
+            0, 0, 0, 0
+        );
+    }
+    
+    // Load 4 message blocks and convert to radix-2^26
+    __m256i m_vec[5];
+    uint32_t m_arr[4][5];
+    
+    for (int i = 0; i < 4; i++) {
+        const uint8_t* blk = &blocks[i * 16];
+        uint32_t t0 = load32_le(&blk[0]);
+        uint32_t t1 = load32_le(&blk[4]);
+        uint32_t t2 = load32_le(&blk[8]);
+        uint32_t t3 = load32_le(&blk[12]);
+        
+        m_arr[i][0] = t0 & MASK26;
+        m_arr[i][1] = ((t0 >> 26) | (t1 << 6)) & MASK26;
+        m_arr[i][2] = ((t1 >> 20) | (t2 << 12)) & MASK26;
+        m_arr[i][3] = ((t2 >> 14) | (t3 << 18)) & MASK26;
+        m_arr[i][4] = (t3 >> 8) | (1U << 24);
+    }
+    
+    // Pack messages: m_vec[limb] = (m0[limb], m1[limb], m2[limb], m3[limb])
+    for (int limb = 0; limb < 5; limb++) {
+        m_vec[limb] = _mm256_setr_epi32(
+            static_cast<int32_t>(m_arr[0][limb]), static_cast<int32_t>(m_arr[1][limb]),
+            static_cast<int32_t>(m_arr[2][limb]), static_cast<int32_t>(m_arr[3][limb]),
+            0, 0, 0, 0
+        );
+    }
+    
+    // Parallel multiplication: d = m * r (4 lanes, each with its own r power)
+    // d0 = m0*r0 + m1*s4 + m2*s3 + m3*s2 + m4*s1
+    __m256i d0 = _mm256_add_epi64(
+        _mm256_add_epi64(
+            _mm256_mul_epu32(m_vec[0], r_vec[0]),
+            _mm256_mul_epu32(m_vec[1], s_vec[4])
+        ),
+        _mm256_add_epi64(
+            _mm256_add_epi64(
+                _mm256_mul_epu32(m_vec[2], s_vec[3]),
+                _mm256_mul_epu32(m_vec[3], s_vec[2])
+            ),
+            _mm256_mul_epu32(m_vec[4], s_vec[1])
+        )
+    );
+    
+    __m256i d1 = _mm256_add_epi64(
+        _mm256_add_epi64(
+            _mm256_mul_epu32(m_vec[0], r_vec[1]),
+            _mm256_mul_epu32(m_vec[1], r_vec[0])
+        ),
+        _mm256_add_epi64(
+            _mm256_add_epi64(
+                _mm256_mul_epu32(m_vec[2], s_vec[4]),
+                _mm256_mul_epu32(m_vec[3], s_vec[3])
+            ),
+            _mm256_mul_epu32(m_vec[4], s_vec[2])
+        )
+    );
+    
+    __m256i d2 = _mm256_add_epi64(
+        _mm256_add_epi64(
+            _mm256_mul_epu32(m_vec[0], r_vec[2]),
+            _mm256_mul_epu32(m_vec[1], r_vec[1])
+        ),
+        _mm256_add_epi64(
+            _mm256_add_epi64(
+                _mm256_mul_epu32(m_vec[2], r_vec[0]),
+                _mm256_mul_epu32(m_vec[3], s_vec[4])
+            ),
+            _mm256_mul_epu32(m_vec[4], s_vec[3])
+        )
+    );
+    
+    __m256i d3 = _mm256_add_epi64(
+        _mm256_add_epi64(
+            _mm256_mul_epu32(m_vec[0], r_vec[3]),
+            _mm256_mul_epu32(m_vec[1], r_vec[2])
+        ),
+        _mm256_add_epi64(
+            _mm256_add_epi64(
+                _mm256_mul_epu32(m_vec[2], r_vec[1]),
+                _mm256_mul_epu32(m_vec[3], r_vec[0])
+            ),
+            _mm256_mul_epu32(m_vec[4], s_vec[4])
+        )
+    );
+    
+    __m256i d4 = _mm256_add_epi64(
+        _mm256_add_epi64(
+            _mm256_mul_epu32(m_vec[0], r_vec[4]),
+            _mm256_mul_epu32(m_vec[1], r_vec[3])
+        ),
+        _mm256_add_epi64(
+            _mm256_add_epi64(
+                _mm256_mul_epu32(m_vec[2], r_vec[2]),
+                _mm256_mul_epu32(m_vec[3], r_vec[1])
+            ),
+            _mm256_mul_epu32(m_vec[4], r_vec[0])
+        )
+    );
+    
+    // Extract and sum horizontally (reduce 4 lanes to single result)
+    // Then add to accumulator and apply carry propagation
+    
+    // Sum all 4 lanes for each limb
+    auto hsum = [](const __m256i& v) -> uint64_t {
+        alignas(32) uint64_t arr[4];
+        _mm256_store_si256(reinterpret_cast<__m256i*>(arr), v);
+        return arr[0] + arr[1] + arr[2] + arr[3];
+    };
+    
+    uint64_t sum0 = hsum(d0);
+    uint64_t sum1 = hsum(d1);
+    uint64_t sum2 = hsum(d2);
+    uint64_t sum3 = hsum(d3);
+    uint64_t sum4 = hsum(d4);
+    
+    // Add previous accumulator * r^4
+    uint64_t h44_0 = ctx->h44[0];
+    uint64_t h44_1 = ctx->h44[1];
+    uint64_t h44_2 = ctx->h44[2];
+    
+    uint32_t h_prev[5];
+    h_prev[0] = static_cast<uint32_t>(h44_0) & MASK26;
+    h_prev[1] = static_cast<uint32_t>((h44_0 >> 26) | (h44_1 << 18)) & MASK26;
+    h_prev[2] = static_cast<uint32_t>(h44_1 >> 8) & MASK26;
+    h_prev[3] = static_cast<uint32_t>((h44_1 >> 34) | (h44_2 << 10)) & MASK26;
+    h_prev[4] = static_cast<uint32_t>(h44_2 >> 16);
+    
+    // h_prev * r^4
+    uint32_t h_r4[5];
+    poly1305_mul_r26(h_r4, h_prev, ctx->r4_26);
+    
+    // Add everything together
+    sum0 += h_r4[0];
+    sum1 += h_r4[1];
+    sum2 += h_r4[2];
+    sum3 += h_r4[3];
+    sum4 += h_r4[4];
+    
+    // Carry propagation
+    uint64_t c;
+    c = sum0 >> 26; sum1 += c; sum0 &= MASK26;
+    c = sum1 >> 26; sum2 += c; sum1 &= MASK26;
+    c = sum2 >> 26; sum3 += c; sum2 &= MASK26;
+    c = sum3 >> 26; sum4 += c; sum3 &= MASK26;
+    c = sum4 >> 26; sum0 += c * 5; sum4 &= MASK26;
+    c = sum0 >> 26; sum1 += c; sum0 &= MASK26;
+    
+    // Convert back to radix-2^44 and store
+    const uint64_t MASK44 = (1ULL << 44) - 1;
+    const uint64_t MASK42 = (1ULL << 42) - 1;
+    
+    ctx->h44[0] = (sum0 | (sum1 << 26)) & MASK44;
+    ctx->h44[1] = ((sum1 >> 18) | (sum2 << 8) | (sum3 << 34)) & MASK44;
+    ctx->h44[2] = ((sum3 >> 10) | (sum4 << 16)) & MASK42;
+}
+#endif // KCTSB_HAS_AVX2
+
 #ifdef KCTSB_HAS_UINT128
 /**
  * @brief Optimized Poly1305 block using 128-bit arithmetic
@@ -764,10 +1188,8 @@ void kctsb_chacha20_clear(kctsb_chacha20_ctx_t* ctx) {
  */
 static void poly1305_block_opt(kctsb_poly1305_ctx_t* ctx, const uint8_t block[16], int is_final_block) {
     // Load block as 64-bit little-endian
-    uint64_t t0 = static_cast<uint64_t>(load32_le(&block[0])) | 
-                  (static_cast<uint64_t>(load32_le(&block[4])) << 32);
-    uint64_t t1 = static_cast<uint64_t>(load32_le(&block[8])) | 
-                  (static_cast<uint64_t>(load32_le(&block[12])) << 32);
+    uint64_t t0 = load64_le(&block[0]);
+    uint64_t t1 = load64_le(&block[8]);
 
     // Mask for 44 bits and 42 bits
     const uint64_t MASK44 = (1ULL << 44) - 1;
@@ -925,10 +1347,55 @@ kctsb_error_t kctsb_poly1305_init(kctsb_poly1305_ctx_t* ctx, const uint8_t key[3
     ctx->r44[2] = ((static_cast<uint64_t>(ctx->r[3]) >> 10) | 
                    (static_cast<uint64_t>(ctx->r[4]) << 16)) & MASK42;
     
-    // Pre-compute 5*r for reduction
+    // Pre-compute 5*r for reduction (radix-2^44)
     ctx->s44[0] = 0;  // Not used in multiplication
     ctx->s44[1] = ctx->r44[1] * 5;
     ctx->s44[2] = ctx->r44[2] * 5;
+
+#ifdef KCTSB_HAS_UINT128
+    // === Pre-compute r powers for 128-bit parallel Horner method ===
+    // r^2 = r * r
+    poly1305_mul_r44(ctx->r2_44, ctx->r44, ctx->r44);
+    // r^3 = r^2 * r
+    poly1305_mul_r44(ctx->r3_44, ctx->r2_44, ctx->r44);
+    // r^4 = r^2 * r^2
+    poly1305_mul_r44(ctx->r4_44, ctx->r2_44, ctx->r2_44);
+    
+    // Pre-compute s values (5*r^k) for parallel Horner reduction
+    for (int i = 0; i < 3; i++) {
+        ctx->s2_44[i] = ctx->r2_44[i] * 5;
+        ctx->s3_44[i] = ctx->r3_44[i] * 5;
+        ctx->s4_44[i] = ctx->r4_44[i] * 5;
+    }
+#endif
+
+#ifdef KCTSB_HAS_AVX2
+    // === Pre-compute r powers for AVX2 vectorized processing ===
+    // Store r^1 in radix-2^26 format
+    for (int i = 0; i < 5; i++) {
+        ctx->r26[i] = ctx->r[i];
+    }
+    
+    // Compute r^2 = r * r
+    poly1305_mul_r26(ctx->r2_26, ctx->r26, ctx->r26);
+    
+    // Compute r^3 = r^2 * r
+    poly1305_mul_r26(ctx->r3_26, ctx->r2_26, ctx->r26);
+    
+    // Compute r^4 = r^2 * r^2
+    poly1305_mul_r26(ctx->r4_26, ctx->r2_26, ctx->r2_26);
+    
+    // Pre-compute 5*r values for modular reduction
+    // s[i] = 5 * r[i] (for i >= 1, used in reduction)
+    for (int i = 0; i < 5; i++) {
+        ctx->s1_26[i] = ctx->r26[i] * 5;
+        ctx->s2_26[i] = ctx->r2_26[i] * 5;
+        ctx->s3_26[i] = ctx->r3_26[i] * 5;
+        ctx->s4_26[i] = ctx->r4_26[i] * 5;
+    }
+    
+    ctx->use_avx2 = 1;  // Enable AVX2 path for Poly1305
+#endif
 
     // Load s (last 16 bytes) - used for final addition
     ctx->s[0] = load32_le(&key[16]);
@@ -972,30 +1439,62 @@ kctsb_error_t kctsb_poly1305_update(kctsb_poly1305_ctx_t* ctx,
         }
     }
 
-    // Process full blocks - unroll loop for better performance
-    // 8 blocks at a time for better cache utilization
+#ifdef KCTSB_HAS_UINT128
+    // === 128-bit Batch Processing: Process 8 blocks (128 bytes) at a time ===
+    // Uses radix-2^44 format throughout, avoiding format conversion overhead
     while (offset + 128 <= len) {
-        poly1305_block(ctx, &data[offset], 0);
-        poly1305_block(ctx, &data[offset + 16], 0);
-        poly1305_block(ctx, &data[offset + 32], 0);
-        poly1305_block(ctx, &data[offset + 48], 0);
-        poly1305_block(ctx, &data[offset + 64], 0);
-        poly1305_block(ctx, &data[offset + 80], 0);
-        poly1305_block(ctx, &data[offset + 96], 0);
-        poly1305_block(ctx, &data[offset + 112], 0);
+        poly1305_8blocks_128(ctx, &data[offset]);
         offset += 128;
     }
     
-    // Remaining 4 blocks
+    // Process remaining 4 blocks (64 bytes)
     while (offset + 64 <= len) {
-        poly1305_block(ctx, &data[offset], 0);
-        poly1305_block(ctx, &data[offset + 16], 0);
-        poly1305_block(ctx, &data[offset + 32], 0);
-        poly1305_block(ctx, &data[offset + 48], 0);
+        poly1305_4blocks_128(ctx, &data[offset]);
         offset += 64;
     }
+#elif defined(KCTSB_HAS_AVX2)
+    // === AVX2 Vectorized Path: Process 4 blocks (64 bytes) in parallel ===
+    // Uses batched Horner method with precomputed r^2, r^3, r^4
+    if (ctx->use_avx2) {
+        // Process 8 blocks (128 bytes) using two rounds of 4-block vectorized processing
+        while (offset + 128 <= len) {
+            poly1305_blocks_avx2_simd(ctx, &data[offset]);
+            poly1305_blocks_avx2_simd(ctx, &data[offset + 64]);
+            offset += 128;
+        }
+        
+        // Process remaining 4 blocks (64 bytes)
+        while (offset + 64 <= len) {
+            poly1305_blocks_avx2_simd(ctx, &data[offset]);
+            offset += 64;
+        }
+    } else
+#endif
+    {
+        // Scalar fallback: Process 8 blocks for cache efficiency
+        while (offset + 128 <= len) {
+            poly1305_block(ctx, &data[offset], 0);
+            poly1305_block(ctx, &data[offset + 16], 0);
+            poly1305_block(ctx, &data[offset + 32], 0);
+            poly1305_block(ctx, &data[offset + 48], 0);
+            poly1305_block(ctx, &data[offset + 64], 0);
+            poly1305_block(ctx, &data[offset + 80], 0);
+            poly1305_block(ctx, &data[offset + 96], 0);
+            poly1305_block(ctx, &data[offset + 112], 0);
+            offset += 128;
+        }
+        
+        // Remaining 4 blocks
+        while (offset + 64 <= len) {
+            poly1305_block(ctx, &data[offset], 0);
+            poly1305_block(ctx, &data[offset + 16], 0);
+            poly1305_block(ctx, &data[offset + 32], 0);
+            poly1305_block(ctx, &data[offset + 48], 0);
+            offset += 64;
+        }
+    }
 
-    // Process remaining full blocks
+    // Process remaining full blocks (1-3 blocks, use scalar)
     while (offset + 16 <= len) {
         poly1305_block(ctx, &data[offset], 0);
         offset += 16;
@@ -1195,6 +1694,8 @@ kctsb_error_t kctsb_chacha20_poly1305_encrypt(const uint8_t key[32],
 
     // Encrypt plaintext and update Poly1305 with ciphertext
     if (plaintext_len > 0) {
+        // Use standard sequential processing for correctness
+        // The internal functions are already optimized with batch processing
         kctsb_chacha20_crypt(&chacha_ctx, plaintext, plaintext_len, ciphertext);
         kctsb_poly1305_update(&poly_ctx, ciphertext, plaintext_len);
         pad_to_16(&poly_ctx, plaintext_len);

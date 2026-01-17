@@ -106,17 +106,49 @@ KCTSB_API void kctsb_chacha20_clear(kctsb_chacha20_ctx_t* ctx);
 
 /**
  * @brief Poly1305 context
+ * 
+ * Supports both scalar and AVX2 vectorized processing:
+ * - Scalar: radix-2^44 with 128-bit multiplication
+ * - AVX2: radix-2^26 with 4-lane parallel Horner method
+ * 
+ * Vectorized mode precomputes r^2, r^3, r^4 for processing 4 blocks in parallel.
  */
 typedef struct {
-    uint32_t r[5];        // Clamped key r (radix-2^26, for fallback)
-    uint32_t s[4];        // Key s
-    uint32_t h[5];        // Accumulator (radix-2^26, for fallback)
-    uint64_t r44[3];      // Pre-computed r (radix-2^44) for optimized block processing
+    // Scalar fallback (radix-2^26)
+    uint32_t r[5];        // Clamped key r (radix-2^26)
+    uint32_t s[4];        // Key s (for final addition)
+    uint32_t h[5];        // Accumulator (radix-2^26)
+    
+    // Optimized scalar (radix-2^44)
+    uint64_t r44[3];      // Pre-computed r (radix-2^44)
     uint64_t s44[3];      // Pre-computed 5*r (radix-2^44) for reduction
-    uint64_t h44[3];      // Accumulator (radix-2^44) for optimized processing
+    uint64_t h44[3];      // Accumulator (radix-2^44)
+    
+    // Parallel Horner r powers (radix-2^44, for 128-bit batch processing)
+    uint64_t r2_44[3];    // r^2 in radix-2^44
+    uint64_t r3_44[3];    // r^3 in radix-2^44
+    uint64_t r4_44[3];    // r^4 in radix-2^44
+    // Pre-computed 5*r^k values for parallel Horner reduction
+    uint64_t s2_44[3];    // 5 * r^2 (radix-2^44)
+    uint64_t s3_44[3];    // 5 * r^3 (radix-2^44)
+    uint64_t s4_44[3];    // 5 * r^4 (radix-2^44)
+    
+    // AVX2 vectorized (radix-2^26, 4-lane parallel Horner)
+    // Powers of r: r^1, r^2, r^3, r^4 (each has 5 limbs)
+    uint32_t r26[5];      // r^1 in radix-2^26
+    uint32_t r2_26[5];    // r^2 in radix-2^26
+    uint32_t r3_26[5];    // r^3 in radix-2^26
+    uint32_t r4_26[5];    // r^4 in radix-2^26
+    // Pre-computed 5*r values for modular reduction
+    uint32_t s1_26[5];    // 5 * r^1[1..4] (s1_26[0] unused)
+    uint32_t s2_26[5];    // 5 * r^2[1..4]
+    uint32_t s3_26[5];    // 5 * r^3[1..4]
+    uint32_t s4_26[5];    // 5 * r^4[1..4]
+    
     uint8_t buffer[16];   // Partial block buffer
     size_t buffer_len;    // Bytes in buffer
     int finalized;        // Whether finalized
+    int use_avx2;         // Whether AVX2 path is active
 } kctsb_poly1305_ctx_t;
 
 /**
