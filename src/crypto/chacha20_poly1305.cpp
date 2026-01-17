@@ -334,6 +334,287 @@ static void chacha20_4block_xor_avx2(const uint32_t state[16],
     _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 224), _mm_xor_si128(in2, blk3_c));
     _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 240), _mm_xor_si128(in3, blk3_d));
 }
+
+/**
+ * @brief Generate 8 ChaCha20 blocks in parallel using AVX2 and XOR with input
+ *
+ * Uses two interleaved sets of AVX2 registers to process 8 blocks (512 bytes)
+ * simultaneously for maximum throughput on large data.
+ *
+ * @param state Base state (counter at position 12)
+ * @param input Input buffer (512 bytes)
+ * @param output Output buffer (512 bytes)
+ */
+static void chacha20_8block_xor_avx2(const uint32_t state[16], 
+                                      const uint8_t input[512], 
+                                      uint8_t output[512]) {
+    // Process blocks 0-3 and 4-7 in parallel using instruction-level parallelism
+    
+    // === Set A: Blocks 0-3 ===
+    __m256i a_row0 = _mm256_set1_epi32(static_cast<int32_t>(state[0]));
+    __m256i a_row1 = _mm256_set1_epi32(static_cast<int32_t>(state[1]));
+    __m256i a_row2 = _mm256_set1_epi32(static_cast<int32_t>(state[2]));
+    __m256i a_row3 = _mm256_set1_epi32(static_cast<int32_t>(state[3]));
+    __m256i a_row4 = _mm256_set1_epi32(static_cast<int32_t>(state[4]));
+    __m256i a_row5 = _mm256_set1_epi32(static_cast<int32_t>(state[5]));
+    __m256i a_row6 = _mm256_set1_epi32(static_cast<int32_t>(state[6]));
+    __m256i a_row7 = _mm256_set1_epi32(static_cast<int32_t>(state[7]));
+    __m256i a_row8 = _mm256_set1_epi32(static_cast<int32_t>(state[8]));
+    __m256i a_row9 = _mm256_set1_epi32(static_cast<int32_t>(state[9]));
+    __m256i a_row10 = _mm256_set1_epi32(static_cast<int32_t>(state[10]));
+    __m256i a_row11 = _mm256_set1_epi32(static_cast<int32_t>(state[11]));
+    __m256i a_row12 = _mm256_add_epi32(
+        _mm256_set1_epi32(static_cast<int32_t>(state[12])),
+        _mm256_setr_epi32(0, 1, 2, 3, 0, 1, 2, 3)
+    );
+    __m256i a_row13 = _mm256_set1_epi32(static_cast<int32_t>(state[13]));
+    __m256i a_row14 = _mm256_set1_epi32(static_cast<int32_t>(state[14]));
+    __m256i a_row15 = _mm256_set1_epi32(static_cast<int32_t>(state[15]));
+    
+    // === Set B: Blocks 4-7 ===
+    __m256i b_row0 = a_row0, b_row1 = a_row1, b_row2 = a_row2, b_row3 = a_row3;
+    __m256i b_row4 = a_row4, b_row5 = a_row5, b_row6 = a_row6, b_row7 = a_row7;
+    __m256i b_row8 = a_row8, b_row9 = a_row9, b_row10 = a_row10, b_row11 = a_row11;
+    __m256i b_row12 = _mm256_add_epi32(
+        _mm256_set1_epi32(static_cast<int32_t>(state[12])),
+        _mm256_setr_epi32(4, 5, 6, 7, 4, 5, 6, 7)
+    );
+    __m256i b_row13 = a_row13, b_row14 = a_row14, b_row15 = a_row15;
+
+    // Save originals
+    __m256i a_orig0 = a_row0, a_orig1 = a_row1, a_orig2 = a_row2, a_orig3 = a_row3;
+    __m256i a_orig4 = a_row4, a_orig5 = a_row5, a_orig6 = a_row6, a_orig7 = a_row7;
+    __m256i a_orig8 = a_row8, a_orig9 = a_row9, a_orig10 = a_row10, a_orig11 = a_row11;
+    __m256i a_orig12 = a_row12, a_orig13 = a_row13, a_orig14 = a_row14, a_orig15 = a_row15;
+    
+    __m256i b_orig0 = b_row0, b_orig1 = b_row1, b_orig2 = b_row2, b_orig3 = b_row3;
+    __m256i b_orig4 = b_row4, b_orig5 = b_row5, b_orig6 = b_row6, b_orig7 = b_row7;
+    __m256i b_orig8 = b_row8, b_orig9 = b_row9, b_orig10 = b_row10, b_orig11 = b_row11;
+    __m256i b_orig12 = b_row12, b_orig13 = b_row13, b_orig14 = b_row14, b_orig15 = b_row15;
+
+    // 20 rounds - interleave A and B operations for better ILP
+    for (int i = 0; i < 10; i++) {
+        // Column rounds - Set A
+        CHACHA_QR_AVX2(a_row0, a_row4, a_row8, a_row12);
+        CHACHA_QR_AVX2(a_row1, a_row5, a_row9, a_row13);
+        // Column rounds - Set B (interleaved)
+        CHACHA_QR_AVX2(b_row0, b_row4, b_row8, b_row12);
+        CHACHA_QR_AVX2(b_row1, b_row5, b_row9, b_row13);
+        
+        CHACHA_QR_AVX2(a_row2, a_row6, a_row10, a_row14);
+        CHACHA_QR_AVX2(a_row3, a_row7, a_row11, a_row15);
+        CHACHA_QR_AVX2(b_row2, b_row6, b_row10, b_row14);
+        CHACHA_QR_AVX2(b_row3, b_row7, b_row11, b_row15);
+        
+        // Diagonal rounds - Set A
+        CHACHA_QR_AVX2(a_row0, a_row5, a_row10, a_row15);
+        CHACHA_QR_AVX2(a_row1, a_row6, a_row11, a_row12);
+        // Diagonal rounds - Set B (interleaved)
+        CHACHA_QR_AVX2(b_row0, b_row5, b_row10, b_row15);
+        CHACHA_QR_AVX2(b_row1, b_row6, b_row11, b_row12);
+        
+        CHACHA_QR_AVX2(a_row2, a_row7, a_row8, a_row13);
+        CHACHA_QR_AVX2(a_row3, a_row4, a_row9, a_row14);
+        CHACHA_QR_AVX2(b_row2, b_row7, b_row8, b_row13);
+        CHACHA_QR_AVX2(b_row3, b_row4, b_row9, b_row14);
+    }
+
+    // Add original state - Set A
+    a_row0 = _mm256_add_epi32(a_row0, a_orig0);
+    a_row1 = _mm256_add_epi32(a_row1, a_orig1);
+    a_row2 = _mm256_add_epi32(a_row2, a_orig2);
+    a_row3 = _mm256_add_epi32(a_row3, a_orig3);
+    a_row4 = _mm256_add_epi32(a_row4, a_orig4);
+    a_row5 = _mm256_add_epi32(a_row5, a_orig5);
+    a_row6 = _mm256_add_epi32(a_row6, a_orig6);
+    a_row7 = _mm256_add_epi32(a_row7, a_orig7);
+    a_row8 = _mm256_add_epi32(a_row8, a_orig8);
+    a_row9 = _mm256_add_epi32(a_row9, a_orig9);
+    a_row10 = _mm256_add_epi32(a_row10, a_orig10);
+    a_row11 = _mm256_add_epi32(a_row11, a_orig11);
+    a_row12 = _mm256_add_epi32(a_row12, a_orig12);
+    a_row13 = _mm256_add_epi32(a_row13, a_orig13);
+    a_row14 = _mm256_add_epi32(a_row14, a_orig14);
+    a_row15 = _mm256_add_epi32(a_row15, a_orig15);
+    
+    // Add original state - Set B
+    b_row0 = _mm256_add_epi32(b_row0, b_orig0);
+    b_row1 = _mm256_add_epi32(b_row1, b_orig1);
+    b_row2 = _mm256_add_epi32(b_row2, b_orig2);
+    b_row3 = _mm256_add_epi32(b_row3, b_orig3);
+    b_row4 = _mm256_add_epi32(b_row4, b_orig4);
+    b_row5 = _mm256_add_epi32(b_row5, b_orig5);
+    b_row6 = _mm256_add_epi32(b_row6, b_orig6);
+    b_row7 = _mm256_add_epi32(b_row7, b_orig7);
+    b_row8 = _mm256_add_epi32(b_row8, b_orig8);
+    b_row9 = _mm256_add_epi32(b_row9, b_orig9);
+    b_row10 = _mm256_add_epi32(b_row10, b_orig10);
+    b_row11 = _mm256_add_epi32(b_row11, b_orig11);
+    b_row12 = _mm256_add_epi32(b_row12, b_orig12);
+    b_row13 = _mm256_add_epi32(b_row13, b_orig13);
+    b_row14 = _mm256_add_epi32(b_row14, b_orig14);
+    b_row15 = _mm256_add_epi32(b_row15, b_orig15);
+
+    // === Transpose and XOR Set A (blocks 0-3) ===
+    __m256i t0, t1, t2, t3;
+    
+    t0 = _mm256_unpacklo_epi32(a_row0, a_row1);
+    t1 = _mm256_unpackhi_epi32(a_row0, a_row1);
+    t2 = _mm256_unpacklo_epi32(a_row2, a_row3);
+    t3 = _mm256_unpackhi_epi32(a_row2, a_row3);
+    __m256i a_b0_03 = _mm256_unpacklo_epi64(t0, t2);
+    __m256i a_b1_03 = _mm256_unpackhi_epi64(t0, t2);
+    __m256i a_b2_03 = _mm256_unpacklo_epi64(t1, t3);
+    __m256i a_b3_03 = _mm256_unpackhi_epi64(t1, t3);
+    
+    t0 = _mm256_unpacklo_epi32(a_row4, a_row5);
+    t1 = _mm256_unpackhi_epi32(a_row4, a_row5);
+    t2 = _mm256_unpacklo_epi32(a_row6, a_row7);
+    t3 = _mm256_unpackhi_epi32(a_row6, a_row7);
+    __m256i a_b0_47 = _mm256_unpacklo_epi64(t0, t2);
+    __m256i a_b1_47 = _mm256_unpackhi_epi64(t0, t2);
+    __m256i a_b2_47 = _mm256_unpacklo_epi64(t1, t3);
+    __m256i a_b3_47 = _mm256_unpackhi_epi64(t1, t3);
+    
+    t0 = _mm256_unpacklo_epi32(a_row8, a_row9);
+    t1 = _mm256_unpackhi_epi32(a_row8, a_row9);
+    t2 = _mm256_unpacklo_epi32(a_row10, a_row11);
+    t3 = _mm256_unpackhi_epi32(a_row10, a_row11);
+    __m256i a_b0_811 = _mm256_unpacklo_epi64(t0, t2);
+    __m256i a_b1_811 = _mm256_unpackhi_epi64(t0, t2);
+    __m256i a_b2_811 = _mm256_unpacklo_epi64(t1, t3);
+    __m256i a_b3_811 = _mm256_unpackhi_epi64(t1, t3);
+    
+    t0 = _mm256_unpacklo_epi32(a_row12, a_row13);
+    t1 = _mm256_unpackhi_epi32(a_row12, a_row13);
+    t2 = _mm256_unpacklo_epi32(a_row14, a_row15);
+    t3 = _mm256_unpackhi_epi32(a_row14, a_row15);
+    __m256i a_b0_1215 = _mm256_unpacklo_epi64(t0, t2);
+    __m256i a_b1_1215 = _mm256_unpackhi_epi64(t0, t2);
+    __m256i a_b2_1215 = _mm256_unpacklo_epi64(t1, t3);
+    __m256i a_b3_1215 = _mm256_unpackhi_epi64(t1, t3);
+
+    // XOR blocks 0-3
+    __m128i in0, in1, in2, in3;
+    
+    // Block 0
+    in0 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 0));
+    in1 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 16));
+    in2 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 32));
+    in3 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 48));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 0), _mm_xor_si128(in0, _mm256_castsi256_si128(a_b0_03)));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 16), _mm_xor_si128(in1, _mm256_castsi256_si128(a_b0_47)));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 32), _mm_xor_si128(in2, _mm256_castsi256_si128(a_b0_811)));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 48), _mm_xor_si128(in3, _mm256_castsi256_si128(a_b0_1215)));
+    
+    // Block 1
+    in0 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 64));
+    in1 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 80));
+    in2 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 96));
+    in3 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 112));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 64), _mm_xor_si128(in0, _mm256_castsi256_si128(a_b1_03)));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 80), _mm_xor_si128(in1, _mm256_castsi256_si128(a_b1_47)));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 96), _mm_xor_si128(in2, _mm256_castsi256_si128(a_b1_811)));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 112), _mm_xor_si128(in3, _mm256_castsi256_si128(a_b1_1215)));
+    
+    // Block 2
+    in0 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 128));
+    in1 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 144));
+    in2 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 160));
+    in3 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 176));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 128), _mm_xor_si128(in0, _mm256_castsi256_si128(a_b2_03)));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 144), _mm_xor_si128(in1, _mm256_castsi256_si128(a_b2_47)));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 160), _mm_xor_si128(in2, _mm256_castsi256_si128(a_b2_811)));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 176), _mm_xor_si128(in3, _mm256_castsi256_si128(a_b2_1215)));
+    
+    // Block 3
+    in0 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 192));
+    in1 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 208));
+    in2 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 224));
+    in3 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 240));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 192), _mm_xor_si128(in0, _mm256_castsi256_si128(a_b3_03)));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 208), _mm_xor_si128(in1, _mm256_castsi256_si128(a_b3_47)));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 224), _mm_xor_si128(in2, _mm256_castsi256_si128(a_b3_811)));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 240), _mm_xor_si128(in3, _mm256_castsi256_si128(a_b3_1215)));
+
+    // === Transpose and XOR Set B (blocks 4-7) ===
+    t0 = _mm256_unpacklo_epi32(b_row0, b_row1);
+    t1 = _mm256_unpackhi_epi32(b_row0, b_row1);
+    t2 = _mm256_unpacklo_epi32(b_row2, b_row3);
+    t3 = _mm256_unpackhi_epi32(b_row2, b_row3);
+    __m256i b_b0_03 = _mm256_unpacklo_epi64(t0, t2);
+    __m256i b_b1_03 = _mm256_unpackhi_epi64(t0, t2);
+    __m256i b_b2_03 = _mm256_unpacklo_epi64(t1, t3);
+    __m256i b_b3_03 = _mm256_unpackhi_epi64(t1, t3);
+    
+    t0 = _mm256_unpacklo_epi32(b_row4, b_row5);
+    t1 = _mm256_unpackhi_epi32(b_row4, b_row5);
+    t2 = _mm256_unpacklo_epi32(b_row6, b_row7);
+    t3 = _mm256_unpackhi_epi32(b_row6, b_row7);
+    __m256i b_b0_47 = _mm256_unpacklo_epi64(t0, t2);
+    __m256i b_b1_47 = _mm256_unpackhi_epi64(t0, t2);
+    __m256i b_b2_47 = _mm256_unpacklo_epi64(t1, t3);
+    __m256i b_b3_47 = _mm256_unpackhi_epi64(t1, t3);
+    
+    t0 = _mm256_unpacklo_epi32(b_row8, b_row9);
+    t1 = _mm256_unpackhi_epi32(b_row8, b_row9);
+    t2 = _mm256_unpacklo_epi32(b_row10, b_row11);
+    t3 = _mm256_unpackhi_epi32(b_row10, b_row11);
+    __m256i b_b0_811 = _mm256_unpacklo_epi64(t0, t2);
+    __m256i b_b1_811 = _mm256_unpackhi_epi64(t0, t2);
+    __m256i b_b2_811 = _mm256_unpacklo_epi64(t1, t3);
+    __m256i b_b3_811 = _mm256_unpackhi_epi64(t1, t3);
+    
+    t0 = _mm256_unpacklo_epi32(b_row12, b_row13);
+    t1 = _mm256_unpackhi_epi32(b_row12, b_row13);
+    t2 = _mm256_unpacklo_epi32(b_row14, b_row15);
+    t3 = _mm256_unpackhi_epi32(b_row14, b_row15);
+    __m256i b_b0_1215 = _mm256_unpacklo_epi64(t0, t2);
+    __m256i b_b1_1215 = _mm256_unpackhi_epi64(t0, t2);
+    __m256i b_b2_1215 = _mm256_unpacklo_epi64(t1, t3);
+    __m256i b_b3_1215 = _mm256_unpackhi_epi64(t1, t3);
+
+    // XOR blocks 4-7
+    // Block 4
+    in0 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 256));
+    in1 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 272));
+    in2 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 288));
+    in3 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 304));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 256), _mm_xor_si128(in0, _mm256_castsi256_si128(b_b0_03)));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 272), _mm_xor_si128(in1, _mm256_castsi256_si128(b_b0_47)));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 288), _mm_xor_si128(in2, _mm256_castsi256_si128(b_b0_811)));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 304), _mm_xor_si128(in3, _mm256_castsi256_si128(b_b0_1215)));
+    
+    // Block 5
+    in0 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 320));
+    in1 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 336));
+    in2 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 352));
+    in3 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 368));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 320), _mm_xor_si128(in0, _mm256_castsi256_si128(b_b1_03)));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 336), _mm_xor_si128(in1, _mm256_castsi256_si128(b_b1_47)));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 352), _mm_xor_si128(in2, _mm256_castsi256_si128(b_b1_811)));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 368), _mm_xor_si128(in3, _mm256_castsi256_si128(b_b1_1215)));
+    
+    // Block 6
+    in0 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 384));
+    in1 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 400));
+    in2 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 416));
+    in3 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 432));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 384), _mm_xor_si128(in0, _mm256_castsi256_si128(b_b2_03)));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 400), _mm_xor_si128(in1, _mm256_castsi256_si128(b_b2_47)));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 416), _mm_xor_si128(in2, _mm256_castsi256_si128(b_b2_811)));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 432), _mm_xor_si128(in3, _mm256_castsi256_si128(b_b2_1215)));
+    
+    // Block 7
+    in0 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 448));
+    in1 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 464));
+    in2 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 480));
+    in3 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 496));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 448), _mm_xor_si128(in0, _mm256_castsi256_si128(b_b3_03)));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 464), _mm_xor_si128(in1, _mm256_castsi256_si128(b_b3_47)));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 480), _mm_xor_si128(in2, _mm256_castsi256_si128(b_b3_811)));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 496), _mm_xor_si128(in3, _mm256_castsi256_si128(b_b3_1215)));
+}
 #endif // KCTSB_HAS_AVX2
 
 // ChaCha20 constants: "expand 32-byte k"
@@ -400,7 +681,14 @@ kctsb_error_t kctsb_chacha20_crypt(kctsb_chacha20_ctx_t* ctx,
     }
 
 #ifdef KCTSB_HAS_AVX2
-    // Process 4 blocks (256 bytes) at a time with AVX2
+    // Process 8 blocks (512 bytes) at a time with AVX2 for maximum throughput
+    while (offset + 512 <= input_len) {
+        chacha20_8block_xor_avx2(ctx->state, &input[offset], &output[offset]);
+        ctx->state[12] += 8;  // Increment counter by 8
+        offset += 512;
+    }
+    
+    // Process remaining 4 blocks (256 bytes) if available
     while (offset + 256 <= input_len) {
         chacha20_4block_xor_avx2(ctx->state, &input[offset], &output[offset]);
         ctx->state[12] += 4;  // Increment counter by 4
@@ -685,6 +973,20 @@ kctsb_error_t kctsb_poly1305_update(kctsb_poly1305_ctx_t* ctx,
     }
 
     // Process full blocks - unroll loop for better performance
+    // 8 blocks at a time for better cache utilization
+    while (offset + 128 <= len) {
+        poly1305_block(ctx, &data[offset], 0);
+        poly1305_block(ctx, &data[offset + 16], 0);
+        poly1305_block(ctx, &data[offset + 32], 0);
+        poly1305_block(ctx, &data[offset + 48], 0);
+        poly1305_block(ctx, &data[offset + 64], 0);
+        poly1305_block(ctx, &data[offset + 80], 0);
+        poly1305_block(ctx, &data[offset + 96], 0);
+        poly1305_block(ctx, &data[offset + 112], 0);
+        offset += 128;
+    }
+    
+    // Remaining 4 blocks
     while (offset + 64 <= len) {
         poly1305_block(ctx, &data[offset], 0);
         poly1305_block(ctx, &data[offset + 16], 0);

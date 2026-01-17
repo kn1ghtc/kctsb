@@ -221,6 +221,16 @@ else()
     endif()
 
     add_compile_definitions(_FORTIFY_SOURCE=2)
+    
+    # GCC 15.x pthread compatibility fix for MinGW
+    # The libstdc++ gthr-default.h doesn't include pthread.h properly
+    # Force include pthread.h before any C++ headers
+    if(WIN32 AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "15.0")
+        add_compile_options(-include pthread.h)
+        find_package(Threads REQUIRED)
+        link_libraries(Threads::Threads)
+        message(STATUS "GCC 15.x MinGW: Force including pthread.h for compatibility")
+    endif()
 endif()
 
 # ============================================================================
