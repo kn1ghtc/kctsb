@@ -95,6 +95,9 @@ kctsb_add_test(test_sha unit/crypto/test_sha.cpp "unit;crypto;hash")
 # MAC (Message Authentication Code) tests
 kctsb_add_test(test_mac unit/crypto/test_mac.cpp "unit;crypto;mac")
 
+# ChaCha20-Poly1305 AEAD tests (RFC 8439)
+kctsb_add_test(test_chacha20_poly1305 unit/crypto/test_chacha20_poly1305.cpp "unit;crypto;aead")
+
 # Random number generation tests
 kctsb_add_test(test_random unit/crypto/test_random.cpp "unit;crypto;random")
 

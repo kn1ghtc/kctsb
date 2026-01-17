@@ -255,12 +255,15 @@ typedef struct {
  * @brief Poly1305 context
  */
 typedef struct {
-    uint32_t r[5];
-    uint32_t s[4];
-    uint32_t h[5];
-    uint8_t buffer[16];
-    size_t buffer_len;
-    int finalized;
+    uint32_t r[5];        // Clamped key r (radix-2^26, for fallback)
+    uint32_t s[4];        // Key s
+    uint32_t h[5];        // Accumulator (radix-2^26, for fallback)
+    uint64_t r44[3];      // Pre-computed r (radix-2^44) for optimized block processing
+    uint64_t s44[3];      // Pre-computed 5*r (radix-2^44) for reduction
+    uint64_t h44[3];      // Accumulator (radix-2^44) for optimized processing
+    uint8_t buffer[16];   // Partial block buffer
+    size_t buffer_len;    // Bytes in buffer
+    int finalized;        // Whether finalized
 } kctsb_poly1305_ctx_t;
 
 /**

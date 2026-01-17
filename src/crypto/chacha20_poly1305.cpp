@@ -1,11 +1,15 @@
 /**
  * @file chacha20_poly1305.cpp
- * @brief ChaCha20-Poly1305 AEAD Implementation
+ * @brief ChaCha20-Poly1305 AEAD Implementation (AVX2 Optimized)
  *
  * RFC 8439 compliant implementation with:
- * - ChaCha20 quarter-round based stream cipher
- * - Poly1305 polynomial MAC with 130-bit field
+ * - ChaCha20 quarter-round based stream cipher (AVX2: 4-block parallel)
+ * - Poly1305 polynomial MAC with 130-bit field (128-bit multiplication)
  * - Combined AEAD construction
+ *
+ * Optimization levels:
+ * - AVX2: 4-block (256 bytes) parallel ChaCha20
+ * - 128-bit arithmetic for Poly1305 multiplication
  *
  * Security features:
  * - Constant-time operations
@@ -21,6 +25,22 @@
 #include "kctsb/core/security.h"
 #include <cstring>
 #include <stdexcept>
+
+// SIMD detection
+#if defined(__AVX2__)
+#include <immintrin.h>
+#define KCTSB_HAS_AVX2 1
+#endif
+
+// 128-bit integer for Poly1305 optimization
+#if defined(__SIZEOF_INT128__) && !defined(__STRICT_ANSI__)
+// Use GCC extension pragma to suppress pedantic warning
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
+using uint128_t = unsigned __int128;
+#pragma GCC diagnostic pop
+#define KCTSB_HAS_UINT128 1
+#endif
 
 // ============================================================================
 // ChaCha20 Implementation
@@ -103,6 +123,219 @@ static void chacha20_block(const uint32_t state[16], uint8_t output[64]) {
     kctsb_secure_zero(working, sizeof(working));
 }
 
+#ifdef KCTSB_HAS_AVX2
+/**
+ * @brief AVX2 ChaCha20 quarter round macro
+ * Using shift/or for rotations (faster on most CPUs than shuffle)
+ */
+#define CHACHA_QR_AVX2(a, b, c, d) \
+    a = _mm256_add_epi32(a, b); d = _mm256_xor_si256(d, a); \
+    d = _mm256_or_si256(_mm256_slli_epi32(d, 16), _mm256_srli_epi32(d, 16)); \
+    c = _mm256_add_epi32(c, d); b = _mm256_xor_si256(b, c); \
+    b = _mm256_or_si256(_mm256_slli_epi32(b, 12), _mm256_srli_epi32(b, 20)); \
+    a = _mm256_add_epi32(a, b); d = _mm256_xor_si256(d, a); \
+    d = _mm256_or_si256(_mm256_slli_epi32(d, 8), _mm256_srli_epi32(d, 24)); \
+    c = _mm256_add_epi32(c, d); b = _mm256_xor_si256(b, c); \
+    b = _mm256_or_si256(_mm256_slli_epi32(b, 7), _mm256_srli_epi32(b, 25))
+
+/**
+ * @brief Generate 4 ChaCha20 blocks in parallel using AVX2 and XOR with input
+ *
+ * This optimized version generates keystream and XORs with input in one pass,
+ * avoiding the memory-intensive transpose operation.
+ *
+ * @param state Base state (counter at position 12)
+ * @param input Input buffer (256 bytes)
+ * @param output Output buffer (256 bytes)
+ */
+static void chacha20_4block_xor_avx2(const uint32_t state[16], 
+                                      const uint8_t input[256], 
+                                      uint8_t output[256]) {
+    // Load state into AVX2 registers (each lane = one block)
+    __m256i row0 = _mm256_set1_epi32(static_cast<int32_t>(state[0]));
+    __m256i row1 = _mm256_set1_epi32(static_cast<int32_t>(state[1]));
+    __m256i row2 = _mm256_set1_epi32(static_cast<int32_t>(state[2]));
+    __m256i row3 = _mm256_set1_epi32(static_cast<int32_t>(state[3]));
+    __m256i row4 = _mm256_set1_epi32(static_cast<int32_t>(state[4]));
+    __m256i row5 = _mm256_set1_epi32(static_cast<int32_t>(state[5]));
+    __m256i row6 = _mm256_set1_epi32(static_cast<int32_t>(state[6]));
+    __m256i row7 = _mm256_set1_epi32(static_cast<int32_t>(state[7]));
+    __m256i row8 = _mm256_set1_epi32(static_cast<int32_t>(state[8]));
+    __m256i row9 = _mm256_set1_epi32(static_cast<int32_t>(state[9]));
+    __m256i row10 = _mm256_set1_epi32(static_cast<int32_t>(state[10]));
+    __m256i row11 = _mm256_set1_epi32(static_cast<int32_t>(state[11]));
+    // Counter: block 0,1,2,3 in first 128-bit lane, 4,5,6,7 in second
+    __m256i row12 = _mm256_add_epi32(
+        _mm256_set1_epi32(static_cast<int32_t>(state[12])),
+        _mm256_setr_epi32(0, 1, 2, 3, 0, 1, 2, 3)
+    );
+    __m256i row13 = _mm256_set1_epi32(static_cast<int32_t>(state[13]));
+    __m256i row14 = _mm256_set1_epi32(static_cast<int32_t>(state[14]));
+    __m256i row15 = _mm256_set1_epi32(static_cast<int32_t>(state[15]));
+
+    // Save original for final addition
+    __m256i orig0 = row0, orig1 = row1, orig2 = row2, orig3 = row3;
+    __m256i orig4 = row4, orig5 = row5, orig6 = row6, orig7 = row7;
+    __m256i orig8 = row8, orig9 = row9, orig10 = row10, orig11 = row11;
+    __m256i orig12 = row12, orig13 = row13, orig14 = row14, orig15 = row15;
+
+    // 20 rounds (10 double rounds)
+    for (int i = 0; i < 10; i++) {
+        // Column rounds
+        CHACHA_QR_AVX2(row0, row4, row8, row12);
+        CHACHA_QR_AVX2(row1, row5, row9, row13);
+        CHACHA_QR_AVX2(row2, row6, row10, row14);
+        CHACHA_QR_AVX2(row3, row7, row11, row15);
+        // Diagonal rounds
+        CHACHA_QR_AVX2(row0, row5, row10, row15);
+        CHACHA_QR_AVX2(row1, row6, row11, row12);
+        CHACHA_QR_AVX2(row2, row7, row8, row13);
+        CHACHA_QR_AVX2(row3, row4, row9, row14);
+    }
+
+    // Add original state
+    row0 = _mm256_add_epi32(row0, orig0);
+    row1 = _mm256_add_epi32(row1, orig1);
+    row2 = _mm256_add_epi32(row2, orig2);
+    row3 = _mm256_add_epi32(row3, orig3);
+    row4 = _mm256_add_epi32(row4, orig4);
+    row5 = _mm256_add_epi32(row5, orig5);
+    row6 = _mm256_add_epi32(row6, orig6);
+    row7 = _mm256_add_epi32(row7, orig7);
+    row8 = _mm256_add_epi32(row8, orig8);
+    row9 = _mm256_add_epi32(row9, orig9);
+    row10 = _mm256_add_epi32(row10, orig10);
+    row11 = _mm256_add_epi32(row11, orig11);
+    row12 = _mm256_add_epi32(row12, orig12);
+    row13 = _mm256_add_epi32(row13, orig13);
+    row14 = _mm256_add_epi32(row14, orig14);
+    row15 = _mm256_add_epi32(row15, orig15);
+
+    // Fast in-register transpose and XOR
+    // Each row register contains 8 uint32_t values from 8 blocks
+    // We need block-interleaved output: block0[0..15], block1[0..15], etc.
+    
+    // Extract lower and upper 128-bit lanes, transpose 4x4 blocks
+    // Block 0: row[0-15].lane0, Block 1: row[0-15].lane1, etc.
+    
+    // Use shuffle to create proper block order
+    // Transpose 4x4 within each 128-bit lane using unpack instructions
+    __m256i t0, t1, t2, t3;
+    
+    // Rows 0-3
+    t0 = _mm256_unpacklo_epi32(row0, row1);  // 0a,1a,0b,1b | 0e,1e,0f,1f
+    t1 = _mm256_unpackhi_epi32(row0, row1);  // 0c,1c,0d,1d | 0g,1g,0h,1h
+    t2 = _mm256_unpacklo_epi32(row2, row3);  // 2a,3a,2b,3b | 2e,3e,2f,3f
+    t3 = _mm256_unpackhi_epi32(row2, row3);  // 2c,3c,2d,3d | 2g,3g,2h,3h
+    
+    __m256i b0_03 = _mm256_unpacklo_epi64(t0, t2);  // 0a,1a,2a,3a | 0e,1e,2e,3e
+    __m256i b1_03 = _mm256_unpackhi_epi64(t0, t2);  // 0b,1b,2b,3b | 0f,1f,2f,3f
+    __m256i b2_03 = _mm256_unpacklo_epi64(t1, t3);  // 0c,1c,2c,3c | 0g,1g,2g,3g
+    __m256i b3_03 = _mm256_unpackhi_epi64(t1, t3);  // 0d,1d,2d,3d | 0h,1h,2h,3h
+    
+    // Rows 4-7
+    t0 = _mm256_unpacklo_epi32(row4, row5);
+    t1 = _mm256_unpackhi_epi32(row4, row5);
+    t2 = _mm256_unpacklo_epi32(row6, row7);
+    t3 = _mm256_unpackhi_epi32(row6, row7);
+    
+    __m256i b0_47 = _mm256_unpacklo_epi64(t0, t2);
+    __m256i b1_47 = _mm256_unpackhi_epi64(t0, t2);
+    __m256i b2_47 = _mm256_unpacklo_epi64(t1, t3);
+    __m256i b3_47 = _mm256_unpackhi_epi64(t1, t3);
+    
+    // Rows 8-11
+    t0 = _mm256_unpacklo_epi32(row8, row9);
+    t1 = _mm256_unpackhi_epi32(row8, row9);
+    t2 = _mm256_unpacklo_epi32(row10, row11);
+    t3 = _mm256_unpackhi_epi32(row10, row11);
+    
+    __m256i b0_811 = _mm256_unpacklo_epi64(t0, t2);
+    __m256i b1_811 = _mm256_unpackhi_epi64(t0, t2);
+    __m256i b2_811 = _mm256_unpacklo_epi64(t1, t3);
+    __m256i b3_811 = _mm256_unpackhi_epi64(t1, t3);
+    
+    // Rows 12-15
+    t0 = _mm256_unpacklo_epi32(row12, row13);
+    t1 = _mm256_unpackhi_epi32(row12, row13);
+    t2 = _mm256_unpacklo_epi32(row14, row15);
+    t3 = _mm256_unpackhi_epi32(row14, row15);
+    
+    __m256i b0_1215 = _mm256_unpacklo_epi64(t0, t2);
+    __m256i b1_1215 = _mm256_unpackhi_epi64(t0, t2);
+    __m256i b2_1215 = _mm256_unpacklo_epi64(t1, t3);
+    __m256i b3_1215 = _mm256_unpackhi_epi64(t1, t3);
+    
+    // Now extract 128-bit halves to form complete blocks
+    // Block 0: lower halves of b0_*, Block 1: upper halves of b0_*
+    // Block 2: lower halves of b1_*, Block 3: upper halves of b1_*
+    
+    // Block 0 (words 0-15)
+    __m128i blk0_a = _mm256_castsi256_si128(b0_03);
+    __m128i blk0_b = _mm256_castsi256_si128(b0_47);
+    __m128i blk0_c = _mm256_castsi256_si128(b0_811);
+    __m128i blk0_d = _mm256_castsi256_si128(b0_1215);
+    
+    // Block 1
+    __m128i blk1_a = _mm256_castsi256_si128(b1_03);
+    __m128i blk1_b = _mm256_castsi256_si128(b1_47);
+    __m128i blk1_c = _mm256_castsi256_si128(b1_811);
+    __m128i blk1_d = _mm256_castsi256_si128(b1_1215);
+    
+    // Block 2
+    __m128i blk2_a = _mm256_castsi256_si128(b2_03);
+    __m128i blk2_b = _mm256_castsi256_si128(b2_47);
+    __m128i blk2_c = _mm256_castsi256_si128(b2_811);
+    __m128i blk2_d = _mm256_castsi256_si128(b2_1215);
+    
+    // Block 3
+    __m128i blk3_a = _mm256_castsi256_si128(b3_03);
+    __m128i blk3_b = _mm256_castsi256_si128(b3_47);
+    __m128i blk3_c = _mm256_castsi256_si128(b3_811);
+    __m128i blk3_d = _mm256_castsi256_si128(b3_1215);
+    
+    // Load input, XOR, store output - Block 0
+    __m128i in0 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 0));
+    __m128i in1 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 16));
+    __m128i in2 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 32));
+    __m128i in3 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 48));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 0), _mm_xor_si128(in0, blk0_a));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 16), _mm_xor_si128(in1, blk0_b));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 32), _mm_xor_si128(in2, blk0_c));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 48), _mm_xor_si128(in3, blk0_d));
+    
+    // Block 1
+    in0 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 64));
+    in1 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 80));
+    in2 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 96));
+    in3 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 112));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 64), _mm_xor_si128(in0, blk1_a));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 80), _mm_xor_si128(in1, blk1_b));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 96), _mm_xor_si128(in2, blk1_c));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 112), _mm_xor_si128(in3, blk1_d));
+    
+    // Block 2
+    in0 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 128));
+    in1 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 144));
+    in2 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 160));
+    in3 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 176));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 128), _mm_xor_si128(in0, blk2_a));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 144), _mm_xor_si128(in1, blk2_b));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 160), _mm_xor_si128(in2, blk2_c));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 176), _mm_xor_si128(in3, blk2_d));
+    
+    // Block 3
+    in0 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 192));
+    in1 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 208));
+    in2 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 224));
+    in3 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + 240));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 192), _mm_xor_si128(in0, blk3_a));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 208), _mm_xor_si128(in1, blk3_b));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 224), _mm_xor_si128(in2, blk3_c));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(output + 240), _mm_xor_si128(in3, blk3_d));
+}
+#endif // KCTSB_HAS_AVX2
+
 // ChaCha20 constants: "expand 32-byte k"
 static const uint32_t CHACHA_CONSTANTS[4] = {
     0x61707865, 0x3320646e, 0x79622d32, 0x6b206574
@@ -166,7 +399,16 @@ kctsb_error_t kctsb_chacha20_crypt(kctsb_chacha20_ctx_t* ctx,
         offset = use;
     }
 
-    // Process full blocks
+#ifdef KCTSB_HAS_AVX2
+    // Process 4 blocks (256 bytes) at a time with AVX2
+    while (offset + 256 <= input_len) {
+        chacha20_4block_xor_avx2(ctx->state, &input[offset], &output[offset]);
+        ctx->state[12] += 4;  // Increment counter by 4
+        offset += 256;
+    }
+#endif
+
+    // Process remaining full 64-byte blocks
     while (offset + 64 <= input_len) {
         chacha20_block(ctx->state, ctx->keystream);
         ctx->state[12]++;  // Increment counter
@@ -224,12 +466,90 @@ void kctsb_chacha20_clear(kctsb_chacha20_ctx_t* ctx) {
 // Poly1305 Implementation
 // ============================================================================
 
+#ifdef KCTSB_HAS_UINT128
+/**
+ * @brief Optimized Poly1305 block using 128-bit arithmetic
+ *
+ * Uses native 128-bit multiplication for better performance.
+ * State is kept in radix-2^44 format (ctx->h44) to avoid conversion overhead.
+ * Uses pre-computed r44[] and s44[] from context.
+ */
+static void poly1305_block_opt(kctsb_poly1305_ctx_t* ctx, const uint8_t block[16], int is_final_block) {
+    // Load block as 64-bit little-endian
+    uint64_t t0 = static_cast<uint64_t>(load32_le(&block[0])) | 
+                  (static_cast<uint64_t>(load32_le(&block[4])) << 32);
+    uint64_t t1 = static_cast<uint64_t>(load32_le(&block[8])) | 
+                  (static_cast<uint64_t>(load32_le(&block[12])) << 32);
+
+    // Mask for 44 bits and 42 bits
+    const uint64_t MASK44 = (1ULL << 44) - 1;
+    const uint64_t MASK42 = (1ULL << 42) - 1;
+
+    // Use h44 directly (already in radix-2^44 format)
+    uint64_t h0 = ctx->h44[0];
+    uint64_t h1 = ctx->h44[1];
+    uint64_t h2 = ctx->h44[2];
+
+    // Add message block
+    h0 += t0 & MASK44;
+    h1 += ((t0 >> 44) | (t1 << 20)) & MASK44;
+    h2 += (t1 >> 24) & MASK42;
+
+    // Add padding bit
+    if (!is_final_block) {
+        h2 += (1ULL << 40);
+    }
+
+    // Use pre-computed r values (radix-2^44) from context
+    uint64_t r0 = ctx->r44[0];
+    uint64_t r1 = ctx->r44[1];
+    uint64_t r2 = ctx->r44[2];
+    uint64_t s1 = ctx->s44[1];
+    uint64_t s2 = ctx->s44[2];
+
+    // Multiplication using 128-bit arithmetic
+    // d = h * r mod (2^130 - 5)
+    uint128_t d0 = static_cast<uint128_t>(h0) * r0 + 
+                   static_cast<uint128_t>(h1) * s2 + 
+                   static_cast<uint128_t>(h2) * s1;
+    uint128_t d1 = static_cast<uint128_t>(h0) * r1 + 
+                   static_cast<uint128_t>(h1) * r0 + 
+                   static_cast<uint128_t>(h2) * s2;
+    uint128_t d2 = static_cast<uint128_t>(h0) * r2 + 
+                   static_cast<uint128_t>(h1) * r1 + 
+                   static_cast<uint128_t>(h2) * r0;
+
+    // Carry propagation
+    uint64_t c;
+    c = static_cast<uint64_t>(d0 >> 44);
+    h0 = static_cast<uint64_t>(d0) & MASK44;
+    d1 += c;
+    c = static_cast<uint64_t>(d1 >> 44);
+    h1 = static_cast<uint64_t>(d1) & MASK44;
+    d2 += c;
+    c = static_cast<uint64_t>(d2 >> 42);
+    h2 = static_cast<uint64_t>(d2) & MASK42;
+    h0 += c * 5;
+    c = h0 >> 44;
+    h0 &= MASK44;
+    h1 += c;
+
+    // Store back to h44
+    ctx->h44[0] = h0;
+    ctx->h44[1] = h1;
+    ctx->h44[2] = h2;
+}
+#endif // KCTSB_HAS_UINT128
+
 /**
  * @brief Process one 16-byte block in Poly1305
  *
  * Uses 64-bit arithmetic for the 130-bit field multiplication
  */
 static void poly1305_block(kctsb_poly1305_ctx_t* ctx, const uint8_t block[16], int is_final_block) {
+#ifdef KCTSB_HAS_UINT128
+    poly1305_block_opt(ctx, block, is_final_block);
+#else
     // Load block as little-endian limbs
     uint32_t t0 = load32_le(&block[0]);
     uint32_t t1 = load32_le(&block[4]);
@@ -282,6 +602,7 @@ static void poly1305_block(kctsb_poly1305_ctx_t* ctx, const uint8_t block[16], i
     ctx->h[2] = (uint32_t)d2;
     ctx->h[3] = (uint32_t)d3;
     ctx->h[4] = (uint32_t)d4;
+#endif // KCTSB_HAS_UINT128
 }
 
 kctsb_error_t kctsb_poly1305_init(kctsb_poly1305_ctx_t* ctx, const uint8_t key[32]) {
@@ -303,6 +624,23 @@ kctsb_error_t kctsb_poly1305_init(kctsb_poly1305_ctx_t* ctx, const uint8_t key[3
     ctx->r[2] = ((t1 >> 20) | (t2 << 12)) & 0x3ffc0ff;
     ctx->r[3] = ((t2 >> 14) | (t3 << 18)) & 0x3f03fff;
     ctx->r[4] = (t3 >> 8) & 0x00fffff;
+
+    // Pre-compute r in radix-2^44 format for optimized block processing
+    const uint64_t MASK44 = (1ULL << 44) - 1;
+    const uint64_t MASK42 = (1ULL << 42) - 1;
+    
+    ctx->r44[0] = (static_cast<uint64_t>(ctx->r[0]) | 
+                   (static_cast<uint64_t>(ctx->r[1]) << 26)) & MASK44;
+    ctx->r44[1] = ((static_cast<uint64_t>(ctx->r[1]) >> 18) | 
+                   (static_cast<uint64_t>(ctx->r[2]) << 8) |
+                   (static_cast<uint64_t>(ctx->r[3]) << 34)) & MASK44;
+    ctx->r44[2] = ((static_cast<uint64_t>(ctx->r[3]) >> 10) | 
+                   (static_cast<uint64_t>(ctx->r[4]) << 16)) & MASK42;
+    
+    // Pre-compute 5*r for reduction
+    ctx->s44[0] = 0;  // Not used in multiplication
+    ctx->s44[1] = ctx->r44[1] * 5;
+    ctx->s44[2] = ctx->r44[2] * 5;
 
     // Load s (last 16 bytes) - used for final addition
     ctx->s[0] = load32_le(&key[16]);
@@ -346,7 +684,16 @@ kctsb_error_t kctsb_poly1305_update(kctsb_poly1305_ctx_t* ctx,
         }
     }
 
-    // Process full blocks
+    // Process full blocks - unroll loop for better performance
+    while (offset + 64 <= len) {
+        poly1305_block(ctx, &data[offset], 0);
+        poly1305_block(ctx, &data[offset + 16], 0);
+        poly1305_block(ctx, &data[offset + 32], 0);
+        poly1305_block(ctx, &data[offset + 48], 0);
+        offset += 64;
+    }
+
+    // Process remaining full blocks
     while (offset + 16 <= len) {
         poly1305_block(ctx, &data[offset], 0);
         offset += 16;
@@ -378,6 +725,19 @@ kctsb_error_t kctsb_poly1305_final(kctsb_poly1305_ctx_t* ctx, uint8_t tag[16]) {
         }
         poly1305_block(ctx, ctx->buffer, 1);
     }
+
+#ifdef KCTSB_HAS_UINT128
+    // Convert from radix-2^44 (h44) to radix-2^26 (h) for final processing
+    uint64_t h44_0 = ctx->h44[0];
+    uint64_t h44_1 = ctx->h44[1];
+    uint64_t h44_2 = ctx->h44[2];
+    
+    ctx->h[0] = static_cast<uint32_t>(h44_0) & 0x3ffffff;
+    ctx->h[1] = static_cast<uint32_t>((h44_0 >> 26) | (h44_1 << 18)) & 0x3ffffff;
+    ctx->h[2] = static_cast<uint32_t>(h44_1 >> 8) & 0x3ffffff;
+    ctx->h[3] = static_cast<uint32_t>((h44_1 >> 34) | (h44_2 << 10)) & 0x3ffffff;
+    ctx->h[4] = static_cast<uint32_t>(h44_2 >> 16);
+#endif
 
     // Final reduction modulo 2^130 - 5
     uint32_t h0 = ctx->h[0];
@@ -510,28 +870,30 @@ kctsb_error_t kctsb_chacha20_poly1305_encrypt(const uint8_t key[32],
         return KCTSB_ERROR_INVALID_PARAM;
     }
 
+    // Initialize ChaCha20 context once
+    kctsb_chacha20_ctx_t chacha_ctx;
+    kctsb_chacha20_init(&chacha_ctx, key, nonce, 0);
+
     // Generate Poly1305 one-time key using ChaCha20 with counter 0
     uint8_t poly_key[64];
     uint8_t zeros[64] = {0};
-    kctsb_chacha20(key, nonce, 0, zeros, 64, poly_key);
+    kctsb_chacha20_crypt(&chacha_ctx, zeros, 64, poly_key);
+    // Counter is now 1 after generating poly_key
 
-    // Encrypt plaintext using ChaCha20 with counter 1
-    if (plaintext_len > 0) {
-        kctsb_chacha20(key, nonce, 1, plaintext, plaintext_len, ciphertext);
-    }
-
-    // Compute Poly1305 tag over AAD || padding || ciphertext || padding || lengths
+    // Initialize Poly1305 with the generated key
     kctsb_poly1305_ctx_t poly_ctx;
     kctsb_poly1305_init(&poly_ctx, poly_key);
+    kctsb_secure_zero(poly_key, 64);
 
-    // AAD
+    // Process AAD
     if (aad && aad_len > 0) {
         kctsb_poly1305_update(&poly_ctx, aad, aad_len);
         pad_to_16(&poly_ctx, aad_len);
     }
 
-    // Ciphertext
+    // Encrypt plaintext and update Poly1305 with ciphertext
     if (plaintext_len > 0) {
+        kctsb_chacha20_crypt(&chacha_ctx, plaintext, plaintext_len, ciphertext);
         kctsb_poly1305_update(&poly_ctx, ciphertext, plaintext_len);
         pad_to_16(&poly_ctx, plaintext_len);
     }
@@ -545,7 +907,7 @@ kctsb_error_t kctsb_chacha20_poly1305_encrypt(const uint8_t key[32],
     kctsb_poly1305_final(&poly_ctx, tag);
 
     // Cleanup
-    kctsb_secure_zero(poly_key, 64);
+    kctsb_chacha20_clear(&chacha_ctx);
     kctsb_poly1305_clear(&poly_ctx);
 
     return KCTSB_SUCCESS;
@@ -566,25 +928,34 @@ kctsb_error_t kctsb_chacha20_poly1305_decrypt(const uint8_t key[32],
         return KCTSB_ERROR_INVALID_PARAM;
     }
 
+    // Initialize ChaCha20 context once
+    kctsb_chacha20_ctx_t chacha_ctx;
+    kctsb_chacha20_init(&chacha_ctx, key, nonce, 0);
+
     // Generate Poly1305 one-time key
     uint8_t poly_key[64];
     uint8_t zeros[64] = {0};
-    kctsb_chacha20(key, nonce, 0, zeros, 64, poly_key);
+    kctsb_chacha20_crypt(&chacha_ctx, zeros, 64, poly_key);
+    // Counter is now 1 after generating poly_key
 
-    // Compute expected tag
+    // Initialize Poly1305
     kctsb_poly1305_ctx_t poly_ctx;
     kctsb_poly1305_init(&poly_ctx, poly_key);
+    kctsb_secure_zero(poly_key, 64);
 
+    // Process AAD
     if (aad && aad_len > 0) {
         kctsb_poly1305_update(&poly_ctx, aad, aad_len);
         pad_to_16(&poly_ctx, aad_len);
     }
 
+    // Process ciphertext for authentication
     if (ciphertext_len > 0) {
         kctsb_poly1305_update(&poly_ctx, ciphertext, ciphertext_len);
         pad_to_16(&poly_ctx, ciphertext_len);
     }
 
+    // Lengths
     uint8_t len_block[16];
     store64_le(&len_block[0], aad_len);
     store64_le(&len_block[8], ciphertext_len);
@@ -595,21 +966,21 @@ kctsb_error_t kctsb_chacha20_poly1305_decrypt(const uint8_t key[32],
 
     // Constant-time tag verification
     if (!kctsb_secure_compare(tag, computed_tag, 16)) {
-        kctsb_secure_zero(poly_key, 64);
         kctsb_secure_zero(computed_tag, 16);
+        kctsb_chacha20_clear(&chacha_ctx);
         kctsb_poly1305_clear(&poly_ctx);
         kctsb_secure_zero(plaintext, ciphertext_len);
         return KCTSB_ERROR_AUTH_FAILED;
     }
 
-    // Decrypt ciphertext
+    // Decrypt ciphertext using the same context (counter already at 1)
     if (ciphertext_len > 0) {
-        kctsb_chacha20(key, nonce, 1, ciphertext, ciphertext_len, plaintext);
+        kctsb_chacha20_crypt(&chacha_ctx, ciphertext, ciphertext_len, plaintext);
     }
 
     // Cleanup
-    kctsb_secure_zero(poly_key, 64);
     kctsb_secure_zero(computed_tag, 16);
+    kctsb_chacha20_clear(&chacha_ctx);
     kctsb_poly1305_clear(&poly_ctx);
 
     return KCTSB_SUCCESS;
