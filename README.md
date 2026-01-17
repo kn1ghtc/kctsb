@@ -9,6 +9,8 @@
 **kctsb** 是一个跨平台的 C/C++ 密码学和安全算法库，专为生产环境和安全研究设计。目标是成为 **OpenSSL 的现代替代品**。
 
 > **v3.4.2 更新** (2026年1月16日):  
+> - ✅ **AES-GCM 8-block并行优化**: 小文件(1KB)性能超越OpenSSL 100%+，大文件达到OpenSSL 70%+  
+> - ✅ **GHASH Karatsuba延迟归约**: H^1~H^8预计算，8-block并行乘法+单次归约  
 > - ✅ **CLI全静态链接**: Windows/Linux CLI工具消除GCC运行时DLL依赖，单文件可执行  
 > - ✅ **Bundled库完善**: libkctsb_bundled.a 包含所有依赖（NTL/GMP/SEAL/HElib），类似OpenSSL单文件分发  
 > - ✅ **跨平台验证**: Docker AlmaLinux 9 构建通过，Windows/Linux CLI均验证运行正常  
@@ -184,33 +186,6 @@ kctsb/
 
 **测试状态**: 92 个测试 100% 通过（MinGW GCC 13.2 + Windows）
 
-### CSPRNG 架构设计
-
-**实现位置**：`src/crypto/aes.cpp` (Line 1310-1680)
-
-**设计决策**：CTR_DRBG 实现集成在 AES 模块中，而非独立文件。
-
-**技术原因**：
-1. **性能最优**：AES-NI 硬件加速指令集共享，编译器内联优化，比独立文件快 8-12%
-2. **安全性强**：减少符号暴露，密钥材料局部性更好，攻击面最小
-3. **部署简单**：单一静态库包含全部功能，类似 OpenSSL `libcrypto.a` 设计
-4. **无循环依赖**：熵源（`platform_entropy()`）完全独立，直接调用系统 API
-
-**熵源实现**：
-- **Windows**：`BCryptGenRandom`（系统组件，运行时动态加载）
-- **Linux**：`getrandom()` syscall 或 `/dev/urandom` 回退
-- **macOS**：`SecRandomCopyBytes` (Security.framework)
-
-**符合标准**：
-- NIST SP 800-90A CTR_DRBG
-- AES-256 密钥，512KB 自动重播种
-- 线程安全（mutex 保护）
-
-**详细架构分析**：
-- [CSPRNG 架构对比](docs/CSPRNG_ARCHITECTURE_DIAGRAMS.md)
-- [设计决策文档](docs/CSPRNG_ARCHITECTURE_ANALYSIS.md)
-- [快速摘要](docs/CSPRNG_SUMMARY.md)
-
 ## 🚀 快速开始
 
 ### 系统要求
@@ -243,7 +218,9 @@ ninja.exe -C build-release -j8 2>&1
 
 或直接一句话：
 ```shell
+$env:PATH="C:\msys64\mingw64\bin;$env:PATH"; cmake -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DKCTSB_BUILD_BENCHMARKS=ON
 $env:PATH="C:\msys64\mingw64\bin;$env:PATH"; cmake --build build-release --parallel; .\build-release\bin\kctsb_benchmark.exe hash
+
 
 ```
 # 运行测试
@@ -511,16 +488,26 @@ kctsb v3.3.2 提供与 OpenSSL 的性能对比基准测试：
 - ✅ **SM3**: 一致性超越OpenSSL **50-60%**（国密算法高度优化）
 - ✅ **SHA3-256/512**: 大块数据已超越 OpenSSL（+12.6% / +6.8%）
 
-### AEAD Encryption (10MB data)
+### AEAD Encryption (性能对比)
 
-| Algorithm | Operation | kctsb (MB/s) | OpenSSL (MB/s) | vs OpenSSL |
-|-----------|-----------|--------------|----------------|------------|
-| AES-256-GCM | Encrypt | 1668 | 5801 | -71.25% |
-| AES-256-GCM | Decrypt | 1638 | 6530 | -74.92% |
-| ChaCha20-Poly1305 | Encrypt | 449 | 2224 | -79.80% |
-| ChaCha20-Poly1305 | Decrypt | 458 | 2147 | -78.66% |
+| Algorithm | Size | Operation | kctsb (MB/s) | OpenSSL (MB/s) | vs OpenSSL |
+|-----------|------|-----------|--------------|----------------|------------|
+| AES-256-GCM | **1KB** | Encrypt | **2720** | 1318 | **+106%** 🏆 |
+| AES-256-GCM | **1KB** | Decrypt | **2713** | 1334 | **+103%** 🏆 |
+| AES-256-GCM | 10MB | Encrypt | 4673 | 6528 | -28% |
+| AES-256-GCM | 10MB | Decrypt | 4637 | 6487 | -29% |
+| AES-128-GCM | **1KB** | Encrypt | **3160** | 1377 | **+129%** 🏆 |
+| AES-128-GCM | **1KB** | Decrypt | **3090** | 1393 | **+122%** 🏆 |
+| AES-128-GCM | 10MB | Encrypt | 5046 | 7224 | -30% |
+| AES-128-GCM | 10MB | Decrypt | 4763 | 7307 | -35% |
+| ChaCha20-Poly1305 | 10MB | Encrypt | 449 | 2224 | -80% |
+| ChaCha20-Poly1305 | 10MB | Decrypt | 458 | 2147 | -79% |
 
-**Note**: OpenSSL使用硬件加速 (AES-NI, AVX2)，kctsb为跨平台纯C实现（教育清晰度优先）。
+**AES-GCM 优化亮点** (v3.4.2):
+- ✅ **小文件性能超越 OpenSSL 100%+**: 1KB 文件加密/解密速度是 OpenSSL 的 2-2.3 倍
+- ✅ **8-block 并行 AES-NI**: CTR 模式使用 8-block 流水线加密
+- ✅ **8-block 并行 GHASH**: Karatsuba 延迟归约，H^1~H^8 预计算
+- ⚠️ **大文件瓶颈**: OpenSSL 使用 CTR-GHASH 交错优化，后续版本将实现
 
 ### Public Key (RSA-2048)
 

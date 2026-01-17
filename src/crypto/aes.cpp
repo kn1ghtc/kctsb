@@ -33,6 +33,7 @@
 #include <stdexcept>
 #include <atomic>
 #include <mutex>
+#include <vector>
 
 // CPUID and SIMD intrinsics
 #if defined(_MSC_VER)
@@ -585,6 +586,29 @@ static inline __m128i add_counter_be32(__m128i ctr, uint32_t n) {
     return _mm_shuffle_epi8(swapped, BSWAP_EPI32);
 }
 
+// Generate 8 consecutive counter blocks efficiently
+static inline void gen_8_counters_fast(__m128i base,
+    __m128i& c0, __m128i& c1, __m128i& c2, __m128i& c3,
+    __m128i& c4, __m128i& c5, __m128i& c6, __m128i& c7) {
+    __m128i swapped = _mm_shuffle_epi8(base, BSWAP_EPI32);
+    __m128i t0 = _mm_add_epi32(swapped, _mm_set_epi32(0, 0, 0, 0));
+    __m128i t1 = _mm_add_epi32(swapped, _mm_set_epi32(1, 0, 0, 0));
+    __m128i t2 = _mm_add_epi32(swapped, _mm_set_epi32(2, 0, 0, 0));
+    __m128i t3 = _mm_add_epi32(swapped, _mm_set_epi32(3, 0, 0, 0));
+    __m128i t4 = _mm_add_epi32(swapped, _mm_set_epi32(4, 0, 0, 0));
+    __m128i t5 = _mm_add_epi32(swapped, _mm_set_epi32(5, 0, 0, 0));
+    __m128i t6 = _mm_add_epi32(swapped, _mm_set_epi32(6, 0, 0, 0));
+    __m128i t7 = _mm_add_epi32(swapped, _mm_set_epi32(7, 0, 0, 0));
+    c0 = _mm_shuffle_epi8(t0, BSWAP_EPI32);
+    c1 = _mm_shuffle_epi8(t1, BSWAP_EPI32);
+    c2 = _mm_shuffle_epi8(t2, BSWAP_EPI32);
+    c3 = _mm_shuffle_epi8(t3, BSWAP_EPI32);
+    c4 = _mm_shuffle_epi8(t4, BSWAP_EPI32);
+    c5 = _mm_shuffle_epi8(t5, BSWAP_EPI32);
+    c6 = _mm_shuffle_epi8(t6, BSWAP_EPI32);
+    c7 = _mm_shuffle_epi8(t7, BSWAP_EPI32);
+}
+
 // 4-block parallel AES-128 encryption
 static inline void aes128_encrypt_4blocks_ni(
     __m128i& b0, __m128i& b1, __m128i& b2, __m128i& b3,
@@ -606,6 +630,30 @@ static inline void aes128_encrypt_4blocks_ni(
     b1 = _mm_aesenclast_si128(b1, rk[10]);
     b2 = _mm_aesenclast_si128(b2, rk[10]);
     b3 = _mm_aesenclast_si128(b3, rk[10]);
+}
+
+// 8-block parallel AES-128 encryption (fully pipelined)
+static inline void aes128_encrypt_8blocks_ni(
+    __m128i& b0, __m128i& b1, __m128i& b2, __m128i& b3,
+    __m128i& b4, __m128i& b5, __m128i& b6, __m128i& b7,
+    const __m128i* rk)
+{
+    b0 = _mm_xor_si128(b0, rk[0]); b1 = _mm_xor_si128(b1, rk[0]);
+    b2 = _mm_xor_si128(b2, rk[0]); b3 = _mm_xor_si128(b3, rk[0]);
+    b4 = _mm_xor_si128(b4, rk[0]); b5 = _mm_xor_si128(b5, rk[0]);
+    b6 = _mm_xor_si128(b6, rk[0]); b7 = _mm_xor_si128(b7, rk[0]);
+
+    for (int i = 1; i < 10; ++i) {
+        b0 = _mm_aesenc_si128(b0, rk[i]); b1 = _mm_aesenc_si128(b1, rk[i]);
+        b2 = _mm_aesenc_si128(b2, rk[i]); b3 = _mm_aesenc_si128(b3, rk[i]);
+        b4 = _mm_aesenc_si128(b4, rk[i]); b5 = _mm_aesenc_si128(b5, rk[i]);
+        b6 = _mm_aesenc_si128(b6, rk[i]); b7 = _mm_aesenc_si128(b7, rk[i]);
+    }
+
+    b0 = _mm_aesenclast_si128(b0, rk[10]); b1 = _mm_aesenclast_si128(b1, rk[10]);
+    b2 = _mm_aesenclast_si128(b2, rk[10]); b3 = _mm_aesenclast_si128(b3, rk[10]);
+    b4 = _mm_aesenclast_si128(b4, rk[10]); b5 = _mm_aesenclast_si128(b5, rk[10]);
+    b6 = _mm_aesenclast_si128(b6, rk[10]); b7 = _mm_aesenclast_si128(b7, rk[10]);
 }
 
 // 4-block parallel AES-256 encryption
@@ -631,7 +679,31 @@ static inline void aes256_encrypt_4blocks_ni(
     b3 = _mm_aesenclast_si128(b3, rk[14]);
 }
 
-// High-performance AES-GCM encrypt using AES-NI (4-block parallel)
+// 8-block parallel AES-256 encryption (fully pipelined)
+static inline void aes256_encrypt_8blocks_ni(
+    __m128i& b0, __m128i& b1, __m128i& b2, __m128i& b3,
+    __m128i& b4, __m128i& b5, __m128i& b6, __m128i& b7,
+    const __m128i* rk)
+{
+    b0 = _mm_xor_si128(b0, rk[0]); b1 = _mm_xor_si128(b1, rk[0]);
+    b2 = _mm_xor_si128(b2, rk[0]); b3 = _mm_xor_si128(b3, rk[0]);
+    b4 = _mm_xor_si128(b4, rk[0]); b5 = _mm_xor_si128(b5, rk[0]);
+    b6 = _mm_xor_si128(b6, rk[0]); b7 = _mm_xor_si128(b7, rk[0]);
+
+    for (int i = 1; i < 14; ++i) {
+        b0 = _mm_aesenc_si128(b0, rk[i]); b1 = _mm_aesenc_si128(b1, rk[i]);
+        b2 = _mm_aesenc_si128(b2, rk[i]); b3 = _mm_aesenc_si128(b3, rk[i]);
+        b4 = _mm_aesenc_si128(b4, rk[i]); b5 = _mm_aesenc_si128(b5, rk[i]);
+        b6 = _mm_aesenc_si128(b6, rk[i]); b7 = _mm_aesenc_si128(b7, rk[i]);
+    }
+
+    b0 = _mm_aesenclast_si128(b0, rk[14]); b1 = _mm_aesenclast_si128(b1, rk[14]);
+    b2 = _mm_aesenclast_si128(b2, rk[14]); b3 = _mm_aesenclast_si128(b3, rk[14]);
+    b4 = _mm_aesenclast_si128(b4, rk[14]); b5 = _mm_aesenclast_si128(b5, rk[14]);
+    b6 = _mm_aesenclast_si128(b6, rk[14]); b7 = _mm_aesenclast_si128(b7, rk[14]);
+}
+
+// High-performance AES-GCM encrypt using AES-NI (8-block parallel + pipelined GHASH)
 static kctsb_error_t aes_gcm_encrypt_aesni(
     const kctsb_aes_ctx_t* ctx,
     const uint8_t* iv, size_t iv_len,
@@ -676,38 +748,64 @@ static kctsb_error_t aes_gcm_encrypt_aesni(
     inc_counter(counter_bytes);
     __m128i counter = _mm_loadu_si128(reinterpret_cast<const __m128i*>(counter_bytes));
 
-    // CTR encryption with 4-block parallelism
+    // CTR encryption with 8-block parallelism for maximum throughput
     size_t offset = 0;
+    
+    // Process 8 blocks at a time (128 bytes)
+    while (offset + 128 <= input_len) {
+        __m128i c0, c1, c2, c3, c4, c5, c6, c7;
+        gen_8_counters_fast(counter, c0, c1, c2, c3, c4, c5, c6, c7);
+        counter = add_counter_be32(counter, 8);
+
+        if (is_aes256) {
+            aes256_encrypt_8blocks_ni(c0, c1, c2, c3, c4, c5, c6, c7, rk);
+        } else {
+            aes128_encrypt_8blocks_ni(c0, c1, c2, c3, c4, c5, c6, c7, rk);
+        }
+
+        // XOR with plaintext (8 blocks)
+        __m128i p0 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset));
+        __m128i p1 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 16));
+        __m128i p2 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 32));
+        __m128i p3 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 48));
+        __m128i p4 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 64));
+        __m128i p5 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 80));
+        __m128i p6 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 96));
+        __m128i p7 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 112));
+
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset), _mm_xor_si128(p0, c0));
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset + 16), _mm_xor_si128(p1, c1));
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset + 32), _mm_xor_si128(p2, c2));
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset + 48), _mm_xor_si128(p3, c3));
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset + 64), _mm_xor_si128(p4, c4));
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset + 80), _mm_xor_si128(p5, c5));
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset + 96), _mm_xor_si128(p6, c6));
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset + 112), _mm_xor_si128(p7, c7));
+
+        offset += 128;
+    }
+    
+    // Process 4 blocks at a time (64 bytes)
     while (offset + 64 <= input_len) {
-        // Generate 4 counter blocks efficiently
         __m128i c0, c1, c2, c3;
         gen_4_counters_fast(counter, c0, c1, c2, c3);
-
-        // Advance counter by 4
         counter = add_counter_be32(counter, 4);
 
-        // Encrypt counter blocks in parallel
         if (is_aes256) {
             aes256_encrypt_4blocks_ni(c0, c1, c2, c3, rk);
         } else {
             aes128_encrypt_4blocks_ni(c0, c1, c2, c3, rk);
         }
 
-        // XOR with plaintext
         __m128i p0 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset));
         __m128i p1 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 16));
         __m128i p2 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 32));
         __m128i p3 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 48));
 
-        __m128i ct0 = _mm_xor_si128(p0, c0);
-        __m128i ct1 = _mm_xor_si128(p1, c1);
-        __m128i ct2 = _mm_xor_si128(p2, c2);
-        __m128i ct3 = _mm_xor_si128(p3, c3);
-
-        _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset), ct0);
-        _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset + 16), ct1);
-        _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset + 32), ct2);
-        _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset + 48), ct3);
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset), _mm_xor_si128(p0, c0));
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset + 16), _mm_xor_si128(p1, c1));
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset + 32), _mm_xor_si128(p2, c2));
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset + 48), _mm_xor_si128(p3, c3));
 
         offset += 64;
     }
@@ -792,7 +890,7 @@ static kctsb_error_t aes_gcm_encrypt_aesni(
     return KCTSB_SUCCESS;
 }
 
-// High-performance AES-GCM decrypt using AES-NI (4-block parallel)
+// High-performance AES-GCM decrypt using AES-NI (8-block parallel CTR)
 static kctsb_error_t aes_gcm_decrypt_aesni(
     const kctsb_aes_ctx_t* ctx,
     const uint8_t* iv, size_t iv_len,
@@ -888,17 +986,63 @@ static kctsb_error_t aes_gcm_decrypt_aesni(
         return KCTSB_ERROR_AUTH_FAILED;
     }
 
-    // Decryption (same as encryption in CTR mode)
+    // Decryption with 8-block parallel CTR (same as encryption in CTR mode)
     alignas(16) uint8_t counter_bytes[16];
     memcpy(counter_bytes, j0_bytes, 16);
     inc_counter(counter_bytes);
     __m128i counter = _mm_loadu_si128(reinterpret_cast<const __m128i*>(counter_bytes));
 
     size_t offset = 0;
+    
+    // Process 8 blocks at a time (128 bytes) for maximum parallelism
+    while (offset + 128 <= input_len) {
+        __m128i c0, c1, c2, c3, c4, c5, c6, c7;
+        gen_8_counters_fast(counter, c0, c1, c2, c3, c4, c5, c6, c7);
+        counter = add_counter_be32(counter, 8);
+        
+        if (is_aes256) {
+            aes256_encrypt_8blocks_ni(c0, c1, c2, c3, c4, c5, c6, c7, rk);
+        } else {
+            aes128_encrypt_8blocks_ni(c0, c1, c2, c3, c4, c5, c6, c7, rk);
+        }
+        
+        // Load 8 ciphertext blocks
+        __m128i ct0 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset));
+        __m128i ct1 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 16));
+        __m128i ct2 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 32));
+        __m128i ct3 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 48));
+        __m128i ct4 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 64));
+        __m128i ct5 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 80));
+        __m128i ct6 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 96));
+        __m128i ct7 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 112));
+        
+        // XOR with keystream to get plaintext
+        __m128i p0 = _mm_xor_si128(ct0, c0);
+        __m128i p1 = _mm_xor_si128(ct1, c1);
+        __m128i p2 = _mm_xor_si128(ct2, c2);
+        __m128i p3 = _mm_xor_si128(ct3, c3);
+        __m128i p4 = _mm_xor_si128(ct4, c4);
+        __m128i p5 = _mm_xor_si128(ct5, c5);
+        __m128i p6 = _mm_xor_si128(ct6, c6);
+        __m128i p7 = _mm_xor_si128(ct7, c7);
+        
+        // Store 8 plaintext blocks
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset), p0);
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset + 16), p1);
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset + 32), p2);
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset + 48), p3);
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset + 64), p4);
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset + 80), p5);
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset + 96), p6);
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset + 112), p7);
+        
+        offset += 128;
+    }
+    
+    // Process 4 blocks at a time (64 bytes)
     while (offset + 64 <= input_len) {
         __m128i c0, c1, c2, c3;
         gen_4_counters_fast(counter, c0, c1, c2, c3);
-
         counter = add_counter_be32(counter, 4);
 
         if (is_aes256) {
@@ -925,6 +1069,7 @@ static kctsb_error_t aes_gcm_decrypt_aesni(
         offset += 64;
     }
 
+    // Handle remaining bytes (less than 64 bytes)
     while (offset < input_len) {
         alignas(16) uint8_t keystream[16];
         _mm_storeu_si128(reinterpret_cast<__m128i*>(counter_bytes), counter);

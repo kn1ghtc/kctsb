@@ -15,6 +15,25 @@
 #include <cstring>
 #include <new>
 
+// SIMD intrinsics - must be included in correct order
+#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
+    #if defined(__SSE2__) || defined(_M_X64) || defined(_M_AMD64)
+        #include <emmintrin.h>  // SSE2
+    #endif
+    #if defined(__SSSE3__) || (defined(_MSC_VER) && _MSC_VER >= 1500)
+        #include <tmmintrin.h>  // SSSE3 (_mm_shuffle_epi8)
+    #endif
+    #if defined(__SSE4_1__) || (defined(_MSC_VER) && _MSC_VER >= 1500)
+        #include <smmintrin.h>  // SSE4.1
+    #endif
+    #if defined(__AES__) || defined(__PCLMUL__) || (defined(_MSC_VER) && defined(__AVX__))
+        #include <wmmintrin.h>  // AES-NI, PCLMUL
+    #endif
+    #if defined(__AVX__)
+        #include <immintrin.h>  // AVX, AVX2, AVX-512
+    #endif
+#endif
+
 #if defined(_MSC_VER) || defined(__MINGW32__)
 #include <malloc.h>
 #endif
@@ -738,8 +757,82 @@ static inline __m128i gf128_reduce(__m128i H, __m128i X) {
     return tmp6;
 }
 
+// ============================================================================
+// Optimized Karatsuba GHASH Multiplication (Deferred Reduction)
+// ============================================================================
+
+/**
+ * @brief Karatsuba carry-less multiplication WITHOUT reduction
+ * Returns 256-bit product split into lo128/hi128
+ * Reduction is deferred to amortize cost across multiple multiplications
+ */
+static inline void gf128_mul_karatsuba(
+    __m128i H, __m128i X,
+    __m128i& lo, __m128i& hi, __m128i& mid)
+{
+    // Karatsuba: (a*c, b*d, (a+b)*(c+d) - a*c - b*d)
+    __m128i a = _mm_clmulepi64_si128(H, X, 0x00);  // H_lo * X_lo
+    __m128i b = _mm_clmulepi64_si128(H, X, 0x11);  // H_hi * X_hi
+    
+    __m128i H_xor = _mm_xor_si128(H, _mm_shuffle_epi32(H, 0x4E)); // H_lo ^ H_hi
+    __m128i X_xor = _mm_xor_si128(X, _mm_shuffle_epi32(X, 0x4E)); // X_lo ^ X_hi
+    __m128i c = _mm_clmulepi64_si128(H_xor, X_xor, 0x00);
+    
+    lo = a;
+    hi = b;
+    mid = _mm_xor_si128(_mm_xor_si128(c, a), b);
+}
+
+/**
+ * @brief Final reduction of accumulated 256-bit product
+ */
+static inline __m128i gf128_reduce_accumulated(__m128i lo, __m128i hi, __m128i mid) {
+    // Combine mid into lo/hi
+    __m128i mid_lo = _mm_slli_si128(mid, 8);
+    __m128i mid_hi = _mm_srli_si128(mid, 8);
+    lo = _mm_xor_si128(lo, mid_lo);
+    hi = _mm_xor_si128(hi, mid_hi);
+    
+    // Reduction polynomial: x^128 + x^7 + x^2 + x + 1
+    // Standard Barrett reduction
+    __m128i tmp1 = _mm_srli_epi32(lo, 31);
+    __m128i tmp2 = _mm_srli_epi32(lo, 30);
+    __m128i tmp3 = _mm_srli_epi32(lo, 25);
+    
+    tmp1 = _mm_xor_si128(tmp1, tmp2);
+    tmp1 = _mm_xor_si128(tmp1, tmp3);
+    
+    __m128i tmp4 = _mm_shuffle_epi32(tmp1, 0x93);
+    tmp1 = _mm_and_si128(tmp4, _mm_set_epi32(0, -1, -1, -1));
+    tmp4 = _mm_and_si128(tmp4, _mm_set_epi32(-1, 0, 0, 0));
+    
+    lo = _mm_xor_si128(lo, tmp1);
+    hi = _mm_xor_si128(hi, tmp4);
+    
+    __m128i tmp5 = _mm_slli_epi32(lo, 1);
+    __m128i tmp6 = _mm_slli_epi32(lo, 2);
+    __m128i tmp7 = _mm_slli_epi32(lo, 7);
+    
+    tmp5 = _mm_xor_si128(tmp5, tmp6);
+    tmp5 = _mm_xor_si128(tmp5, tmp7);
+    tmp5 = _mm_xor_si128(tmp5, lo);
+    
+    __m128i tmp8 = _mm_srli_si128(tmp5, 4);
+    tmp5 = _mm_slli_si128(tmp5, 12);
+    lo = _mm_xor_si128(lo, tmp5);
+    
+    __m128i tmp9 = _mm_srli_epi32(lo, 1);
+    __m128i tmp10 = _mm_srli_epi32(lo, 2);
+    tmp8 = _mm_xor_si128(tmp8, _mm_srli_epi32(lo, 7));
+    
+    tmp9 = _mm_xor_si128(tmp9, tmp10);
+    tmp9 = _mm_xor_si128(tmp9, tmp8);
+    tmp9 = _mm_xor_si128(tmp9, lo);
+    
+    return _mm_xor_si128(hi, tmp9);
+}
+
 void ghash_pclmul(uint8_t tag[16], const uint8_t h[16], const uint8_t* data, size_t len) {
-    // Byte-swap for big-endian GHASH
     const __m128i bswap_mask = _mm_set_epi8(0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15);
 
     __m128i H = _mm_loadu_si128(reinterpret_cast<const __m128i*>(h));
@@ -748,20 +841,97 @@ void ghash_pclmul(uint8_t tag[16], const uint8_t h[16], const uint8_t* data, siz
     __m128i Y = _mm_loadu_si128(reinterpret_cast<const __m128i*>(tag));
     Y = _mm_shuffle_epi8(Y, bswap_mask);
 
+    // Precompute H powers for 8-block parallelization: H^1 to H^8
+    __m128i H2 = gf128_reduce(H, H);
+    __m128i H3 = gf128_reduce(H2, H);
+    __m128i H4 = gf128_reduce(H2, H2);
+    __m128i H5 = gf128_reduce(H4, H);
+    __m128i H6 = gf128_reduce(H3, H3);
+    __m128i H7 = gf128_reduce(H6, H);
+    __m128i H8 = gf128_reduce(H4, H4);
+
+    // Process 8 blocks in parallel (128 bytes at a time) with deferred reduction
+    while (len >= 128) {
+        // Load 8 data blocks
+        __m128i X0 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(data)), bswap_mask);
+        __m128i X1 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(data + 16)), bswap_mask);
+        __m128i X2 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(data + 32)), bswap_mask);
+        __m128i X3 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(data + 48)), bswap_mask);
+        __m128i X4 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(data + 64)), bswap_mask);
+        __m128i X5 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(data + 80)), bswap_mask);
+        __m128i X6 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(data + 96)), bswap_mask);
+        __m128i X7 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(data + 112)), bswap_mask);
+
+        // XOR first block with running tag
+        X0 = _mm_xor_si128(X0, Y);
+
+        // Karatsuba multiplication with deferred reduction (8 parallel)
+        __m128i lo0, hi0, mid0, lo1, hi1, mid1, lo2, hi2, mid2, lo3, hi3, mid3;
+        __m128i lo4, hi4, mid4, lo5, hi5, mid5, lo6, hi6, mid6, lo7, hi7, mid7;
+
+        gf128_mul_karatsuba(H8, X0, lo0, hi0, mid0);
+        gf128_mul_karatsuba(H7, X1, lo1, hi1, mid1);
+        gf128_mul_karatsuba(H6, X2, lo2, hi2, mid2);
+        gf128_mul_karatsuba(H5, X3, lo3, hi3, mid3);
+        gf128_mul_karatsuba(H4, X4, lo4, hi4, mid4);
+        gf128_mul_karatsuba(H3, X5, lo5, hi5, mid5);
+        gf128_mul_karatsuba(H2, X6, lo6, hi6, mid6);
+        gf128_mul_karatsuba(H,  X7, lo7, hi7, mid7);
+
+        // Accumulate all partial products
+        __m128i lo_acc = _mm_xor_si128(_mm_xor_si128(_mm_xor_si128(lo0, lo1), _mm_xor_si128(lo2, lo3)),
+                                        _mm_xor_si128(_mm_xor_si128(lo4, lo5), _mm_xor_si128(lo6, lo7)));
+        __m128i hi_acc = _mm_xor_si128(_mm_xor_si128(_mm_xor_si128(hi0, hi1), _mm_xor_si128(hi2, hi3)),
+                                        _mm_xor_si128(_mm_xor_si128(hi4, hi5), _mm_xor_si128(hi6, hi7)));
+        __m128i mid_acc = _mm_xor_si128(_mm_xor_si128(_mm_xor_si128(mid0, mid1), _mm_xor_si128(mid2, mid3)),
+                                         _mm_xor_si128(_mm_xor_si128(mid4, mid5), _mm_xor_si128(mid6, mid7)));
+
+        // Single reduction for all 8 blocks
+        Y = gf128_reduce_accumulated(lo_acc, hi_acc, mid_acc);
+
+        data += 128;
+        len -= 128;
+    }
+
+    // Process 4 blocks at a time
+    while (len >= 64) {
+        __m128i X0 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(data)), bswap_mask);
+        __m128i X1 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(data + 16)), bswap_mask);
+        __m128i X2 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(data + 32)), bswap_mask);
+        __m128i X3 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(data + 48)), bswap_mask);
+
+        X0 = _mm_xor_si128(X0, Y);
+
+        __m128i lo0, hi0, mid0, lo1, hi1, mid1, lo2, hi2, mid2, lo3, hi3, mid3;
+        gf128_mul_karatsuba(H4, X0, lo0, hi0, mid0);
+        gf128_mul_karatsuba(H3, X1, lo1, hi1, mid1);
+        gf128_mul_karatsuba(H2, X2, lo2, hi2, mid2);
+        gf128_mul_karatsuba(H,  X3, lo3, hi3, mid3);
+
+        __m128i lo_acc = _mm_xor_si128(_mm_xor_si128(lo0, lo1), _mm_xor_si128(lo2, lo3));
+        __m128i hi_acc = _mm_xor_si128(_mm_xor_si128(hi0, hi1), _mm_xor_si128(hi2, hi3));
+        __m128i mid_acc = _mm_xor_si128(_mm_xor_si128(mid0, mid1), _mm_xor_si128(mid2, mid3));
+
+        Y = gf128_reduce_accumulated(lo_acc, hi_acc, mid_acc);
+
+        data += 64;
+        len -= 64;
+    }
+
+    // Process remaining full blocks serially
     while (len >= 16) {
-        __m128i X = _mm_loadu_si128(reinterpret_cast<const __m128i*>(data));
-        X = _mm_shuffle_epi8(X, bswap_mask);
+        __m128i X = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(data)), bswap_mask);
         Y = _mm_xor_si128(Y, X);
         Y = gf128_reduce(H, Y);
         data += 16;
         len -= 16;
     }
 
+    // Handle partial block
     if (len > 0) {
         uint8_t block[16] = {0};
         memcpy(block, data, len);
-        __m128i X = _mm_loadu_si128(reinterpret_cast<const __m128i*>(block));
-        X = _mm_shuffle_epi8(X, bswap_mask);
+        __m128i X = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(block)), bswap_mask);
         Y = _mm_xor_si128(Y, X);
         Y = gf128_reduce(H, Y);
     }

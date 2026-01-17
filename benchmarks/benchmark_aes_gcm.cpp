@@ -442,7 +442,7 @@ void benchmark_aes_gcm() {
 }
 
 /**
- * @brief AES-128-GCM Benchmark function
+ * @brief AES-128-GCM Benchmark function (format consistent with AES-256)
  */
 void benchmark_aes_128_gcm() {
     std::cout << "\n" << std::string(70, '=') << std::endl;
@@ -469,9 +469,8 @@ void benchmark_aes_128_gcm() {
                   << std::setw(15) << "Implementation"
                   << std::right << std::setw(13) << "Throughput"
                   << std::setw(10) << "Avg Time"
-                  << std::setw(13) << "Ratio"
                   << std::endl;
-        std::cout << std::string(76, '-') << std::endl;
+        std::cout << std::string(63, '-') << std::endl;
 
         // Generate test data
         std::vector<uint8_t> plaintext(data_size);
@@ -479,11 +478,25 @@ void benchmark_aes_128_gcm() {
         std::vector<uint8_t> decrypted;
         generate_random(plaintext.data(), data_size);
 
-        // Throughput variables for ratio calculation
-        double ssl_enc_tp = 0.0, ssl_dec_tp = 0.0;
-        double kc_enc_tp = 0.0, kc_dec_tp = 0.0;
+        // Precompute kctsb reference ciphertext/tag for decrypt benchmarks
+        std::vector<uint8_t> kctsb_ciphertext(data_size);
+        uint8_t kctsb_tag[GCM_TAG_SIZE] = {0};
+        kctsb_aes_ctx_t kctsb_ctx;
+        if (kctsb_aes_init(&kctsb_ctx, key128, AES_128_KEY_SIZE) != KCTSB_SUCCESS) {
+            std::cerr << "kctsb AES-128 init failed" << std::endl;
+            continue;
+        }
+        if (kctsb_aes_gcm_encrypt(&kctsb_ctx, iv, GCM_IV_SIZE,
+                                  nullptr, 0,
+                                  plaintext.data(), data_size,
+                                  kctsb_ciphertext.data(), kctsb_tag) != KCTSB_SUCCESS) {
+            std::cerr << "kctsb AES-128-GCM encrypt precompute failed" << std::endl;
+            continue;
+        }
 
-        // OpenSSL AES-128 Encryption
+        double ssl_enc_tp, ssl_dec_tp, kc_enc_tp, kc_dec_tp;
+
+        // OpenSSL Encryption
         ssl_enc_tp = run_benchmark_iterations(
             "AES-128-GCM Encrypt", "OpenSSL", data_size,
             [&]() {
@@ -492,7 +505,33 @@ void benchmark_aes_128_gcm() {
             }
         );
 
-        // OpenSSL AES-128 Decryption
+#ifdef KCTSB_HAS_AES_GCM
+        // kctsb Encryption
+        kc_enc_tp = run_benchmark_iterations(
+            "AES-128-GCM Encrypt", "kctsb", data_size,
+            [&]() {
+                if (ciphertext.size() != data_size) {
+                    ciphertext.resize(data_size);
+                }
+                auto start = Clock::now();
+                auto status = kctsb_aes_gcm_encrypt(&kctsb_ctx, iv, GCM_IV_SIZE,
+                                                    nullptr, 0,
+                                                    plaintext.data(), data_size,
+                                                    ciphertext.data(), tag);
+                auto end = Clock::now();
+                if (status != KCTSB_SUCCESS) {
+                    return std::numeric_limits<double>::infinity();
+                }
+                Duration elapsed = end - start;
+                return elapsed.count();
+            }
+        );
+        print_ratio(kc_enc_tp, ssl_enc_tp);
+#else
+        std::cout << "AES-128-GCM Encrypt      kctsb          (not compiled)" << std::endl;
+#endif
+
+        // OpenSSL Decryption
         ssl_dec_tp = run_benchmark_iterations(
             "AES-128-GCM Decrypt", "OpenSSL", data_size,
             [&]() {
@@ -501,57 +540,31 @@ void benchmark_aes_128_gcm() {
             }
         );
 
-#if defined(KCTSB_HAS_AES_GCM) && defined(KCTSB_HAS_AES_128)
-        // kctsb AES-128 Encryption
-        kctsb_aes_ctx_t kctsb_ctx128;
-        if (kctsb_aes_init(&kctsb_ctx128, key128, AES_128_KEY_SIZE) == KCTSB_SUCCESS) {
-            std::vector<uint8_t> kctsb_ct(data_size);
-            uint8_t kctsb_tag[GCM_TAG_SIZE];
-
-            kc_enc_tp = run_benchmark_iterations(
-                "AES-128-GCM Encrypt", "kctsb", data_size,
-                [&]() {
-                    auto start = Clock::now();
-                    auto status = kctsb_aes_gcm_encrypt(&kctsb_ctx128, iv, GCM_IV_SIZE,
-                                                        nullptr, 0,
-                                                        plaintext.data(), data_size,
-                                                        kctsb_ct.data(), kctsb_tag);
-                    auto end = Clock::now();
-                    if (status != KCTSB_SUCCESS) {
-                        return std::numeric_limits<double>::infinity();
-                    }
-                    Duration elapsed = end - start;
-                    return elapsed.count();
+#ifdef KCTSB_HAS_AES_GCM
+        // kctsb Decryption
+        std::vector<uint8_t> kctsb_decrypted(data_size);
+        kc_dec_tp = run_benchmark_iterations(
+            "AES-128-GCM Decrypt", "kctsb", data_size,
+            [&]() {
+                if (decrypted.size() != data_size) {
+                    decrypted.resize(data_size);
                 }
-            );
-            print_ratio(kc_enc_tp, ssl_enc_tp);
-
-            // kctsb AES-128 Decryption
-            std::vector<uint8_t> kctsb_pt(data_size);
-            kc_dec_tp = run_benchmark_iterations(
-                "AES-128-GCM Decrypt", "kctsb", data_size,
-                [&]() {
-                    auto start = Clock::now();
-                    auto status = kctsb_aes_gcm_decrypt(&kctsb_ctx128, iv, GCM_IV_SIZE,
-                                                        nullptr, 0,
-                                                        kctsb_ct.data(), data_size,
-                                                        kctsb_tag,
-                                                        kctsb_pt.data());
-                    auto end = Clock::now();
-                    if (status != KCTSB_SUCCESS) {
-                        return std::numeric_limits<double>::infinity();
-                    }
-                    Duration elapsed = end - start;
-                    return elapsed.count();
+                auto start = Clock::now();
+                auto status = kctsb_aes_gcm_decrypt(&kctsb_ctx, iv, GCM_IV_SIZE,
+                                                    nullptr, 0,
+                                                    kctsb_ciphertext.data(), data_size,
+                                                    kctsb_tag,
+                                                    decrypted.data());
+                auto end = Clock::now();
+                if (status != KCTSB_SUCCESS) {
+                    return std::numeric_limits<double>::infinity();
                 }
-            );
-            print_ratio(kc_dec_tp, ssl_dec_tp);
-        } else {
-            std::cout << "AES-128-GCM Encrypt      kctsb          (init failed)" << std::endl;
-            std::cout << "AES-128-GCM Decrypt      kctsb          (init failed)" << std::endl;
-        }
+                Duration elapsed = end - start;
+                return elapsed.count();
+            }
+        );
+        print_ratio(kc_dec_tp, ssl_dec_tp);
 #else
-        std::cout << "AES-128-GCM Encrypt      kctsb          (not compiled)" << std::endl;
         std::cout << "AES-128-GCM Decrypt      kctsb          (not compiled)" << std::endl;
 #endif
     }
