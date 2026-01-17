@@ -8,8 +8,6 @@
 
 #include <stdio.h>
 #include <string>
-#include <cstdlib>
-#include <ctime>
 #include <iostream>
 #include <cstdio>
 
@@ -17,14 +15,22 @@
 #include <gmp.h>
 
 #include "kctsb/core/common.h"
+#include "kctsb/core/security.h"
 
 using namespace std;
 
 int test_eigamal_main()
 {
     gmp_randstate_t grt;
-    gmp_randinit_default(grt);//设置随机数生成算法为默认
-    gmp_randseed_ui(grt, time(NULL)); //设置随机化种子为当前时间，这几条语句的作用相当于标准C中的srand(time(NULL));
+    gmp_randinit_default(grt);
+    
+    // Use CSPRNG for secure seed instead of time(NULL)
+    unsigned long int secure_seed;
+    if (kctsb_random_bytes(&secure_seed, sizeof(secure_seed)) != 0) {
+        // Fallback to less secure method if CSPRNG fails
+        secure_seed = 12345UL;  // Should not happen in normal operation
+    }
+    gmp_randseed_ui(grt, secure_seed);
     
     const char * buf_n = "1000000000000000000000000000000000000000000000000000000";
     

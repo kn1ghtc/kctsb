@@ -846,10 +846,14 @@ if(KCTSB_BUILD_STATIC)
     endif()
     set_target_properties(kctsb_static PROPERTIES OUTPUT_NAME kctsb)
 
-    # Platform-specific system libraries (always needed, not bundled)
-    if(WIN32)
-        target_link_libraries(kctsb_static PRIVATE bcrypt)
-    elseif(APPLE)
+    # Platform-specific dependencies:
+    # - kctsb code: uses runtime LoadLibrary for bcrypt.dll (no link needed)
+    # - SEAL thirdparty: requires bcrypt link (SEAL uses BCryptGenRandom internally)
+    # - macOS: Security.framework linked for SecRandomCopyBytes
+    if(WIN32 AND KCTSB_ENABLE_SEAL AND SEAL_FOUND)
+        target_link_libraries(kctsb_static PRIVATE bcrypt)  # Required by SEAL
+    endif()
+    if(APPLE)
         target_link_libraries(kctsb_static PRIVATE "-framework Security")
     endif()
     
@@ -911,9 +915,11 @@ if(KCTSB_BUILD_SHARED)
     set_target_properties(kctsb_shared PROPERTIES
         OUTPUT_NAME kctsb VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR})
 
-    if(WIN32)
-        target_link_libraries(kctsb_shared PRIVATE bcrypt)
-    elseif(APPLE)
+    # Platform-specific dependencies (same as static)
+    if(WIN32 AND KCTSB_ENABLE_SEAL AND SEAL_FOUND)
+        target_link_libraries(kctsb_shared PRIVATE bcrypt)  # Required by SEAL
+    endif()
+    if(APPLE)
         target_link_libraries(kctsb_shared PRIVATE "-framework Security")
     endif()
     if(KCTSB_ENABLE_NTL AND NTL_FOUND)
@@ -949,7 +955,7 @@ endif()
 # For distribution, users only need:
 #   - libkctsb.a (static) or libkctsb.so/.dll (shared)
 #   - kctsb_api.h (public header)
-#   - Link with: -lkctsb -lstdc++ [-lbcrypt on Windows]
+#   - Link with: -lkctsb -lstdc++ (bcrypt.dll loaded at runtime on Windows)
 
 # ============================================================================
 # CLI Tool
@@ -1060,5 +1066,5 @@ message(STATUS "")
 message(STATUS "Distribution (like OpenSSL):")
 message(STATUS "  Header:  kctsb_api.h (single public header)")
 message(STATUS "  Library: libkctsb.a / libkctsb.so / kctsb.dll")
-message(STATUS "  Link:    -lkctsb -lstdc++ [-lbcrypt on Windows]")
+message(STATUS "  Link:    -lkctsb -lstdc++ (no extra deps, system DLLs loaded at runtime)")
 message(STATUS "")

@@ -3,13 +3,15 @@
  * 
  * Uses GMP C API (mpz_t) directly instead of C++ wrapper classes.
  * All mpz_t operations use standard GMP C functions.
+ * 
+ * Security: Uses kctsb_random_bytes() for cryptographically secure
+ * random number generation instead of srand/rand.
  */
 
 #include "kctsb/advanced/zk/ffsa.h"
 #include "kctsb/core/security.h"
 #include <iostream>
-#include <cstdlib>
-#include <ctime>
+#include <ctime>  // Only for fallback seed if CSPRNG fails
 
 /**
  * Check if GMP number is prime using Miller-Rabin primality test
@@ -104,10 +106,16 @@ bool_vec_t ffsa_get_bool_vector(int8_t k)
     bool_vec_t a;
     a.reserve(static_cast<size_t>(k));
 
-    srand(static_cast<unsigned int>(time(NULL)));
-
-    for(int8_t i = 0; i < k; i++)
-        a.push_back(static_cast<bool>(rand() % 2));
+    // Use CSPRNG for secure random booleans
+    uint8_t random_byte;
+    for(int8_t i = 0; i < k; i++) {
+        if (kctsb_random_bytes(&random_byte, 1) == 0) {
+            a.push_back(static_cast<bool>(random_byte & 1));
+        } else {
+            // Fallback (should not happen in normal operation)
+            a.push_back(static_cast<bool>(i & 1));
+        }
+    }
 
     return a;
 }
@@ -126,8 +134,11 @@ void ffsa_get_secrets(mpz_vec_t& s, int8_t k, const mpz_t n)
     gmp_randstate_t state;
     gmp_randinit_default(state);
 
-    srand(static_cast<unsigned int>(time(NULL)));
-    unsigned long int seed = static_cast<unsigned long int>(rand());
+    // Use CSPRNG for secure seed
+    unsigned long int seed;
+    if (kctsb_random_bytes(&seed, sizeof(seed)) != 0) {
+        seed = static_cast<unsigned long int>(time(NULL));
+    }
     gmp_randseed_ui(state, seed);
 
     mpz_t intermediate, n_minus_1, gcd_result;
@@ -188,8 +199,6 @@ void ffsa_get_secrets(mpz_vec_t& s, int8_t k, const mpz_t n)
  */
 void ffsa_get_verifiers(mpz_vec_t& v, const mpz_vec_t& s, const mpz_t n)
 {
-    srand(static_cast<unsigned int>(time(NULL)));
-
     v.clear();
     v.reserve(s.size());
 
@@ -198,7 +207,12 @@ void ffsa_get_verifiers(mpz_vec_t& v, const mpz_vec_t& s, const mpz_t n)
 
     for(size_t i = 0; i < s.size(); i++)
     {
-        int8_t sig = (rand() % 2) ? -1 : 1;
+        // Use CSPRNG for random sign
+        uint8_t random_byte;
+        int8_t sig = 1;
+        if (kctsb_random_bytes(&random_byte, 1) == 0) {
+            sig = (random_byte & 1) ? -1 : 1;
+        }
 
         // inter = s[i]^2 mod n
         mpz_mul(*s[i], *s[i], inter);

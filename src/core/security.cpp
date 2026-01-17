@@ -4,10 +4,14 @@
  *
  * Production-grade implementation of security-critical operations with:
  * - Constant-time execution paths
- * - Platform-specific CSPRNG
  * - Secure memory operations
+ * - CSPRNG via CTR_DRBG (delegated to aes.cpp for AES-NI acceleration)
  *
- * C++ Core + C ABI Architecture (v3.4.0)
+ * C++ Core + C ABI Architecture (v3.4.2)
+ *
+ * Note: CSPRNG is now implemented in aes.cpp using NIST SP 800-90A CTR_DRBG
+ * with AES-256 and hardware acceleration. This file provides the public API
+ * wrapper and legacy compatibility.
  *
  * @author knightc
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
@@ -24,32 +28,13 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>
-#include <bcrypt.h>
-#ifndef STATUS_SUCCESS
-// Use constexpr instead of old-style macro cast to avoid -Wold-style-cast
-constexpr NTSTATUS KCTSB_STATUS_SUCCESS = 0x00000000L;
-#define STATUS_SUCCESS KCTSB_STATUS_SUCCESS
-#endif
+// Note: CSPRNG now implemented in aes.cpp using CTR_DRBG with BCryptGenRandom entropy
 #else
 #include <sys/types.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <cerrno>
-#include <cstdlib>
-#if defined(__linux__)
-// sys/random.h requires glibc 2.25+, use runtime detection instead
-// Check for getrandom via syscall on older systems
-#include <sys/syscall.h>
-#ifdef SYS_getrandom
-#define KCTSB_HAS_GETRANDOM_SYSCALL 1
-static inline ssize_t kctsb_getrandom(void* buf, size_t len, unsigned int flags) {
-    return syscall(SYS_getrandom, buf, len, flags);
-}
 #endif
-#elif defined(__APPLE__)
-#include <Security/SecRandom.h>
-#endif
-#endif
+
+// Forward declaration of CSPRNG API from aes.cpp
+extern "C" int kctsb_csprng_random_bytes(void* buf, size_t len);
 
 namespace kctsb {
 namespace internal {
@@ -146,126 +131,23 @@ int secure_copy(void* dest, size_t dest_size, const void* src, size_t count) {
 }
 
 // ============================================================================
-// CSPRNG Implementation
+// CSPRNG Implementation (Delegated to CTR_DRBG in aes.cpp)
+// ============================================================================
+// 
+// The actual CSPRNG implementation is in aes.cpp using NIST SP 800-90A
+// CTR_DRBG with AES-256 and hardware acceleration (AES-NI).
+// This function is a simple wrapper for API compatibility.
+//
+// Benefits of integrated CTR_DRBG in aes.cpp:
+// - Uses BCryptGenRandom (Windows system component) for entropy
+// - Hardware accelerated via AES-NI
+// - Consistent security level (AES-256 strength)
+// - Automatic reseeding every 512KB
 // ============================================================================
 
-#ifdef _WIN32
-
 int random_bytes(void* buf, size_t len) {
-    if (!buf) return KCTSB_ERROR_INVALID_PARAM;
-    if (len == 0) return KCTSB_SUCCESS;
-
-    NTSTATUS status = BCryptGenRandom(
-        nullptr,
-        static_cast<PUCHAR>(buf),
-        static_cast<ULONG>(len),
-        BCRYPT_USE_SYSTEM_PREFERRED_RNG
-    );
-
-    return (status == STATUS_SUCCESS) ? KCTSB_SUCCESS : KCTSB_ERROR_RANDOM_FAILED;
+    return kctsb_csprng_random_bytes(buf, len);
 }
-
-#elif defined(__linux__)
-
-int random_bytes(void* buf, size_t len) {
-    if (!buf) return KCTSB_ERROR_INVALID_PARAM;
-    if (len == 0) return KCTSB_SUCCESS;
-
-    unsigned char* p = static_cast<unsigned char*>(buf);
-    size_t remaining = len;
-
-#ifdef KCTSB_HAS_GETRANDOM_SYSCALL
-    // Try getrandom syscall first (works on kernel 3.17+)
-    while (remaining > 0) {
-        ssize_t ret = kctsb_getrandom(p, remaining, 0);
-        if (ret < 0) {
-            if (errno == EINTR) continue;
-            if (errno == ENOSYS) break; // getrandom not available, fall through to /dev/urandom
-
-            // Other errors, try fallback
-            break;
-        }
-        p += ret;
-        remaining -= static_cast<size_t>(ret);
-    }
-
-    if (remaining == 0) return KCTSB_SUCCESS;
-
-    // Reset for fallback
-    p = static_cast<unsigned char*>(buf);
-    remaining = len;
-#endif
-
-    // Fallback to /dev/urandom
-    int fd = open("/dev/urandom", O_RDONLY | O_CLOEXEC);
-    if (fd < 0) {
-        // Try without O_CLOEXEC for older kernels
-        fd = open("/dev/urandom", O_RDONLY);
-        if (fd < 0) return KCTSB_ERROR_RANDOM_FAILED;
-    }
-
-    while (remaining > 0) {
-        ssize_t ret = read(fd, p, remaining);
-        if (ret < 0) {
-            if (errno == EINTR) continue;
-            close(fd);
-            return KCTSB_ERROR_RANDOM_FAILED;
-        }
-        p += ret;
-        remaining -= static_cast<size_t>(ret);
-    }
-    close(fd);
-    return KCTSB_SUCCESS;
-}
-
-#elif defined(__APPLE__)
-
-int random_bytes(void* buf, size_t len) {
-    if (!buf) return KCTSB_ERROR_INVALID_PARAM;
-    if (len == 0) return KCTSB_SUCCESS;
-
-    if (SecRandomCopyBytes(kSecRandomDefault, len, buf) == errSecSuccess) {
-        return KCTSB_SUCCESS;
-    }
-
-    // Fallback to arc4random_buf
-    arc4random_buf(buf, len);
-    return KCTSB_SUCCESS;
-}
-
-#else
-// Generic POSIX fallback
-
-int random_bytes(void* buf, size_t len) {
-    if (!buf) return KCTSB_ERROR_INVALID_PARAM;
-    if (len == 0) return KCTSB_SUCCESS;
-
-    int fd = open("/dev/urandom", O_RDONLY);
-    if (fd < 0) return KCTSB_ERROR_RANDOM_FAILED;
-
-    unsigned char* p = static_cast<unsigned char*>(buf);
-    size_t remaining = len;
-
-    while (remaining > 0) {
-        ssize_t ret = read(fd, p, remaining);
-        if (ret < 0) {
-            if (errno == EINTR) continue;
-            close(fd);
-            return KCTSB_ERROR_RANDOM_FAILED;
-        }
-        if (ret == 0) {
-            close(fd);
-            return KCTSB_ERROR_RANDOM_FAILED;
-        }
-        p += ret;
-        remaining -= static_cast<size_t>(ret);
-    }
-
-    close(fd);
-    return KCTSB_SUCCESS;
-}
-
-#endif
 
 // ============================================================================
 // Security Environment Check

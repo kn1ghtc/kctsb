@@ -1,7 +1,5 @@
 #include <iostream>
 #include <vector>
-#include <ctime> // time() for srand()
-#include <cstdlib> // rand()
 #include <cmath> // pow()
 #include <cstdint> // int32_t
 
@@ -11,12 +9,39 @@
 // Uncomment to have the user calculate value of y
 //#define USER_INPUT
 
+/**
+ * Generate cryptographically secure random number in range [min, max)
+ * @param min Minimum value (inclusive)
+ * @param max Maximum value (exclusive)
+ * @return Random number in range [min, max)
+ */
 int32_t GetRandomNumber(const int32_t min, const int32_t max){
-    return (rand() % (max - min)) + min;
+    if (max <= min) return min;
+    
+    uint32_t range = static_cast<uint32_t>(max - min);
+    uint32_t random_value;
+    
+    // Use CSPRNG for secure random number generation
+    if (kctsb_random_bytes(&random_value, sizeof(random_value)) != 0) {
+        // Fallback: should never happen in normal operation
+        return min;
+    }
+    
+    // Reduce modulo bias using rejection sampling for critical applications
+    // For this demo/educational code, simple modulo is acceptable
+    return min + static_cast<int32_t>(random_value % range);
 }
 
+/**
+ * Generate random sign (+1 or -1) using CSPRNG
+ * @return +1 or -1
+ */
 int32_t GetRandomSign(){
-    return (rand() % 2) ? -1 : 1;
+    uint8_t random_byte;
+    if (kctsb_random_bytes(&random_byte, 1) == 0) {
+        return (random_byte & 1) ? -1 : 1;
+    }
+    return 1;  // Fallback
 }
 
 class NumberGenerator{
@@ -81,7 +106,8 @@ int32_t getCoprime(int32_t n)
 
 int test_ffs1_main()
 {
-    srand(static_cast<unsigned int>(time(NULL)));
+    // Note: Random number generation now uses CSPRNG via kctsb_random_bytes
+    // No need for srand() initialization
 
     // Security parameter k determines iteration count (not used in single-round demo)
     // int32_t k = 5;

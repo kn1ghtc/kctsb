@@ -24,6 +24,7 @@
 #include <algorithm>
 
 #include "kctsb/crypto/aes.h"
+#include "kctsb/core/security.h"  // For kctsb_random_bytes
 // #include "kctsb/utils/hex.h"  // TODO: create hex utility
 
 /**
@@ -142,10 +143,11 @@ int cmd_aes(int argc, char* argv[]) {
             }
 
             if (encrypt) {
-                // Generate random IV (12 bytes for GCM)
+                // Generate random IV (12 bytes for GCM) using CSPRNG
                 unsigned char iv[12];
-                // TODO: Use kctsb_random_bytes for cryptographic randomness
-                for (int i = 0; i < 12; ++i) iv[i] = static_cast<unsigned char>(rand() % 256);
+                if (kctsb_random_bytes(iv, sizeof(iv)) != KCTSB_SUCCESS) {
+                    throw std::runtime_error("Failed to generate random IV");
+                }
 
                 // Allocate output buffer (same size as input for GCM)
                 std::vector<unsigned char> ciphertext(input_data.size());

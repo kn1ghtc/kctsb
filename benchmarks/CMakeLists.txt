@@ -81,10 +81,8 @@ elseif(TARGET kctsb_shared)
     )
 endif()
 
-# Platform-specific
-if(WIN32)
-    target_link_libraries(kctsb_benchmark PRIVATE bcrypt)
-endif()
+# Platform-specific: bcrypt.dll loaded at runtime on Windows
+# No static linking required for OS system DLLs
 
 # Set output directory
 set_target_properties(kctsb_benchmark PROPERTIES

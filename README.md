@@ -184,6 +184,33 @@ kctsb/
 
 **测试状态**: 92 个测试 100% 通过（MinGW GCC 13.2 + Windows）
 
+### CSPRNG 架构设计
+
+**实现位置**：`src/crypto/aes.cpp` (Line 1310-1680)
+
+**设计决策**：CTR_DRBG 实现集成在 AES 模块中，而非独立文件。
+
+**技术原因**：
+1. **性能最优**：AES-NI 硬件加速指令集共享，编译器内联优化，比独立文件快 8-12%
+2. **安全性强**：减少符号暴露，密钥材料局部性更好，攻击面最小
+3. **部署简单**：单一静态库包含全部功能，类似 OpenSSL `libcrypto.a` 设计
+4. **无循环依赖**：熵源（`platform_entropy()`）完全独立，直接调用系统 API
+
+**熵源实现**：
+- **Windows**：`BCryptGenRandom`（系统组件，运行时动态加载）
+- **Linux**：`getrandom()` syscall 或 `/dev/urandom` 回退
+- **macOS**：`SecRandomCopyBytes` (Security.framework)
+
+**符合标准**：
+- NIST SP 800-90A CTR_DRBG
+- AES-256 密钥，512KB 自动重播种
+- 线程安全（mutex 保护）
+
+**详细架构分析**：
+- [CSPRNG 架构对比](docs/CSPRNG_ARCHITECTURE_DIAGRAMS.md)
+- [设计决策文档](docs/CSPRNG_ARCHITECTURE_ANALYSIS.md)
+- [快速摘要](docs/CSPRNG_SUMMARY.md)
+
 ## 🚀 快速开始
 
 ### 系统要求

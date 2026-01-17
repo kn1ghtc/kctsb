@@ -70,9 +70,7 @@ function(kctsb_add_test TARGET_NAME SOURCE_FILE LABEL)
         ${CMAKE_SOURCE_DIR}/include
         ${CMAKE_SOURCE_DIR}/src
     )
-    if(WIN32)
-        target_link_libraries(${TARGET_NAME} PRIVATE bcrypt)
-    endif()
+    # Note: bcrypt.dll loaded at runtime, no static link needed
 
     # Discover tests with labels
     gtest_discover_tests(${TARGET_NAME}
@@ -114,9 +112,7 @@ if(KCTSB_ENABLE_NTL AND NTL_FOUND)
         ${CMAKE_SOURCE_DIR}/include
         ${CMAKE_SOURCE_DIR}/src
     )
-    if(WIN32)
-        target_link_libraries(test_math PRIVATE bcrypt)
-    endif()
+    # Note: bcrypt.dll loaded at runtime, no static link needed
     target_compile_definitions(test_math PRIVATE KCTSB_HAS_NTL)
     target_link_libraries(test_math PRIVATE ${NTL_LIBRARY})
     if(GMP_FOUND)
@@ -140,9 +136,7 @@ target_link_libraries(test_integration PRIVATE
     kctsb_static
     GTest::gtest_main
 )
-if(WIN32)
-    target_link_libraries(test_integration PRIVATE bcrypt)
-endif()
+# Note: bcrypt.dll loaded at runtime, no static link needed
 target_include_directories(test_integration PRIVATE ${CMAKE_SOURCE_DIR}/include)
 gtest_discover_tests(test_integration PROPERTIES LABELS "integration")
 

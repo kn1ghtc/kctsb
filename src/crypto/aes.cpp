@@ -8,6 +8,7 @@
  * - NO T-tables (removed to prevent cache-timing side-channel attacks)
  * - Secure memory handling with automatic zeroing
  * - Complete AES-GCM with PCLMUL-accelerated GHASH
+ * - Integrated NIST SP 800-90A CTR_DRBG for secure random generation
  *
  * Supported Modes:
  * - AES-128-GCM (AEAD)
@@ -17,7 +18,7 @@
  * 1. AES-NI + PCLMUL: Hardware acceleration (default on modern CPUs)
  * 2. Software fallback: Constant-time, portable (rare legacy systems)
  *
- * Based on NIST FIPS 197 (AES) and SP 800-38D (GCM)
+ * Based on NIST FIPS 197 (AES) and SP 800-38D (GCM) and SP 800-90A (DRBG)
  *
  * @author knightc
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
@@ -30,12 +31,39 @@
 #include <array>
 #include <cstring>
 #include <stdexcept>
+#include <atomic>
+#include <mutex>
 
 // CPUID and SIMD intrinsics
 #if defined(_MSC_VER)
 #include <intrin.h>
 #else
 #include <cpuid.h>
+#endif
+
+// Platform-specific entropy source headers
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+// BCryptGenRandom via runtime dynamic loading (no bcrypt.lib link required)
+// bcrypt.dll is a Windows system component, loaded at runtime
+typedef LONG KCTSB_NTSTATUS;
+typedef KCTSB_NTSTATUS (WINAPI *BCryptGenRandomFn)(
+    PVOID hAlgorithm, PUCHAR pbBuffer, ULONG cbBuffer, ULONG dwFlags);
+constexpr ULONG KCTSB_BCRYPT_USE_SYSTEM_PREFERRED_RNG = 0x00000002;
+constexpr KCTSB_NTSTATUS KCTSB_STATUS_SUCCESS = 0L;
+#elif defined(__linux__)
+#include <sys/syscall.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <errno.h>
+#if defined(__x86_64__) || defined(__i386__)
+#define KCTSB_HAS_GETRANDOM_SYSCALL 1
+#endif
+#elif defined(__APPLE__)
+#include <Security/Security.h>
 #endif
 
 // AES-NI and SSE intrinsics
@@ -1271,6 +1299,389 @@ void kctsb_aes_clear(kctsb_aes_ctx_t* ctx) {
 
 void kctsb_aes_gcm_clear(kctsb_aes_gcm_ctx_t* ctx) {
     if (ctx) kctsb_secure_zero(ctx, sizeof(kctsb_aes_gcm_ctx_t));
+}
+
+} // extern "C"
+
+// ============================================================================
+// NIST SP 800-90A CTR_DRBG with AES-256 (Hardware Accelerated)
+// ============================================================================
+// This implementation provides cryptographically secure random number generation
+// by combining platform entropy with AES-256-CTR DRBG for deterministic expansion.
+// The DRBG automatically reseeds after generating 2^19 bytes to maintain security.
+//
+// Design follows OpenSSL's approach:
+// - Platform entropy via BCryptGenRandom (Windows) / getrandom (Linux)
+// - AES-256-CTR DRBG for efficient expansion
+// - AES-NI hardware acceleration for maximum performance
+// ============================================================================
+
+namespace {
+
+// CTR_DRBG Constants (NIST SP 800-90A with AES-256)
+constexpr size_t DRBG_KEY_LEN = 32;       // AES-256 key length
+constexpr size_t DRBG_BLOCK_LEN = 16;     // AES block length
+constexpr size_t DRBG_SEED_LEN = DRBG_KEY_LEN + DRBG_BLOCK_LEN;  // 48 bytes
+constexpr size_t DRBG_RESEED_INTERVAL = (1 << 19);  // 512KB before reseed
+
+// CTR_DRBG State (internal use only)
+struct ctr_drbg_state {
+    alignas(16) uint8_t key[DRBG_KEY_LEN];      // AES-256 key (32 bytes)
+    alignas(16) uint8_t v[DRBG_BLOCK_LEN];      // Counter block V (16 bytes)
+    size_t reseed_counter;                       // Bytes generated since last reseed
+    bool initialized;                            // Has been seeded
+    kctsb_aes_ctx_t aes_ctx;                    // Pre-expanded AES key schedule
+};
+
+// Global DRBG instance (lazy initialized, thread-safe)
+static ctr_drbg_state g_drbg = {};
+static std::mutex g_drbg_mutex;
+static std::atomic<bool> g_drbg_initialized{false};
+
+// ============================================================================
+// Platform Entropy Source (no bcrypt.dll dependency)
+// ============================================================================
+
+/**
+ * @brief Collect entropy from platform-specific CSPRNG
+ * @param buffer Output buffer for entropy bytes
+ * @param len Number of bytes to collect
+ * @return 0 on success, -1 on failure
+ *
+ * Windows: Uses BCryptGenRandom (CNG API) via runtime dynamic loading
+ *          bcrypt.dll is a Windows system component (no link required)
+ * Linux:   Uses getrandom() syscall or /dev/urandom fallback
+ * macOS:   Uses SecRandomCopyBytes from Security.framework
+ */
+static int platform_entropy(void* buffer, size_t len) {
+    if (!buffer || len == 0) return 0;
+
+#ifdef _WIN32
+    // Windows: Load bcrypt.dll at runtime (no static linking required)
+    // bcrypt.dll is guaranteed to exist on Windows 7+ as system component
+    static HMODULE hBcrypt = nullptr;
+    static BCryptGenRandomFn pBCryptGenRandom = nullptr;
+    static bool initialized = false;
+    
+    if (!initialized) {
+        hBcrypt = LoadLibraryW(L"bcrypt.dll");
+        if (hBcrypt) {
+            FARPROC proc = GetProcAddress(hBcrypt, "BCryptGenRandom");
+            // Convert function pointer via union (standard way to avoid strict aliasing)
+            union {
+                FARPROC fp;
+                BCryptGenRandomFn fn;
+            } converter;
+            converter.fp = proc;
+            pBCryptGenRandom = converter.fn;
+        }
+        initialized = true;
+    }
+    
+    if (!pBCryptGenRandom) {
+        return -1;  // bcrypt.dll not available (should never happen on Win7+)
+    }
+    
+    KCTSB_NTSTATUS status = pBCryptGenRandom(
+        nullptr,
+        static_cast<PUCHAR>(buffer),
+        static_cast<ULONG>(len),
+        KCTSB_BCRYPT_USE_SYSTEM_PREFERRED_RNG
+    );
+    return (status == KCTSB_STATUS_SUCCESS) ? 0 : -1;
+
+#elif defined(__linux__)
+    uint8_t* p = static_cast<uint8_t*>(buffer);
+    size_t remaining = len;
+
+#ifdef KCTSB_HAS_GETRANDOM_SYSCALL
+    // Linux: getrandom syscall (kernel 3.17+)
+    while (remaining > 0) {
+        long ret = syscall(SYS_getrandom, p, remaining, 0);
+        if (ret < 0) {
+            if (errno == EINTR) continue;
+            if (errno == ENOSYS) break;  // Fall through to /dev/urandom
+            return -1;
+        }
+        p += ret;
+        remaining -= static_cast<size_t>(ret);
+    }
+    if (remaining == 0) return 0;
+    
+    // Reset for /dev/urandom fallback
+    p = static_cast<uint8_t*>(buffer);
+    remaining = len;
+#endif
+
+    // Fallback: /dev/urandom
+    int fd = open("/dev/urandom", O_RDONLY | O_CLOEXEC);
+    if (fd < 0) return -1;
+    
+    while (remaining > 0) {
+        ssize_t ret = read(fd, p, remaining);
+        if (ret < 0) {
+            if (errno == EINTR) continue;
+            close(fd);
+            return -1;
+        }
+        if (ret == 0) {
+            close(fd);
+            return -1;
+        }
+        p += ret;
+        remaining -= static_cast<size_t>(ret);
+    }
+    close(fd);
+    return 0;
+
+#elif defined(__APPLE__)
+    // macOS: SecRandomCopyBytes from Security.framework
+    OSStatus status = SecRandomCopyBytes(kSecRandomDefault, len, buffer);
+    return (status == errSecSuccess) ? 0 : -1;
+
+#else
+    // Unsupported platform
+    (void)buffer;
+    (void)len;
+    return -1;
+#endif
+}
+
+// ============================================================================
+// CTR_DRBG Internal Functions (NIST SP 800-90A)
+// ============================================================================
+
+/**
+ * @brief CTR_DRBG Update Function (NIST SP 800-90A Section 10.2.1.2)
+ * Updates the internal state (Key, V) using provided data
+ * Uses AES-NI acceleration when available
+ */
+static void ctr_drbg_update(ctr_drbg_state* drbg, const uint8_t provided_data[DRBG_SEED_LEN]) {
+    alignas(16) uint8_t temp[DRBG_SEED_LEN];
+    alignas(16) uint8_t block[DRBG_BLOCK_LEN];
+    
+    // Generate seed_len bytes of output using current key
+    size_t offset = 0;
+    while (offset < DRBG_SEED_LEN) {
+        // Increment V
+        for (int i = DRBG_BLOCK_LEN - 1; i >= 0; i--) {
+            if (++drbg->v[i] != 0) break;
+        }
+        
+        // Encrypt V with current key
+        kctsb_aes_encrypt_block(&drbg->aes_ctx, drbg->v, block);
+        
+        size_t to_copy = (DRBG_SEED_LEN - offset < DRBG_BLOCK_LEN) 
+                         ? (DRBG_SEED_LEN - offset) : DRBG_BLOCK_LEN;
+        memcpy(temp + offset, block, to_copy);
+        offset += to_copy;
+    }
+    
+    // XOR with provided_data
+    for (size_t i = 0; i < DRBG_SEED_LEN; i++) {
+        temp[i] ^= provided_data[i];
+    }
+    
+    // Update Key and V
+    memcpy(drbg->key, temp, DRBG_KEY_LEN);
+    memcpy(drbg->v, temp + DRBG_KEY_LEN, DRBG_BLOCK_LEN);
+    
+    // Re-expand key schedule for new key
+    kctsb_aes_init(&drbg->aes_ctx, drbg->key, DRBG_KEY_LEN);
+    
+    // Clear sensitive temp data
+    kctsb_secure_zero(temp, sizeof(temp));
+    kctsb_secure_zero(block, sizeof(block));
+}
+
+/**
+ * @brief CTR_DRBG Instantiate Function (NIST SP 800-90A Section 10.2.1.3)
+ * Initializes the DRBG with entropy
+ */
+static int ctr_drbg_instantiate(ctr_drbg_state* drbg) {
+    alignas(16) uint8_t entropy[DRBG_SEED_LEN];
+    
+    // Collect entropy from platform
+    if (platform_entropy(entropy, DRBG_SEED_LEN) != 0) {
+        return -1;
+    }
+    
+    // Initialize Key = 0, V = 0
+    memset(drbg->key, 0, DRBG_KEY_LEN);
+    memset(drbg->v, 0, DRBG_BLOCK_LEN);
+    
+    // Initialize AES key schedule with zero key
+    kctsb_aes_init(&drbg->aes_ctx, drbg->key, DRBG_KEY_LEN);
+    
+    // Update with entropy
+    ctr_drbg_update(drbg, entropy);
+    
+    drbg->reseed_counter = 0;
+    drbg->initialized = true;
+    
+    // Clear entropy
+    kctsb_secure_zero(entropy, sizeof(entropy));
+    return 0;
+}
+
+/**
+ * @brief CTR_DRBG Reseed Function (NIST SP 800-90A Section 10.2.1.4)
+ * Reseeds the DRBG with fresh entropy
+ */
+static int ctr_drbg_reseed(ctr_drbg_state* drbg) {
+    alignas(16) uint8_t entropy[DRBG_SEED_LEN];
+    
+    // Collect fresh entropy
+    if (platform_entropy(entropy, DRBG_SEED_LEN) != 0) {
+        return -1;
+    }
+    
+    // Update state with entropy
+    ctr_drbg_update(drbg, entropy);
+    drbg->reseed_counter = 0;
+    
+    // Clear entropy
+    kctsb_secure_zero(entropy, sizeof(entropy));
+    return 0;
+}
+
+/**
+ * @brief CTR_DRBG Generate Function (NIST SP 800-90A Section 10.2.1.5)
+ * Generates random bytes using AES-CTR mode
+ * Uses AES-NI hardware acceleration for maximum performance
+ */
+static int ctr_drbg_generate(ctr_drbg_state* drbg, uint8_t* output, size_t len) {
+    if (!drbg->initialized) {
+        if (ctr_drbg_instantiate(drbg) != 0) {
+            return -1;
+        }
+    }
+    
+    // Check if reseed is needed
+    if (drbg->reseed_counter + len > DRBG_RESEED_INTERVAL) {
+        if (ctr_drbg_reseed(drbg) != 0) {
+            return -1;
+        }
+    }
+    
+    // Generate output using AES-CTR
+    // This leverages the pre-expanded AES key schedule with AES-NI acceleration
+    alignas(16) uint8_t block[DRBG_BLOCK_LEN];
+    size_t offset = 0;
+    
+    while (offset < len) {
+        // Increment V
+        for (int i = DRBG_BLOCK_LEN - 1; i >= 0; i--) {
+            if (++drbg->v[i] != 0) break;
+        }
+        
+        // Encrypt V (uses AES-NI when available)
+        kctsb_aes_encrypt_block(&drbg->aes_ctx, drbg->v, block);
+        
+        size_t to_copy = (len - offset < DRBG_BLOCK_LEN) ? (len - offset) : DRBG_BLOCK_LEN;
+        memcpy(output + offset, block, to_copy);
+        offset += to_copy;
+    }
+    
+    // Update state (backtracking resistance)
+    alignas(16) uint8_t zero_data[DRBG_SEED_LEN] = {0};
+    ctr_drbg_update(drbg, zero_data);
+    
+    drbg->reseed_counter += len;
+    
+    // Clear sensitive data
+    kctsb_secure_zero(block, sizeof(block));
+    return 0;
+}
+
+} // anonymous namespace
+
+// ============================================================================
+// CSPRNG Public API
+// ============================================================================
+
+extern "C" {
+
+/**
+ * @brief Generate cryptographically secure random bytes
+ * 
+ * This function provides secure random bytes using NIST SP 800-90A CTR_DRBG
+ * with AES-256, backed by platform entropy. The implementation:
+ * - Uses AES-NI hardware acceleration when available
+ * - Automatically reseeds after generating 512KB
+ * - Thread-safe via mutex protection
+ * - Uses BCryptGenRandom (Windows system component) for entropy
+ *
+ * @param buf Output buffer for random bytes
+ * @param len Number of bytes to generate
+ * @return KCTSB_SUCCESS on success, error code otherwise
+ */
+int kctsb_csprng_random_bytes(void* buf, size_t len) {
+    if (!buf) return KCTSB_ERROR_INVALID_PARAM;
+    if (len == 0) return KCTSB_SUCCESS;
+    
+    std::lock_guard<std::mutex> lock(g_drbg_mutex);
+    
+    // Lazy initialization
+    if (!g_drbg_initialized.load(std::memory_order_acquire)) {
+        if (ctr_drbg_instantiate(&g_drbg) != 0) {
+            return KCTSB_ERROR_RANDOM_FAILED;
+        }
+        g_drbg_initialized.store(true, std::memory_order_release);
+    }
+    
+    // Generate random bytes
+    if (ctr_drbg_generate(&g_drbg, static_cast<uint8_t*>(buf), len) != 0) {
+        return KCTSB_ERROR_RANDOM_FAILED;
+    }
+    
+    return KCTSB_SUCCESS;
+}
+
+/**
+ * @brief Force reseed of the CSPRNG with fresh entropy
+ * 
+ * This function forces the DRBG to reseed with fresh platform entropy.
+ * Normally not needed as the DRBG reseeds automatically, but can be
+ * called for defense-in-depth after sensitive operations.
+ *
+ * @return KCTSB_SUCCESS on success, error code otherwise
+ */
+int kctsb_csprng_reseed(void) {
+    std::lock_guard<std::mutex> lock(g_drbg_mutex);
+    
+    if (!g_drbg_initialized.load(std::memory_order_acquire)) {
+        if (ctr_drbg_instantiate(&g_drbg) != 0) {
+            return KCTSB_ERROR_RANDOM_FAILED;
+        }
+        g_drbg_initialized.store(true, std::memory_order_release);
+    } else {
+        if (ctr_drbg_reseed(&g_drbg) != 0) {
+            return KCTSB_ERROR_RANDOM_FAILED;
+        }
+    }
+    
+    return KCTSB_SUCCESS;
+}
+
+/**
+ * @brief Clear the CSPRNG state (for security-critical cleanup)
+ * 
+ * Securely zeros the DRBG state. After calling this function,
+ * the next call to kctsb_csprng_random_bytes will re-initialize
+ * the DRBG with fresh entropy.
+ */
+void kctsb_csprng_clear(void) {
+    std::lock_guard<std::mutex> lock(g_drbg_mutex);
+    
+    if (g_drbg_initialized.load(std::memory_order_acquire)) {
+        kctsb_secure_zero(&g_drbg.aes_ctx, sizeof(g_drbg.aes_ctx));
+        kctsb_secure_zero(g_drbg.key, sizeof(g_drbg.key));
+        kctsb_secure_zero(g_drbg.v, sizeof(g_drbg.v));
+        g_drbg.reseed_counter = 0;
+        g_drbg.initialized = false;
+        g_drbg_initialized.store(false, std::memory_order_release);
+    }
 }
 
 } // extern "C"

@@ -11,11 +11,8 @@
 #include <cstring>
 
 #ifdef KCTSB_PLATFORM_WINDOWS
+    // Note: BCrypt is loaded dynamically in aes.cpp, no static linking needed
     #include <windows.h>
-    #include <bcrypt.h>
-    #ifdef _MSC_VER
-        #pragma comment(lib, "bcrypt.lib")
-    #endif
 #else
     #include <fcntl.h>
     #include <unistd.h>

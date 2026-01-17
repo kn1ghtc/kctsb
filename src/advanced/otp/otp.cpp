@@ -122,7 +122,7 @@ kctsb_error_t compute_hmac(
  * @brief Dynamic truncation (RFC 4226 Section 5.3)
  *
  * DT(hmac) = hmac[offset]..hmac[offset+3] & 0x7FFFFFFF
- * where offset = hmac[19] & 0x0F (for SHA1/SHA256)
+ * where offset = hmac[19] & 0x0F (for SHA256)
  *       or hmac[63] & 0x0F (for SHA512)
  */
 uint32_t dynamic_truncate(const uint8_t* hmac, size_t hmac_len) {
