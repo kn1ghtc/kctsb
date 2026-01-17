@@ -59,13 +59,21 @@ to be defined.  Of course,  to unset a flag, just replace the
 
 #endif
 
-#if 1
-#define NTL_TLS_HACK
-
-/* Set if you want to compile NTL with "TLS hack"
- *
+/* NTL_TLS_HACK: Enable pthread-based TLS hack for platforms without
+ * native thread_local support. On Windows, we disable this because:
+ * 1. Windows has native TLS support (__declspec(thread))
+ * 2. pthread.h is not available on Windows MSVC
  */
-
+#if defined(_WIN32) || defined(_WIN64) || defined(__MINGW32__) || defined(__MINGW64__)
+  /* Windows: Disable TLS hack, use native thread_local or __declspec(thread) */
+  #if 0
+  #define NTL_TLS_HACK
+  #endif
+#else
+  /* Unix/Linux/macOS: Use TLS hack if needed */
+  #if 1
+  #define NTL_TLS_HACK
+  #endif
 #endif
 
 #if 1

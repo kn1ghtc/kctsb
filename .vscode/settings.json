@@ -95,11 +95,38 @@
     "C_Cpp.codeAnalysis.clangTidy.config": "",
     "C_Cpp.codeAnalysis.clangTidy.useBuildPath": true,
     "C_Cpp.codeAnalysis.runAutomatically": true,
+    // 排除第三方库目录的代码分析
+    "C_Cpp.codeAnalysis.exclude": {
+        "**/thirdparty/**": true,
+        "**/third_party/**": true,
+        "**/external/**": true,
+        "**/vendor/**": true,
+        "**/build/**": true
+    },
     
     // Clang-Format 配置
     "C_Cpp.clang_format_style": "file",
     "C_Cpp.clang_format_fallbackStyle": "Google",
     "C_Cpp.formatting": "clangFormat",
+
+    // ============================================================
+    // Clangd 配置 (如果使用 clangd 扩展)
+    // ============================================================
+    "clangd.path": "clangd",
+    "clangd.arguments": [
+        "--background-index",
+        "--clang-tidy",
+        "--header-insertion=iwyu",
+        "--completion-style=detailed",
+        "--function-arg-placeholders=true",
+        "--compile-commands-dir=${workspaceFolder}",
+        "--query-driver=**"
+    ],
+    "clangd.fallbackFlags": [
+        "-std=c++17",
+        "-I${workspaceFolder}/include",
+        "-I${workspaceFolder}/thirdparty/include"
+    ],
 
     // ============================================================
     // 编辑器配置

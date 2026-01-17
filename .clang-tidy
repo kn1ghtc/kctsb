@@ -6,20 +6,24 @@
 #
 # Run manually: clang-tidy -p build src/**/*.cpp
 # CMake integration: set(CMAKE_CXX_CLANG_TIDY "clang-tidy")
+#
+# Note: This configuration excludes thirdparty/, benchmarks/, and tests/
+#       directories from strict checking via HeaderFilterRegex and
+#       ExcludeHeaderFilterRegex settings.
 # =============================================================================
 
 ---
-# Header filter: Only check project headers, exclude thirdparty and benchmarks
-HeaderFilterRegex: '^.*/(include|src)/kctsb/.*\.h$'
+# Header filter: Only check project headers, exclude thirdparty, benchmarks, tests
+HeaderFilterRegex: '^.*/(?:include|src)/kctsb/(?!.*thirdparty).*\.h$'
 
 # Format style for suggested fixes
 FormatStyle: file
 
-# Treat warnings as errors (except for benchmarks)
-WarningsAsErrors: '*,-cppcoreguidelines-narrowing-conversions,-bugprone-narrowing-conversions'
+# Treat warnings as errors (except for specific cases)
+WarningsAsErrors: '*,-cppcoreguidelines-narrowing-conversions,-bugprone-narrowing-conversions,-misc-use-internal-linkage,-performance-avoid-endl'
 
-# Exclude benchmarks and tests from strict checking
-ExcludeHeaderFilterRegex: '.*(benchmarks|tests|thirdparty).*'
+# Exclude thirdparty, benchmarks, and tests from strict checking
+ExcludeHeaderFilterRegex: '.*(thirdparty|benchmarks|tests|third_party|external|vendor).*'
 
 Checks: >
   -*,
@@ -60,11 +64,13 @@ Checks: >
   -misc-const-correctness,
   -misc-non-private-member-variables-in-classes,
   -misc-no-recursion,
+  -misc-use-internal-linkage,
   modernize-*,
   -modernize-avoid-c-arrays,
   -modernize-use-trailing-return-type,
   -modernize-concat-nested-namespaces,
   performance-*,
+  -performance-avoid-endl,
   portability-*,
   readability-*,
   -readability-braces-around-statements,

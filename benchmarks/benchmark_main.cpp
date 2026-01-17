@@ -35,9 +35,15 @@
 #include "kctsb/utils/console.h"
 
 // OpenSSL headers
+#include <openssl/crypto.h>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
 #include <openssl/err.h>
+
+// Define OPENSSL_VERSION if not available (for older headers)
+#ifndef OPENSSL_VERSION
+#define OPENSSL_VERSION 0
+#endif
 
 // Forward declarations for benchmark functions
 void benchmark_aes_gcm();
@@ -59,17 +65,17 @@ public:
     using Duration = std::chrono::duration<double, std::milli>;
 
     void start() {
-        start_time_ = Clock::now();
+        m_start_time = Clock::now();
     }
 
     double stop() {
         auto end_time = Clock::now();
-        Duration elapsed = end_time - start_time_;
+        Duration elapsed = end_time - m_start_time;
         return elapsed.count();
     }
 
 private:
-    TimePoint start_time_;
+    TimePoint m_start_time;
 };
 
 /**
@@ -86,6 +92,8 @@ struct BenchmarkResult {
     size_t iterations;
 };
 
+namespace {
+
 /**
  * @brief Print benchmark result in formatted table
  */
@@ -94,25 +102,25 @@ void print_result(const BenchmarkResult& result) {
               << std::setw(15) << result.implementation
               << std::right << std::fixed << std::setprecision(2)
               << std::setw(12) << result.throughput_mbps << " MB/s"
-              << std::setw(12) << result.avg_time_ms << " ms"
-              << std::endl;
+              << std::setw(12) << result.avg_time_ms << " ms\n";
 }
 
 /**
  * @brief Print comparison between two implementations
  */
-void print_comparison(const BenchmarkResult& kctsb, const BenchmarkResult& openssl) {
-    double ratio = kctsb.throughput_mbps / openssl.throughput_mbps;
+void print_comparison(const BenchmarkResult& kctsb_result,
+                      const BenchmarkResult& openssl_result) {
+    double ratio = kctsb_result.throughput_mbps / openssl_result.throughput_mbps;
     std::string verdict;
 
     if (ratio >= 1.0) {
-        verdict = "kctsb faster by " + std::to_string(int((ratio - 1.0) * 100)) + "%";
+        verdict = "kctsb faster by " + std::to_string(static_cast<int>((ratio - 1.0) * 100)) + "%";
     } else {
-        verdict = "OpenSSL faster by " + std::to_string(int((1.0 - ratio) * 100)) + "%";
+        verdict = "OpenSSL faster by " + std::to_string(static_cast<int>((1.0 - ratio) * 100)) + "%";
     }
 
     std::cout << "  Comparison: " << std::fixed << std::setprecision(2)
-              << ratio << "x (" << verdict << ")" << std::endl;
+              << ratio << "x (" << verdict << ")\n";
 }
 
 /**
@@ -128,15 +136,14 @@ std::vector<uint8_t> generate_random_data(size_t size) {
  * @brief Print section header
  */
 void print_section_header(const std::string& title) {
-    std::cout << "\n" << std::string(70, '=') << std::endl;
-    std::cout << "  " << title << std::endl;
-    std::cout << std::string(70, '=') << std::endl;
+    std::cout << '\n' << std::string(70, '=') << '\n';
+    std::cout << "  " << title << '\n';
+    std::cout << std::string(70, '=') << '\n';
     std::cout << std::left << std::setw(25) << "Algorithm"
               << std::setw(15) << "Implementation"
               << std::right << std::setw(15) << "Throughput"
-              << std::setw(12) << "Avg Time"
-              << std::endl;
-    std::cout << std::string(70, '-') << std::endl;
+              << std::setw(12) << "Avg Time\n";
+    std::cout << std::string(70, '-') << '\n';
 }
 
 /**
@@ -163,9 +170,9 @@ void print_usage(const char* program_name) {
  * @brief Print benchmark summary
  */
 void print_summary() {
-    std::cout << "\n" << std::string(70, '=') << std::endl;
-    std::cout << "  BENCHMARK SUMMARY" << std::endl;
-    std::cout << std::string(70, '=') << std::endl;
+    std::cout << '\n' << std::string(70, '=') << '\n';
+    std::cout << "  BENCHMARK SUMMARY\n";
+    std::cout << std::string(70, '=') << '\n';
     std::cout << "\nNote: All benchmarks use identical input data and parameters.\n";
     std::cout << "Results may vary based on CPU, memory, and compiler optimizations.\n";
     std::cout << "\nkctsb implementations are designed for:\n";
@@ -173,8 +180,10 @@ void print_summary() {
     std::cout << "  - Cross-platform compatibility\n";
     std::cout << "  - Educational clarity in code structure\n";
     std::cout << "\nFor production use, ensure algorithms meet your security requirements.\n";
-    std::cout << std::string(70, '=') << std::endl;
+    std::cout << std::string(70, '=') << '\n';
 }
+
+}  // namespace
 
 /**
  * @brief Benchmark main logic (callable from CLI)
@@ -220,20 +229,18 @@ int main(int argc, char* argv[]) {
     std::cout << "|                    Version " << KCTSB_VERSION_STRING << "                                 |\n";
     std::cout << "+======================================================================+\n";
 
-    // Initialize kctsb/OpenSSL
+    // Initialize kctsb (OpenSSL 1.1+ auto-initializes)
     if (kctsb_init() != 0) {
-        std::cerr << "kctsb initialization failed" << std::endl;
+        std::cerr << "kctsb initialization failed\n";
         return 1;
     }
-    OpenSSL_add_all_algorithms();
-    ERR_load_crypto_strings();
 
-    std::cout << "\nOpenSSL Version: " << OpenSSL_version(OPENSSL_VERSION) << std::endl;
-    std::cout << "Test Data Sizes: 1KB, 1MB, 10MB" << std::endl;
-    std::cout << "Iterations per test: 100 (warmup: 10)" << std::endl;
+    std::cout << "\nOpenSSL Version: " << OpenSSL_version(OPENSSL_VERSION) << '\n';
+    std::cout << "Test Data Sizes: 1KB, 1MB, 10MB\n";
+    std::cout << "Iterations per test: 100 (warmup: 10)\n";
 
     if (algorithm != "all") {
-        std::cout << "Selected algorithm: " << algorithm << std::endl;
+        std::cout << "Selected algorithm: " << algorithm << '\n';
     }
 
     // Run selected benchmarks
@@ -270,9 +277,7 @@ int main(int argc, char* argv[]) {
     // Print summary
     print_summary();
 
-    // Cleanup
-    EVP_cleanup();
-    ERR_free_strings();
+    // Cleanup (OpenSSL 1.1+ auto-cleans)
     kctsb_cleanup();
 
     return 0;
