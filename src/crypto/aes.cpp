@@ -486,25 +486,6 @@ static inline __m128i ghash_8blocks_parallel(
     return gcm_reduce(lo_acc, hi_acc, mid_acc);
 }
 
-// 4-block parallel GHASH update
-static inline __m128i ghash_4blocks_parallel(
-    __m128i Y,
-    const __m128i X0, const __m128i X1, const __m128i X2, const __m128i X3,
-    const __m128i H4, const __m128i H3, const __m128i H2, const __m128i H1)
-{
-    __m128i X0_xor = _mm_xor_si128(X0, Y);
-    __m128i lo0, hi0, mid0, lo1, hi1, mid1, lo2, hi2, mid2, lo3, hi3, mid3;
-    gcm_karatsuba(H4, X0_xor, lo0, hi0, mid0);
-    gcm_karatsuba(H3, X1, lo1, hi1, mid1);
-    gcm_karatsuba(H2, X2, lo2, hi2, mid2);
-    gcm_karatsuba(H1, X3, lo3, hi3, mid3);
-    
-    __m128i lo_acc = _mm_xor_si128(_mm_xor_si128(lo0, lo1), _mm_xor_si128(lo2, lo3));
-    __m128i hi_acc = _mm_xor_si128(_mm_xor_si128(hi0, hi1), _mm_xor_si128(hi2, hi3));
-    __m128i mid_acc = _mm_xor_si128(_mm_xor_si128(mid0, mid1), _mm_xor_si128(mid2, mid3));
-    return gcm_reduce(lo_acc, hi_acc, mid_acc);
-}
-
 // High-performance one-shot GHASH for GCM
 // Processes AAD, ciphertext, and length block in a single optimized pass
 static void ghash_oneshot_gcm(
@@ -552,18 +533,7 @@ static void ghash_oneshot_gcm(
             len -= 128;
         }
         
-        // 4-block processing (64 bytes)
-        while (len >= 64) {
-            __m128i X0 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(data)), bswap);
-            __m128i X1 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(data + 16)), bswap);
-            __m128i X2 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(data + 32)), bswap);
-            __m128i X3 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(data + 48)), bswap);
-            Y = ghash_4blocks_parallel(Y, X0, X1, X2, X3, H4, H3, H2, H);
-            data += 64;
-            len -= 64;
-        }
-        
-        // Serial processing for remaining blocks
+        // Serial processing for remaining blocks (< 128 bytes)
         while (len >= 16) {
             __m128i X = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(data)), bswap);
             Y = _mm_xor_si128(Y, X);
@@ -1160,12 +1130,15 @@ static kctsb_error_t aes_gcm_encrypt_aesni(
             _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset + 32), ct2);
             _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset + 48), ct3);
             
-            // GHASH on 4 blocks
+            // Serial GHASH on 4 blocks (simpler, minimal performance impact for residual)
             __m128i X0 = _mm_shuffle_epi8(ct0, bswap);
             __m128i X1 = _mm_shuffle_epi8(ct1, bswap);
             __m128i X2 = _mm_shuffle_epi8(ct2, bswap);
             __m128i X3 = _mm_shuffle_epi8(ct3, bswap);
-            Y = ghash_4blocks_parallel(Y, X0, X1, X2, X3, H4, H3, H2, Hg);
+            Y = _mm_xor_si128(Y, X0); Y = gcm_gf_mul(Hg, Y);
+            Y = _mm_xor_si128(Y, X1); Y = gcm_gf_mul(Hg, Y);
+            Y = _mm_xor_si128(Y, X2); Y = gcm_gf_mul(Hg, Y);
+            Y = _mm_xor_si128(Y, X3); Y = gcm_gf_mul(Hg, Y);
             
             offset += 64;
         }
