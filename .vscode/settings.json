@@ -110,25 +110,6 @@
     "C_Cpp.formatting": "clangFormat",
 
     // ============================================================
-    // Clangd 配置 (如果使用 clangd 扩展)
-    // ============================================================
-    "clangd.path": "clangd",
-    "clangd.arguments": [
-        "--background-index",
-        "--clang-tidy",
-        "--header-insertion=iwyu",
-        "--completion-style=detailed",
-        "--function-arg-placeholders=true",
-        "--compile-commands-dir=${workspaceFolder}",
-        "--query-driver=**"
-    ],
-    "clangd.fallbackFlags": [
-        "-std=c++17",
-        "-I${workspaceFolder}/include",
-        "-I${workspaceFolder}/thirdparty/include"
-    ],
-
-    // ============================================================
     // 编辑器配置
     // ============================================================
     "editor.formatOnSave": true,

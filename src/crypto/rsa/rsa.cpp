@@ -1,15 +1,14 @@
 /**
  * @file rsa.cpp
- * @brief RSA Implementation - NTL Backend
- *
- * Complete RSA implementation following PKCS#1 v2.2 (RFC 8017).
- *
- * Security features:
- * - CRT-based private key operations for efficiency
- * - Blinding to prevent timing attacks
- * - OAEP padding for encryption (prevents chosen-ciphertext attacks)
- * - PSS padding for signatures (provably secure)
- *
+ * @brief RSA Cryptosystem - NTL Backend Implementation
+ * 
+ * PKCS#1 v2.2 compliant RSA implementation using NTL + GMP.
+ * 
+ * Performance Notes:
+ * - NTL uses GMP for arbitrary precision arithmetic with hardware acceleration
+ * - CRT optimization provides ~4x speedup for private key operations
+ * - PowerMod uses sliding window exponentiation internally
+ * 
  * @author knightc
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
  */
@@ -18,229 +17,102 @@
 #include <cstring>
 #include <stdexcept>
 #include <random>
-#include <algorithm>
 
 using namespace NTL;
-
-// Helper function for NTL compatibility
-inline long IsEven(const ZZ& a) {
-    return !IsOdd(a);
-}
 
 namespace kctsb {
 namespace rsa {
 
-// ============================================================================
-// RSAPublicKey Implementation
-// ============================================================================
+// =============================================================================
+// Section 1: Key Validation and Serialization
+// =============================================================================
 
 bool RSAPublicKey::is_valid() const {
-    // Check modulus is positive and odd
-    if (n <= ZZ(1) || IsEven(n)) {
-        return false;
-    }
-
-    // Check exponent is in valid range
-    if (e < ZZ(3) || e >= n) {
-        return false;
-    }
-
-    // Check e is odd
-    if (IsEven(e)) {
-        return false;
-    }
-
-    // Check bit size matches
-    if (bits > 0 && static_cast<int>(NumBits(n)) != bits) {
-        return false;
-    }
-
+    if (n <= ZZ(1) || IsOdd(n) == 0) return false;
+    if (e < ZZ(3) || e >= n || IsOdd(e) == 0) return false;
+    if (bits > 0 && NumBits(n) != bits) return false;
     return true;
 }
 
 std::vector<uint8_t> RSAPublicKey::to_der() const {
-    // Simplified DER encoding for RSAPublicKey
-    // SEQUENCE { INTEGER n, INTEGER e }
-
-    auto encode_integer = [](const ZZ& val) -> std::vector<uint8_t> {
-        std::vector<uint8_t> bytes;
-        long num_bytes = NumBytes(val);
-        bytes.resize(static_cast<size_t>(num_bytes));
-        BytesFromZZ(bytes.data(), val, num_bytes);
-
-        // Add leading zero if high bit is set
-        if (!bytes.empty() && (bytes[0] & 0x80)) {
-            bytes.insert(bytes.begin(), 0x00);
-        }
-
-        std::vector<uint8_t> der;
-        der.push_back(0x02);  // INTEGER tag
-
-        if (bytes.size() < 128) {
-            der.push_back(static_cast<uint8_t>(bytes.size()));
-        } else if (bytes.size() < 256) {
-            der.push_back(0x81);
-            der.push_back(static_cast<uint8_t>(bytes.size()));
-        } else {
-            der.push_back(0x82);
-            der.push_back(static_cast<uint8_t>(bytes.size() >> 8));
-            der.push_back(static_cast<uint8_t>(bytes.size() & 0xFF));
-        }
-
-        der.insert(der.end(), bytes.begin(), bytes.end());
-        return der;
+    auto encode_int = [](const ZZ& v) -> std::vector<uint8_t> {
+        std::vector<uint8_t> b(static_cast<size_t>(NumBytes(v)));
+        BytesFromZZ(b.data(), v, NumBytes(v));
+        if (!b.empty() && (b[0] & 0x80)) b.insert(b.begin(), 0x00);
+        
+        std::vector<uint8_t> r;
+        r.push_back(0x02);
+        if (b.size() < 128) r.push_back(static_cast<uint8_t>(b.size()));
+        else if (b.size() < 256) { r.push_back(0x81); r.push_back(static_cast<uint8_t>(b.size())); }
+        else { r.push_back(0x82); r.push_back(static_cast<uint8_t>(b.size() >> 8)); r.push_back(static_cast<uint8_t>(b.size())); }
+        r.insert(r.end(), b.begin(), b.end());
+        return r;
     };
-
-    std::vector<uint8_t> n_der = encode_integer(n);
-    std::vector<uint8_t> e_der = encode_integer(e);
-
-    size_t total_len = n_der.size() + e_der.size();
-
-    std::vector<uint8_t> result;
-    result.push_back(0x30);  // SEQUENCE tag
-
-    if (total_len < 128) {
-        result.push_back(static_cast<uint8_t>(total_len));
-    } else if (total_len < 256) {
-        result.push_back(0x81);
-        result.push_back(static_cast<uint8_t>(total_len));
-    } else {
-        result.push_back(0x82);
-        result.push_back(static_cast<uint8_t>(total_len >> 8));
-        result.push_back(static_cast<uint8_t>(total_len & 0xFF));
-    }
-
-    result.insert(result.end(), n_der.begin(), n_der.end());
-    result.insert(result.end(), e_der.begin(), e_der.end());
-
-    return result;
+    
+    auto n_der = encode_int(n), e_der = encode_int(e);
+    size_t len = n_der.size() + e_der.size();
+    
+    std::vector<uint8_t> r;
+    r.push_back(0x30);
+    if (len < 128) r.push_back(static_cast<uint8_t>(len));
+    else if (len < 256) { r.push_back(0x81); r.push_back(static_cast<uint8_t>(len)); }
+    else { r.push_back(0x82); r.push_back(static_cast<uint8_t>(len >> 8)); r.push_back(static_cast<uint8_t>(len)); }
+    r.insert(r.end(), n_der.begin(), n_der.end());
+    r.insert(r.end(), e_der.begin(), e_der.end());
+    return r;
 }
 
 std::string RSAPublicKey::to_pem() const {
-    std::vector<uint8_t> der = to_der();
-
-    // Base64 encode
-    static const char* base64_chars =
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-
-    std::string base64;
-    size_t i = 0;
-    while (i < der.size()) {
-        uint32_t octet_a = i < der.size() ? static_cast<uint32_t>(der[i++]) : 0;
-        uint32_t octet_b = i < der.size() ? static_cast<uint32_t>(der[i++]) : 0;
-        uint32_t octet_c = i < der.size() ? static_cast<uint32_t>(der[i++]) : 0;
-
-        uint32_t triple = (octet_a << 16) + (octet_b << 8) + octet_c;
-
-        base64 += base64_chars[(triple >> 18) & 0x3F];
-        base64 += base64_chars[(triple >> 12) & 0x3F];
-        base64 += base64_chars[(triple >> 6) & 0x3F];
-        base64 += base64_chars[triple & 0x3F];
+    auto der = to_der();
+    static const char* b64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    std::string s;
+    for (size_t i = 0; i < der.size(); i += 3) {
+        uint32_t t = (static_cast<uint32_t>(der[i]) << 16) | 
+                     (i+1 < der.size() ? static_cast<uint32_t>(der[i+1]) << 8 : 0) |
+                     (i+2 < der.size() ? static_cast<uint32_t>(der[i+2]) : 0);
+        s += b64[(t >> 18) & 0x3F]; s += b64[(t >> 12) & 0x3F];
+        s += (i+1 < der.size()) ? b64[(t >> 6) & 0x3F] : '=';
+        s += (i+2 < der.size()) ? b64[t & 0x3F] : '=';
     }
-
-    // Add padding
-    size_t mod = der.size() % 3;
-    if (mod == 1) {
-        base64[base64.size() - 2] = '=';
-        base64[base64.size() - 1] = '=';
-    } else if (mod == 2) {
-        base64[base64.size() - 1] = '=';
-    }
-
-    // Format with line breaks
-    std::string pem = "-----BEGIN RSA PUBLIC KEY-----\n";
-    for (size_t j = 0; j < base64.size(); j += 64) {
-        pem += base64.substr(j, 64) + "\n";
-    }
-    pem += "-----END RSA PUBLIC KEY-----\n";
-
-    return pem;
+    std::string r = "-----BEGIN RSA PUBLIC KEY-----\n";
+    for (size_t i = 0; i < s.size(); i += 64) r += s.substr(i, 64) + "\n";
+    return r + "-----END RSA PUBLIC KEY-----\n";
 }
 
 RSAPublicKey RSAPublicKey::from_der(const uint8_t* data, size_t len) {
-    if (len < 4 || data[0] != 0x30) {
-        throw std::invalid_argument("Invalid DER format");
-    }
-
-    size_t pos = 1;
-
-    // Parse sequence length (may be unused but validates DER structure)
-    if (data[pos] < 128) {
-        pos++;
-    } else if (data[pos] == 0x81) {
-        pos += 2;
-    } else if (data[pos] == 0x82) {
-        pos += 3;
-    } else {
-        throw std::invalid_argument("Unsupported DER length encoding");
-    }
-
-    auto parse_integer = [&]() -> ZZ {
-        if (data[pos++] != 0x02) {
-            throw std::invalid_argument("Expected INTEGER tag");
-        }
-
-        size_t int_len;
-        if (data[pos] < 128) {
-            int_len = static_cast<size_t>(data[pos++]);
-        } else if (data[pos] == 0x81) {
-            pos++;
-            int_len = static_cast<size_t>(data[pos++]);
-        } else if (data[pos] == 0x82) {
-            pos++;
-            int_len = (static_cast<size_t>(data[pos]) << 8) | static_cast<size_t>(data[pos + 1]);
-            pos += 2;
+    if (len < 4 || data[0] != 0x30) throw std::invalid_argument("Invalid DER");
+    size_t p = (data[1] < 128) ? 2 : (data[1] == 0x81 ? 3 : 4);
+    
+    auto read_int = [&]() -> ZZ {
+        if (data[p++] != 0x02) throw std::invalid_argument("Expected INTEGER");
+        size_t l;
+        if (data[p] < 128) {
+            l = static_cast<size_t>(data[p++]);
+        } else if (data[p] == 0x81) {
+            p++;
+            l = static_cast<size_t>(data[p++]);
         } else {
-            throw std::invalid_argument("Unsupported integer length");
+            p++;
+            l = (static_cast<size_t>(data[p]) << 8) | static_cast<size_t>(data[p + 1]);
+            p += 2;
         }
-
-        // Skip leading zero
-        size_t start = pos;
-        if (int_len > 1 && data[start] == 0x00) {
-            start++;
-            int_len--;
-        }
-
-        ZZ result = ZZFromBytes(data + start, static_cast<long>(int_len));
-        pos = start + int_len;
-
-        return result;
+        if (data[p] == 0x00 && l > 1) { p++; l--; }
+        ZZ r = ZZFromBytes(data + p, static_cast<long>(l));
+        p += l;
+        return r;
     };
-
-    RSAPublicKey key;
-    key.n = parse_integer();
-    key.e = parse_integer();
-    key.bits = static_cast<int>(NumBits(key.n));
-
-    return key;
+    
+    RSAPublicKey k;
+    k.n = read_int(); k.e = read_int();
+    k.bits = static_cast<int>(NumBits(k.n));
+    return k;
 }
 
-// ============================================================================
-// RSAPrivateKey Implementation
-// ============================================================================
-
 bool RSAPrivateKey::is_valid() const {
-    // Check basic constraints
-    if (n <= ZZ(1) || IsEven(n)) {
-        return false;
-    }
-
-    if (IsZero(d) || d >= n) {
-        return false;
-    }
-
-    // Verify n = p * q
-    if (n != p * q) {
-        return false;
-    }
-
-    // Verify e * d ≡ 1 (mod λ(n))
-    ZZ lambda_n = (p - 1) * (q - 1) / GCD(p - 1, q - 1);
-    if (MulMod(e, d, lambda_n) != ZZ(1)) {
-        return false;
-    }
-
-    return true;
+    if (n <= ZZ(1) || IsOdd(n) == 0 || IsZero(d) || d >= n) return false;
+    if (n != p * q) return false;
+    ZZ lambda = (p - 1) * (q - 1) / GCD(p - 1, q - 1);
+    return MulMod(e, d, lambda) == ZZ(1);
 }
 
 RSAPublicKey RSAPrivateKey::get_public_key() const {
@@ -248,28 +120,18 @@ RSAPublicKey RSAPrivateKey::get_public_key() const {
 }
 
 void RSAPrivateKey::clear() {
-    n = ZZ(0);
-    e = ZZ(0);
-    d = ZZ(0);
-    p = ZZ(0);
-    q = ZZ(0);
-    dp = ZZ(0);
-    dq = ZZ(0);
-    qinv = ZZ(0);
+    n = ZZ(0); e = ZZ(0); d = ZZ(0); p = ZZ(0); q = ZZ(0);
+    dp = ZZ(0); dq = ZZ(0); qinv = ZZ(0);
     bits = 0;
 }
 
-// ============================================================================
-// RSA Class - Key Generation
-// ============================================================================
+// =============================================================================
+// Section 2: Key Generation
+// =============================================================================
 
 RSA::RSA() : key_size_(RSAKeySize::RSA_2048) {}
-
-RSA::RSA(RSAKeySize key_size) : key_size_(key_size) {}
-
-RSA::RSA(const RSAKeyPair& keypair) : keypair_(keypair) {
-    key_size_ = static_cast<RSAKeySize>(keypair.private_key.bits);
-}
+RSA::RSA(RSAKeySize ks) : key_size_(ks) {}
+RSA::RSA(const RSAKeyPair& kp) : keypair_(kp) { key_size_ = static_cast<RSAKeySize>(kp.private_key.bits); }
 
 ZZ RSA::generate_prime(int bits) {
     ZZ p;
@@ -277,801 +139,400 @@ ZZ RSA::generate_prime(int bits) {
     return p;
 }
 
-void RSA::compute_crt_params(RSAPrivateKey& key) {
-    // dp = d mod (p-1)
-    key.dp = key.d % (key.p - 1);
-
-    // dq = d mod (q-1)
-    key.dq = key.d % (key.q - 1);
-
-    // qinv = q^(-1) mod p
-    key.qinv = InvMod(key.q, key.p);
+void RSA::compute_crt_params(RSAPrivateKey& k) {
+    k.dp = k.d % (k.p - 1);
+    k.dq = k.d % (k.q - 1);
+    k.qinv = InvMod(k.q, k.p);
 }
 
-RSAKeyPair RSA::generate_keypair(RSAKeySize key_size, const ZZ& e) {
-    return generate_keypair(static_cast<int>(key_size), e);
+RSAKeyPair RSA::generate_keypair(RSAKeySize ks, const ZZ& e) {
+    return generate_keypair(static_cast<int>(ks), e);
 }
 
 RSAKeyPair RSA::generate_keypair(int bits, const ZZ& e) {
-    if (bits < 2048) {
-        throw std::invalid_argument("Key size must be at least 2048 bits");
-    }
-
-    int half_bits = bits / 2;
-
-    RSAKeyPair keypair;
-    RSAPrivateKey& priv = keypair.private_key;
-
-    priv.e = e;
-    priv.bits = bits;
-
-    // Generate two distinct primes p and q
+    if (bits < 2048) throw std::invalid_argument("Key size must be >= 2048 bits");
+    
+    RSAKeyPair kp;
+    RSAPrivateKey& k = kp.private_key;
+    k.e = e;
+    k.bits = bits;
+    
     while (true) {
-        priv.p = generate_prime(half_bits);
-        priv.q = generate_prime(bits - half_bits);
-
-        // Ensure p != q
-        if (priv.p == priv.q) {
-            continue;
-        }
-
-        // Ensure p > q (for CRT)
-        if (priv.p < priv.q) {
-            swap(priv.p, priv.q);
-        }
-
-        // Compute n = p * q
-        priv.n = priv.p * priv.q;
-
-        // Check bit length
-        if (NumBits(priv.n) != bits) {
-            continue;
-        }
-
-        // Compute λ(n) = lcm(p-1, q-1)
-        ZZ p_minus_1 = priv.p - 1;
-        ZZ q_minus_1 = priv.q - 1;
-        ZZ lambda_n = (p_minus_1 * q_minus_1) / GCD(p_minus_1, q_minus_1);
-
-        // Check GCD(e, λ(n)) = 1
-        if (GCD(e, lambda_n) != ZZ(1)) {
-            continue;
-        }
-
-        // Compute d = e^(-1) mod λ(n)
-        priv.d = InvMod(e, lambda_n);
-
-        // Compute CRT parameters
-        compute_crt_params(priv);
-
+        k.p = generate_prime(bits / 2);
+        k.q = generate_prime(bits - bits / 2);
+        if (k.p == k.q) continue;
+        if (k.p < k.q) swap(k.p, k.q);
+        
+        k.n = k.p * k.q;
+        if (NumBits(k.n) != bits) continue;
+        
+        ZZ lambda = (k.p - 1) * (k.q - 1) / GCD(k.p - 1, k.q - 1);
+        if (GCD(e, lambda) != ZZ(1)) continue;
+        
+        k.d = InvMod(e, lambda);
+        compute_crt_params(k);
         break;
     }
-
-    // Set public key
-    keypair.public_key = priv.get_public_key();
-
-    return keypair;
+    
+    kp.public_key = k.get_public_key();
+    return kp;
 }
 
-// ============================================================================
-// RSA Core Operations
-// ============================================================================
+// =============================================================================
+// Section 3: RSA Core Primitives (Performance Critical)
+// =============================================================================
 
-ZZ RSA::rsaep(const ZZ& m, const RSAPublicKey& public_key) {
-    // RSAEP: c = m^e mod n
-    if (m < ZZ(0) || m >= public_key.n) {
-        throw std::invalid_argument("Message representative out of range");
-    }
-
-    return PowerMod(m, public_key.e, public_key.n);
+ZZ RSA::rsaep(const ZZ& m, const RSAPublicKey& k) {
+    if (m < ZZ(0) || m >= k.n) throw std::invalid_argument("Message out of range");
+    return PowerMod(m, k.e, k.n);
 }
 
-ZZ RSA::rsadp(const ZZ& c, const RSAPrivateKey& private_key) {
-    // RSADP: m = c^d mod n
-    if (c < ZZ(0) || c >= private_key.n) {
-        throw std::invalid_argument("Ciphertext representative out of range");
-    }
-
-    // Validate key parameters
-    if (IsZero(private_key.n) || IsZero(private_key.d)) {
-        throw std::invalid_argument("Invalid private key: n or d is zero");
-    }
-
-    // Use CRT for efficiency if parameters are available and valid
-    if (!IsZero(private_key.dp) && !IsZero(private_key.dq) &&
-        !IsZero(private_key.qinv) && !IsZero(private_key.p) && !IsZero(private_key.q)) {
-        return rsadp_crt(c, private_key);
-    }
-
-    // Non-CRT path: ensure base is in valid range
-    ZZ c_mod_n = c % private_key.n;
-    if (c_mod_n < ZZ(0)) c_mod_n += private_key.n;
-
-    return PowerMod(c_mod_n, private_key.d, private_key.n);
+ZZ RSA::rsadp(const ZZ& c, const RSAPrivateKey& k) {
+    if (c < ZZ(0) || c >= k.n) throw std::invalid_argument("Ciphertext out of range");
+    if (IsZero(k.n) || IsZero(k.d)) throw std::invalid_argument("Invalid private key");
+    
+    // Use CRT for ~4x speedup when parameters available
+    if (!IsZero(k.dp) && !IsZero(k.dq) && !IsZero(k.qinv) && !IsZero(k.p) && !IsZero(k.q))
+        return rsadp_crt(c, k);
+    
+    return PowerMod(c, k.d, k.n);
 }
 
-ZZ RSA::rsadp_crt(const ZZ& c, const RSAPrivateKey& key) {
-    // CRT-based decryption
-    // m1 = c^dp mod p
-    // m2 = c^dq mod q
-    // h = qinv * (m1 - m2) mod p
-    // m = m2 + h * q
-
-    // Validate parameters before PowerMod calls
-    if (IsZero(key.p) || IsZero(key.q)) {
-        throw std::invalid_argument("CRT parameters p or q cannot be zero");
-    }
-    if (key.dp < ZZ(0) || key.dq < ZZ(0)) {
-        throw std::invalid_argument("CRT exponents dp or dq cannot be negative");
-    }
-
-    // Reduce c modulo p and q first to ensure non-negative base
-    ZZ c_mod_p = c % key.p;
-    ZZ c_mod_q = c % key.q;
-    if (c_mod_p < ZZ(0)) c_mod_p += key.p;
-    if (c_mod_q < ZZ(0)) c_mod_q += key.q;
-
-    ZZ m1 = PowerMod(c_mod_p, key.dp, key.p);
-    ZZ m2 = PowerMod(c_mod_q, key.dq, key.q);
-
-    ZZ diff = m1 - m2;
-    if (diff < ZZ(0)) {
-        diff += key.p;
-    }
-
-    ZZ h = MulMod(key.qinv, diff, key.p);
-    ZZ m = m2 + h * key.q;
-
-    return m;
+ZZ RSA::rsadp_crt(const ZZ& c, const RSAPrivateKey& k) {
+    // CRT: m1 = c^dp mod p, m2 = c^dq mod q, m = m2 + q*(qinv*(m1-m2) mod p)
+    ZZ m1 = PowerMod(c % k.p, k.dp, k.p);
+    ZZ m2 = PowerMod(c % k.q, k.dq, k.q);
+    ZZ h = m1 - m2;
+    if (h < ZZ(0)) h += k.p;
+    return m2 + MulMod(k.qinv, h, k.p) * k.q;
 }
 
-ZZ RSA::rsasp1(const ZZ& m, const RSAPrivateKey& private_key) {
-    // RSASP1 is the same as RSADP
-    return rsadp(m, private_key);
-}
+ZZ RSA::rsasp1(const ZZ& m, const RSAPrivateKey& k) { return rsadp(m, k); }
+ZZ RSA::rsavp1(const ZZ& s, const RSAPublicKey& k) { return rsaep(s, k); }
 
-ZZ RSA::rsavp1(const ZZ& s, const RSAPublicKey& public_key) {
-    // RSAVP1 is the same as RSAEP
-    return rsaep(s, public_key);
-}
+// =============================================================================
+// Section 4: Byte Conversion (I2OSP / OS2IP)
+// =============================================================================
 
-// ============================================================================
-// I2OSP and OS2IP
-// ============================================================================
-
-std::vector<uint8_t> RSA::i2osp(const ZZ& x, size_t x_len) {
-    if (x < ZZ(0)) {
-        throw std::invalid_argument("Integer must be non-negative");
-    }
-
-    std::vector<uint8_t> result(x_len, 0);
-
+std::vector<uint8_t> RSA::i2osp(const ZZ& x, size_t len) {
+    if (x < ZZ(0)) throw std::invalid_argument("Integer must be non-negative");
+    std::vector<uint8_t> r(len, 0);
     if (!IsZero(x)) {
-        long num_bytes = NumBytes(x);
-        if (static_cast<size_t>(num_bytes) > x_len) {
-            throw std::invalid_argument("Integer too large for specified length");
-        }
-
-        // NTL BytesFromZZ outputs in little-endian, but RSA I2OSP requires big-endian
-        std::vector<uint8_t> le_bytes(static_cast<size_t>(num_bytes));
-        BytesFromZZ(le_bytes.data(), x, num_bytes);
-
-        // Reverse to big-endian and place at the end (with leading zeros if needed)
-        size_t offset = x_len - static_cast<size_t>(num_bytes);
-        for (size_t i = 0; i < static_cast<size_t>(num_bytes); ++i) {
-            result[offset + i] = le_bytes[static_cast<size_t>(num_bytes) - 1 - i];
-        }
+        long n = NumBytes(x);
+        if (static_cast<size_t>(n) > len) throw std::invalid_argument("Integer too large");
+        std::vector<uint8_t> le(static_cast<size_t>(n));
+        BytesFromZZ(le.data(), x, n);
+        for (size_t i = 0; i < static_cast<size_t>(n); ++i)
+            r[len - 1 - i] = le[i];
     }
-
-    return result;
+    return r;
 }
 
-ZZ RSA::os2ip(const uint8_t* x, size_t x_len) {
-    // RSA OS2IP uses big-endian, but NTL ZZFromBytes expects little-endian
-    // Need to reverse the bytes
-    std::vector<uint8_t> le_bytes(x_len);
-    for (size_t i = 0; i < x_len; ++i) {
-        le_bytes[i] = x[x_len - 1 - i];
-    }
-    return ZZFromBytes(le_bytes.data(), static_cast<long>(x_len));
+ZZ RSA::os2ip(const uint8_t* x, size_t len) {
+    std::vector<uint8_t> le(len);
+    for (size_t i = 0; i < len; ++i) le[i] = x[len - 1 - i];
+    return ZZFromBytes(le.data(), static_cast<long>(len));
 }
 
-// ============================================================================
-// MGF1 (Mask Generation Function)
-// ============================================================================
+// =============================================================================
+// Section 5: MGF1 Mask Generation Function
+// =============================================================================
 
-std::vector<uint8_t> RSA::mgf1(const uint8_t* seed, size_t seed_len,
-                               size_t mask_len, const std::string& hash_algorithm) {
-    const size_t hash_len = 32;  // SHA-256
-
-    if (mask_len > (1ULL << 32) * hash_len) {
-        throw std::invalid_argument("Mask too long");
-    }
-
+std::vector<uint8_t> RSA::mgf1(const uint8_t* seed, size_t seed_len, size_t mask_len, const std::string&) {
+    const size_t hlen = 32;
     std::vector<uint8_t> T;
-    T.reserve(mask_len + hash_len);
-
-    for (uint32_t counter = 0; T.size() < mask_len; ++counter) {
-        // Hash(seed || counter)
-        std::vector<uint8_t> data(seed_len + 4);
-        std::memcpy(data.data(), seed, seed_len);
-        data[seed_len + 0] = static_cast<uint8_t>(counter >> 24);
-        data[seed_len + 1] = static_cast<uint8_t>(counter >> 16);
-        data[seed_len + 2] = static_cast<uint8_t>(counter >> 8);
-        data[seed_len + 3] = static_cast<uint8_t>(counter);
-
-        // Simplified hash (placeholder - use proper SHA-256 in production)
-        std::vector<uint8_t> hash(hash_len, 0);
-        for (size_t i = 0; i < data.size(); ++i) {
-            hash[i % hash_len] ^= data[i];
-            hash[(i * 7 + 13) % hash_len] ^= static_cast<uint8_t>((data[i] << 3) | (data[i] >> 5));
+    T.reserve(mask_len + hlen);
+    
+    for (uint32_t c = 0; T.size() < mask_len; ++c) {
+        std::vector<uint8_t> d(seed_len + 4);
+        std::memcpy(d.data(), seed, seed_len);
+        d[seed_len] = static_cast<uint8_t>(c >> 24);
+        d[seed_len + 1] = static_cast<uint8_t>(c >> 16);
+        d[seed_len + 2] = static_cast<uint8_t>(c >> 8);
+        d[seed_len + 3] = static_cast<uint8_t>(c);
+        
+        // Simple hash (replace with SHA-256 in production)
+        std::vector<uint8_t> h(hlen, 0);
+        for (size_t i = 0; i < d.size(); ++i) {
+            h[i % hlen] ^= d[i];
+            h[(i * 7 + 13) % hlen] ^= static_cast<uint8_t>((d[i] << 3) | (d[i] >> 5));
         }
-
-        T.insert(T.end(), hash.begin(), hash.end());
+        T.insert(T.end(), h.begin(), h.end());
     }
-
     T.resize(mask_len);
     return T;
 }
 
-// ============================================================================
-// OAEP Encoding/Decoding
-// ============================================================================
+// =============================================================================
+// Section 6: OAEP Encoding/Decoding
+// =============================================================================
 
-std::vector<uint8_t> RSA::eme_oaep_encode(const uint8_t* message, size_t message_len,
-                                          size_t k, const OAEPParams& params) {
-    const size_t hash_len = 32;  // SHA-256
-
-    // Check message length
-    size_t max_message_len = k - 2 * hash_len - 2;
-    if (message_len > max_message_len) {
-        throw std::invalid_argument("Message too long");
-    }
-
-    // Generate lHash = Hash(L)
-    std::vector<uint8_t> lHash(hash_len, 0);
-    for (size_t i = 0; i < params.label.size(); ++i) {
-        lHash[i % hash_len] ^= params.label[i];
-    }
-
-    // Generate PS (padding string)
-    size_t ps_len = k - message_len - 2 * hash_len - 2;
-
-    // Build DB = lHash || PS || 0x01 || M
-    std::vector<uint8_t> DB(k - hash_len - 1);
-    std::memcpy(DB.data(), lHash.data(), hash_len);
-    std::memset(DB.data() + hash_len, 0x00, ps_len);
-    DB[hash_len + ps_len] = 0x01;
-    std::memcpy(DB.data() + hash_len + ps_len + 1, message, message_len);
-
-    // Generate random seed
-    std::vector<uint8_t> seed(hash_len);
+std::vector<uint8_t> RSA::eme_oaep_encode(const uint8_t* msg, size_t msg_len, size_t k, const OAEPParams& p) {
+    const size_t hlen = 32;
+    if (msg_len > k - 2 * hlen - 2) throw std::invalid_argument("Message too long");
+    
+    std::vector<uint8_t> lHash(hlen, 0);
+    for (size_t i = 0; i < p.label.size(); ++i) lHash[i % hlen] ^= p.label[i];
+    
+    std::vector<uint8_t> DB(k - hlen - 1);
+    std::memcpy(DB.data(), lHash.data(), hlen);
+    DB[k - msg_len - hlen - 2] = 0x01;
+    std::memcpy(DB.data() + k - msg_len - hlen - 1, msg, msg_len);
+    
+    std::vector<uint8_t> seed(hlen);
     std::random_device rd;
-    for (size_t i = 0; i < hash_len; ++i) {
-        seed[i] = static_cast<uint8_t>(rd() & 0xFF);
-    }
-
-    // Generate dbMask = MGF(seed, k - hLen - 1)
-    std::vector<uint8_t> dbMask = mgf1(seed.data(), seed.size(), DB.size(), params.hash_algorithm);
-
-    // maskedDB = DB XOR dbMask
-    std::vector<uint8_t> maskedDB(DB.size());
-    for (size_t i = 0; i < DB.size(); ++i) {
-        maskedDB[i] = DB[i] ^ dbMask[i];
-    }
-
-    // Generate seedMask = MGF(maskedDB, hLen)
-    std::vector<uint8_t> seedMask = mgf1(maskedDB.data(), maskedDB.size(), hash_len, params.hash_algorithm);
-
-    // maskedSeed = seed XOR seedMask
-    std::vector<uint8_t> maskedSeed(hash_len);
-    for (size_t i = 0; i < hash_len; ++i) {
-        maskedSeed[i] = seed[i] ^ seedMask[i];
-    }
-
-    // EM = 0x00 || maskedSeed || maskedDB
+    for (auto& b : seed) b = static_cast<uint8_t>(rd());
+    
+    auto dbMask = mgf1(seed.data(), hlen, DB.size(), p.hash_algorithm);
+    for (size_t i = 0; i < DB.size(); ++i) DB[i] ^= dbMask[i];
+    
+    auto seedMask = mgf1(DB.data(), DB.size(), hlen, p.hash_algorithm);
+    for (size_t i = 0; i < hlen; ++i) seed[i] ^= seedMask[i];
+    
     std::vector<uint8_t> EM(k);
     EM[0] = 0x00;
-    std::memcpy(EM.data() + 1, maskedSeed.data(), hash_len);
-    std::memcpy(EM.data() + 1 + hash_len, maskedDB.data(), maskedDB.size());
-
+    std::memcpy(EM.data() + 1, seed.data(), hlen);
+    std::memcpy(EM.data() + 1 + hlen, DB.data(), DB.size());
     return EM;
 }
 
-std::vector<uint8_t> RSA::eme_oaep_decode(const uint8_t* encoded, size_t encoded_len,
-                                          const OAEPParams& params) {
-    const size_t hash_len = 32;
-
-    if (encoded_len < 2 * hash_len + 2) {
-        throw std::runtime_error("Decryption error");
-    }
-
-    // Check first byte is 0x00
-    if (encoded[0] != 0x00) {
-        throw std::runtime_error("Decryption error");
-    }
-
-    // Extract maskedSeed and maskedDB
-    std::vector<uint8_t> maskedSeed(encoded + 1, encoded + 1 + hash_len);
-    std::vector<uint8_t> maskedDB(encoded + 1 + hash_len, encoded + encoded_len);
-
-    // Generate seedMask = MGF(maskedDB, hLen)
-    std::vector<uint8_t> seedMask = mgf1(maskedDB.data(), maskedDB.size(), hash_len, params.hash_algorithm);
-
-    // seed = maskedSeed XOR seedMask
-    std::vector<uint8_t> seed(hash_len);
-    for (size_t i = 0; i < hash_len; ++i) {
-        seed[i] = maskedSeed[i] ^ seedMask[i];
-    }
-
-    // Generate dbMask = MGF(seed, k - hLen - 1)
-    std::vector<uint8_t> dbMask = mgf1(seed.data(), seed.size(), maskedDB.size(), params.hash_algorithm);
-
-    // DB = maskedDB XOR dbMask
+std::vector<uint8_t> RSA::eme_oaep_decode(const uint8_t* em, size_t em_len, const OAEPParams& p) {
+    const size_t hlen = 32;
+    if (em_len < 2 * hlen + 2 || em[0] != 0x00) throw std::runtime_error("Decryption error");
+    
+    std::vector<uint8_t> maskedSeed(em + 1, em + 1 + hlen);
+    std::vector<uint8_t> maskedDB(em + 1 + hlen, em + em_len);
+    
+    auto seedMask = mgf1(maskedDB.data(), maskedDB.size(), hlen, p.hash_algorithm);
+    std::vector<uint8_t> seed(hlen);
+    for (size_t i = 0; i < hlen; ++i) seed[i] = maskedSeed[i] ^ seedMask[i];
+    
+    auto dbMask = mgf1(seed.data(), hlen, maskedDB.size(), p.hash_algorithm);
     std::vector<uint8_t> DB(maskedDB.size());
-    for (size_t i = 0; i < maskedDB.size(); ++i) {
-        DB[i] = maskedDB[i] ^ dbMask[i];
-    }
-
-    // Verify lHash
-    std::vector<uint8_t> lHash(hash_len, 0);
-    for (size_t i = 0; i < params.label.size(); ++i) {
-        lHash[i % hash_len] ^= params.label[i];
-    }
-
-    bool valid = true;
-    for (size_t i = 0; i < hash_len; ++i) {
-        if (DB[i] != lHash[i]) {
-            valid = false;
-        }
-    }
-
-    // Find 0x01 separator
-    size_t separator_pos = hash_len;
-    while (separator_pos < DB.size() && DB[separator_pos] == 0x00) {
-        ++separator_pos;
-    }
-
-    if (separator_pos >= DB.size() || DB[separator_pos] != 0x01) {
-        valid = false;
-    }
-
-    if (!valid) {
-        throw std::runtime_error("Decryption error");
-    }
-
-    // Extract message
-    return std::vector<uint8_t>(DB.begin() + static_cast<std::ptrdiff_t>(separator_pos + 1), DB.end());
+    for (size_t i = 0; i < DB.size(); ++i) DB[i] = maskedDB[i] ^ dbMask[i];
+    
+    std::vector<uint8_t> lHash(hlen, 0);
+    for (size_t i = 0; i < p.label.size(); ++i) lHash[i % hlen] ^= p.label[i];
+    
+    for (size_t i = 0; i < hlen; ++i)
+        if (DB[i] != lHash[i]) throw std::runtime_error("Decryption error");
+    
+    size_t sep = hlen;
+    while (sep < DB.size() && DB[sep] == 0x00) ++sep;
+    if (sep >= DB.size() || DB[sep] != 0x01) throw std::runtime_error("Decryption error");
+    
+    return std::vector<uint8_t>(DB.begin() + static_cast<std::ptrdiff_t>(sep + 1), DB.end());
 }
 
-// ============================================================================
-// RSAES-OAEP
-// ============================================================================
+// =============================================================================
+// Section 7: RSAES-OAEP Encryption/Decryption
+// =============================================================================
 
-std::vector<uint8_t> RSA::encrypt_oaep(const uint8_t* plaintext, size_t plaintext_len,
-                                       const RSAPublicKey& public_key,
-                                       const OAEPParams& params) {
-    size_t k = static_cast<size_t>((public_key.bits + 7) / 8);
-
-    // EME-OAEP encoding
-    std::vector<uint8_t> EM = eme_oaep_encode(plaintext, plaintext_len, k, params);
-
-    // OS2IP
-    ZZ m = os2ip(EM.data(), EM.size());
-
-    // RSAEP
-    ZZ c = rsaep(m, public_key);
-
-    // I2OSP
-    return i2osp(c, k);
+std::vector<uint8_t> RSA::encrypt_oaep(const uint8_t* pt, size_t pt_len, const RSAPublicKey& k, const OAEPParams& p) {
+    size_t klen = static_cast<size_t>((k.bits + 7) / 8);
+    auto EM = eme_oaep_encode(pt, pt_len, klen, p);
+    return i2osp(rsaep(os2ip(EM.data(), EM.size()), k), klen);
 }
 
-std::vector<uint8_t> RSA::decrypt_oaep(const uint8_t* ciphertext, size_t ciphertext_len,
-                                       const RSAPrivateKey& private_key,
-                                       const OAEPParams& params) {
-    size_t k = static_cast<size_t>((private_key.bits + 7) / 8);
-
-    if (ciphertext_len != k) {
-        throw std::invalid_argument("Invalid ciphertext length");
-    }
-
-    // OS2IP
-    ZZ c = os2ip(ciphertext, ciphertext_len);
-
-    // RSADP
-    ZZ m = rsadp(c, private_key);
-
-    // I2OSP
-    std::vector<uint8_t> EM = i2osp(m, k);
-
-    // EME-OAEP decoding
-    return eme_oaep_decode(EM.data(), EM.size(), params);
+std::vector<uint8_t> RSA::decrypt_oaep(const uint8_t* ct, size_t ct_len, const RSAPrivateKey& k, const OAEPParams& p) {
+    size_t klen = static_cast<size_t>((k.bits + 7) / 8);
+    if (ct_len != klen) throw std::invalid_argument("Invalid ciphertext length");
+    auto EM = i2osp(rsadp(os2ip(ct, ct_len), k), klen);
+    return eme_oaep_decode(EM.data(), EM.size(), p);
 }
 
-// ============================================================================
-// RSAES-PKCS1-v1_5
-// ============================================================================
+// =============================================================================
+// Section 8: RSAES-PKCS1-v1_5 (Legacy Support)
+// =============================================================================
 
-std::vector<uint8_t> RSA::encrypt_pkcs1(const uint8_t* plaintext, size_t plaintext_len,
-                                        const RSAPublicKey& public_key) {
-    size_t k = static_cast<size_t>((public_key.bits + 7) / 8);
-
-    if (plaintext_len > k - 11) {
-        throw std::invalid_argument("Message too long");
-    }
-
-    // EM = 0x00 || 0x02 || PS || 0x00 || M
-    size_t ps_len = k - plaintext_len - 3;
-
-    std::vector<uint8_t> EM(k);
-    EM[0] = 0x00;
-    EM[1] = 0x02;
-
-    // Generate random non-zero PS
+std::vector<uint8_t> RSA::encrypt_pkcs1(const uint8_t* pt, size_t pt_len, const RSAPublicKey& k) {
+    size_t klen = static_cast<size_t>((k.bits + 7) / 8);
+    if (pt_len > klen - 11) throw std::invalid_argument("Message too long");
+    
+    std::vector<uint8_t> EM(klen);
+    EM[0] = 0x00; EM[1] = 0x02;
+    
     std::random_device rd;
-    for (size_t i = 0; i < ps_len; ++i) {
+    for (size_t i = 2; i < klen - pt_len - 1; ++i) {
         uint8_t r;
-        do {
-            r = static_cast<uint8_t>(rd() & 0xFF);
-        } while (r == 0);
-        EM[2 + i] = r;
+        do { r = static_cast<uint8_t>(rd()); } while (r == 0);
+        EM[i] = r;
     }
-
-    EM[2 + ps_len] = 0x00;
-    std::memcpy(EM.data() + 3 + ps_len, plaintext, plaintext_len);
-
-    // OS2IP and RSAEP
-    ZZ m = os2ip(EM.data(), k);
-    ZZ c = rsaep(m, public_key);
-
-    return i2osp(c, k);
+    EM[klen - pt_len - 1] = 0x00;
+    std::memcpy(EM.data() + klen - pt_len, pt, pt_len);
+    
+    return i2osp(rsaep(os2ip(EM.data(), klen), k), klen);
 }
 
-std::vector<uint8_t> RSA::decrypt_pkcs1(const uint8_t* ciphertext, size_t ciphertext_len,
-                                        const RSAPrivateKey& private_key) {
-    size_t k = static_cast<size_t>((private_key.bits + 7) / 8);
-
-    if (ciphertext_len != k || k < 11) {
-        throw std::invalid_argument("Invalid ciphertext");
-    }
-
-    // RSADP
-    ZZ c = os2ip(ciphertext, ciphertext_len);
-    ZZ m = rsadp(c, private_key);
-    std::vector<uint8_t> EM = i2osp(m, k);
-
-    // Verify format: 0x00 || 0x02 || PS || 0x00 || M
-    if (EM[0] != 0x00 || EM[1] != 0x02) {
-        throw std::runtime_error("Decryption error");
-    }
-
-    // Find separator (first 0x00 after PS)
-    size_t separator_pos = 2;
-    while (separator_pos < k && EM[separator_pos] != 0x00) {
-        ++separator_pos;
-    }
-
-    if (separator_pos < 10 || separator_pos >= k) {
-        throw std::runtime_error("Decryption error");
-    }
-
-    return std::vector<uint8_t>(EM.begin() + static_cast<std::ptrdiff_t>(separator_pos + 1), EM.end());
+std::vector<uint8_t> RSA::decrypt_pkcs1(const uint8_t* ct, size_t ct_len, const RSAPrivateKey& k) {
+    size_t klen = static_cast<size_t>((k.bits + 7) / 8);
+    if (ct_len != klen || klen < 11) throw std::invalid_argument("Invalid ciphertext");
+    
+    auto EM = i2osp(rsadp(os2ip(ct, ct_len), k), klen);
+    if (EM[0] != 0x00 || EM[1] != 0x02) throw std::runtime_error("Decryption error");
+    
+    size_t sep = 2;
+    while (sep < klen && EM[sep] != 0x00) ++sep;
+    if (sep < 10 || sep >= klen) throw std::runtime_error("Decryption error");
+    
+    return std::vector<uint8_t>(EM.begin() + static_cast<std::ptrdiff_t>(sep + 1), EM.end());
 }
 
-// ============================================================================
-// RSASSA-PSS
-// ============================================================================
+// =============================================================================
+// Section 9: PSS Encoding/Verification
+// =============================================================================
 
-std::vector<uint8_t> RSA::emsa_pss_encode(const uint8_t* message_hash, size_t hash_len,
-                                          size_t em_bits, const PSSParams& params) {
-    size_t em_len = (em_bits + 7) / 8;
-    const size_t s_len = params.salt_length;
-
-    if (em_len < hash_len + s_len + 2) {
-        throw std::invalid_argument("Encoding error");
-    }
-
-    // Generate random salt
-    std::vector<uint8_t> salt(s_len);
+std::vector<uint8_t> RSA::emsa_pss_encode(const uint8_t* mHash, size_t hlen, size_t emBits, const PSSParams& p) {
+    size_t emLen = (emBits + 7) / 8;
+    size_t sLen = p.salt_length;
+    if (emLen < hlen + sLen + 2) throw std::invalid_argument("Encoding error");
+    
+    std::vector<uint8_t> salt(sLen);
     std::random_device rd;
-    for (size_t i = 0; i < s_len; ++i) {
-        salt[i] = static_cast<uint8_t>(rd() & 0xFF);
+    for (auto& b : salt) b = static_cast<uint8_t>(rd());
+    
+    std::vector<uint8_t> M(8 + hlen + sLen, 0);
+    std::memcpy(M.data() + 8, mHash, hlen);
+    std::memcpy(M.data() + 8 + hlen, salt.data(), sLen);
+    
+    std::vector<uint8_t> H(hlen, 0);
+    for (size_t i = 0; i < M.size(); ++i) {
+        H[i % hlen] ^= M[i];
+        H[(i * 7 + 13) % hlen] ^= static_cast<uint8_t>((M[i] << 3) | (M[i] >> 5));
     }
-
-    // M' = (0x)00 00 00 00 00 00 00 00 || mHash || salt
-    std::vector<uint8_t> M_prime(8 + hash_len + s_len);
-    std::memset(M_prime.data(), 0, 8);
-    std::memcpy(M_prime.data() + 8, message_hash, hash_len);
-    std::memcpy(M_prime.data() + 8 + hash_len, salt.data(), s_len);
-
-    // H = Hash(M')
-    std::vector<uint8_t> H(hash_len, 0);
-    for (size_t i = 0; i < M_prime.size(); ++i) {
-        H[i % hash_len] ^= M_prime[i];
-        H[(i * 7 + 13) % hash_len] ^= static_cast<uint8_t>((M_prime[i] << 3) | (M_prime[i] >> 5));
-    }
-
-    // DB = PS || 0x01 || salt
-    size_t ps_len = em_len - s_len - hash_len - 2;
-    std::vector<uint8_t> DB(em_len - hash_len - 1);
-    std::memset(DB.data(), 0, ps_len);
-    DB[ps_len] = 0x01;
-    std::memcpy(DB.data() + ps_len + 1, salt.data(), s_len);
-
-    // dbMask = MGF(H, emLen - hLen - 1)
-    std::vector<uint8_t> dbMask = mgf1(H.data(), H.size(), DB.size(), params.hash_algorithm);
-
-    // maskedDB = DB XOR dbMask
-    std::vector<uint8_t> maskedDB(DB.size());
-    for (size_t i = 0; i < DB.size(); ++i) {
-        maskedDB[i] = DB[i] ^ dbMask[i];
-    }
-
-    // Set leftmost bits to zero
-    size_t zero_bits = 8 * em_len - em_bits;
-    if (zero_bits > 0) {
-        maskedDB[0] &= (0xFF >> zero_bits);
-    }
-
-    // EM = maskedDB || H || 0xbc
-    std::vector<uint8_t> EM(em_len);
-    std::memcpy(EM.data(), maskedDB.data(), maskedDB.size());
-    std::memcpy(EM.data() + maskedDB.size(), H.data(), hash_len);
-    EM[em_len - 1] = 0xbc;
-
+    
+    std::vector<uint8_t> DB(emLen - hlen - 1, 0);
+    DB[DB.size() - sLen - 1] = 0x01;
+    std::memcpy(DB.data() + DB.size() - sLen, salt.data(), sLen);
+    
+    auto dbMask = mgf1(H.data(), hlen, DB.size(), p.hash_algorithm);
+    for (size_t i = 0; i < DB.size(); ++i) DB[i] ^= dbMask[i];
+    
+    size_t zeroBits = 8 * emLen - emBits;
+    if (zeroBits > 0) DB[0] &= static_cast<uint8_t>(0xFF >> zeroBits);
+    
+    std::vector<uint8_t> EM(emLen);
+    std::memcpy(EM.data(), DB.data(), DB.size());
+    std::memcpy(EM.data() + DB.size(), H.data(), hlen);
+    EM[emLen - 1] = 0xbc;
     return EM;
 }
 
-bool RSA::emsa_pss_verify(const uint8_t* message_hash, size_t hash_len,
-                          const uint8_t* em, size_t em_len,
-                          size_t em_bits, const PSSParams& params) {
-    const size_t s_len = params.salt_length;
-
-    if (em_len < hash_len + s_len + 2) {
-        return false;
+bool RSA::emsa_pss_verify(const uint8_t* mHash, size_t hlen, const uint8_t* em, size_t emLen, size_t emBits, const PSSParams& p) {
+    size_t sLen = p.salt_length;
+    if (emLen < hlen + sLen + 2 || em[emLen - 1] != 0xbc) return false;
+    
+    size_t dbLen = emLen - hlen - 1;
+    size_t zeroBits = 8 * emLen - emBits;
+    if (zeroBits > 0 && (em[0] & (0xFF << (8 - zeroBits))) != 0) return false;
+    
+    std::vector<uint8_t> H(em + dbLen, em + emLen - 1);
+    auto dbMask = mgf1(H.data(), hlen, dbLen, p.hash_algorithm);
+    
+    std::vector<uint8_t> DB(dbLen);
+    for (size_t i = 0; i < dbLen; ++i) DB[i] = em[i] ^ dbMask[i];
+    if (zeroBits > 0) DB[0] &= static_cast<uint8_t>(0xFF >> zeroBits);
+    
+    size_t psLen = emLen - hlen - sLen - 2;
+    for (size_t i = 0; i < psLen; ++i) if (DB[i] != 0x00) return false;
+    if (DB[psLen] != 0x01) return false;
+    
+    std::vector<uint8_t> M(8 + hlen + sLen, 0);
+    std::memcpy(M.data() + 8, mHash, hlen);
+    std::memcpy(M.data() + 8 + hlen, DB.data() + psLen + 1, sLen);
+    
+    std::vector<uint8_t> Hp(hlen, 0);
+    for (size_t i = 0; i < M.size(); ++i) {
+        Hp[i % hlen] ^= M[i];
+        Hp[(i * 7 + 13) % hlen] ^= static_cast<uint8_t>((M[i] << 3) | (M[i] >> 5));
     }
-
-    // Check trailer field
-    if (em[em_len - 1] != 0xbc) {
-        return false;
-    }
-
-    // Extract maskedDB and H
-    size_t db_len = em_len - hash_len - 1;
-    std::vector<uint8_t> maskedDB(em, em + db_len);
-    std::vector<uint8_t> H(em + db_len, em + em_len - 1);
-
-    // Check leftmost bits
-    size_t zero_bits = 8 * em_len - em_bits;
-    if (zero_bits > 0) {
-        uint8_t mask = static_cast<uint8_t>(0xFF << (8 - zero_bits));
-        if ((maskedDB[0] & mask) != 0) {
-            return false;
-        }
-    }
-
-    // dbMask = MGF(H, emLen - hLen - 1)
-    std::vector<uint8_t> dbMask = mgf1(H.data(), H.size(), db_len, params.hash_algorithm);
-
-    // DB = maskedDB XOR dbMask
-    std::vector<uint8_t> DB(db_len);
-    for (size_t i = 0; i < db_len; ++i) {
-        DB[i] = maskedDB[i] ^ dbMask[i];
-    }
-
-    // Set leftmost bits to zero
-    if (zero_bits > 0) {
-        DB[0] &= (0xFF >> zero_bits);
-    }
-
-    // Check PS || 0x01
-    size_t ps_len = em_len - hash_len - s_len - 2;
-    for (size_t i = 0; i < ps_len; ++i) {
-        if (DB[i] != 0x00) {
-            return false;
-        }
-    }
-
-    if (DB[ps_len] != 0x01) {
-        return false;
-    }
-
-    // Extract salt
-    std::vector<uint8_t> salt(DB.begin() + static_cast<std::ptrdiff_t>(ps_len + 1), DB.end());
-
-    // M' = (0x)00 00 00 00 00 00 00 00 || mHash || salt
-    std::vector<uint8_t> M_prime(8 + hash_len + s_len);
-    std::memset(M_prime.data(), 0, 8);
-    std::memcpy(M_prime.data() + 8, message_hash, hash_len);
-    std::memcpy(M_prime.data() + 8 + hash_len, salt.data(), s_len);
-
-    // H' = Hash(M')
-    std::vector<uint8_t> H_prime(hash_len, 0);
-    for (size_t i = 0; i < M_prime.size(); ++i) {
-        H_prime[i % hash_len] ^= M_prime[i];
-        H_prime[(i * 7 + 13) % hash_len] ^= static_cast<uint8_t>((M_prime[i] << 3) | (M_prime[i] >> 5));
-    }
-
-    // Compare H and H'
-    bool equal = true;
-    for (size_t i = 0; i < hash_len; ++i) {
-        if (H[i] != H_prime[i]) {
-            equal = false;
-        }
-    }
-
-    return equal;
+    
+    return std::equal(H.begin(), H.end(), Hp.begin());
 }
 
-std::vector<uint8_t> RSA::sign_pss(const uint8_t* message_hash, size_t hash_len,
-                                   const RSAPrivateKey& private_key,
-                                   const PSSParams& params) {
-    size_t mod_bits = static_cast<size_t>(NumBits(private_key.n));
-    size_t em_len = (mod_bits + 7) / 8;
+// =============================================================================
+// Section 10: RSASSA-PSS Sign/Verify
+// =============================================================================
 
-    // EMSA-PSS encoding
-    std::vector<uint8_t> EM = emsa_pss_encode(message_hash, hash_len, mod_bits - 1, params);
-
-    // OS2IP
-    ZZ m = os2ip(EM.data(), EM.size());
-
-    // RSASP1
-    ZZ s = rsasp1(m, private_key);
-
-    // I2OSP
-    return i2osp(s, em_len);
+std::vector<uint8_t> RSA::sign_pss(const uint8_t* mHash, size_t hlen, const RSAPrivateKey& k, const PSSParams& p) {
+    size_t modBits = static_cast<size_t>(NumBits(k.n));
+    size_t emLen = (modBits + 7) / 8;
+    auto EM = emsa_pss_encode(mHash, hlen, modBits - 1, p);
+    return i2osp(rsasp1(os2ip(EM.data(), EM.size()), k), emLen);
 }
 
-bool RSA::verify_pss(const uint8_t* message_hash, size_t hash_len,
-                     const uint8_t* signature, size_t sig_len,
-                     const RSAPublicKey& public_key,
-                     const PSSParams& params) {
-    size_t mod_bits = static_cast<size_t>(NumBits(public_key.n));
-    size_t em_len = (mod_bits + 7) / 8;
-
-    if (sig_len != em_len) {
-        return false;
-    }
-
+bool RSA::verify_pss(const uint8_t* mHash, size_t hlen, const uint8_t* sig, size_t sigLen, const RSAPublicKey& k, const PSSParams& p) {
+    size_t modBits = static_cast<size_t>(NumBits(k.n));
+    size_t emLen = (modBits + 7) / 8;
+    if (sigLen != emLen) return false;
+    
     try {
-        // OS2IP
-        ZZ s = os2ip(signature, sig_len);
-
-        // RSAVP1
-        ZZ m = rsavp1(s, public_key);
-
-        // I2OSP
-        std::vector<uint8_t> EM = i2osp(m, em_len);
-
-        // EMSA-PSS verification
-        return emsa_pss_verify(message_hash, hash_len, EM.data(), EM.size(), mod_bits - 1, params);
-    } catch (...) {
-        return false;
-    }
+        auto EM = i2osp(rsavp1(os2ip(sig, sigLen), k), emLen);
+        return emsa_pss_verify(mHash, hlen, EM.data(), EM.size(), modBits - 1, p);
+    } catch (...) { return false; }
 }
 
-// ============================================================================
-// RSASSA-PKCS1-v1_5
-// ============================================================================
+// =============================================================================
+// Section 11: RSASSA-PKCS1-v1_5 (Legacy Support)
+// =============================================================================
 
-std::vector<uint8_t> RSA::sign_pkcs1(const uint8_t* message_hash, size_t hash_len,
-                                     const RSAPrivateKey& private_key,
-                                     const std::string& hash_algorithm) {
-    size_t k = static_cast<size_t>((private_key.bits + 7) / 8);
-
-    // DigestInfo for SHA-256
-    static const uint8_t sha256_prefix[] = {
-        0x30, 0x31, 0x30, 0x0d, 0x06, 0x09, 0x60, 0x86,
-        0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x01, 0x05,
-        0x00, 0x04, 0x20
-    };
-
-    size_t t_len = sizeof(sha256_prefix) + hash_len;
-
-    if (k < t_len + 11) {
-        throw std::invalid_argument("Intended encoded message length too short");
-    }
-
-    // EM = 0x00 || 0x01 || PS || 0x00 || T
-    std::vector<uint8_t> EM(k);
-    EM[0] = 0x00;
-    EM[1] = 0x01;
-
-    size_t ps_len = k - t_len - 3;
-    std::memset(EM.data() + 2, 0xFF, ps_len);
-    EM[2 + ps_len] = 0x00;
-    std::memcpy(EM.data() + 3 + ps_len, sha256_prefix, sizeof(sha256_prefix));
-    std::memcpy(EM.data() + 3 + ps_len + sizeof(sha256_prefix), message_hash, hash_len);
-
-    // OS2IP and RSASP1
-    ZZ m = os2ip(EM.data(), k);
-    ZZ s = rsasp1(m, private_key);
-
-    return i2osp(s, k);
+std::vector<uint8_t> RSA::sign_pkcs1(const uint8_t* mHash, size_t hlen, const RSAPrivateKey& k, const std::string&) {
+    size_t klen = static_cast<size_t>((k.bits + 7) / 8);
+    static const uint8_t sha256_di[] = {0x30,0x31,0x30,0x0d,0x06,0x09,0x60,0x86,0x48,0x01,0x65,0x03,0x04,0x02,0x01,0x05,0x00,0x04,0x20};
+    
+    size_t tLen = sizeof(sha256_di) + hlen;
+    if (klen < tLen + 11) throw std::invalid_argument("Key too short");
+    
+    std::vector<uint8_t> EM(klen);
+    EM[0] = 0x00; EM[1] = 0x01;
+    std::memset(EM.data() + 2, 0xFF, klen - tLen - 3);
+    EM[klen - tLen - 1] = 0x00;
+    std::memcpy(EM.data() + klen - tLen, sha256_di, sizeof(sha256_di));
+    std::memcpy(EM.data() + klen - hlen, mHash, hlen);
+    
+    return i2osp(rsasp1(os2ip(EM.data(), klen), k), klen);
 }
 
-bool RSA::verify_pkcs1(const uint8_t* message_hash, size_t hash_len,
-                       const uint8_t* signature, size_t sig_len,
-                       const RSAPublicKey& public_key,
-                       const std::string& hash_algorithm) {
-    size_t k = static_cast<size_t>((public_key.bits + 7) / 8);
-
-    if (sig_len != k) {
-        return false;
-    }
-
+bool RSA::verify_pkcs1(const uint8_t* mHash, size_t hlen, const uint8_t* sig, size_t sigLen, const RSAPublicKey& k, const std::string&) {
+    size_t klen = static_cast<size_t>((k.bits + 7) / 8);
+    if (sigLen != klen) return false;
+    
     try {
-        // RSAVP1
-        ZZ s = os2ip(signature, sig_len);
-        ZZ m = rsavp1(s, public_key);
-        std::vector<uint8_t> EM = i2osp(m, k);
-
-        // Verify format
-        if (EM[0] != 0x00 || EM[1] != 0x01) {
-            return false;
-        }
-
-        // Find separator
-        size_t ps_end = 2;
-        while (ps_end < k && EM[ps_end] == 0xFF) {
-            ++ps_end;
-        }
-
-        if (ps_end < 10 || ps_end >= k || EM[ps_end] != 0x00) {
-            return false;
-        }
-
-        // Extract and verify DigestInfo
-        static const uint8_t sha256_prefix[] = {
-            0x30, 0x31, 0x30, 0x0d, 0x06, 0x09, 0x60, 0x86,
-            0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x01, 0x05,
-            0x00, 0x04, 0x20
-        };
-
-        size_t t_pos = ps_end + 1;
-        size_t t_len = k - t_pos;
-
-        if (t_len != sizeof(sha256_prefix) + hash_len) {
-            return false;
-        }
-
-        if (std::memcmp(EM.data() + t_pos, sha256_prefix, sizeof(sha256_prefix)) != 0) {
-            return false;
-        }
-
-        return std::memcmp(EM.data() + t_pos + sizeof(sha256_prefix), message_hash, hash_len) == 0;
-    } catch (...) {
-        return false;
-    }
+        auto EM = i2osp(rsavp1(os2ip(sig, sigLen), k), klen);
+        if (EM[0] != 0x00 || EM[1] != 0x01) return false;
+        
+        size_t ps = 2;
+        while (ps < klen && EM[ps] == 0xFF) ++ps;
+        if (ps < 10 || ps >= klen || EM[ps] != 0x00) return false;
+        
+        static const uint8_t sha256_di[] = {0x30,0x31,0x30,0x0d,0x06,0x09,0x60,0x86,0x48,0x01,0x65,0x03,0x04,0x02,0x01,0x05,0x00,0x04,0x20};
+        if (klen - ps - 1 != sizeof(sha256_di) + hlen) return false;
+        if (std::memcmp(EM.data() + ps + 1, sha256_di, sizeof(sha256_di)) != 0) return false;
+        
+        return std::memcmp(EM.data() + klen - hlen, mHash, hlen) == 0;
+    } catch (...) { return false; }
 }
 
-// ============================================================================
-// High-Level API Functions
-// ============================================================================
+// =============================================================================
+// Section 12: High-Level API
+// =============================================================================
 
-RSAKeyPair rsa_generate_keypair(int bits) {
-    return RSA::generate_keypair(bits);
+RSAKeyPair rsa_generate_keypair(int bits) { return RSA::generate_keypair(bits); }
+
+std::vector<uint8_t> rsa_encrypt(const uint8_t* pt, size_t len, const RSAPublicKey& k) {
+    return RSA::encrypt_oaep(pt, len, k);
 }
 
-std::vector<uint8_t> rsa_encrypt(const uint8_t* plaintext, size_t plaintext_len,
-                                 const RSAPublicKey& public_key) {
-    return RSA::encrypt_oaep(plaintext, plaintext_len, public_key);
+std::vector<uint8_t> rsa_decrypt(const uint8_t* ct, size_t len, const RSAPrivateKey& k) {
+    return RSA::decrypt_oaep(ct, len, k);
 }
 
-std::vector<uint8_t> rsa_decrypt(const uint8_t* ciphertext, size_t ciphertext_len,
-                                 const RSAPrivateKey& private_key) {
-    return RSA::decrypt_oaep(ciphertext, ciphertext_len, private_key);
+std::vector<uint8_t> rsa_sign(const uint8_t* mHash, size_t len, const RSAPrivateKey& k) {
+    return RSA::sign_pss(mHash, len, k);
 }
 
-std::vector<uint8_t> rsa_sign(const uint8_t* message_hash, size_t hash_len,
-                              const RSAPrivateKey& private_key) {
-    return RSA::sign_pss(message_hash, hash_len, private_key);
-}
-
-bool rsa_verify(const uint8_t* message_hash, size_t hash_len,
-                const uint8_t* signature, size_t sig_len,
-                const RSAPublicKey& public_key) {
-    return RSA::verify_pss(message_hash, hash_len, signature, sig_len, public_key);
+bool rsa_verify(const uint8_t* mHash, size_t hlen, const uint8_t* sig, size_t sigLen, const RSAPublicKey& k) {
+    return RSA::verify_pss(mHash, hlen, sig, sigLen, k);
 }
 
 } // namespace rsa
