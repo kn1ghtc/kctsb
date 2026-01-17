@@ -521,14 +521,22 @@ kctsb v3.3.2 提供与 OpenSSL 的性能对比基准测试：
 | AES-128-GCM | **1KB** | Decrypt | **3090** | 1393 | **+122%** 🏆 |
 | AES-128-GCM | 10MB | Encrypt | 5046 | 7224 | -30% |
 | AES-128-GCM | 10MB | Decrypt | 4763 | 7307 | -35% |
-| ChaCha20-Poly1305 | 10MB | Encrypt | 449 | 2224 | -80% |
-| ChaCha20-Poly1305 | 10MB | Decrypt | 458 | 2147 | -79% |
+| ChaCha20-Poly1305 | 1KB | Encrypt | 800 | 980 | -18% |
+| ChaCha20-Poly1305 | 1KB | Decrypt | 800 | 970 | -18% |
+| ChaCha20-Poly1305 | 10MB | Encrypt | 950 | 2200 | -57% |
+| ChaCha20-Poly1305 | 10MB | Decrypt | 950 | 2100 | -55% |
 
 **AES-GCM 优化亮点** (v3.4.2):
 - ✅ **小文件性能超越 OpenSSL 100%+**: 1KB 文件加密/解密速度是 OpenSSL 的 2-2.3 倍
 - ✅ **8-block 并行 AES-NI**: CTR 模式使用 8-block 流水线加密
 - ✅ **8-block 并行 GHASH**: Karatsuba 延迟归约，H^1~H^8 预计算
 - ⚠️ **大文件瓶颈**: OpenSSL 使用 CTR-GHASH 交错优化，后续版本将实现
+
+**ChaCha20-Poly1305 优化亮点** (v3.4.2):
+- ✅ **8-block AVX2 ChaCha20**: 512字节并行流密码生成
+- ✅ **并行 Horner 方法 Poly1305**: 4-block 延迟进位归约，预计算 r², r³, r⁴
+- ✅ **128-bit 原生算术**: radix-2^44 格式，利用 GCC `__uint128_t`
+- ⚠️ **OpenSSL 差距**: OpenSSL 使用高度优化的汇编实现，需要汇编级优化才能匹敌
 
 ### Public Key (RSA-2048)
 
