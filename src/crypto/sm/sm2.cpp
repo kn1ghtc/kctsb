@@ -33,7 +33,8 @@
 #include <vector>
 #include <stdexcept>
 
-using namespace NTL;
+// Bignum namespace is now kctsb (was NTL)
+using namespace kctsb;
 
 // ============================================================================
 // C++ Internal Implementation Namespace
@@ -1102,13 +1103,13 @@ SM2KeyPair::SM2KeyPair(const ByteVec& privateKey) {
     auto& ctx = internal::sm2::SM2Context::instance();
     const auto& curve = ctx.curve();
     
-    NTL::ZZ d = internal::sm2::bytes_to_zz(keypair_.private_key, KCTSB_SM2_PRIVATE_KEY_SIZE);
+    kctsb::ZZ d = internal::sm2::bytes_to_zz(keypair_.private_key, KCTSB_SM2_PRIVATE_KEY_SIZE);
     ecc::JacobianPoint P_jac = curve.scalar_mult_base(d);
     ecc::AffinePoint P_aff = curve.to_affine(P_jac);
     
-    NTL::ZZ_p::init(ctx.p());
-    NTL::ZZ Px = IsZero(P_aff.x) ? NTL::ZZ(0) : rep(P_aff.x);
-    NTL::ZZ Py = IsZero(P_aff.y) ? NTL::ZZ(0) : rep(P_aff.y);
+    kctsb::ZZ_p::init(ctx.p());
+    kctsb::ZZ Px = IsZero(P_aff.x) ? kctsb::ZZ(0) : rep(P_aff.x);
+    kctsb::ZZ Py = IsZero(P_aff.y) ? kctsb::ZZ(0) : rep(P_aff.y);
     
     internal::sm2::zz_to_bytes(Px, keypair_.public_key, internal::sm2::FIELD_SIZE);
     internal::sm2::zz_to_bytes(Py, keypair_.public_key + internal::sm2::FIELD_SIZE, 

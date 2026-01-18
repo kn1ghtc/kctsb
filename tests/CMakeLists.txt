@@ -102,7 +102,7 @@ kctsb_add_test(test_chacha20_poly1305 unit/crypto/test_chacha20_poly1305.cpp "un
 kctsb_add_test(test_random unit/crypto/test_random.cpp "unit;crypto;random")
 
 # Chinese national standards tests (SM3/SM4)
-# SM2 tests conditionally compiled when NTL modules available
+# SM2 tests conditionally compiled when bignum modules available
 add_executable(test_sm unit/crypto/test_sm.cpp)
 target_link_libraries(test_sm PRIVATE
     kctsb_static
@@ -112,36 +112,30 @@ target_include_directories(test_sm PRIVATE
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/src
 )
-# Add NTL modules flag when available
-if(NOT WIN32 OR KCTSB_FORCE_NTL_MODULES)
-    target_compile_definitions(test_sm PRIVATE KCTSB_HAS_NTL_MODULES)
-endif()
+# v4.0.1: Bignum modules now work on all platforms
+target_compile_definitions(test_sm PRIVATE KCTSB_HAS_BIGNUM_MODULES)
 gtest_discover_tests(test_sm PROPERTIES LABELS "unit;crypto;sm")
 
-# Math tests (requires NTL for polynomial operations)
-if(KCTSB_ENABLE_NTL AND NTL_FOUND)
-    add_executable(test_math unit/math/test_math.cpp)
-    target_link_libraries(test_math PRIVATE
-        kctsb_static
-        GTest::gtest_main
-    )
-    target_include_directories(test_math PRIVATE
-        ${CMAKE_SOURCE_DIR}/include
-        ${CMAKE_SOURCE_DIR}/src
-    )
-    # Note: bcrypt.dll loaded at runtime, no static link needed
-    target_compile_definitions(test_math PRIVATE KCTSB_HAS_NTL)
-    target_link_libraries(test_math PRIVATE ${NTL_LIBRARY})
-    if(GMP_FOUND)
-        target_link_libraries(test_math PRIVATE ${GMP_LIBRARY})
-    endif()
-    if(GF2X_FOUND)
-        target_link_libraries(test_math PRIVATE ${GF2X_LIBRARY})
-    endif()
-    gtest_discover_tests(test_math PROPERTIES LABELS "unit;math")
-else()
-    message(STATUS "  Skipping test_math: NTL not enabled")
+# Math tests (requires bignum for polynomial operations)
+# v4.0.1: Fixed LLP64 compatibility, now works on all platforms
+add_executable(test_math unit/math/test_math.cpp)
+target_link_libraries(test_math PRIVATE
+    kctsb_static
+    GTest::gtest_main
+)
+target_include_directories(test_math PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/src
+)
+# Note: bcrypt.dll loaded at runtime, no static link needed
+target_compile_definitions(test_math PRIVATE KCTSB_HAS_BIGNUM_MODULES)
+if(GMP_FOUND)
+    target_link_libraries(test_math PRIVATE ${GMP_LIBRARY})
 endif()
+if(GF2X_FOUND)
+    target_link_libraries(test_math PRIVATE ${GF2X_LIBRARY})
+endif()
+gtest_discover_tests(test_math PROPERTIES LABELS "unit;math")
 
 # ============================================================================
 # INTEGRATION TESTS - Cross-module interaction tests
@@ -182,10 +176,10 @@ kctsb_add_test(test_security_boundaries unit/security/test_security_boundaries.c
 # ============================================================================
 message(STATUS "")
 message(STATUS "Test Configuration Summary:")
-if(KCTSB_ENABLE_NTL AND NTL_FOUND)
+if(NOT WIN32 OR KCTSB_FORCE_BIGNUM_MODULES)
     message(STATUS "  Unit Tests:        test_aes, test_hash, test_sha, test_math, test_security_boundaries")
 else()
-    message(STATUS "  Unit Tests:        test_aes, test_hash, test_sha, test_security_boundaries (NTL disabled)")
+    message(STATUS "  Unit Tests:        test_aes, test_hash, test_sha, test_security_boundaries (bignum disabled)")
 endif()
 message(STATUS "  Integration Tests: test_integration")
 message(STATUS "  Performance Tests: test_benchmark")

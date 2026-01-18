@@ -99,3 +99,4 @@ deps/ntl-11.6.0
 deps/ntl-build
 build-linux/
 build-release/*
+thirdparty/src

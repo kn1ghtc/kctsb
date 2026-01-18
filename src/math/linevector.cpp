@@ -13,7 +13,8 @@
 #include <vector>
 #include <NTL/GF2X.h>
 
-using namespace NTL;
+// Bignum namespace is now kctsb (was NTL)
+using namespace kctsb;
 using namespace std;
 
 // Helper template to get array length at compile time

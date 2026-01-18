@@ -27,8 +27,8 @@ set(BENCHMARK_SOURCES
     benchmark_sm.cpp
 )
 
-# Add RSA/ECC benchmarks only when NTL modules are available
-if(NOT WIN32 OR KCTSB_FORCE_NTL_MODULES)
+# Add RSA/ECC benchmarks only when bignum modules are available
+if(NOT WIN32 OR KCTSB_FORCE_BIGNUM_MODULES)
     list(APPEND BENCHMARK_SOURCES
         benchmark_ecc.cpp
         benchmark_rsa.cpp
@@ -70,8 +70,8 @@ if(TARGET kctsb_static)
         KCTSB_HAS_SM3=1
         KCTSB_HAS_SM4=1
     )
-    # Enable RSA/ECC/SM2 only when NTL modules are available
-    if(NOT WIN32 OR KCTSB_FORCE_NTL_MODULES)
+    # Enable RSA/ECC/SM2 only when bignum modules are available
+    if(NOT WIN32 OR KCTSB_FORCE_BIGNUM_MODULES)
         target_compile_definitions(kctsb_benchmark PRIVATE
             KCTSB_HAS_RSA=1
             KCTSB_HAS_ECC=1
@@ -89,7 +89,7 @@ elseif(TARGET kctsb_shared)
         KCTSB_HAS_SM3=1
         KCTSB_HAS_SM4=1
     )
-    if(NOT WIN32 OR KCTSB_FORCE_NTL_MODULES)
+    if(NOT WIN32 OR KCTSB_FORCE_BIGNUM_MODULES)
         target_compile_definitions(kctsb_benchmark PRIVATE
             KCTSB_HAS_RSA=1
             KCTSB_HAS_ECC=1

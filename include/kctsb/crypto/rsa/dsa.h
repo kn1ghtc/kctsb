@@ -41,15 +41,15 @@
 #include <string>
 #include <NTL/ZZ.h>
 
-using NTL::ZZ;
-using NTL::conv;
-using NTL::PowerMod;
-using NTL::InvMod;
-using NTL::ProbPrime;
-using NTL::NumBytes;
-using NTL::NumBits;
-using NTL::BytesFromZZ;
-using NTL::ZZFromBytes;
+using kctsb::ZZ;
+using kctsb::conv;
+using kctsb::PowerMod;
+using kctsb::InvMod;
+using kctsb::ProbPrime;
+using kctsb::NumBytes;
+using kctsb::NumBits;
+using kctsb::BytesFromZZ;
+using kctsb::ZZFromBytes;
 
 namespace kctsb {
 namespace dsa {

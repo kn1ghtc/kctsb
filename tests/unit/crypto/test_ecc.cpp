@@ -2,7 +2,7 @@
  * @file test_ecc.cpp
  * @brief ECC (Elliptic Curve Cryptography) unit tests
  * 
- * Basic tests for ECC functionality using NTL.
+ * Basic tests for ECC functionality using kctsb bignum module.
  * Tests group operations and curve point arithmetic.
  * 
  * @author knightc
@@ -11,12 +11,12 @@
 
 #include <gtest/gtest.h>
 
-// Check if NTL is available
-#if defined(KCTSB_HAS_NTL) || defined(KCTSB_USE_NTL)
+// Check if bignum modules are available
+#if defined(KCTSB_HAS_BIGNUM_MODULES) || defined(KCTSB_USE_BIGNUM)
 
-#include <NTL/ZZ.h>
-#include <NTL/ZZ_p.h>
-using namespace NTL;
+#include "kctsb/math/bignum/ZZ.h"
+#include "kctsb/math/bignum/ZZ_p.h"
+using namespace kctsb;
 
 // ECC Group class from eccGroup.hpp
 #include "kctsb/crypto/ecc/ecc_group.hpp"
@@ -36,7 +36,7 @@ TEST(ECCTest, GroupCreation) {
 }
 
 TEST(ECCTest, BasicCompilation) {
-    // This test verifies that ECC code compiles and links correctly with NTL
+    // This test verifies that ECC code compiles and links correctly with bignum
     // Actual functionality tests require understanding the eccGroup interface
     EXPECT_TRUE(true) << "ECC compilation test passed";
 }
@@ -70,11 +70,11 @@ TEST(ECCTest, DISABLED_ECDSA_SignVerify) {
 }
 
 #else
-// NTL not available - skip tests
-TEST(ECCTest, DISABLED_NTL_NotAvailable) {
-    GTEST_SKIP() << "NTL library not available, ECC tests skipped";
+// Bignum modules not available - skip tests
+TEST(ECCTest, DISABLED_Bignum_NotAvailable) {
+    GTEST_SKIP() << "Bignum modules not available, ECC tests skipped";
 }
-#endif // KCTSB_HAS_NTL
+#endif // KCTSB_HAS_BIGNUM_MODULES
 
 int main(int argc, char** argv) {
     testing::InitGoogleTest(&argc, argv);

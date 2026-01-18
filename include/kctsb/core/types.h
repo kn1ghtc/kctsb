@@ -105,12 +105,13 @@ using SHA384Digest = ByteArray<48>;
 using SHA512Digest = ByteArray<64>;
 using SM3Digest = ByteArray<32>;
 
-// Smart pointer aliases
+// Smart pointer aliases (avoid conflict with bignum's SmartPtr.h)
+// Use KcUniquePtr/KcSharedPtr to distinguish from bignum's UniquePtr
 template<typename T>
-using UniquePtr = std::unique_ptr<T>;
+using KcUniquePtr = std::unique_ptr<T>;
 
 template<typename T>
-using SharedPtr = std::shared_ptr<T>;
+using KcSharedPtr = std::shared_ptr<T>;
 
 } // namespace kctsb
 

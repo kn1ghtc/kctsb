@@ -23,7 +23,8 @@
 #include <algorithm>
 #include <vector>
 
-using namespace NTL;
+// Bignum namespace is now kctsb (was NTL)
+using namespace kctsb;
 
 namespace kctsb {
 namespace ecc {

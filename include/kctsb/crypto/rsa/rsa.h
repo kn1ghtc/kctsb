@@ -29,7 +29,7 @@
 namespace kctsb {
 namespace rsa {
 
-using NTL::ZZ;
+using kctsb::ZZ;
 
 /**
  * @brief RSA Key Size options

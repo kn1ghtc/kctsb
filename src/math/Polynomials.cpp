@@ -20,7 +20,8 @@
 #include <NTL/GF2EX.h>
 #include <NTL/GF2EXFactoring.h>
 
-using namespace NTL;
+// Bignum namespace is now kctsb (was NTL)
+using namespace kctsb;
 using namespace std;
 
 

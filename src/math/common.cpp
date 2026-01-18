@@ -13,7 +13,8 @@
 #include <NTL/GF2X.h>
 #include <NTL/ZZX.h>
 
-using namespace NTL;
+// Bignum namespace is now kctsb (was NTL)
+using namespace kctsb;
 using namespace std;
 
  void lcm(ZZ& k, const ZZ& x, const ZZ& y) {

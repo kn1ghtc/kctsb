@@ -49,9 +49,9 @@
 #include <NTL/ZZ_p.h>
 #include <NTL/vec_ZZ_p.h>
 
-using NTL::ZZ;
-using NTL::ZZ_p;
-using NTL::vec_ZZ_p;
+using kctsb::ZZ;
+using kctsb::ZZ_p;
+using kctsb::vec_ZZ_p;
 
 namespace kctsb {
 namespace zkp {
@@ -454,15 +454,15 @@ struct ProvingKey {
     G1Point alpha_g1;
     G1Point beta_g1;
     G1Point delta_g1;
-    std::vector<G1Point> a_query;   // [A_i(τ)]₁
-    std::vector<G1Point> b_g1_query; // [B_i(τ)]₁
-    std::vector<G1Point> h_query;    // [τⁱ * t(τ) / δ]₁
-    std::vector<G1Point> l_query;    // [(β*U_i(τ) + α*V_i(τ) + W_i(τ)) / δ]₁
+    std::vector<G1Point> a_query;   // [A_i(τ)]�?
+    std::vector<G1Point> b_g1_query; // [B_i(τ)]�?
+    std::vector<G1Point> h_query;    // [τ�?* t(τ) / δ]�?
+    std::vector<G1Point> l_query;    // [(β*U_i(τ) + α*V_i(τ) + W_i(τ)) / δ]�?
     
     // G2 elements
     G2Point beta_g2;
     G2Point delta_g2;
-    std::vector<G2Point> b_g2_query; // [B_i(τ)]₂
+    std::vector<G2Point> b_g2_query; // [B_i(τ)]�?
     
     std::vector<uint8_t> serialize() const;
     static ProvingKey deserialize(const uint8_t* data, size_t len);
@@ -476,7 +476,7 @@ struct VerificationKey {
     G2Point beta_g2;
     G2Point gamma_g2;
     G2Point delta_g2;
-    std::vector<G1Point> ic;  // [(β*U_i(τ) + α*V_i(τ) + W_i(τ)) / γ]₁ for public inputs
+    std::vector<G1Point> ic;  // [(β*U_i(τ) + α*V_i(τ) + W_i(τ)) / γ]�?for public inputs
     
     std::vector<uint8_t> serialize() const;
     static VerificationKey deserialize(const uint8_t* data, size_t len);
@@ -494,9 +494,9 @@ struct CommonReferenceString {
  * @brief Groth16 proof structure
  */
 struct Groth16Proof {
-    G1Point a;  // [A]₁
-    G2Point b;  // [B]₂
-    G1Point c;  // [C]₁
+    G1Point a;  // [A]�?
+    G2Point b;  // [B]�?
+    G1Point c;  // [C]�?
     
     std::vector<uint8_t> serialize() const;
     static Groth16Proof deserialize(const uint8_t* data, size_t len);

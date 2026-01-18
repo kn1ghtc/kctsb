@@ -26,12 +26,12 @@ TEST(BN254Test, ScalarMultiplication) {
     G1Point g = G1Point::generator();
     
     // 1 * g = g
-    NTL::ZZ one(1);
+    kctsb::ZZ one(1);
     G1Point result = g * one;
     EXPECT_TRUE(result.is_on_curve());
     
     // 0 * g = identity
-    NTL::ZZ zero_scalar(0);
+    kctsb::ZZ zero_scalar(0);
     G1Point zero_result = g * zero_scalar;
     EXPECT_TRUE(zero_result.is_infinity());
 }
@@ -40,7 +40,7 @@ TEST(BN254Test, G2Operations) {
     G2Point g2 = G2Point::generator();
     EXPECT_TRUE(g2.is_on_curve());
     
-    NTL::ZZ scalar(12345);
+    kctsb::ZZ scalar(12345);
     G2Point result = g2 * scalar;
     EXPECT_TRUE(result.is_on_curve());
 }
@@ -70,9 +70,9 @@ TEST(ConstraintSystemTest, AddConstraint) {
     
     // a * b = c
     LinearCombination lc_a, lc_b, lc_c;
-    lc_a.add_term(a, NTL::ZZ(1));
-    lc_b.add_term(b, NTL::ZZ(1));
-    lc_c.add_term(c, NTL::ZZ(1));
+    lc_a.add_term(a, kctsb::ZZ(1));
+    lc_b.add_term(b, kctsb::ZZ(1));
+    lc_c.add_term(c, kctsb::ZZ(1));
     
     cs.add_constraint(lc_a, lc_b, lc_c);
     
@@ -89,15 +89,15 @@ TEST(ConstraintSystemTest, Satisfaction) {
     
     // x * y = xy constraint
     LinearCombination lc_x, lc_y, lc_xy;
-    lc_x.add_term(x, NTL::ZZ(1));
-    lc_y.add_term(y, NTL::ZZ(1));
-    lc_xy.add_term(xy, NTL::ZZ(1));
+    lc_x.add_term(x, kctsb::ZZ(1));
+    lc_y.add_term(y, kctsb::ZZ(1));
+    lc_xy.add_term(xy, kctsb::ZZ(1));
     cs.add_constraint(lc_x, lc_y, lc_xy);
     
     // Set witness: x=3, y=4, xy=12
-    cs.set_variable(x, NTL::ZZ(3));
-    cs.set_variable(y, NTL::ZZ(4));
-    cs.set_variable(xy, NTL::ZZ(12));
+    cs.set_variable(x, kctsb::ZZ(3));
+    cs.set_variable(y, kctsb::ZZ(4));
+    cs.set_variable(xy, kctsb::ZZ(12));
     
     EXPECT_TRUE(cs.is_satisfied());
 }
@@ -110,15 +110,15 @@ TEST(ConstraintSystemTest, UnsatisfiedConstraint) {
     size_t xy = cs.alloc_variable();
     
     LinearCombination lc_x, lc_y, lc_xy;
-    lc_x.add_term(x, NTL::ZZ(1));
-    lc_y.add_term(y, NTL::ZZ(1));
-    lc_xy.add_term(xy, NTL::ZZ(1));
+    lc_x.add_term(x, kctsb::ZZ(1));
+    lc_y.add_term(y, kctsb::ZZ(1));
+    lc_xy.add_term(xy, kctsb::ZZ(1));
     cs.add_constraint(lc_x, lc_y, lc_xy);
     
     // Wrong witness: x=3, y=4, xy=10 (should be 12)
-    cs.set_variable(x, NTL::ZZ(3));
-    cs.set_variable(y, NTL::ZZ(4));
-    cs.set_variable(xy, NTL::ZZ(10));
+    cs.set_variable(x, kctsb::ZZ(3));
+    cs.set_variable(y, kctsb::ZZ(4));
+    cs.set_variable(xy, kctsb::ZZ(10));
     
     EXPECT_FALSE(cs.is_satisfied());
 }
@@ -134,8 +134,8 @@ TEST(CircuitBuilderTest, MultiplicationGate) {
     auto y = builder.alloc_input();
     auto z = builder.mul(x, y);
     
-    builder.set_input(x, NTL::ZZ(5));
-    builder.set_input(y, NTL::ZZ(7));
+    builder.set_input(x, kctsb::ZZ(5));
+    builder.set_input(y, kctsb::ZZ(7));
     
     auto& cs = builder.get_constraint_system();
     EXPECT_TRUE(cs.is_satisfied());
@@ -148,8 +148,8 @@ TEST(CircuitBuilderTest, AdditionGate) {
     auto y = builder.alloc_input();
     auto z = builder.add(x, y);
     
-    builder.set_input(x, NTL::ZZ(10));
-    builder.set_input(y, NTL::ZZ(20));
+    builder.set_input(x, kctsb::ZZ(10));
+    builder.set_input(y, kctsb::ZZ(20));
     
     auto& cs = builder.get_constraint_system();
     EXPECT_TRUE(cs.is_satisfied());
@@ -162,11 +162,11 @@ TEST(CircuitBuilderTest, BooleanConstraint) {
     builder.enforce_boolean(b);
     
     // b = 0 should satisfy
-    builder.set_input(b, NTL::ZZ(0));
+    builder.set_input(b, kctsb::ZZ(0));
     EXPECT_TRUE(builder.get_constraint_system().is_satisfied());
     
     // b = 1 should satisfy
-    builder.set_input(b, NTL::ZZ(1));
+    builder.set_input(b, kctsb::ZZ(1));
     EXPECT_TRUE(builder.get_constraint_system().is_satisfied());
 }
 
@@ -177,7 +177,7 @@ TEST(CircuitBuilderTest, RangeCheck) {
     builder.enforce_range(x, 8);  // 8-bit range
     
     // x = 200 should satisfy (< 256)
-    builder.set_input(x, NTL::ZZ(200));
+    builder.set_input(x, kctsb::ZZ(200));
     EXPECT_TRUE(builder.get_constraint_system().is_satisfied());
 }
 
@@ -193,9 +193,9 @@ TEST(QAPTest, Compilation) {
     size_t z = cs.alloc_variable();
     
     LinearCombination lc_x, lc_y, lc_z;
-    lc_x.add_term(x, NTL::ZZ(1));
-    lc_y.add_term(y, NTL::ZZ(1));
-    lc_z.add_term(z, NTL::ZZ(1));
+    lc_x.add_term(x, kctsb::ZZ(1));
+    lc_y.add_term(y, kctsb::ZZ(1));
+    lc_z.add_term(z, kctsb::ZZ(1));
     cs.add_constraint(lc_x, lc_y, lc_z);
     
     QAP qap = QAP::from_constraint_system(cs);
@@ -233,8 +233,8 @@ TEST(Groth16Test, ProveAndVerify) {
     auto out = builder.alloc_input();
     builder.enforce_equal(x3, out);
     
-    builder.set_input(x, NTL::ZZ(3));
-    builder.set_input(out, NTL::ZZ(27));
+    builder.set_input(x, kctsb::ZZ(3));
+    builder.set_input(out, kctsb::ZZ(27));
     
     EXPECT_TRUE(builder.get_constraint_system().is_satisfied());
     
@@ -245,7 +245,7 @@ TEST(Groth16Test, ProveAndVerify) {
     auto proof = groth16.prove(pk, builder.get_constraint_system());
     
     // Verify proof
-    std::vector<NTL::ZZ> public_inputs = {NTL::ZZ(27)};
+    std::vector<kctsb::ZZ> public_inputs = {kctsb::ZZ(27)};
     bool valid = groth16.verify(vk, proof, public_inputs);
     
     EXPECT_TRUE(valid);
@@ -257,14 +257,14 @@ TEST(Groth16Test, ProveAndVerify) {
 
 TEST(ExampleCircuitTest, CubicCircuit) {
     // x^3 + x + 5 = y
-    auto cs = example_cubic_circuit(NTL::ZZ(3), NTL::ZZ(35));
+    auto cs = example_cubic_circuit(kctsb::ZZ(3), kctsb::ZZ(35));
     EXPECT_TRUE(cs.is_satisfied());
 }
 
 TEST(ExampleCircuitTest, HashPreimageCircuit) {
     // Simplified hash preimage proof
-    NTL::ZZ preimage(12345);
-    NTL::ZZ hash = preimage * preimage % NTL::ZZ("21888242871839275222246405745257275088548364400416034343698204186575808495617");
+    kctsb::ZZ preimage(12345);
+    kctsb::ZZ hash = preimage * preimage % kctsb::ZZ("21888242871839275222246405745257275088548364400416034343698204186575808495617");
     
     auto cs = example_hash_preimage_circuit(preimage, hash);
     EXPECT_TRUE(cs.is_satisfied());
@@ -277,11 +277,11 @@ TEST(ExampleCircuitTest, HashPreimageCircuit) {
 TEST(LinearCombinationTest, Addition) {
     LinearCombination lc1, lc2;
     
-    lc1.add_term(1, NTL::ZZ(3));
-    lc1.add_term(2, NTL::ZZ(5));
+    lc1.add_term(1, kctsb::ZZ(3));
+    lc1.add_term(2, kctsb::ZZ(5));
     
-    lc2.add_term(1, NTL::ZZ(2));
-    lc2.add_term(3, NTL::ZZ(7));
+    lc2.add_term(1, kctsb::ZZ(2));
+    lc2.add_term(3, kctsb::ZZ(7));
     
     LinearCombination sum = lc1 + lc2;
     
@@ -291,18 +291,18 @@ TEST(LinearCombinationTest, Addition) {
 
 TEST(LinearCombinationTest, ScalarMultiplication) {
     LinearCombination lc;
-    lc.add_term(1, NTL::ZZ(4));
-    lc.add_term(2, NTL::ZZ(6));
+    lc.add_term(1, kctsb::ZZ(4));
+    lc.add_term(2, kctsb::ZZ(6));
     
-    LinearCombination scaled = lc * NTL::ZZ(3);
+    LinearCombination scaled = lc * kctsb::ZZ(3);
     
     // Coefficients should be multiplied by 3
     for (const auto& term : scaled.terms) {
         if (term.variable == 1) {
-            EXPECT_EQ(term.coefficient, NTL::ZZ(12));
+            EXPECT_EQ(term.coefficient, kctsb::ZZ(12));
         }
         if (term.variable == 2) {
-            EXPECT_EQ(term.coefficient, NTL::ZZ(18));
+            EXPECT_EQ(term.coefficient, kctsb::ZZ(18));
         }
     }
 }
@@ -315,7 +315,7 @@ TEST(PairingTest, BilinearProperty) {
     G1Point g1 = G1Point::generator();
     G2Point g2 = G2Point::generator();
     
-    NTL::ZZ a(5), b(7);
+    kctsb::ZZ a(5), b(7);
     
     // e(a*g1, b*g2) = e(g1, g2)^(ab)
     GTElement lhs = pairing(g1 * a, g2 * b);
@@ -327,8 +327,8 @@ TEST(PairingTest, BilinearProperty) {
 }
 
 TEST(PairingTest, MultiPairing) {
-    std::vector<G1Point> g1_points = {G1Point::generator(), G1Point::generator() * NTL::ZZ(2)};
-    std::vector<G2Point> g2_points = {G2Point::generator(), G2Point::generator() * NTL::ZZ(3)};
+    std::vector<G1Point> g1_points = {G1Point::generator(), G1Point::generator() * kctsb::ZZ(2)};
+    std::vector<G2Point> g2_points = {G2Point::generator(), G2Point::generator() * kctsb::ZZ(3)};
     
     GTElement result = multi_pairing(g1_points, g2_points);
     EXPECT_TRUE(result.is_valid());
@@ -346,8 +346,8 @@ TEST(EdgeCaseTest, EmptyConstraintSystem) {
 
 TEST(EdgeCaseTest, ZeroCoefficients) {
     LinearCombination lc;
-    lc.add_term(1, NTL::ZZ(0));
-    lc.add_term(2, NTL::ZZ(5));
+    lc.add_term(1, kctsb::ZZ(0));
+    lc.add_term(2, kctsb::ZZ(5));
     
     // Zero coefficient should be effectively ignored
     EXPECT_EQ(lc.terms.size(), 2);
@@ -357,8 +357,8 @@ TEST(EdgeCaseTest, LargeScalar) {
     G1Point g = G1Point::generator();
     
     // Large scalar multiplication
-    NTL::ZZ large_scalar;
-    NTL::RandomBits(large_scalar, 254);
+    kctsb::ZZ large_scalar;
+    kctsb::RandomBits(large_scalar, 254);
     
     G1Point result = g * large_scalar;
     EXPECT_TRUE(result.is_on_curve());

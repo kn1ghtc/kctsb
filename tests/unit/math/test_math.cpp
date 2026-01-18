@@ -3,12 +3,12 @@
  * @brief Math utilities unit tests
  *
  * Tests for mathematical operations including:
- * - Polynomial operations (when NTL is available)
+ * - Polynomial operations (when bignum modules are available)
  * - Linear algebra utilities
  * - Probability/statistics functions
  * - Big integer arithmetic
  *
- * Note: Some tests require KCTSB_HAS_NTL to be defined (NTL library available).
+ * Note: Some tests require KCTSB_HAS_BIGNUM_MODULES to be defined.
  *
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
  * @license Apache License 2.0
@@ -21,11 +21,11 @@
 
 #include "kctsb/kctsb.h"
 
-// NTL-dependent tests
-#ifdef KCTSB_HAS_NTL
-#include <NTL/ZZ.h>
-#include <NTL/ZZX.h>
-#include <NTL/GF2X.h>
+// Bignum-dependent tests
+#ifdef KCTSB_HAS_BIGNUM_MODULES
+#include "kctsb/math/bignum/ZZ.h"
+#include "kctsb/math/bignum/ZZX.h"
+#include "kctsb/math/bignum/GF2X.h"
 #endif
 
 class MathTest : public ::testing::Test {
@@ -159,20 +159,20 @@ TEST_F(MathTest, ModularInverse) {
 }
 
 // ============================================================================
-// NTL-Based Tests (Conditional)
+// Bignum-Based Tests (Conditional)
 // ============================================================================
 
-#ifdef KCTSB_HAS_NTL
+#ifdef KCTSB_HAS_BIGNUM_MODULES
 
 /**
- * @brief Test NTL big integer operations
+ * @brief Test big integer operations
  */
-TEST_F(MathTest, NTL_BigInteger) {
-    NTL::ZZ a, b, c;
+TEST_F(MathTest, BigInteger_Basic) {
+    kctsb::ZZ a, b, c;
 
     // Large number arithmetic
-    a = NTL::conv<NTL::ZZ>("123456789012345678901234567890");
-    b = NTL::conv<NTL::ZZ>("987654321098765432109876543210");
+    a = kctsb::conv<kctsb::ZZ>("123456789012345678901234567890");
+    b = kctsb::conv<kctsb::ZZ>("987654321098765432109876543210");
 
     c = a + b;
     EXPECT_GT(c, a);
@@ -185,45 +185,45 @@ TEST_F(MathTest, NTL_BigInteger) {
 
 /**
  * @brief Test polynomial operations
- * @note Uses simple polynomial operations to avoid NTL Vec::SetLength issues on MinGW
+ * @note Uses simple polynomial operations to avoid Vec::SetLength issues on MinGW
  */
-TEST_F(MathTest, NTL_Polynomial) {
+TEST_F(MathTest, Polynomial_GF2) {
     // Test polynomial degree and coefficient operations
     // Use GF2X instead of ZZX to avoid Vec::SetLength overflow on MinGW
-    NTL::GF2X f, g, h;
+    kctsb::GF2X f, g, h;
 
     // f(x) = x^2 + x + 1 in GF(2)
-    NTL::SetCoeff(f, 0, 1);  // constant term
-    NTL::SetCoeff(f, 1, 1);  // x coefficient
-    NTL::SetCoeff(f, 2, 1);  // x^2 coefficient
+    kctsb::SetCoeff(f, 0, 1);  // constant term
+    kctsb::SetCoeff(f, 1, 1);  // x coefficient
+    kctsb::SetCoeff(f, 2, 1);  // x^2 coefficient
 
-    EXPECT_EQ(NTL::deg(f), 2);
-    EXPECT_EQ(NTL::IsOne(NTL::coeff(f, 0)), 1);
-    EXPECT_EQ(NTL::IsOne(NTL::coeff(f, 1)), 1);
-    EXPECT_EQ(NTL::IsOne(NTL::coeff(f, 2)), 1);
+    EXPECT_EQ(kctsb::deg(f), 2);
+    EXPECT_EQ(kctsb::IsOne(kctsb::coeff(f, 0)), 1);
+    EXPECT_EQ(kctsb::IsOne(kctsb::coeff(f, 1)), 1);
+    EXPECT_EQ(kctsb::IsOne(kctsb::coeff(f, 2)), 1);
 
     // g(x) = x + 1
-    NTL::SetCoeff(g, 0, 1);
-    NTL::SetCoeff(g, 1, 1);
+    kctsb::SetCoeff(g, 0, 1);
+    kctsb::SetCoeff(g, 1, 1);
     
-    EXPECT_EQ(NTL::deg(g), 1);
+    EXPECT_EQ(kctsb::deg(g), 1);
     
     // Test polynomial multiplication
     h = f * g;
-    EXPECT_GT(NTL::deg(h), NTL::deg(f));
+    EXPECT_GT(kctsb::deg(h), kctsb::deg(f));
 }
 
 /**
  * @brief Test polynomial factorization
- * @note Commented out due to NTL API compatibility issues
+ * @note Commented out due to API compatibility issues on Windows
  */
 /*
-TEST_F(MathTest, NTL_PolynomialFactorization) {
-    NTL::ZZX f;
+TEST_F(MathTest, Polynomial_Factorization) {
+    kctsb::ZZX f;
 
     // f(x) = x^2 - 1 = (x-1)(x+1)
-    NTL::SetCoeff(f, 0, -1);
-    NTL::SetCoeff(f, 2, 1);
+    kctsb::SetCoeff(f, 0, -1);
+    kctsb::SetCoeff(f, 2, 1);
 
     // TODO: Fix NTL factorization API usage
     // NTL::vec_pair_ZZX_long factors;
@@ -238,50 +238,50 @@ TEST_F(MathTest, NTL_PolynomialFactorization) {
 /**
  * @brief Test GF(2) polynomial (binary field)
  */
-TEST_F(MathTest, NTL_GF2Polynomial) {
-    NTL::GF2X f, g, h;
+TEST_F(MathTest, Polynomial_GF2_AES) {
+    kctsb::GF2X f, g, h;
 
     // f(x) = x^3 + x + 1 (irreducible over GF(2), AES polynomial)
-    NTL::SetCoeff(f, 0, 1);
-    NTL::SetCoeff(f, 1, 1);
-    NTL::SetCoeff(f, 3, 1);
+    kctsb::SetCoeff(f, 0, 1);
+    kctsb::SetCoeff(f, 1, 1);
+    kctsb::SetCoeff(f, 3, 1);
 
     // Test that it's non-zero
-    EXPECT_NE(NTL::IsZero(f), 1);
+    EXPECT_NE(kctsb::IsZero(f), 1);
 
     // Test degree
-    EXPECT_EQ(NTL::deg(f), 3);
+    EXPECT_EQ(kctsb::deg(f), 3);
 }
 
 /**
- * @brief Test Miller-Rabin primality via NTL
+ * @brief Test Miller-Rabin primality test
  */
-TEST_F(MathTest, NTL_MillerRabin) {
-    NTL::ZZ n;
+TEST_F(MathTest, MillerRabin_Primality) {
+    kctsb::ZZ n;
 
     // Test with known primes
     n = 7919;  // 1000th prime
-    EXPECT_NE(NTL::ProbPrime(n), 0);
+    EXPECT_NE(kctsb::ProbPrime(n), 0);
 
     n = 104729;  // 10000th prime
-    EXPECT_NE(NTL::ProbPrime(n), 0);
+    EXPECT_NE(kctsb::ProbPrime(n), 0);
 
     // Test with composite
     n = 100;
-    EXPECT_EQ(NTL::ProbPrime(n), 0);
+    EXPECT_EQ(kctsb::ProbPrime(n), 0);
 }
 
 #else
 
 /**
- * @brief Placeholder test when NTL is not available
+ * @brief Placeholder test when bignum modules are not available
  */
-TEST_F(MathTest, NTL_NotAvailable) {
-    // NTL is not compiled in, skip advanced polynomial tests
-    GTEST_SKIP() << "NTL not available, skipping polynomial tests";
+TEST_F(MathTest, Bignum_NotAvailable) {
+    // Bignum modules not compiled in, skip advanced polynomial tests
+    GTEST_SKIP() << "Bignum modules not available, skipping polynomial tests";
 }
 
-#endif  // KCTSB_HAS_NTL
+#endif  // KCTSB_HAS_BIGNUM_MODULES
 
 // ============================================================================
 // Statistical Functions

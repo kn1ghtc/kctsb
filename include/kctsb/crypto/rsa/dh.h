@@ -42,14 +42,14 @@
 #include <string>
 #include <NTL/ZZ.h>
 
-using NTL::ZZ;
-using NTL::conv;
-using NTL::PowerMod;
-using NTL::ProbPrime;
-using NTL::NumBytes;
-using NTL::BytesFromZZ;
-using NTL::ZZFromBytes;
-using NTL::IsZero;
+using kctsb::ZZ;
+using kctsb::conv;
+using kctsb::PowerMod;
+using kctsb::ProbPrime;
+using kctsb::NumBytes;
+using kctsb::BytesFromZZ;
+using kctsb::ZZFromBytes;
+using kctsb::IsZero;
 
 namespace kctsb {
 namespace dh {

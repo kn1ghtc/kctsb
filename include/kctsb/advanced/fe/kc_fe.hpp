@@ -1,7 +1,7 @@
 /**
  * @file kc_fe.hpp
  * @brief Functional Encryption (FE) module header
- * @note Requires NTL and HElib for full functionality
+ * @note Requires bignum and HElib for full functionality
  * 
  * Original: Created by knightc on 2019/7/19.
  * Copyright © 2019 knightc. All rights reserved.
@@ -12,9 +12,9 @@
 
 #include <cstdio>
 
-// NTL ZZX polynomial type (optional dependency)
-#ifdef KCTSB_HAS_NTL
-#include <NTL/ZZX.h>
+// Bignum ZZX polynomial type (optional dependency)
+#ifdef KCTSB_HAS_BIGNUM_MODULES
+#include "kctsb/math/bignum/ZZX.h"
 #endif
 
 // HElib BGV scheme types (optional dependency)

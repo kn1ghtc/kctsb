@@ -18,7 +18,8 @@
 #include "kctsb/math/math.h"
 #include "kctsb/core/security.h"
 
-using namespace NTL;
+// Bignum namespace is now kctsb (was NTL)
+using namespace kctsb;
 using namespace std;
 
 

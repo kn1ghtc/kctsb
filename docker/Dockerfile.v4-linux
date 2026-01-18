@@ -1,0 +1,107 @@
+# ============================================================================
+# kctsb v4.0.0 Docker Build Environment - Ubuntu 22.04 LTS
+# 
+# Purpose: Verify NTL source integration builds correctly on Linux LP64
+# Features:
+#   - Full NTL module compilation (including RSA/ECC/SM2)
+#   - GMP 6.3.0 static linking
+#   - gf2x 1.3.0 for GF2X PCLMUL fallback
+#   - GCC 12+ with C++17 support
+# ============================================================================
+
+FROM ubuntu:22.04
+
+LABEL maintainer="knightc"
+LABEL description="kctsb v4.0.0 build verification - Linux LP64"
+LABEL version="4.0.0"
+
+# Prevent interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install base dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    gcc-12 \
+    g++-12 \
+    cmake \
+    ninja-build \
+    git \
+    wget \
+    m4 \
+    autoconf \
+    automake \
+    libtool \
+    libssl-dev \
+    zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set GCC 12 as default
+RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 100 && \
+    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 100
+
+# Verify GCC version
+RUN gcc --version && g++ --version && cmake --version
+
+WORKDIR /workspace
+
+# ============================================================================
+# Build GMP 6.3.0 (required dependency)
+# ============================================================================
+RUN cd /tmp && \
+    wget https://gmplib.org/download/gmp/gmp-6.3.0.tar.xz && \
+    tar -xf gmp-6.3.0.tar.xz && \
+    cd gmp-6.3.0 && \
+    ./configure --prefix=/usr/local \
+        --enable-cxx \
+        --enable-static \
+        --disable-shared \
+        CFLAGS="-O3 -fPIC" \
+        CXXFLAGS="-O3 -fPIC" && \
+    make -j$(nproc) && \
+    make install && \
+    rm -rf /tmp/gmp-6.3.0*
+
+# ============================================================================
+# Build gf2x 1.3.0 (optional, for GF2X fallback)
+# ============================================================================
+RUN cd /tmp && \
+    wget https://gitlab.inria.fr/gf2x/gf2x/-/archive/gf2x-1.3.0/gf2x-gf2x-1.3.0.tar.gz && \
+    tar -xzf gf2x-gf2x-1.3.0.tar.gz && \
+    cd gf2x-gf2x-1.3.0 && \
+    autoreconf -i && \
+    ./configure --prefix=/usr/local \
+        --enable-static \
+        --disable-shared \
+        CFLAGS="-O3 -fPIC" && \
+    make -j$(nproc) && \
+    make install && \
+    rm -rf /tmp/gf2x-*
+
+# Set library paths
+ENV PKG_CONFIG_PATH="/usr/local/lib/pkgconfig"
+ENV LIBRARY_PATH="/usr/local/lib"
+ENV LD_LIBRARY_PATH="/usr/local/lib"
+
+# ============================================================================
+# Build kctsb v4.0.0 with integrated NTL source
+# ============================================================================
+# Copy source code (done at build time)
+COPY . /workspace/kctsb
+
+# Configure and build with full NTL modules enabled
+RUN cd /workspace/kctsb && \
+    cmake -B build -G Ninja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DKCTSB_BUILD_CLI=ON \
+        -DKCTSB_BUILD_TESTS=ON \
+        -DKCTSB_BUILD_BENCHMARKS=ON \
+        -DCMAKE_C_FLAGS="-O3 -march=native" \
+        -DCMAKE_CXX_FLAGS="-O3 -march=native" && \
+    cmake --build build --parallel
+
+# Run tests
+RUN cd /workspace/kctsb && \
+    ctest --test-dir build --output-on-failure
+
+# Default command
+CMD ["bash", "-c", "echo 'kctsb v4.0.0 Linux Build Verified!' && /workspace/kctsb/build/bin/kctsb version"]

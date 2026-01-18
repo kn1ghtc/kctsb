@@ -140,9 +140,9 @@ namespace byte_order {
  * @param len Length of input
  * @return NTL ZZ value
  */
-inline NTL::ZZ be_bytes_to_zz(const uint8_t* data, size_t len) {
+inline kctsb::ZZ be_bytes_to_zz(const uint8_t* data, size_t len) {
     if (data == nullptr || len == 0) {
-        return NTL::ZZ(0);
+        return kctsb::ZZ(0);
     }
     
     // Convert big-endian input to little-endian for NTL
@@ -151,8 +151,8 @@ inline NTL::ZZ be_bytes_to_zz(const uint8_t* data, size_t len) {
         le_bytes[i] = data[len - 1 - i];
     }
     
-    NTL::ZZ result;
-    NTL::ZZFromBytes(result, le_bytes.data(), static_cast<long>(len));
+    kctsb::ZZ result;
+    kctsb::ZZFromBytes(result, le_bytes.data(), static_cast<long>(len));
     return result;
 }
 
@@ -166,7 +166,7 @@ inline NTL::ZZ be_bytes_to_zz(const uint8_t* data, size_t len) {
  * @param out Output buffer (big-endian)
  * @param len Output length (zero-padded to this length)
  */
-inline void zz_to_be_bytes(const NTL::ZZ& z, uint8_t* out, size_t len) {
+inline void zz_to_be_bytes(const kctsb::ZZ& z, uint8_t* out, size_t len) {
     if (out == nullptr || len == 0) {
         return;
     }
@@ -175,7 +175,7 @@ inline void zz_to_be_bytes(const NTL::ZZ& z, uint8_t* out, size_t len) {
     
     // Get little-endian bytes from NTL
     std::vector<uint8_t> le_bytes(len);
-    NTL::BytesFromZZ(le_bytes.data(), z, static_cast<long>(len));
+    kctsb::BytesFromZZ(le_bytes.data(), z, static_cast<long>(len));
     
     // Convert to big-endian for output
     for (size_t i = 0; i < len; i++) {
@@ -192,7 +192,7 @@ inline void zz_to_be_bytes(const NTL::ZZ& z, uint8_t* out, size_t len) {
  * @param len Length of input
  * @return NTL ZZ value
  */
-inline NTL::ZZ be_bytes_to_zz_auto(const uint8_t* data, size_t len) {
+inline kctsb::ZZ be_bytes_to_zz_auto(const uint8_t* data, size_t len) {
     return be_bytes_to_zz(data, len);
 }
 
@@ -204,12 +204,12 @@ inline NTL::ZZ be_bytes_to_zz_auto(const uint8_t* data, size_t len) {
  * @param z NTL ZZ value
  * @return Vector of bytes (big-endian)
  */
-inline std::vector<uint8_t> zz_to_be_bytes_auto(const NTL::ZZ& z) {
+inline std::vector<uint8_t> zz_to_be_bytes_auto(const kctsb::ZZ& z) {
     if (z == 0) {
         return {0};
     }
     
-    size_t byte_len = static_cast<size_t>((NTL::NumBits(z) + 7) / 8);
+    size_t byte_len = static_cast<size_t>((kctsb::NumBits(z) + 7) / 8);
     std::vector<uint8_t> result(byte_len);
     zz_to_be_bytes(z, result.data(), byte_len);
     return result;
@@ -223,7 +223,7 @@ inline std::vector<uint8_t> zz_to_be_bytes_auto(const NTL::ZZ& z) {
  * @return NTL ZZ value
  */
 template<size_t N>
-inline NTL::ZZ be_array_to_zz(const std::array<uint8_t, N>& data) {
+inline kctsb::ZZ be_array_to_zz(const std::array<uint8_t, N>& data) {
     return be_bytes_to_zz(data.data(), N);
 }
 
@@ -235,7 +235,7 @@ inline NTL::ZZ be_array_to_zz(const std::array<uint8_t, N>& data) {
  * @return Array of bytes (big-endian)
  */
 template<size_t N>
-inline std::array<uint8_t, N> zz_to_be_array(const NTL::ZZ& z) {
+inline std::array<uint8_t, N> zz_to_be_array(const kctsb::ZZ& z) {
     std::array<uint8_t, N> result;
     zz_to_be_bytes(z, result.data(), N);
     return result;
@@ -248,9 +248,9 @@ inline std::array<uint8_t, N> zz_to_be_array(const NTL::ZZ& z) {
  * @param modulus The modulus p (to ensure correct initialization)
  * @return ZZ representation
  */
-inline NTL::ZZ extract_zz_from_zzp(const NTL::ZZ_p& val, const NTL::ZZ& modulus) {
-    NTL::ZZ_p::init(modulus);
-    return NTL::rep(val);
+inline kctsb::ZZ extract_zz_from_zzp(const kctsb::ZZ_p& val, const kctsb::ZZ& modulus) {
+    kctsb::ZZ_p::init(modulus);
+    return kctsb::rep(val);
 }
 
 /**
@@ -264,9 +264,9 @@ inline NTL::ZZ extract_zz_from_zzp(const NTL::ZZ_p& val, const NTL::ZZ& modulus)
  * @param out Output buffer (big-endian)
  * @return 0 on success, -1 if integer is too large
  */
-inline int i2osp(const NTL::ZZ& x, size_t x_len, uint8_t* out) {
+inline int i2osp(const kctsb::ZZ& x, size_t x_len, uint8_t* out) {
     // Check if x can be represented in x_len bytes
-    if (NTL::NumBits(x) > static_cast<long>(x_len * 8)) {
+    if (kctsb::NumBits(x) > static_cast<long>(x_len * 8)) {
         return -1;  // Integer too large
     }
     
@@ -283,7 +283,7 @@ inline int i2osp(const NTL::ZZ& x, size_t x_len, uint8_t* out) {
  * @param len Length of input
  * @return NTL ZZ value
  */
-inline NTL::ZZ os2ip(const uint8_t* data, size_t len) {
+inline kctsb::ZZ os2ip(const uint8_t* data, size_t len) {
     return be_bytes_to_zz(data, len);
 }
 

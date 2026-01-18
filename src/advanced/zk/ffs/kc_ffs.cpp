@@ -13,7 +13,8 @@
 #include "kctsb/core/security.h"
 
 using namespace std;
-using namespace NTL;
+// Bignum namespace is now kctsb (was NTL)
+using namespace kctsb;
 
 ZZ getmodule(){
     ZZ p,q,n;

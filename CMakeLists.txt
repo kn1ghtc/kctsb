@@ -7,18 +7,18 @@
 # Licensed under Apache License 2.0
 #
 # v4.0.0 Architecture Changes:
-# - NTL source code integration (no longer external dependency)
+# - Bignum (high-precision math) source code integration
 # - Static linking: GMP, gf2x (bundled into kctsb)
 # - Dynamic linking: SEAL, HElib (shared libraries)
-# - Removed: NTL external library dependency
-# - LTO compatibility fixes for integrated NTL code
+# - Removed: External math library dependencies
+# - LTO compatibility fixes for integrated bignum code
 # ============================================================================
 
 cmake_minimum_required(VERSION 3.20)
 
 project(kctsb
     VERSION 4.0.0
-    DESCRIPTION "Production-grade cryptographic algorithms library with integrated NTL math"
+    DESCRIPTION "Production-grade cryptographic algorithms library with integrated bignum math"
     LANGUAGES C CXX
 )
 
@@ -39,7 +39,7 @@ endif()
 message(STATUS "")
 message(STATUS "====================================================================")
 message(STATUS "kctsb - Knight's Cryptographic Trusted Security Base")
-message(STATUS "Version: ${PROJECT_VERSION} (NTL Integrated)")
+message(STATUS "Version: ${PROJECT_VERSION} (Bignum Integrated)")
 message(STATUS "====================================================================")
 message(STATUS "")
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
@@ -95,7 +95,7 @@ set(KCTSB_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 set(KCTSB_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 # ============================================================================
-# LTO Configuration (with NTL compatibility)
+# LTO Configuration (with bignum compatibility)
 # ============================================================================
 
 option(KCTSB_ENABLE_LTO "Enable Link-Time Optimization" ON)
@@ -173,10 +173,10 @@ else()
 endif()
 
 # ============================================================================
-# NTL Source Code Defines (v4.0.0 - Integrated)
+# Bignum Source Code Defines (v4.0.0 - Integrated)
 # ============================================================================
 
-# Define NTL configuration macros globally
+# Define bignum configuration macros globally
 add_definitions(
     -DNTL_GMP_LIP           # Use GMP for big integers
     -DNTL_GF2X_LIB          # Use gf2x library
@@ -216,7 +216,7 @@ if(NOT MSVC)
         -finput-charset=UTF-8
         -fexec-charset=UTF-8
     )
-    # Suppress NTL-specific warnings (template-heavy code)
+    # Suppress bignum-specific warnings (template-heavy code)
     add_compile_options(
         -Wno-useless-cast
         -Wno-double-promotion
@@ -313,7 +313,7 @@ endif()
 
 # -----------------------------------------------------------------------------
 # gf2x Detection (Optional - Static Linking)
-# NTL can use software fallback for GF2X if gf2x not available
+# Bignum can use software fallback for GF2X if gf2x not available
 # -----------------------------------------------------------------------------
 if(KCTSB_ENABLE_GF2X)
     # Also search in linux-x64 for cross-compile scenarios
@@ -434,21 +434,14 @@ set(KCTSB_HASH_SOURCES
     ${KCTSB_SRC_DIR}/crypto/sha3.cpp
     ${KCTSB_SRC_DIR}/crypto/blake2.cpp
 )
-# SM2 depends on ECC which requires NTL
-if(NOT WIN32 OR KCTSB_FORCE_NTL_MODULES)
-    set(KCTSB_SM_SOURCES
-        ${KCTSB_SRC_DIR}/crypto/sm/sm3.cpp
-        ${KCTSB_SRC_DIR}/crypto/sm/sm4.cpp
-        ${KCTSB_SRC_DIR}/crypto/sm/sm2.cpp
-        ${KCTSB_SRC_DIR}/crypto/sm/zuc.cpp
-    )
-else()
-    set(KCTSB_SM_SOURCES
-        ${KCTSB_SRC_DIR}/crypto/sm/sm3.cpp
-        ${KCTSB_SRC_DIR}/crypto/sm/sm4.cpp
-        ${KCTSB_SRC_DIR}/crypto/sm/zuc.cpp
-    )
-endif()
+# SM2 depends on ECC which requires bignum math
+# v4.0.1: Fixed Windows LLP64 compatibility, bignum now works on all platforms
+set(KCTSB_SM_SOURCES
+    ${KCTSB_SRC_DIR}/crypto/sm/sm3.cpp
+    ${KCTSB_SRC_DIR}/crypto/sm/sm4.cpp
+    ${KCTSB_SRC_DIR}/crypto/sm/sm2.cpp
+    ${KCTSB_SRC_DIR}/crypto/sm/zuc.cpp
+)
 set(KCTSB_WHITEBOX_SOURCES ${KCTSB_SRC_DIR}/advanced/whitebox/whitebox_aes.c)
 set(KCTSB_SIMD_SOURCES ${KCTSB_SRC_DIR}/simd/simd.cpp)
 
@@ -461,85 +454,59 @@ set(KCTSB_CRYPTO_SOURCES
     ${KCTSB_SIMD_SOURCES}
 )
 
-# RSA and ECC sources (depend on integrated NTL)
-# On Windows LLP64 (mingw64), NTL source integration has issues with 32-bit long
-# Temporarily disable RSA/ECC on Windows until NTL Windows compatibility is resolved
-if(NOT WIN32 OR KCTSB_FORCE_NTL_MODULES)
-    file(GLOB KCTSB_RSA_SOURCES ${KCTSB_SRC_DIR}/crypto/rsa/*.cpp)
-    set(KCTSB_ECC_SOURCES
-        ${KCTSB_SRC_DIR}/crypto/ecc/ecc_curve.cpp
-        ${KCTSB_SRC_DIR}/crypto/ecc/ecdh.cpp
-        ${KCTSB_SRC_DIR}/crypto/ecc/ecdsa.cpp
-        ${KCTSB_SRC_DIR}/crypto/ecc/ecies.cpp
-    )
-    list(APPEND KCTSB_CRYPTO_SOURCES ${KCTSB_RSA_SOURCES} ${KCTSB_ECC_SOURCES})
-    add_definitions(-DKCTSB_HAS_NTL_MODULES)
-    message(STATUS "✓ RSA/ECC modules enabled (NTL integrated)")
-else()
-    message(STATUS "⚠ RSA/ECC modules disabled on Windows (NTL LLP64 compatibility)")
-    message(STATUS "  Use -DKCTSB_FORCE_NTL_MODULES=ON to force enable")
-endif()
+# RSA and ECC sources (depend on integrated bignum math)
+# v4.0.1: Windows LLP64 compatibility fixed - bignum works on all platforms
+file(GLOB KCTSB_RSA_SOURCES ${KCTSB_SRC_DIR}/crypto/rsa/*.cpp)
+set(KCTSB_ECC_SOURCES
+    ${KCTSB_SRC_DIR}/crypto/ecc/ecc_curve.cpp
+    ${KCTSB_SRC_DIR}/crypto/ecc/ecdh.cpp
+    ${KCTSB_SRC_DIR}/crypto/ecc/ecdsa.cpp
+    ${KCTSB_SRC_DIR}/crypto/ecc/ecies.cpp
+)
+list(APPEND KCTSB_CRYPTO_SOURCES ${KCTSB_RSA_SOURCES} ${KCTSB_ECC_SOURCES})
+add_definitions(-DKCTSB_HAS_BIGNUM_MODULES)
+message(STATUS "✓ RSA/ECC modules enabled (bignum integrated)")
 
-# Existing math sources (non-NTL)
-# Some math sources depend on NTL, conditionally include them
-if(NOT WIN32 OR KCTSB_FORCE_NTL_MODULES)
-    file(GLOB KCTSB_EXISTING_MATH_SOURCES ${KCTSB_SRC_DIR}/math/*.cpp)
-else()
-    # On Windows, only include NTL-independent math sources
-    set(KCTSB_EXISTING_MATH_SOURCES
-        ${KCTSB_SRC_DIR}/math/decimal.cpp
-        ${KCTSB_SRC_DIR}/math/probabilitystatistics.cpp
-    )
-    message(STATUS "  Math modules: limited (no NTL-dependent modules)")
-endif()
+# Existing math sources (non-bignum dependent)
+# v4.0.1: All math sources now included on all platforms
+file(GLOB KCTSB_EXISTING_MATH_SOURCES ${KCTSB_SRC_DIR}/math/*.cpp)
 
 # ============================================================================
-# NTL Integrated Sources (v4.0.0)
-# On Windows LLP64, NTL source integration is disabled due to 32-bit long issues
+# Bignum Integrated Sources (v4.0.0, Windows LLP64 fixed in v4.0.1)
 # ============================================================================
 
-if(NOT WIN32 OR KCTSB_FORCE_NTL_MODULES)
-    # NTL core sources
-    file(GLOB NTL_CORE_SOURCES ${KCTSB_SRC_DIR}/math/ntl/core/*.cpp)
-    file(GLOB NTL_RING_SOURCES ${KCTSB_SRC_DIR}/math/ntl/ring/*.cpp)
-    file(GLOB NTL_VECTOR_SOURCES ${KCTSB_SRC_DIR}/math/ntl/vector/*.cpp)
-    file(GLOB NTL_MATRIX_SOURCES ${KCTSB_SRC_DIR}/math/ntl/matrix/*.cpp)
-    file(GLOB NTL_POLY_SOURCES ${KCTSB_SRC_DIR}/math/ntl/poly/*.cpp)
-    file(GLOB NTL_FFT_SOURCES ${KCTSB_SRC_DIR}/math/ntl/fft/*.cpp)
-    file(GLOB NTL_PRECISION_SOURCES ${KCTSB_SRC_DIR}/math/ntl/precision/*.cpp)
-    file(GLOB NTL_LATTICE_SOURCES ${KCTSB_SRC_DIR}/math/ntl/lattice/*.cpp)
+# Bignum (high-precision math) sources - now works on all platforms
+file(GLOB BIGNUM_CORE_SOURCES ${KCTSB_SRC_DIR}/math/bignum/core/*.cpp)
+file(GLOB BIGNUM_RING_SOURCES ${KCTSB_SRC_DIR}/math/bignum/ring/*.cpp)
+file(GLOB BIGNUM_VECTOR_SOURCES ${KCTSB_SRC_DIR}/math/bignum/vector/*.cpp)
+file(GLOB BIGNUM_MATRIX_SOURCES ${KCTSB_SRC_DIR}/math/bignum/matrix/*.cpp)
+file(GLOB BIGNUM_POLY_SOURCES ${KCTSB_SRC_DIR}/math/bignum/poly/*.cpp)
+file(GLOB BIGNUM_FFT_SOURCES ${KCTSB_SRC_DIR}/math/bignum/fft/*.cpp)
+file(GLOB BIGNUM_PRECISION_SOURCES ${KCTSB_SRC_DIR}/math/bignum/precision/*.cpp)
+file(GLOB BIGNUM_LATTICE_SOURCES ${KCTSB_SRC_DIR}/math/bignum/lattice/*.cpp)
 
-    set(NTL_ALL_SOURCES
-        ${NTL_CORE_SOURCES}
-        ${NTL_RING_SOURCES}
-        ${NTL_VECTOR_SOURCES}
-        ${NTL_MATRIX_SOURCES}
-        ${NTL_POLY_SOURCES}
-        ${NTL_FFT_SOURCES}
-        ${NTL_PRECISION_SOURCES}
-        ${NTL_LATTICE_SOURCES}
-    )
+set(BIGNUM_ALL_SOURCES
+    ${BIGNUM_CORE_SOURCES}
+    ${BIGNUM_RING_SOURCES}
+    ${BIGNUM_VECTOR_SOURCES}
+    ${BIGNUM_MATRIX_SOURCES}
+    ${BIGNUM_POLY_SOURCES}
+    ${BIGNUM_FFT_SOURCES}
+    ${BIGNUM_PRECISION_SOURCES}
+    ${BIGNUM_LATTICE_SOURCES}
+)
 
-    message(STATUS "NTL integrated sources: ${CMAKE_CURRENT_SOURCE_DIR}/src/math/ntl/")
-    list(LENGTH NTL_ALL_SOURCES NTL_SOURCE_COUNT)
-    message(STATUS "  Total files: ${NTL_SOURCE_COUNT}")
-else()
-    set(NTL_ALL_SOURCES "")
-    message(STATUS "⚠ NTL source integration disabled on Windows (LLP64 compatibility)")
-endif()
+message(STATUS "Bignum sources: ${CMAKE_CURRENT_SOURCE_DIR}/src/math/bignum/")
+list(LENGTH BIGNUM_ALL_SOURCES BIGNUM_SOURCE_COUNT)
+message(STATUS "  Total files: ${BIGNUM_SOURCE_COUNT}")
 
 # ============================================================================
 # Advanced modules
 # ============================================================================
 
-# ZK and Lattice modules depend on NTL
-if(NOT WIN32 OR KCTSB_FORCE_NTL_MODULES)
-    file(GLOB_RECURSE KCTSB_ZK_SOURCES ${KCTSB_SRC_DIR}/advanced/zk/*.cpp)
-    file(GLOB_RECURSE KCTSB_LATTICE_SOURCES ${KCTSB_SRC_DIR}/advanced/lattice/*.cpp)
-else()
-    set(KCTSB_ZK_SOURCES "")
-    set(KCTSB_LATTICE_SOURCES "")
-endif()
+# ZK and Lattice modules depend on bignum math - now work on all platforms
+file(GLOB_RECURSE KCTSB_ZK_SOURCES ${KCTSB_SRC_DIR}/advanced/zk/*.cpp)
+file(GLOB_RECURSE KCTSB_LATTICE_SOURCES ${KCTSB_SRC_DIR}/advanced/lattice/*.cpp)
 
 file(GLOB_RECURSE KCTSB_SSS_SOURCES ${KCTSB_SRC_DIR}/advanced/sss/*.cpp)
 file(GLOB_RECURSE KCTSB_OTP_SOURCES ${KCTSB_SRC_DIR}/advanced/otp/*.cpp)
@@ -576,7 +543,7 @@ set(KCTSB_ALL_SOURCES
     ${KCTSB_CRYPTO_SOURCES}
     ${KCTSB_ADVANCED_SOURCES}
     ${KCTSB_EXISTING_MATH_SOURCES}
-    ${NTL_ALL_SOURCES}
+    ${BIGNUM_ALL_SOURCES}
     ${KCTSB_UTIL_SOURCES}
 )
 
@@ -587,7 +554,7 @@ set(KCTSB_ALL_SOURCES
 # Include directories
 set(KCTSB_ALL_INCLUDE_DIRS
     ${KCTSB_INCLUDE_DIR}
-    ${KCTSB_INCLUDE_DIR}/kctsb/math/ntl  # NTL headers
+    ${KCTSB_INCLUDE_DIR}/kctsb/math/bignum  # Bignum headers
     ${KCTSB_THIRDPARTY_PLATFORM_DIR}/include
     ${KCTSB_THIRDPARTY_DIR}/include
     ${GMP_INCLUDE_DIRS}
@@ -601,7 +568,7 @@ if(KCTSB_BUILD_STATIC)
     add_library(kctsb_static STATIC ${KCTSB_ALL_SOURCES})
     target_include_directories(kctsb_static PUBLIC
         $<BUILD_INTERFACE:${KCTSB_INCLUDE_DIR}>
-        $<BUILD_INTERFACE:${KCTSB_INCLUDE_DIR}/kctsb/math/ntl>
+        $<BUILD_INTERFACE:${KCTSB_INCLUDE_DIR}/kctsb/math/bignum>
         $<INSTALL_INTERFACE:include>
     )
     target_include_directories(kctsb_static SYSTEM PUBLIC
@@ -646,7 +613,7 @@ if(KCTSB_BUILD_SHARED)
     add_library(kctsb_shared SHARED ${KCTSB_ALL_SOURCES})
     target_include_directories(kctsb_shared PUBLIC
         $<BUILD_INTERFACE:${KCTSB_INCLUDE_DIR}>
-        $<BUILD_INTERFACE:${KCTSB_INCLUDE_DIR}/kctsb/math/ntl>
+        $<BUILD_INTERFACE:${KCTSB_INCLUDE_DIR}/kctsb/math/bignum>
         $<INSTALL_INTERFACE:include>
     )
     target_include_directories(kctsb_shared SYSTEM PUBLIC
@@ -733,7 +700,7 @@ endif()
 message(STATUS "")
 message(STATUS "=== kctsb v4.0.0 Configuration Summary ===")
 message(STATUS "")
-message(STATUS "Architecture: NTL Source Integration (no external NTL)")
+message(STATUS "Architecture: Bignum Source Integration (no external dependencies)")
 message(STATUS "")
 message(STATUS "Static Dependencies (bundled):")
 message(STATUS "  - GMP: ${GMP_LIBRARY}")

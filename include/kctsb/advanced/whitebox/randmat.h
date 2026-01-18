@@ -6,7 +6,8 @@
 #include <NTL/mat_GF2.h>
 
 using namespace std;
-using namespace NTL;
+// Bignum namespace is now kctsb (was NTL)
+using namespace kctsb;
 
 class RandMat {
   public:

@@ -28,8 +28,8 @@
 namespace kctsb {
 namespace ecc {
 
-using NTL::ZZ;
-using NTL::ZZ_p;
+using kctsb::ZZ;
+using kctsb::ZZ_p;
 
 // ============================================================================
 // Forward Declarations

@@ -1,8 +1,8 @@
 /**
  * @file test_rsa.cpp
- * @brief RSA cryptosystem unit tests with NTL integration
+ * @brief RSA cryptosystem unit tests with bignum integration
  * 
- * Tests RSA key generation, encryption, decryption using NTL big integers.
+ * Tests RSA key generation, encryption, decryption using kctsb bignum module.
  * 
  * @author knightc
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
@@ -10,12 +10,12 @@
 
 #include <gtest/gtest.h>
 
-// Check if NTL is available
-#if defined(KCTSB_HAS_NTL) || defined(KCTSB_USE_NTL)
+// Check if bignum modules are available
+#if defined(KCTSB_HAS_BIGNUM_MODULES) || defined(KCTSB_USE_BIGNUM)
 
-#include <NTL/ZZ.h>
-#include <NTL/vec_ZZ.h>
-using namespace NTL;
+#include "kctsb/math/bignum/ZZ.h"
+#include "kctsb/math/bignum/vec_ZZ.h"
+using namespace kctsb;
 
 // RSA functions from kc_rsa.cpp
 extern int rsa_getKey(ZZ pubKey[], ZZ privKey[]);
@@ -211,11 +211,11 @@ TEST(RSATest, OriginalTestFunction) {
 }
 
 #else
-// NTL not available - skip tests
-TEST(RSATest, DISABLED_NTL_NotAvailable) {
-    GTEST_SKIP() << "NTL library not available, RSA tests skipped";
+// Bignum modules not available - skip tests
+TEST(RSATest, DISABLED_Bignum_NotAvailable) {
+    GTEST_SKIP() << "Bignum modules not available, RSA tests skipped";
 }
-#endif // KCTSB_HAS_NTL
+#endif // KCTSB_HAS_BIGNUM_MODULES
 
 int main(int argc, char** argv) {
     testing::InitGoogleTest(&argc, argv);
