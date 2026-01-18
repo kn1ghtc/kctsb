@@ -1,10 +1,10 @@
+﻿
+
+#include <kctsb/math/bignum/LLL.h>
+#include <kctsb/math/bignum/fileio.h>
 
 
-#include <NTL/LLL.h>
-#include <NTL/fileio.h>
-
-
-NTL_START_IMPL
+KCTSB_START_IMPL
 
 
 
@@ -12,8 +12,8 @@ NTL_START_IMPL
 static void RowTransform(vec_ZZ& A, vec_ZZ& B, const ZZ& MU1)
 // x = x - y*MU
 {
-   NTL_ZZRegister(T);
-   NTL_ZZRegister(MU);
+   KCTSB_ZZRegister(T);
+   KCTSB_ZZRegister(MU);
    long k;
 
    long n = A.length();
@@ -37,7 +37,7 @@ static void RowTransform(vec_ZZ& A, vec_ZZ& B, const ZZ& MU1)
 
    if (MU == 0) return;
 
-   if (NumTwos(MU) >= NTL_ZZ_NBITS) 
+   if (NumTwos(MU) >= KCTSB_ZZ_NBITS) 
       k = MakeOdd(MU);
    else
       k = 0;
@@ -65,8 +65,8 @@ static void RowTransform(vec_ZZ& A, vec_ZZ& B, const ZZ& MU1)
 static void RowTransform2(vec_ZZ& A, vec_ZZ& B, const ZZ& MU1)
 // x = x + y*MU
 {
-   NTL_ZZRegister(T);
-   NTL_ZZRegister(MU);
+   KCTSB_ZZRegister(T);
+   KCTSB_ZZRegister(MU);
    long k;
 
    long n = A.length();
@@ -90,7 +90,7 @@ static void RowTransform2(vec_ZZ& A, vec_ZZ& B, const ZZ& MU1)
 
    if (MU == 0) return;
 
-   if (NumTwos(MU) >= NTL_ZZ_NBITS) 
+   if (NumTwos(MU) >= KCTSB_ZZ_NBITS) 
       k = MakeOdd(MU);
    else
       k = 0;
@@ -161,13 +161,13 @@ void ComputeGS(const mat_ZZ& B, mat_RR& B1,
    sub(c(k), b(k), s);
 }
 
-NTL_TLS_GLOBAL_DECL(RR, red_fudge)
+KCTSB_TLS_GLOBAL_DECL(RR, red_fudge)
 
-static NTL_CHEAP_THREAD_LOCAL long log_red = 0;
+static KCTSB_CHEAP_THREAD_LOCAL long log_red = 0;
 
 static void init_red_fudge()
 {
-   NTL_TLS_GLOBAL_ACCESS(red_fudge);
+   KCTSB_TLS_GLOBAL_ACCESS(red_fudge);
 
    log_red = long(0.50*RR::precision());
 
@@ -176,7 +176,7 @@ static void init_red_fudge()
 
 static void inc_red_fudge()
 {
-   NTL_TLS_GLOBAL_ACCESS(red_fudge);
+   KCTSB_TLS_GLOBAL_ACCESS(red_fudge);
 
 
    mul(red_fudge, red_fudge, 2);
@@ -191,10 +191,10 @@ static void inc_red_fudge()
 
 
 
-static NTL_CHEAP_THREAD_LOCAL long verbose = 0;
-static NTL_CHEAP_THREAD_LOCAL unsigned long NumSwaps = 0;
-static NTL_CHEAP_THREAD_LOCAL double StartTime = 0;
-static NTL_CHEAP_THREAD_LOCAL double LastTime = 0;
+static KCTSB_CHEAP_THREAD_LOCAL long verbose = 0;
+static KCTSB_CHEAP_THREAD_LOCAL unsigned long NumSwaps = 0;
+static KCTSB_CHEAP_THREAD_LOCAL double StartTime = 0;
+static KCTSB_CHEAP_THREAD_LOCAL double LastTime = 0;
 
 
 
@@ -247,7 +247,7 @@ long ll_LLL_RR(mat_ZZ& B, mat_ZZ* U, const RR& delta, long deep,
            LLLCheckFct check, mat_RR& B1, mat_RR& mu, 
            vec_RR& b, vec_RR& c, long m, long init_k, long &quit)
 {
-   NTL_TLS_GLOBAL_ACCESS(red_fudge);
+   KCTSB_TLS_GLOBAL_ACCESS(red_fudge);
 
    long n = B.NumCols();
 
@@ -594,12 +594,12 @@ long LLL_RR(mat_ZZ& B, mat_ZZ& U, double delta, long deep,
 
 
 
-NTL_TLS_GLOBAL_DECL(vec_RR, BKZConstant)
+KCTSB_TLS_GLOBAL_DECL(vec_RR, BKZConstant)
 
 static
 void ComputeBKZConstant(long beta, long p)
 {
-   NTL_TLS_GLOBAL_ACCESS(BKZConstant);
+   KCTSB_TLS_GLOBAL_ACCESS(BKZConstant);
 
    RR c_PI;
    ComputePi(c_PI);
@@ -650,13 +650,13 @@ void ComputeBKZConstant(long beta, long p)
 
 }
 
-NTL_TLS_GLOBAL_DECL(vec_RR, BKZThresh)
+KCTSB_TLS_GLOBAL_DECL(vec_RR, BKZThresh)
 
 static 
 void ComputeBKZThresh(RR *c, long beta)
 {
-   NTL_TLS_GLOBAL_ACCESS(BKZConstant);
-   NTL_TLS_GLOBAL_ACCESS(BKZThresh);
+   KCTSB_TLS_GLOBAL_ACCESS(BKZConstant);
+   KCTSB_TLS_GLOBAL_ACCESS(BKZThresh);
 
    BKZThresh.SetLength(beta-1);
 
@@ -739,8 +739,8 @@ static
 long BKZ_RR(mat_ZZ& BB, mat_ZZ* UU, const RR& delta, 
          long beta, long prune, LLLCheckFct check)
 {
-   NTL_TLS_GLOBAL_ACCESS(red_fudge);
-   NTL_TLS_GLOBAL_ACCESS(BKZThresh);
+   KCTSB_TLS_GLOBAL_ACCESS(red_fudge);
+   KCTSB_TLS_GLOBAL_ACCESS(BKZThresh);
 
 
    long m = BB.NumRows();
@@ -1210,7 +1210,7 @@ long BKZ_RR(mat_ZZ& BB, double delta,
 
 void NearVector(vec_ZZ& ww, const mat_ZZ& BB, const vec_ZZ& a)
 {
-   NTL_TLS_GLOBAL_ACCESS(red_fudge);
+   KCTSB_TLS_GLOBAL_ACCESS(red_fudge);
 
    long n = BB.NumCols();
 
@@ -1353,4 +1353,4 @@ void NearVector(vec_ZZ& ww, const mat_ZZ& BB, const vec_ZZ& a)
    ww = w;
 }
 
-NTL_END_IMPL
+KCTSB_END_IMPL

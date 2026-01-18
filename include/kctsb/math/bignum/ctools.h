@@ -1,52 +1,52 @@
+﻿
+#ifndef KCTSB_ctools__H
+#define KCTSB_ctools__H
 
-#ifndef NTL_ctools__H
-#define NTL_ctools__H
+#include <kctsb/math/bignum/config.h>
+#include <kctsb/math/bignum/mach_desc.h>
 
-#include <NTL/config.h>
-#include <NTL/mach_desc.h>
+#include <kctsb/math/bignum/ALL_FEATURES.h>
 
-#include <NTL/ALL_FEATURES.h>
-
-#include <NTL/PackageInfo.h>
+#include <kctsb/math/bignum/PackageInfo.h>
 
 #if (defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__)))
-#define NTL_GNUC_INTEL
+#define KCTSB_GNUC_INTEL
 #endif
 
-#if (!defined(NTL_HAVE_LL_TYPE) && defined(NTL_WINPACK) &&  (defined(_MSC_VER) || defined(NTL_GNUC_INTEL)))
+#if (!defined(KCTSB_HAVE_LL_TYPE) && defined(KCTSB_WINPACK) &&  (defined(_MSC_VER) || defined(KCTSB_GNUC_INTEL)))
 // for the windows distribution, 
 //   we assume LL_TYPE works for MSVC++ (which is true for both x86 and ARM)
 //   and for GNUC/Intel platforms (e.g., Code Blocks)
-#define NTL_HAVE_LL_TYPE
+#define KCTSB_HAVE_LL_TYPE
 #endif
 
 // Define the working C++ standard.
-// Both NTL_STD_CXX14 and NTL_STD_CXX11, and we take the highest one
+// Both KCTSB_STD_CXX14 and KCTSB_STD_CXX11, and we take the highest one
 
-#if defined(NTL_STD_CXX14)
-#define NTL_CXX_STANDARD (2014)
-#elif defined(NTL_STD_CXX11)
-#define NTL_CXX_STANDARD (2011)
+#if defined(KCTSB_STD_CXX14)
+#define KCTSB_CXX_STANDARD (2014)
+#elif defined(KCTSB_STD_CXX11)
+#define KCTSB_CXX_STANDARD (2011)
 #else
-#define NTL_CXX_STANDARD (1998)
+#define KCTSB_CXX_STANDARD (1998)
 #endif
 
 // define some macros regarding noexcept declarations
 
-#if (NTL_CXX_STANDARD >= 2011)
+#if (KCTSB_CXX_STANDARD >= 2011)
 
-#define NTL_NOEXCEPT noexcept
+#define KCTSB_NOEXCEPT noexcept
 
-#ifdef NTL_EXCEPTIONS
-#define NTL_FAKE_NOEXCEPT
+#ifdef KCTSB_EXCEPTIONS
+#define KCTSB_FAKE_NOEXCEPT
 #else
-#define NTL_FAKE_NOEXCEPT noexcept
+#define KCTSB_FAKE_NOEXCEPT noexcept
 #endif
 
 #else
 
-#define NTL_NOEXCEPT 
-#define NTL_FAKE_NOEXCEPT
+#define KCTSB_NOEXCEPT 
+#define KCTSB_FAKE_NOEXCEPT
 
 #endif
 
@@ -68,42 +68,42 @@
 
 
 
-#if (defined(NTL_UNSIGNED_LONG_LONG_TYPE))
+#if (defined(KCTSB_UNSIGNED_LONG_LONG_TYPE))
 
-#define NTL_ULL_TYPE NTL_UNSIGNED_LONG_LONG_TYPE
+#define KCTSB_ULL_TYPE KCTSB_UNSIGNED_LONG_LONG_TYPE
 
-#elif (NTL_BITS_PER_LONG == 64 && defined(__GNUC__))
+#elif (KCTSB_BITS_PER_LONG == 64 && defined(__GNUC__))
 
-#define NTL_ULL_TYPE __uint128_t 
+#define KCTSB_ULL_TYPE __uint128_t 
 
-#elif (NTL_BITS_PER_LONG == 32 && (defined(_MSC_VER) || defined(__BORLANDC__)))
+#elif (KCTSB_BITS_PER_LONG == 32 && (defined(_MSC_VER) || defined(__BORLANDC__)))
 
-#define NTL_ULL_TYPE unsigned __int64
+#define KCTSB_ULL_TYPE unsigned __int64
 
-#elif (NTL_BITS_PER_LONG == 64 && (defined(_MSC_VER) || defined(__BORLANDC__)))
+#elif (KCTSB_BITS_PER_LONG == 64 && (defined(_MSC_VER) || defined(__BORLANDC__)))
 
-#define NTL_ULL_TYPE unsigned __int128
-
-#endif
-
-#if (!defined(NTL_ULL_TYPE))
-
-#define NTL_ULL_TYPE unsigned long long
+#define KCTSB_ULL_TYPE unsigned __int128
 
 #endif
 
+#if (!defined(KCTSB_ULL_TYPE))
 
-#ifdef NTL_HAVE_LL_TYPE
+#define KCTSB_ULL_TYPE unsigned long long
 
-typedef NTL_ULL_TYPE _ntl_ulonglong;
+#endif
+
+
+#ifdef KCTSB_HAVE_LL_TYPE
+
+typedef KCTSB_ULL_TYPE _kctsb_ulonglong;
 // typenames are more convenient than macros
 
 #else
 
-#undef NTL_ULL_TYPE
+#undef KCTSB_ULL_TYPE
 // prevent any use of these macros
 
-class _ntl_ulonglong { private: _ntl_ulonglong() { } };
+class _kctsb_ulonglong { private: _kctsb_ulonglong() { } };
 // cannot create variables of these types
 
 
@@ -117,18 +117,18 @@ class _ntl_ulonglong { private: _ntl_ulonglong() { } };
 // there is no truly portable way to do this, yet...
 
 
-#if (NTL_BITS_PER_INT >= 32)
+#if (KCTSB_BITS_PER_INT >= 32)
 
-typedef unsigned int _ntl_uint32; // 32-bit word
-#define NTL_BITS_PER_INT32 NTL_BITS_PER_INT
+typedef unsigned int _kctsb_uint32; // 32-bit word
+#define KCTSB_BITS_PER_INT32 KCTSB_BITS_PER_INT
 
 #else
 
 // NOTE: C++ standard guarantees longs are at least 32-bits wide,
 // and this is also explicitly checked at builod time
 
-typedef unsigned long _ntl_uint32; // 32-bit word
-#define NTL_BITS_PER_INT32 NTL_BITS_PER_LONG
+typedef unsigned long _kctsb_uint32; // 32-bit word
+#define KCTSB_BITS_PER_INT32 KCTSB_BITS_PER_LONG
 
 #endif
 
@@ -136,23 +136,23 @@ typedef unsigned long _ntl_uint32; // 32-bit word
 
 // The usual token pasting stuff...
 
-#define NTL_PASTE_TOKENS2(a,b) a ## b
-#define NTL_PASTE_TOKENS(a,b) NTL_PASTE_TOKENS2(a,b)
+#define KCTSB_PASTE_TOKENS2(a,b) a ## b
+#define KCTSB_PASTE_TOKENS(a,b) KCTSB_PASTE_TOKENS2(a,b)
 
-#define NTL_STRINGIFY(x) NTL_STRINGIFY_AUX(x)
-#define NTL_STRINGIFY_AUX(x) #x
-
-
+#define KCTSB_STRINGIFY(x) KCTSB_STRINGIFY_AUX(x)
+#define KCTSB_STRINGIFY_AUX(x) #x
 
 
 
 
-// NTL_OVFBND: General bound to keep integer values bounded away from overflow
-// With NTL_BITS_PER_LONG properly set to 32 on Windows, this is safe
-#define NTL_OVFBND (1L << (NTL_BITS_PER_LONG-4))
+
+
+// KCTSB_OVFBND: General bound to keep integer values bounded away from overflow
+// With KCTSB_BITS_PER_LONG properly set to 32 on Windows, this is safe
+#define KCTSB_OVFBND (1L << (KCTSB_BITS_PER_LONG-4))
 
 /*
- * NTL_OVFBND is the general bound used throughout NTL to keep various
+ * KCTSB_OVFBND is the general bound used throughout bignum to keep various
  * integer values comfortably bounded away from an integer overflow
  * condition.  Do not change this value!
  */
@@ -161,14 +161,14 @@ typedef unsigned long _ntl_uint32; // 32-bit word
 
 
 
-#if ((NTL_BITS_PER_SIZE_T-1) < (NTL_BITS_PER_LONG-4))
-#define NTL_OVFBND1 (1L << (NTL_BITS_PER_SIZE_T-1))
+#if ((KCTSB_BITS_PER_SIZE_T-1) < (KCTSB_BITS_PER_LONG-4))
+#define KCTSB_OVFBND1 (1L << (KCTSB_BITS_PER_SIZE_T-1))
 #else
-#define NTL_OVFBND1 NTL_OVFBND
+#define KCTSB_OVFBND1 KCTSB_OVFBND
 #endif
 
 /*
- * NTL_OVFBND1 is a smaller bound than NTL_OVF when size_t is
+ * KCTSB_OVFBND1 is a smaller bound than KCTSB_OVF when size_t is
  * narrower than long.  This prevents overflow on calls to malloc
  * and realloc.
  */
@@ -178,12 +178,12 @@ typedef unsigned long _ntl_uint32; // 32-bit word
 
 
 
-#define NTL_OVERFLOW(n, a, b) \
-   (((b) >= NTL_OVFBND) || (((long) (n)) > 0 && (((a) >= NTL_OVFBND) || \
-    (((long) (n)) >= (NTL_OVFBND-((long)(b))+((long)(a))-1)/((long)(a))))))
+#define KCTSB_OVERFLOW(n, a, b) \
+   (((b) >= KCTSB_OVFBND) || (((long) (n)) > 0 && (((a) >= KCTSB_OVFBND) || \
+    (((long) (n)) >= (KCTSB_OVFBND-((long)(b))+((long)(a))-1)/((long)(a))))))
 
 /*
- * NTL_OVERFLOW(n, a, b) returns 1 if n*a + b >= NTL_OVFBND,
+ * KCTSB_OVERFLOW(n, a, b) returns 1 if n*a + b >= KCTSB_OVFBND,
  * and returns 0 otherwise.  The value n is effectively treated as type long,
  * while the values a and b may be *any* integral type.  It is assumed that
  * n >= 0, a > 0, and b >= 0.  Care is taken to ensure that overflow does
@@ -197,68 +197,68 @@ typedef unsigned long _ntl_uint32; // 32-bit word
 
 
 
-#define NTL_OVERFLOW1(n, a, b) \
-   (((b) >= NTL_OVFBND1) || (((long) (n)) > 0 && (((a) >= NTL_OVFBND1) || \
-    (((long) (n)) >= (NTL_OVFBND1-((long)(b))+((long)(a))-1)/((long)(a))))))
+#define KCTSB_OVERFLOW1(n, a, b) \
+   (((b) >= KCTSB_OVFBND1) || (((long) (n)) > 0 && (((a) >= KCTSB_OVFBND1) || \
+    (((long) (n)) >= (KCTSB_OVFBND1-((long)(b))+((long)(a))-1)/((long)(a))))))
 
 /*
- * NTL_OVERFLOW1 is the same as NTL_OVERFLOW, except that it uses the
- * bound NTL_OVFBND1 instead of NTL_OVFBND.
+ * KCTSB_OVERFLOW1 is the same as KCTSB_OVERFLOW, except that it uses the
+ * bound KCTSB_OVFBND1 instead of KCTSB_OVFBND.
  */
 
 
 
 
-#ifdef NTL_TEST_EXCEPTIONS
+#ifdef KCTSB_TEST_EXCEPTIONS
 
 extern unsigned long exception_counter;
 
-#define NTL_BASIC_MALLOC(n, a, b) \
-   (NTL_OVERFLOW1(n, a, b) ? ((void *) 0) : \
+#define KCTSB_BASIC_MALLOC(n, a, b) \
+   (KCTSB_OVERFLOW1(n, a, b) ? ((void *) 0) : \
     ((void *) malloc(((long)(n))*((long)(a)) + ((long)(b)))))
 
-#define NTL_MALLOC(n, a, b) \
-   (--exception_counter == 0 ? (void *) 0 : NTL_BASIC_MALLOC(n, a, b))
+#define KCTSB_MALLOC(n, a, b) \
+   (--exception_counter == 0 ? (void *) 0 : KCTSB_BASIC_MALLOC(n, a, b))
 
 #else
 
-#define NTL_MALLOC(n, a, b) \
-   (NTL_OVERFLOW1(n, a, b) ? ((void *) 0) : \
+#define KCTSB_MALLOC(n, a, b) \
+   (KCTSB_OVERFLOW1(n, a, b) ? ((void *) 0) : \
     ((void *) malloc(((long)(n))*((long)(a)) + ((long)(b)))))
 
 
 #endif
 
 /*
- * NTL_MALLOC(n, a, b) returns 0 if a*n + b >= NTL_OVFBND1, and otherwise
+ * KCTSB_MALLOC(n, a, b) returns 0 if a*n + b >= KCTSB_OVFBND1, and otherwise
  * returns malloc(n*a + b). 
  * The programmer must ensure that the name "malloc" is visible
  * at the point in the source code where this macro is expanded.
  */
 
 
-#ifdef NTL_TEST_EXCEPTIONS
+#ifdef KCTSB_TEST_EXCEPTIONS
 
-#define NTL_BASIC_SNS_MALLOC(n, a, b) \
-   (NTL_OVERFLOW1(n, a, b) ? ((void *) 0) : \
-    ((void *) NTL_SNS malloc(((long)(n))*((long)(a)) + ((long)(b)))))
+#define KCTSB_BASIC_SNS_MALLOC(n, a, b) \
+   (KCTSB_OVERFLOW1(n, a, b) ? ((void *) 0) : \
+    ((void *) KCTSB_SNS malloc(((long)(n))*((long)(a)) + ((long)(b)))))
 
 
-#define NTL_SNS_MALLOC(n, a, b) \
-   (--exception_counter == 0 ? (void *) 0 : NTL_BASIC_SNS_MALLOC(n, a, b))
+#define KCTSB_SNS_MALLOC(n, a, b) \
+   (--exception_counter == 0 ? (void *) 0 : KCTSB_BASIC_SNS_MALLOC(n, a, b))
 
 
 #else
 
-#define NTL_SNS_MALLOC(n, a, b) \
-   (NTL_OVERFLOW1(n, a, b) ? ((void *) 0) : \
-    ((void *) NTL_SNS malloc(((long)(n))*((long)(a)) + ((long)(b)))))
+#define KCTSB_SNS_MALLOC(n, a, b) \
+   (KCTSB_OVERFLOW1(n, a, b) ? ((void *) 0) : \
+    ((void *) KCTSB_SNS malloc(((long)(n))*((long)(a)) + ((long)(b)))))
 
 #endif
 
 /*
- * NTL_SNS_MALLOC is the same as NTL_MALLOC, except that the call
- * to malloc is prefixed by NTL_SNS.
+ * KCTSB_SNS_MALLOC is the same as KCTSB_MALLOC, except that the call
+ * to malloc is prefixed by KCTSB_SNS.
  */
 
 
@@ -268,12 +268,12 @@ extern unsigned long exception_counter;
 
 
 
-#define NTL_REALLOC(p, n, a, b) \
-   (NTL_OVERFLOW1(n, a, b) ? ((void *) 0) : \
+#define KCTSB_REALLOC(p, n, a, b) \
+   (KCTSB_OVERFLOW1(n, a, b) ? ((void *) 0) : \
     ((void *) realloc((p), ((long)(n))*((long)(a)) + ((long)(b)))))
 
 /*
- * NTL_REALLOC(n, a, b) returns 0 if a*n + b >= NTL_OVFBND1, and otherwise
+ * KCTSB_REALLOC(n, a, b) returns 0 if a*n + b >= KCTSB_OVFBND1, and otherwise
  * returns realloc(p, n*a + b).
  * The programmer must ensure that the name "realloc" is visible
  * at the point in the source code where this macro is expanded.
@@ -284,32 +284,32 @@ extern unsigned long exception_counter;
 
 
 
-#define NTL_SNS_REALLOC(p, n, a, b) \
-   (NTL_OVERFLOW1(n, a, b) ? ((void *) 0) : \
-    ((void *) NTL_SNS realloc((p), ((long)(n))*((long)(a)) + ((long)(b)))))
+#define KCTSB_SNS_REALLOC(p, n, a, b) \
+   (KCTSB_OVERFLOW1(n, a, b) ? ((void *) 0) : \
+    ((void *) KCTSB_SNS realloc((p), ((long)(n))*((long)(a)) + ((long)(b)))))
 
 /*
- * NTL_SNS_REALLOC is the same as NTL_REALLOC, except that the call
- * to realloc is prefixed by NTL_SNS.
+ * KCTSB_SNS_REALLOC is the same as KCTSB_REALLOC, except that the call
+ * to realloc is prefixed by KCTSB_SNS.
  */
 
 
 
 
 
-#define NTL_MAX_ALLOC_BLOCK (40000)
+#define KCTSB_MAX_ALLOC_BLOCK (40000)
 
 /*
- * NTL_MAX_ALLOC_BLOCK is the number of bytes that are allocated in
- * a single block in a number of places throughout NTL (for
+ * KCTSB_MAX_ALLOC_BLOCK is the number of bytes that are allocated in
+ * a single block in a number of places throughout bignum (for
  * vec_ZZ_p, ZZVec, vec_GF2X, and GF2XVec).
  */
 
 
-#define NTL_ULONG_TO_LONG(a) \
-   ((((unsigned long) a) >> (NTL_BITS_PER_LONG-1)) ? \
-    (((long) (((unsigned long) a) ^ ((unsigned long) NTL_MIN_LONG))) ^ \
-       NTL_MIN_LONG) : \
+#define KCTSB_ULONG_TO_LONG(a) \
+   ((((unsigned long) a) >> (KCTSB_BITS_PER_LONG-1)) ? \
+    (((long) (((unsigned long) a) ^ ((unsigned long) KCTSB_MIN_LONG))) ^ \
+       KCTSB_MIN_LONG) : \
     ((long) a))
 
 /* 
@@ -321,10 +321,10 @@ extern unsigned long exception_counter;
  */
 
 
-#define NTL_UINT_TO_INT(a) \
-   ((((unsigned int) a) >> (NTL_BITS_PER_INT-1)) ? \
-    (((int) (((unsigned int) a) ^ ((unsigned int) NTL_MIN_INT))) ^ \
-       NTL_MIN_INT) : \
+#define KCTSB_UINT_TO_INT(a) \
+   ((((unsigned int) a) >> (KCTSB_BITS_PER_INT-1)) ? \
+    (((int) (((unsigned int) a) ^ ((unsigned int) KCTSB_MIN_INT))) ^ \
+       KCTSB_MIN_INT) : \
     ((int) a))
 
 /* 
@@ -336,25 +336,25 @@ extern unsigned long exception_counter;
  */
 
 
-#ifdef NTL_THREADS
+#ifdef KCTSB_THREADS
 
-#define NTL_THREAD_LOCAL thread_local 
+#define KCTSB_THREAD_LOCAL thread_local 
 
 #ifdef __GNUC__
-#define NTL_CHEAP_THREAD_LOCAL __thread
+#define KCTSB_CHEAP_THREAD_LOCAL __thread
 #else
-#define NTL_CHEAP_THREAD_LOCAL thread_local
+#define KCTSB_CHEAP_THREAD_LOCAL thread_local
 #endif
 
 #else
 
-#define NTL_THREAD_LOCAL 
-#define NTL_CHEAP_THREAD_LOCAL 
+#define KCTSB_THREAD_LOCAL 
+#define KCTSB_CHEAP_THREAD_LOCAL 
 
 #endif
 
 
-#define NTL_RELEASE_THRESH (128)
+#define KCTSB_RELEASE_THRESH (128)
 
 /*
  * threshold for releasing scratch memory.
@@ -362,46 +362,46 @@ extern unsigned long exception_counter;
 
 
 
-double _ntl_GetWallTime();
+double _kctsb_GetWallTime();
 
 
-long _ntl_IsFinite(double *p);
+long _kctsb_IsFinite(double *p);
 /* This forces a double into memory, and tests if it is "normal";
    that means, not NaN, not +/- infinity, not denormalized, etc.
    Forcing into memory is sometimes necessary on machines 
    with "extended" double precision registers (e.g., Intel x86s)
    to force the standard IEEE format. */
 
-void _ntl_ForceToMem(double *p);
+void _kctsb_ForceToMem(double *p);
 /* This is do-nothing routine that has the effect of forcing
    a double into memory (see comment above). */
 
 
-double _ntl_ldexp(double x, long e);
+double _kctsb_ldexp(double x, long e);
 
 
-#define NTL_DEFINE_SWAP(T)\
-inline void _ntl_swap(T& a, T& b)\
+#define KCTSB_DEFINE_SWAP(T)\
+inline void _kctsb_swap(T& a, T& b)\
 {\
    T t = a; a = b; b = t;\
 }
 
-NTL_DEFINE_SWAP(long)
-NTL_DEFINE_SWAP(int)
-NTL_DEFINE_SWAP(short)
-NTL_DEFINE_SWAP(char)
+KCTSB_DEFINE_SWAP(long)
+KCTSB_DEFINE_SWAP(int)
+KCTSB_DEFINE_SWAP(short)
+KCTSB_DEFINE_SWAP(char)
 
-NTL_DEFINE_SWAP(unsigned long)
-NTL_DEFINE_SWAP(unsigned int)
-NTL_DEFINE_SWAP(unsigned short)
-NTL_DEFINE_SWAP(unsigned char)
+KCTSB_DEFINE_SWAP(unsigned long)
+KCTSB_DEFINE_SWAP(unsigned int)
+KCTSB_DEFINE_SWAP(unsigned short)
+KCTSB_DEFINE_SWAP(unsigned char)
 
-NTL_DEFINE_SWAP(double)
-NTL_DEFINE_SWAP(float)
+KCTSB_DEFINE_SWAP(double)
+KCTSB_DEFINE_SWAP(float)
 
    
 template<class T>
-void _ntl_swap(T*& a, T*& b)
+void _kctsb_swap(T*& a, T*& b)
 {
    T* t = a; a = b; b = t;
 }
@@ -415,28 +415,28 @@ void _ntl_swap(T*& a, T*& b)
 
 // The following do for "move" what the above does for swap
 
-#define NTL_DEFINE_SCALAR_MOVE(T)\
-inline T _ntl_scalar_move(T& a)\
+#define KCTSB_DEFINE_SCALAR_MOVE(T)\
+inline T _kctsb_scalar_move(T& a)\
 {\
    T t = a; a = 0; return t;\
 }
 
-NTL_DEFINE_SCALAR_MOVE(long)
-NTL_DEFINE_SCALAR_MOVE(int)
-NTL_DEFINE_SCALAR_MOVE(short)
-NTL_DEFINE_SCALAR_MOVE(char)
+KCTSB_DEFINE_SCALAR_MOVE(long)
+KCTSB_DEFINE_SCALAR_MOVE(int)
+KCTSB_DEFINE_SCALAR_MOVE(short)
+KCTSB_DEFINE_SCALAR_MOVE(char)
 
-NTL_DEFINE_SCALAR_MOVE(unsigned long)
-NTL_DEFINE_SCALAR_MOVE(unsigned int)
-NTL_DEFINE_SCALAR_MOVE(unsigned short)
-NTL_DEFINE_SCALAR_MOVE(unsigned char)
+KCTSB_DEFINE_SCALAR_MOVE(unsigned long)
+KCTSB_DEFINE_SCALAR_MOVE(unsigned int)
+KCTSB_DEFINE_SCALAR_MOVE(unsigned short)
+KCTSB_DEFINE_SCALAR_MOVE(unsigned char)
 
-NTL_DEFINE_SCALAR_MOVE(double)
-NTL_DEFINE_SCALAR_MOVE(float)
+KCTSB_DEFINE_SCALAR_MOVE(double)
+KCTSB_DEFINE_SCALAR_MOVE(float)
 
    
 template<class T>
-T* _ntl_scalar_move(T*& a)
+T* _kctsb_scalar_move(T*& a)
 {
    T *t = a; a = 0; return t;
 }
@@ -451,17 +451,17 @@ T* _ntl_scalar_move(T*& a)
 // If align is a constant power of 2, it compiles
 // into a small handful of simple instructions.
 
-// NTL_UPTRINT_T: unsigned integer type that can hold a pointer value
+// KCTSB_UPTRINT_T: unsigned integer type that can hold a pointer value
 // On Windows x64 (LLP64), pointer is 64-bit but unsigned long is 32-bit
 // Use std::uintptr_t from <cstdint> for proper portability
 #include <cstdint>
-#define NTL_UPTRINT_T std::uintptr_t
+#define KCTSB_UPTRINT_T std::uintptr_t
 
 
-#ifdef NTL_HAVE_ALIGNED_ARRAY
+#ifdef KCTSB_HAVE_ALIGNED_ARRAY
 
 inline
-char *_ntl_make_aligned(char *p, long align)
+char *_kctsb_make_aligned(char *p, long align)
 {
    // Use uintptr_t for portable pointer arithmetic
    std::uintptr_t r = (std::uintptr_t(p)) % (std::uintptr_t(align));
@@ -472,7 +472,7 @@ char *_ntl_make_aligned(char *p, long align)
 
 
 inline
-char *_ntl_make_aligned(char *p, long align)
+char *_kctsb_make_aligned(char *p, long align)
 {
    return p;
 }
@@ -494,22 +494,22 @@ char *_ntl_make_aligned(char *p, long align)
 // machines, so it should be OK.
 
 
-#define NTL_ALIGNED_LOCAL_ARRAY(align, x, type, n) \
-   char x##__ntl_hidden_variable_storage[n*sizeof(type)+align]; \
-   type *x = (type *) _ntl_make_aligned(&x##__ntl_hidden_variable_storage[0], align);
+#define KCTSB_ALIGNED_LOCAL_ARRAY(align, x, type, n) \
+   char x##__kctsb_hidden_variable_storage[n*sizeof(type)+align]; \
+   type *x = (type *) _kctsb_make_aligned(&x##__kctsb_hidden_variable_storage[0], align);
 
 
-#define NTL_AVX_BYTE_ALIGN (32)
-#define NTL_AVX_DBL_ALIGN (NTL_AVX_BYTE_ALIGN/long(sizeof(double)))
+#define KCTSB_AVX_BYTE_ALIGN (32)
+#define KCTSB_AVX_DBL_ALIGN (KCTSB_AVX_BYTE_ALIGN/long(sizeof(double)))
 
-#define NTL_AVX_LOCAL_ARRAY(x, type, n) NTL_ALIGNED_LOCAL_ARRAY(NTL_AVX_BYTE_ALIGN, x, type, n)
+#define KCTSB_AVX_LOCAL_ARRAY(x, type, n) KCTSB_ALIGNED_LOCAL_ARRAY(KCTSB_AVX_BYTE_ALIGN, x, type, n)
 
-#define NTL_AVX512_BYTE_ALIGN (64)
+#define KCTSB_AVX512_BYTE_ALIGN (64)
 
-#define NTL_AVX512_LOCAL_ARRAY(x, type, n) NTL_ALIGNED_LOCAL_ARRAY(NTL_AVX512_BYTE_ALIGN, x, type, n)
+#define KCTSB_AVX512_LOCAL_ARRAY(x, type, n) KCTSB_ALIGNED_LOCAL_ARRAY(KCTSB_AVX512_BYTE_ALIGN, x, type, n)
 
 
-#define NTL_DEFAULT_ALIGN (128)
+#define KCTSB_DEFAULT_ALIGN (128)
 // this should be big enough to satisfy any SIMD instructions,
 // and it should also be as big as a cache line
 // x86 has cache line size of 64, while Aarch64 has cache line size of 128
@@ -518,23 +518,23 @@ char *_ntl_make_aligned(char *p, long align)
 
 
 
-#ifdef NTL_HAVE_BUILTIN_CLZL
+#ifdef KCTSB_HAVE_BUILTIN_CLZL
 
 inline long 
-_ntl_count_bits(unsigned long x)
+_kctsb_count_bits(unsigned long x)
 {
-   return x ? (NTL_BITS_PER_LONG - __builtin_clzl(x)) : 0;
+   return x ? (KCTSB_BITS_PER_LONG - __builtin_clzl(x)) : 0;
 }
 
 #else
 
 inline long 
-_ntl_count_bits(unsigned long x)
+_kctsb_count_bits(unsigned long x)
 {
    if (!x) return 0;
 
-   long res = NTL_BITS_PER_LONG;
-   while (x < (1UL << (NTL_BITS_PER_LONG-1))) {
+   long res = KCTSB_BITS_PER_LONG;
+   while (x < (1UL << (KCTSB_BITS_PER_LONG-1))) {
       x <<= 1;
       res--;
    }
@@ -547,77 +547,77 @@ _ntl_count_bits(unsigned long x)
 
 
 
-#if (!defined(NTL_CLEAN_INT) && NTL_ARITH_RIGHT_SHIFT && (NTL_BITS_PER_LONG == (1 << (NTL_NUMBITS_BPL-1))))
+#if (!defined(KCTSB_CLEAN_INT) && KCTSB_ARITH_RIGHT_SHIFT && (KCTSB_BITS_PER_LONG == (1 << (KCTSB_NUMBITS_BPL-1))))
 
 
 
 inline void
-_ntl_bpl_divrem(long a, long& q, long& r)
+_kctsb_bpl_divrem(long a, long& q, long& r)
 {
-   q = a >> (NTL_NUMBITS_BPL-1);
-   r = a & (NTL_BITS_PER_LONG-1);
+   q = a >> (KCTSB_NUMBITS_BPL-1);
+   r = a & (KCTSB_BITS_PER_LONG-1);
 }
 
 #else
 
 inline void
-_ntl_bpl_divrem(long a, long& q, long& r)
+_kctsb_bpl_divrem(long a, long& q, long& r)
 {
-   q = a / NTL_BITS_PER_LONG;
-   r = a % NTL_BITS_PER_LONG;
+   q = a / KCTSB_BITS_PER_LONG;
+   r = a % KCTSB_BITS_PER_LONG;
    if (r < 0) {
       q--;
-      r += NTL_BITS_PER_LONG;
+      r += KCTSB_BITS_PER_LONG;
    }
 }
 
 #endif
 
 inline void
-_ntl_bpl_divrem(unsigned long a, long& q, long& r)
+_kctsb_bpl_divrem(unsigned long a, long& q, long& r)
 {
-   q = a / NTL_BITS_PER_LONG;
-   r = a % NTL_BITS_PER_LONG;
+   q = a / KCTSB_BITS_PER_LONG;
+   r = a % KCTSB_BITS_PER_LONG;
 }
 
 
 // vectors are grown by a factor of 1.5
-inline long _ntl_vec_grow(long n)
+inline long _kctsb_vec_grow(long n)
 { return n + n/2; }
 
 
 template <class T>
-struct _ntl_is_char_pointer
+struct _kctsb_is_char_pointer
 {
  enum {value = false};
 };
 
 template <>
-struct _ntl_is_char_pointer<char*>
+struct _kctsb_is_char_pointer<char*>
 {
  enum {value = true};
 };
 
 template <>
-struct _ntl_is_char_pointer<const char*>
+struct _kctsb_is_char_pointer<const char*>
 {
  enum {value = true};
 };
 
 template <bool, typename T = void>
-struct _ntl_enable_if
+struct _kctsb_enable_if
 {};
 
 template <typename T>
-struct _ntl_enable_if<true, T> {
+struct _kctsb_enable_if<true, T> {
   typedef T type;
 };
 
 
 // returns x, disabling constant folding
-int _ntl_nofold(int x); 
-long _ntl_nofold(long x); 
-double _ntl_nofold(double x); 
+int _kctsb_nofold(int x); 
+long _kctsb_nofold(long x); 
+double _kctsb_nofold(double x); 
 
 
 

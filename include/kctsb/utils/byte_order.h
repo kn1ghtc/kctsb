@@ -1,16 +1,16 @@
-/**
+﻿/**
  * @file byte_order.h
- * @brief Byte Order Conversion Utilities for NTL Integration
+ * @brief Byte Order Conversion Utilities for bignum Integration
  *
  * This header provides standardized byte order conversion functions for
- * integrating NTL's big integer library with cryptographic standards.
+ * integrating bignum's big integer library with cryptographic standards.
  *
  * Architecture Decision:
- * - Internal storage: Little-endian (NTL native format)
+ * - Internal storage: Little-endian (bignum native format)
  * - External interface: Big-endian (cryptographic standards: RSA, ECC, SM2)
  * - All external byte arrays (input/output) use big-endian format
  *
- * NTL's BytesFromZZ/ZZFromBytes use LITTLE-ENDIAN format.
+ * bignum's BytesFromZZ/ZZFromBytes use LITTLE-ENDIAN format.
  * Cryptographic standards (PKCS#1, SEC 1, GB/T 32918) use BIG-ENDIAN format.
  *
  * @author knightc
@@ -117,12 +117,12 @@ KCTSB_API void kctsb_be_to_le(const uint8_t* be_bytes, uint8_t* le_bytes, size_t
 }
 
 // ============================================================================
-// C++ NTL Integration Utilities
+// C++ bignum Integration Utilities
 // ============================================================================
 
 #ifdef KCTSB_USE_NTL
-#include <NTL/ZZ.h>
-#include <NTL/ZZ_p.h>
+#include <kctsb/math/bignum/ZZ.h>
+#include <kctsb/math/bignum/ZZ_p.h>
 #include <vector>
 #include <array>
 #include <cstring>
@@ -131,21 +131,21 @@ namespace kctsb {
 namespace byte_order {
 
 /**
- * @brief Convert big-endian byte array to NTL ZZ
+ * @brief Convert big-endian byte array to bignum ZZ
  *
  * Input is big-endian (cryptographic standard format).
- * Internally converts to little-endian for NTL.
+ * Internally converts to little-endian for bignum.
  *
  * @param data Input bytes (big-endian)
  * @param len Length of input
- * @return NTL ZZ value
+ * @return bignum ZZ value
  */
 inline kctsb::ZZ be_bytes_to_zz(const uint8_t* data, size_t len) {
     if (data == nullptr || len == 0) {
         return kctsb::ZZ(0);
     }
     
-    // Convert big-endian input to little-endian for NTL
+    // Convert big-endian input to little-endian for bignum
     std::vector<uint8_t> le_bytes(len);
     for (size_t i = 0; i < len; i++) {
         le_bytes[i] = data[len - 1 - i];
@@ -157,12 +157,12 @@ inline kctsb::ZZ be_bytes_to_zz(const uint8_t* data, size_t len) {
 }
 
 /**
- * @brief Convert NTL ZZ to big-endian byte array
+ * @brief Convert bignum ZZ to big-endian byte array
  *
  * Output is big-endian (cryptographic standard format).
- * Internally uses NTL's little-endian format and converts.
+ * Internally uses bignum's little-endian format and converts.
  *
- * @param z NTL ZZ value
+ * @param z bignum ZZ value
  * @param out Output buffer (big-endian)
  * @param len Output length (zero-padded to this length)
  */
@@ -173,7 +173,7 @@ inline void zz_to_be_bytes(const kctsb::ZZ& z, uint8_t* out, size_t len) {
     
     std::memset(out, 0, len);
     
-    // Get little-endian bytes from NTL
+    // Get little-endian bytes from bignum
     std::vector<uint8_t> le_bytes(len);
     kctsb::BytesFromZZ(le_bytes.data(), z, static_cast<long>(len));
     
@@ -190,7 +190,7 @@ inline void zz_to_be_bytes(const kctsb::ZZ& z, uint8_t* out, size_t len) {
  *
  * @param data Input bytes (big-endian)
  * @param len Length of input
- * @return NTL ZZ value
+ * @return bignum ZZ value
  */
 inline kctsb::ZZ be_bytes_to_zz_auto(const uint8_t* data, size_t len) {
     return be_bytes_to_zz(data, len);
@@ -201,7 +201,7 @@ inline kctsb::ZZ be_bytes_to_zz_auto(const uint8_t* data, size_t len) {
  *
  * Output size is automatically determined based on ZZ bit length.
  *
- * @param z NTL ZZ value
+ * @param z bignum ZZ value
  * @return Vector of bytes (big-endian)
  */
 inline std::vector<uint8_t> zz_to_be_bytes_auto(const kctsb::ZZ& z) {
@@ -220,7 +220,7 @@ inline std::vector<uint8_t> zz_to_be_bytes_auto(const kctsb::ZZ& z) {
  *
  * @tparam N Fixed size in bytes
  * @param data Input array (big-endian)
- * @return NTL ZZ value
+ * @return bignum ZZ value
  */
 template<size_t N>
 inline kctsb::ZZ be_array_to_zz(const std::array<uint8_t, N>& data) {
@@ -231,7 +231,7 @@ inline kctsb::ZZ be_array_to_zz(const std::array<uint8_t, N>& data) {
  * @brief Template for fixed-size ZZ to big-endian conversion
  *
  * @tparam N Fixed size in bytes
- * @param z NTL ZZ value
+ * @param z bignum ZZ value
  * @return Array of bytes (big-endian)
  */
 template<size_t N>
@@ -281,7 +281,7 @@ inline int i2osp(const kctsb::ZZ& x, size_t x_len, uint8_t* out) {
  *
  * @param data Input bytes (big-endian)
  * @param len Length of input
- * @return NTL ZZ value
+ * @return bignum ZZ value
  */
 inline kctsb::ZZ os2ip(const uint8_t* data, size_t len) {
     return be_bytes_to_zz(data, len);

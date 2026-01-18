@@ -1,16 +1,16 @@
-
-#include <NTL/tools.h>
+﻿
+#include <kctsb/math/bignum/tools.h>
 
 //#include <cctype>
 //#include <cstdio>
 
 
 
-NTL_START_IMPL
+KCTSB_START_IMPL
 
 
-NTL_CHEAP_THREAD_LOCAL void (*ErrorCallback)() = 0;
-NTL_CHEAP_THREAD_LOCAL void (*ErrorMsgCallback)(const char *) = 0;
+KCTSB_CHEAP_THREAD_LOCAL void (*ErrorCallback)() = 0;
+KCTSB_CHEAP_THREAD_LOCAL void (*ErrorMsgCallback)(const char *) = 0;
 
 
 void TerminalError(const char *s)
@@ -91,7 +91,7 @@ char IntValToChar(long a)
 
 long IsWhiteSpace(long a)
 {
-   if (a > NTL_MAX_INT || a < NTL_MIN_INT)
+   if (a > KCTSB_MAX_INT || a < KCTSB_MIN_INT)
       return 0;
 
    int b = (int) a;
@@ -148,4 +148,4 @@ void PrintTime(ostream& s, double t)
    s << ss;
 }
 
-NTL_END_IMPL
+KCTSB_END_IMPL

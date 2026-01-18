@@ -1,8 +1,8 @@
+﻿
+#include <kctsb/math/bignum/ZZX.h>
 
-#include <NTL/ZZX.h>
 
-
-NTL_START_IMPL
+KCTSB_START_IMPL
 
 
 
@@ -29,7 +29,7 @@ void conv(ZZX& x, const ZZ_pX& a)
 
 istream& operator>>(istream& s, ZZX& x)
 {
-   NTL_INPUT_CHECK_RET(s, s >> x.rep);
+   KCTSB_INPUT_CHECK_RET(s, s >> x.rep);
    x.normalize();
    return s;
 }
@@ -122,7 +122,7 @@ void SetCoeff(ZZX& x, long i, const ZZ& a)
    if (i < 0) 
       LogicError("SetCoeff: negative index");
 
-   if (NTL_OVERFLOW(i, 1, 0))
+   if (KCTSB_OVERFLOW(i, 1, 0))
       ResourceError("overflow in SetCoeff");
 
    m = deg(x);
@@ -161,7 +161,7 @@ void SetCoeff(ZZX& x, long i)
    if (i < 0) 
       LogicError("coefficient index out of range");
 
-   if (NTL_OVERFLOW(i, 1, 0))
+   if (KCTSB_OVERFLOW(i, 1, 0))
       ResourceError("overflow in SetCoeff");
 
    m = deg(x);
@@ -578,8 +578,8 @@ void PlainMul(ZZ *xp, const ZZ *ap, long sa, const ZZ *bp, long sb)
    long sx = sa+sb-1;
 
    long i, j, jmin, jmax;
-   NTL_ZZRegister(t);
-   NTL_ZZRegister(accum);
+   KCTSB_ZZRegister(t);
+   KCTSB_ZZRegister(accum);
 
    for (i = 0; i < sx; i++) {
       jmin = max(0, i-sb+1);
@@ -835,7 +835,7 @@ void KarMul(ZZX& c, const ZZX& a, const ZZX& b)
       ZZVec stk;
       stk.SetSize(sp, 
          ((maxa + maxb + NumBits(min(sa, sb)) + 2*depth + 10) 
-          + NTL_ZZ_NBITS-1)/NTL_ZZ_NBITS);
+          + KCTSB_ZZ_NBITS-1)/KCTSB_ZZ_NBITS);
 
       KarMul(cp, ap, sa, bp, sb, stk.elts(), sp);
    }
@@ -857,8 +857,8 @@ void PlainSqr(ZZ* xp, const ZZ* ap, long sa)
 
    long i, j, jmin, jmax;
    long m, m2;
-   NTL_ZZRegister(t);
-   NTL_ZZRegister(accum);
+   KCTSB_ZZRegister(t);
+   KCTSB_ZZRegister(accum);
 
    for (i = 0; i <= d; i++) {
       jmin = max(0, i-da);
@@ -990,7 +990,7 @@ void KarSqr(ZZX& c, const ZZX& a)
       ZZVec stk;
       stk.SetSize(sp, 
          ((2*maxa + NumBits(sa) + 2*depth + 10) 
-          + NTL_ZZ_NBITS-1)/NTL_ZZ_NBITS);
+          + KCTSB_ZZ_NBITS-1)/KCTSB_ZZ_NBITS);
 
       KarSqr(cp, ap, sa, stk.elts());
    }
@@ -1055,7 +1055,7 @@ void KarSqr(ZZ_pX& c, const ZZ_pX& a)
    ZZVec stk;
    stk.SetSize(sp, 
       ((maxa + maxb + NumBits(sa) + 2*depth + 10) 
-       + NTL_ZZ_NBITS-1)/NTL_ZZ_NBITS);
+       + KCTSB_ZZ_NBITS-1)/KCTSB_ZZ_NBITS);
 
    KarSqr(cp, ap, sa, stk.elts());
 
@@ -1127,7 +1127,7 @@ void KarMul(ZZ_pX& c, const ZZ_pX& a, const ZZ_pX& b)
    ZZVec stk;
    stk.SetSize(sp, 
       ((maxa + maxb + NumBits(min(sa, sb)) + 2*depth + 10) 
-       + NTL_ZZ_NBITS-1)/NTL_ZZ_NBITS);
+       + KCTSB_ZZ_NBITS-1)/KCTSB_ZZ_NBITS);
 
    KarMul(cp, ap, sa, bp, sb, stk.elts(), sp);
 
@@ -1138,4 +1138,4 @@ void KarMul(ZZ_pX& c, const ZZ_pX& a, const ZZ_pX& b)
 
 
 
-NTL_END_IMPL
+KCTSB_END_IMPL

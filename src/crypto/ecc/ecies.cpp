@@ -1,6 +1,6 @@
-/**
+﻿/**
  * @file ecies.cpp
- * @brief ECIES Implementation - NTL Backend
+ * @brief ECIES Implementation - Bignum Backend
  * 
  * Complete ECIES implementation following:
  * - SEC 1 v2.0 Section 5.1
@@ -21,7 +21,7 @@
 #include <stdexcept>
 #include <random>
 
-// Bignum namespace is now kctsb (was NTL)
+// Bignum namespace is now kctsb (was bignum)
 using namespace kctsb;
 
 namespace kctsb {

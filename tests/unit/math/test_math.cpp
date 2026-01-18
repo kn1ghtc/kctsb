@@ -9,6 +9,7 @@
  * - Big integer arithmetic
  *
  * Note: Some tests require KCTSB_HAS_BIGNUM_MODULES to be defined.
+ * v4.0.1: GF2X modules now work on all platforms (GMP/gf2x integration)
  *
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
  * @license Apache License 2.0
@@ -26,6 +27,7 @@
 #include "kctsb/math/bignum/ZZ.h"
 #include "kctsb/math/bignum/ZZX.h"
 #include "kctsb/math/bignum/GF2X.h"
+#define KCTSB_HAS_GF2X_TESTS 1
 #endif
 
 class MathTest : public ::testing::Test {

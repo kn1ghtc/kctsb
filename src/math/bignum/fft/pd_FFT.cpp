@@ -1,18 +1,18 @@
-
-// The configure script should define NTL_FP_CONTRACT_OFF
+﻿
+// The configure script should define KCTSB_FP_CONTRACT_OFF
 // for icc via the NOCONTRACT variable
-#ifdef NTL_FP_CONTRACT_OFF
+#ifdef KCTSB_FP_CONTRACT_OFF
 #pragma fp_contract(off)
 #endif
 
 
-#include <NTL/tools.h>
+#include <kctsb/math/bignum/tools.h>
 
-#ifdef NTL_ENABLE_AVX_FFT
+#ifdef KCTSB_ENABLE_AVX_FFT
 
 // The configure script tries to prevent this, but we
 // double check here.  Note that while it is strongly 
-// discouraged, other parts of NTL probably work even with 
+// discouraged, other parts of bignum probably work even with 
 // "fast math"; however, quad_float will definitely break.
 
 #if (defined(__GNUC__) && __FAST_MATH__)
@@ -21,33 +21,33 @@
 
 
 
-#include <NTL/PD.h>
-#include <NTL/pd_FFT.h>
-#include <NTL/FFT_impl.h>
+#include <kctsb/math/bignum/PD.h>
+#include <kctsb/math/bignum/pd_FFT.h>
+#include <kctsb/math/bignum/FFT_impl.h>
 
 #if (defined(__GNUC__) && __FAST_MATH__)
 #error "do not compile pd_FFT.cpp with -ffast-math!!"
 #endif
 
-#if (NTL_FMA_DETECTED && !defined(NTL_CONTRACTION_FIXED))
+#if (KCTSB_FMA_DETECTED && !defined(KCTSB_CONTRACTION_FIXED))
 #error "contraction not fixed"
 #endif
 
 
-NTL_START_IMPL
+KCTSB_START_IMPL
 
-#define NTL_CSR_NEAREST (0x00000000)
-#define NTL_CSR_DOWN    (0x00002000)
-#define NTL_CSR_UP      (0x00004000)
-#define NTL_CSR_TRUNC   (0x00006000)
-#define NTL_CSR_MASK    (0x00006000)
+#define KCTSB_CSR_NEAREST (0x00000000)
+#define KCTSB_CSR_DOWN    (0x00002000)
+#define KCTSB_CSR_UP      (0x00004000)
+#define KCTSB_CSR_TRUNC   (0x00006000)
+#define KCTSB_CSR_MASK    (0x00006000)
 
 CSRPush::CSRPush()
 {
    // save current register value
    reg = _mm_getcsr();
    // set rounding mode to "down"
-   _mm_setcsr((reg & ~NTL_CSR_MASK) | NTL_CSR_DOWN);
+   _mm_setcsr((reg & ~KCTSB_CSR_MASK) | KCTSB_CSR_DOWN);
 }
 
 CSRPush::~CSRPush()
@@ -193,10 +193,10 @@ pd_LazyPrepMulModPrecon(long b, long n)
 //===================================
 
 
-#define NTL_PD_FFT_THRESH (11)
+#define KCTSB_PD_FFT_THRESH (11)
 
-#define PDLGSZ NTL_LG2_PDSZ
-#define PDSZ NTL_PDSZ
+#define PDLGSZ KCTSB_LG2_PDSZ
+#define PDSZ KCTSB_PDSZ
 
 #if (PDSZ == 8)
 typedef PD<8> pd_full;
@@ -284,12 +284,12 @@ while(0)
 
 
 
-static inline NTL_ALWAYS_INLINE void
-pd_fft_layer_inner_loop(double* NTL_RESTRICT xp0, 
-                        double* NTL_RESTRICT xp1,
+static inline KCTSB_ALWAYS_INLINE void
+pd_fft_layer_inner_loop(double* KCTSB_RESTRICT xp0, 
+                        double* KCTSB_RESTRICT xp1,
                         long size, 
-                        const double* NTL_RESTRICT wtab, 
-                        const double* NTL_RESTRICT wqinvtab, 
+                        const double* KCTSB_RESTRICT wtab, 
+                        const double* KCTSB_RESTRICT wqinvtab, 
                         double q)
 
 {
@@ -301,7 +301,7 @@ pd_fft_layer_inner_loop(double* NTL_RESTRICT xp0,
 }
 
 // assumes size >= 8*PDSZ
-static inline NTL_ALWAYS_INLINE void 
+static inline KCTSB_ALWAYS_INLINE void 
 pd_fft_layer(double* xp, long blocks, long size,
 	     const double* wtab, 
 	     const double* wqinvtab, 
@@ -317,10 +317,10 @@ pd_fft_layer(double* xp, long blocks, long size,
 
 
 // size == 8*PDSZ
-static inline NTL_ALWAYS_INLINE void
-pd_fft_layer_size8(double* NTL_RESTRICT xp, long blocks,
-		  const double* NTL_RESTRICT wtab, 
-		  const double* NTL_RESTRICT wqinvtab, 
+static inline KCTSB_ALWAYS_INLINE void
+pd_fft_layer_size8(double* KCTSB_RESTRICT xp, long blocks,
+		  const double* KCTSB_RESTRICT wtab, 
+		  const double* KCTSB_RESTRICT wqinvtab, 
 		  double q)
 {
    do {
@@ -330,10 +330,10 @@ pd_fft_layer_size8(double* NTL_RESTRICT xp, long blocks,
 }
 
 // size == 4*PDSZ
-static inline NTL_ALWAYS_INLINE void
-pd_fft_layer_size4(double* NTL_RESTRICT xp, long blocks,
-		   const double* NTL_RESTRICT wtab, 
-		   const double* NTL_RESTRICT wqinvtab, 
+static inline KCTSB_ALWAYS_INLINE void
+pd_fft_layer_size4(double* KCTSB_RESTRICT xp, long blocks,
+		   const double* KCTSB_RESTRICT wtab, 
+		   const double* KCTSB_RESTRICT wqinvtab, 
 		   double q)
 {
    do {
@@ -349,10 +349,10 @@ pd_fft_layer_size4(double* NTL_RESTRICT xp, long blocks,
 }
 
 // size == 2*PDSZ
-static inline NTL_ALWAYS_INLINE void
-pd_fft_layer_size2(double* NTL_RESTRICT xp, long blocks,
-		   const double* NTL_RESTRICT wtab, 
-		   const double* NTL_RESTRICT wqinvtab, 
+static inline KCTSB_ALWAYS_INLINE void
+pd_fft_layer_size2(double* KCTSB_RESTRICT xp, long blocks,
+		   const double* KCTSB_RESTRICT wtab, 
+		   const double* KCTSB_RESTRICT wqinvtab, 
 		   double q)
 {
    do {
@@ -367,7 +367,7 @@ pd_fft_layer_size2(double* NTL_RESTRICT xp, long blocks,
 }
 
 #if (PDSZ == 8)
-static inline NTL_ALWAYS_INLINE void
+static inline KCTSB_ALWAYS_INLINE void
 pd_fft_layer_size1_one_block(double* x,
                    pd_half w8, pd_half w8qinv,
                    pd_full w4, pd_full w4qinv,
@@ -386,7 +386,7 @@ pd_fft_layer_size1_one_block(double* x,
 
 // size == PDSZ == 8
 // processes last three levels, of size 8, 4, and 2.
-static inline NTL_ALWAYS_INLINE void
+static inline KCTSB_ALWAYS_INLINE void
 pd_fft_layer_size1(double* xp, long blocks,
                    const double **w_pp, const double **wqinv_pp,
 		   double q)
@@ -425,7 +425,7 @@ pd_fft_layer_size1(double* xp, long blocks,
 #else
 // PDSZ == 4
 
-static inline NTL_ALWAYS_INLINE void
+static inline KCTSB_ALWAYS_INLINE void
 pd_fft_layer_size1_one_block(double* x,
                    pd_half w4, pd_half w4qinv,
 		   double q)
@@ -442,7 +442,7 @@ pd_fft_layer_size1_one_block(double* x,
 
 // size == PDSZ == 4
 // processes last two levels, of size 4 and 2.
-static inline NTL_ALWAYS_INLINE void
+static inline KCTSB_ALWAYS_INLINE void
 pd_fft_layer_size1(double* xp, long blocks,
                    const double **w_pp, const double **wqinv_pp,
 		   double q)
@@ -498,7 +498,7 @@ pd_fft_base(double* xp, long lgN, const pd_mod_t& mod)
 
 }
 
-static inline NTL_ALWAYS_INLINE void 
+static inline KCTSB_ALWAYS_INLINE void 
 pd_move(double *x, const long *a)
 {
    pd_full r;
@@ -506,7 +506,7 @@ pd_move(double *x, const long *a)
    store(x, r);
 }
 
-static inline NTL_ALWAYS_INLINE void 
+static inline KCTSB_ALWAYS_INLINE void 
 pd_move(long *x, const double *a)
 {
    pd_full r;
@@ -514,7 +514,7 @@ pd_move(long *x, const double *a)
    storeu(x, r);
 }
 
-static inline NTL_ALWAYS_INLINE void 
+static inline KCTSB_ALWAYS_INLINE void 
 pd_reduce1_move(long *x, const double *a, double q)
 {
    pd_full r;
@@ -523,7 +523,7 @@ pd_reduce1_move(long *x, const double *a, double q)
    storeu(x, r);
 }
 
-static inline NTL_ALWAYS_INLINE void 
+static inline KCTSB_ALWAYS_INLINE void 
 pd_reduce2_move(long *x, const double *a, double q)
 {
    pd_full r;
@@ -533,7 +533,7 @@ pd_reduce2_move(long *x, const double *a, double q)
    storeu(x, r);
 }
 
-static inline NTL_ALWAYS_INLINE void 
+static inline KCTSB_ALWAYS_INLINE void 
 pd_mul_move(long *x, const double *a, pd_full b, double q, pd_full bqinv)
 {
    pd_full r;
@@ -554,7 +554,7 @@ void pd_fft_short(double* xp, long yn, long xn, long lgN,
 
   if (yn == N)
     {
-      if (xn == N && lgN <= NTL_PD_FFT_THRESH)
+      if (xn == N && lgN <= KCTSB_PD_FFT_THRESH)
 	{
 	  // no truncation
 	  pd_fft_base(xp, lgN, mod);
@@ -728,12 +728,12 @@ do  \
 }  \
 while(0)
 
-static inline NTL_ALWAYS_INLINE void
-pd_ifft_layer_inner_loop(double* NTL_RESTRICT xp0, 
-                         double* NTL_RESTRICT xp1,
+static inline KCTSB_ALWAYS_INLINE void
+pd_ifft_layer_inner_loop(double* KCTSB_RESTRICT xp0, 
+                         double* KCTSB_RESTRICT xp1,
                          long size, 
-                         const double* NTL_RESTRICT wtab, 
-                         const double* NTL_RESTRICT wqinvtab, 
+                         const double* KCTSB_RESTRICT wtab, 
+                         const double* KCTSB_RESTRICT wqinvtab, 
                          double q)
 
 {
@@ -745,7 +745,7 @@ pd_ifft_layer_inner_loop(double* NTL_RESTRICT xp0,
 }
 
 // assumes size >= 8*PDSZ
-static inline NTL_ALWAYS_INLINE void 
+static inline KCTSB_ALWAYS_INLINE void 
 pd_ifft_layer(double* xp, long blocks, long size,
 	      const double* wtab, 
 	      const double* wqinvtab, 
@@ -760,10 +760,10 @@ pd_ifft_layer(double* xp, long blocks, long size,
 }
 
 // size == 8*PDSZ
-static inline NTL_ALWAYS_INLINE void
-pd_ifft_layer_size8(double* NTL_RESTRICT xp, long blocks,
-		    const double* NTL_RESTRICT wtab, 
-		    const double* NTL_RESTRICT wqinvtab, 
+static inline KCTSB_ALWAYS_INLINE void
+pd_ifft_layer_size8(double* KCTSB_RESTRICT xp, long blocks,
+		    const double* KCTSB_RESTRICT wtab, 
+		    const double* KCTSB_RESTRICT wqinvtab, 
 		    double q)
 {
    do {
@@ -773,10 +773,10 @@ pd_ifft_layer_size8(double* NTL_RESTRICT xp, long blocks,
 }
 
 // size == 4*PDSZ
-static inline NTL_ALWAYS_INLINE void
-pd_ifft_layer_size4(double* NTL_RESTRICT xp, long blocks,
-		    const double* NTL_RESTRICT wtab, 
-		    const double* NTL_RESTRICT wqinvtab, 
+static inline KCTSB_ALWAYS_INLINE void
+pd_ifft_layer_size4(double* KCTSB_RESTRICT xp, long blocks,
+		    const double* KCTSB_RESTRICT wtab, 
+		    const double* KCTSB_RESTRICT wqinvtab, 
 		    double q)
 {
    do {
@@ -792,10 +792,10 @@ pd_ifft_layer_size4(double* NTL_RESTRICT xp, long blocks,
 }
 
 // size == 2*PDSZ
-static inline NTL_ALWAYS_INLINE void
-pd_ifft_layer_size2(double* NTL_RESTRICT xp, long blocks,
-		    const double* NTL_RESTRICT wtab, 
-		    const double* NTL_RESTRICT wqinvtab, 
+static inline KCTSB_ALWAYS_INLINE void
+pd_ifft_layer_size2(double* KCTSB_RESTRICT xp, long blocks,
+		    const double* KCTSB_RESTRICT wtab, 
+		    const double* KCTSB_RESTRICT wqinvtab, 
 		    double q)
 {
    do {
@@ -810,7 +810,7 @@ pd_ifft_layer_size2(double* NTL_RESTRICT xp, long blocks,
 }
 
 #if (PDSZ == 8)
-static inline NTL_ALWAYS_INLINE void
+static inline KCTSB_ALWAYS_INLINE void
 pd_ifft_layer_size1_one_block(double* x,
                    pd_half w8, pd_half w8qinv,
                    pd_full w4, pd_full w4qinv,
@@ -830,7 +830,7 @@ pd_ifft_layer_size1_one_block(double* x,
 
 // size == PDSZ == 8
 // processes last three levels, of size 8, 4, and 2.
-static inline NTL_ALWAYS_INLINE void
+static inline KCTSB_ALWAYS_INLINE void
 pd_ifft_layer_size1(double* xp, long blocks,
                    const double **w_pp, const double **wqinv_pp,
 		   double q)
@@ -869,7 +869,7 @@ pd_ifft_layer_size1(double* xp, long blocks,
 #else
 // PDSZ == 4
 
-static inline NTL_ALWAYS_INLINE void
+static inline KCTSB_ALWAYS_INLINE void
 pd_ifft_layer_size1_one_block(double* x,
                    pd_half w4, pd_half w4qinv,
 		   double q)
@@ -887,7 +887,7 @@ pd_ifft_layer_size1_one_block(double* x,
 
 // size == PDSZ == 4
 // processes last two levels, of size 4 and 2.
-static inline NTL_ALWAYS_INLINE void
+static inline KCTSB_ALWAYS_INLINE void
 pd_ifft_layer_size1(double* xp, long blocks,
                    const double **w_pp, const double **wqinv_pp,
 		   double q)
@@ -954,7 +954,7 @@ pd_ifft_short1(double* xp, long yn, long lgN, const pd_mod_t& mod)
 {
   long N = 1L << lgN;
 
-  if (yn == N && lgN <= NTL_PD_FFT_THRESH)
+  if (yn == N && lgN <= KCTSB_PD_FFT_THRESH)
     {
       // no truncation
       pd_ifft_base(xp, lgN, mod);
@@ -1013,7 +1013,7 @@ pd_ifft_short2(double* xp, long yn, long lgN, const pd_mod_t& mod)
 {
   long N = 1L << lgN;
 
-  if (yn == N && lgN <= NTL_PD_FFT_THRESH)
+  if (yn == N && lgN <= KCTSB_PD_FFT_THRESH)
     {
       // no truncation
       pd_ifft_base(xp, lgN, mod);
@@ -1124,10 +1124,10 @@ pd_ifft_trunc_impl(long* A, const long* a, double* xp, long lgN, const pd_mod_t&
    }
 }
 
-NTL_END_IMPL
+KCTSB_END_IMPL
 
 #else
 
-void _ntl_pd_FFT_dummy() { }
+void _kctsb_pd_FFT_dummy() { }
 
 #endif

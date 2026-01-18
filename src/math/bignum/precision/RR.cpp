@@ -1,9 +1,9 @@
+﻿
+#include <kctsb/math/bignum/RR.h>
 
-#include <NTL/RR.h>
 
 
-
-NTL_START_IMPL
+KCTSB_START_IMPL
 
 
 // FIXME: I just converted all the static RR's to thread local static RR's.
@@ -13,7 +13,7 @@ NTL_START_IMPL
 // priority right now.
 
 
-NTL_CHEAP_THREAD_LOCAL
+KCTSB_CHEAP_THREAD_LOCAL
 long RR::prec = 150;
 
 void RR::SetPrecision(long p)
@@ -21,13 +21,13 @@ void RR::SetPrecision(long p)
    if (p < 53)
       p = 53;
 
-   if (NTL_OVERFLOW(p, 1, 0))
+   if (KCTSB_OVERFLOW(p, 1, 0))
       ResourceError("RR: precision too high");
 
    prec = p;
 }
 
-NTL_CHEAP_THREAD_LOCAL
+KCTSB_CHEAP_THREAD_LOCAL
 long RR::oprec = 10;
 
 void RR::SetOutputPrecision(long p)
@@ -35,7 +35,7 @@ void RR::SetOutputPrecision(long p)
    if (p < 1)
       p = 1;
 
-   if (NTL_OVERFLOW(p, 1, 0))
+   if (KCTSB_OVERFLOW(p, 1, 0))
       ResourceError("RR: output precision too high");
 
    oprec = p;
@@ -70,10 +70,10 @@ void normalize1(RR& z, const ZZ& y_x, long y_e, long prec, long residual)
    if (!IsOdd(z.x))
       z.e += MakeOdd(z.x);
 
-   if (z.e >= NTL_OVFBND)
+   if (z.e >= KCTSB_OVFBND)
       ResourceError("RR: overflow");
 
-   if (z.e <= -NTL_OVFBND)
+   if (z.e <= -KCTSB_OVFBND)
       ResourceError("RR: underflow");
 }
 
@@ -84,10 +84,10 @@ void normalize(RR& z, const RR& y, long residual = 0)
 
 void MakeRR(RR& z, const ZZ& a,  long e)
 {
-   if (e >= NTL_OVFBND)
+   if (e >= KCTSB_OVFBND)
       ResourceError("MakeRR: e too big");
 
-   if (e <= -NTL_OVFBND)
+   if (e <= -KCTSB_OVFBND)
       ResourceError("MakeRR: e too small");
 
    normalize1(z, a, e, RR::prec, 0);
@@ -97,7 +97,7 @@ void MakeRRPrec(RR& x, const ZZ& a, long e, long p)
 {
    if (p < 1)
       LogicError("MakeRRPrec: bad precsion");
-   if (NTL_OVERFLOW(p, 1, 0))
+   if (KCTSB_OVERFLOW(p, 1, 0))
       ResourceError("MakeRRPrec: precsion too big");
 
    RRPush push;
@@ -107,7 +107,7 @@ void MakeRRPrec(RR& x, const ZZ& a, long e, long p)
 
 void random(RR& z)
 {
-   NTL_TLS_LOCAL(RR, t);
+   KCTSB_TLS_LOCAL(RR, t);
    RandomBits(t.x, RR::prec); 
    t.e = -RR::prec;
    normalize(z, t);
@@ -126,7 +126,7 @@ void ConvPrec(RR& x, const RR& a, long p)
 {
    if (p < 1)
       LogicError("ConvPrec: bad precsion");
-   if (NTL_OVERFLOW(p, 1, 0))
+   if (KCTSB_OVERFLOW(p, 1, 0))
       ResourceError("ConvPrec: precsion too big");
 
    RRPush push;
@@ -176,7 +176,7 @@ void set(RR& z)
 
 void add(RR& z, const RR& a, const RR& b)
 {
-   NTL_TLS_LOCAL(RR, t);
+   KCTSB_TLS_LOCAL(RR, t);
 
    if (IsZero(a.x)) {
       xcopy(z, b);
@@ -219,7 +219,7 @@ void AddPrec(RR& x, const RR& a, const RR& b, long p)
 {
    if (p < 1)
       LogicError("AddPrec: bad precsion");
-   if (NTL_OVERFLOW(p, 1, 0))
+   if (KCTSB_OVERFLOW(p, 1, 0))
       ResourceError("AddPrec: bad precsion");
 
    RRPush push;
@@ -229,7 +229,7 @@ void AddPrec(RR& x, const RR& a, const RR& b, long p)
 
 void sub(RR& z, const RR& a, const RR& b)
 {
-   NTL_TLS_LOCAL(RR, t);
+   KCTSB_TLS_LOCAL(RR, t);
 
    if (IsZero(a.x)) {
       negate(z, b);
@@ -274,7 +274,7 @@ void SubPrec(RR& x, const RR& a, const RR& b, long p)
 {
    if (p < 1)
       LogicError("SubPrec: bad precsion");
-   if (NTL_OVERFLOW(p, 1, 0))
+   if (KCTSB_OVERFLOW(p, 1, 0))
       ResourceError("SubPrec: bad precsion");
 
    RRPush push;
@@ -292,7 +292,7 @@ void NegatePrec(RR& x, const RR& a, long p)
 {
    if (p < 1)
       LogicError("NegatePrec: bad precsion");
-   if (NTL_OVERFLOW(p, 1, 0))
+   if (KCTSB_OVERFLOW(p, 1, 0))
       ResourceError("NegatePrec: bad precsion");
 
    RRPush push;
@@ -310,7 +310,7 @@ void AbsPrec(RR& x, const RR& a, long p)
 {
    if (p < 1)
       LogicError("AbsPrec: bad precsion");
-   if (NTL_OVERFLOW(p, 1, 0))
+   if (KCTSB_OVERFLOW(p, 1, 0))
       ResourceError("AbsPrec: bad precsion");
 
    RRPush push;
@@ -321,7 +321,7 @@ void AbsPrec(RR& x, const RR& a, long p)
 
 void mul(RR& z, const RR& a, const RR& b)
 {
-   NTL_TLS_LOCAL(RR, t);
+   KCTSB_TLS_LOCAL(RR, t);
 
    mul(t.x, a.x, b.x);
    t.e = a.e + b.e;
@@ -332,7 +332,7 @@ void MulPrec(RR& x, const RR& a, const RR& b, long p)
 {
    if (p < 1)
       LogicError("MulPrec: bad precsion");
-   if (NTL_OVERFLOW(p, 1, 0))
+   if (KCTSB_OVERFLOW(p, 1, 0))
       ResourceError("MulPrec: bad precsion");
 
    RRPush push;
@@ -343,7 +343,7 @@ void MulPrec(RR& x, const RR& a, const RR& b, long p)
 
 void sqr(RR& z, const RR& a)
 {
-   NTL_TLS_LOCAL(RR, t);
+   KCTSB_TLS_LOCAL(RR, t);
 
    sqr(t.x, a.x);
    t.e = a.e + a.e;
@@ -354,7 +354,7 @@ void SqrPrec(RR& x, const RR& a, long p)
 {
    if (p < 1)
       LogicError("SqrPrec: bad precsion");
-   if (NTL_OVERFLOW(p, 1, 0))
+   if (KCTSB_OVERFLOW(p, 1, 0))
       ResourceError("SqrPrec: bad precsion");
 
    RRPush push;
@@ -382,10 +382,10 @@ void div(RR& z, const RR& a, const RR& b)
    long k = RR::prec - la + lb + 1;
    if (k < 0) k = 0;
 
-   NTL_TLS_LOCAL(RR, t);
-   NTL_ZZRegister(A);
-   NTL_ZZRegister(B);
-   NTL_ZZRegister(R);
+   KCTSB_TLS_LOCAL(RR, t);
+   KCTSB_ZZRegister(A);
+   KCTSB_ZZRegister(B);
+   KCTSB_ZZRegister(R);
 
    abs(A, a.x);
    LeftShift(A, A, k);
@@ -405,7 +405,7 @@ void DivPrec(RR& x, const RR& a, const RR& b, long p)
 {
    if (p < 1)
       LogicError("DivPrec: bad precsion");
-   if (NTL_OVERFLOW(p, 1, 0))
+   if (KCTSB_OVERFLOW(p, 1, 0))
       ResourceError("DivPrec: bad precsion");
 
    RRPush push;
@@ -453,7 +453,7 @@ void SqrRootPrec(RR& x, const RR& a, long p)
 {
    if (p < 1)
       LogicError("SqrRootPrec: bad precsion");
-   if (NTL_OVERFLOW(p, 1, 0))
+   if (KCTSB_OVERFLOW(p, 1, 0))
       ResourceError("SqrRootPrec: bad precsion");
 
    RRPush push;
@@ -466,7 +466,7 @@ void SqrRootPrec(RR& x, const RR& a, long p)
 
 long compare(const RR& a, const RR& b)
 {
-   NTL_TLS_LOCAL(RR, t);
+   KCTSB_TLS_LOCAL(RR, t);
 
    SubPrec(t, a, b, 1);
    return sign(t);
@@ -482,7 +482,7 @@ long operator==(const RR& a, const RR& b)
 
 void trunc(RR& z, const RR& a)
 {
-   NTL_TLS_LOCAL(RR, t);
+   KCTSB_TLS_LOCAL(RR, t);
 
    if (a.e >= 0) 
       xcopy(z, a);
@@ -497,7 +497,7 @@ void TruncPrec(RR& x, const RR& a, long p)
 {
    if (p < 1)
       LogicError("TruncPrec: bad precsion");
-   if (NTL_OVERFLOW(p, 1, 0))
+   if (KCTSB_OVERFLOW(p, 1, 0))
       ResourceError("TruncPrec: bad precsion");
 
    RRPush push;
@@ -507,7 +507,7 @@ void TruncPrec(RR& x, const RR& a, long p)
 
 void floor(RR& z, const RR& a)
 {
-   NTL_TLS_LOCAL(RR, t);
+   KCTSB_TLS_LOCAL(RR, t);
 
    if (a.e >= 0) 
       xcopy(z, a);
@@ -524,7 +524,7 @@ void FloorPrec(RR& x, const RR& a, long p)
 {
    if (p < 1)
       LogicError("FloorPrec: bad precsion");
-   if (NTL_OVERFLOW(p, 1, 0))
+   if (KCTSB_OVERFLOW(p, 1, 0))
       ResourceError("FloorPrec: bad precsion");
 
    RRPush push;
@@ -534,7 +534,7 @@ void FloorPrec(RR& x, const RR& a, long p)
 
 void ceil(RR& z, const RR& a)
 {
-   NTL_TLS_LOCAL(RR, t);
+   KCTSB_TLS_LOCAL(RR, t);
 
    if (a.e >= 0)
       xcopy(z, a);
@@ -551,7 +551,7 @@ void CeilPrec(RR& x, const RR& a, long p)
 {
    if (p < 1)
       LogicError("CeilPrec: bad precsion");
-   if (NTL_OVERFLOW(p, 1, 0))
+   if (KCTSB_OVERFLOW(p, 1, 0))
       ResourceError("CeilPrec: bad precsion");
 
    RRPush push;
@@ -582,7 +582,7 @@ void round(RR& z, const RR& a)
       return;
    }
 
-   NTL_TLS_LOCAL(RR, t);
+   KCTSB_TLS_LOCAL(RR, t);
    ConvPrec(t, a, len+a.e);
    xcopy(z, t);
 }
@@ -591,7 +591,7 @@ void RoundPrec(RR& x, const RR& a, long p)
 {
    if (p < 1)
       LogicError("RoundPrec: bad precsion");
-   if (NTL_OVERFLOW(p, 1, 0))
+   if (KCTSB_OVERFLOW(p, 1, 0))
       ResourceError("RoundPrec: bad precsion");
 
    RRPush push;
@@ -611,7 +611,7 @@ void ConvPrec(RR& x, const ZZ& a, long p)
 {
    if (p < 1)
       LogicError("ConvPrec: bad precsion");
-   if (NTL_OVERFLOW(p, 1, 0))
+   if (KCTSB_OVERFLOW(p, 1, 0))
       ResourceError("ConvPrec: bad precsion");
 
    RRPush push;
@@ -632,7 +632,7 @@ void conv(RR& z, long a)
       return;
    }
 
-   NTL_ZZRegister(t);
+   KCTSB_ZZRegister(t);
    t = a;
    conv(z, t);
 }
@@ -641,7 +641,7 @@ void ConvPrec(RR& x, long a, long p)
 {
    if (p < 1)
       LogicError("ConvPrec: bad precsion");
-   if (NTL_OVERFLOW(p, 1, 0))
+   if (KCTSB_OVERFLOW(p, 1, 0))
       ResourceError("ConvPrec: bad precsion");
 
    RRPush push;
@@ -661,7 +661,7 @@ void conv(RR& z, unsigned long a)
       return;
    }
 
-   NTL_ZZRegister(t);
+   KCTSB_ZZRegister(t);
    conv(t, a);
    conv(z, t);
 }
@@ -670,7 +670,7 @@ void ConvPrec(RR& x, unsigned long a, long p)
 {
    if (p < 1)
       LogicError("ConvPrec: bad precsion");
-   if (NTL_OVERFLOW(p, 1, 0))
+   if (KCTSB_OVERFLOW(p, 1, 0))
       ResourceError("ConvPrec: bad precsion");
 
    RRPush push;
@@ -696,15 +696,15 @@ void conv(RR& z, double a)
 
    int e;
    double f;
-   NTL_TLS_LOCAL(RR, t);
+   KCTSB_TLS_LOCAL(RR, t);
 
    f = frexp(a, &e);
 
-   f = f * NTL_FDOUBLE_PRECISION;
+   f = f * KCTSB_FDOUBLE_PRECISION;
    f = f * 4;
 
    conv(t.x, f);
-   t.e = e - (NTL_DOUBLE_PRECISION + 1);
+   t.e = e - (KCTSB_DOUBLE_PRECISION + 1);
 
    xcopy(z, t);
 }
@@ -713,7 +713,7 @@ void ConvPrec(RR& x, double a, long p)
 {
    if (p < 1)
       LogicError("ConvPrec: bad precsion");
-   if (NTL_OVERFLOW(p, 1, 0))
+   if (KCTSB_OVERFLOW(p, 1, 0))
       ResourceError("ConvPrec: bad precsion");
 
    RRPush push;
@@ -778,7 +778,7 @@ void RoundToZZ(ZZ& z, const RR& a)
       return;
    }
 
-   NTL_TLS_LOCAL(RR, t);
+   KCTSB_TLS_LOCAL(RR, t);
 
    ConvPrec(t, a, len+a.e);
 
@@ -789,7 +789,7 @@ void RoundToZZ(ZZ& z, const RR& a)
 void conv(long& z, const RR& a)
 {
    ZZ t;
-   if (a.e >= NTL_BITS_PER_LONG)
+   if (a.e >= KCTSB_BITS_PER_LONG)
       z = 0;
    else {
       conv(t, a);
@@ -800,13 +800,13 @@ void conv(long& z, const RR& a)
 void conv(double& z, const RR& aa)
 {
    double x;
-   NTL_TLS_LOCAL(RR, a);
+   KCTSB_TLS_LOCAL(RR, a);
 
-   ConvPrec(a, aa, NTL_DOUBLE_PRECISION);
-   // round to NTL_DOUBLE_PRECISION bits to avoid double overflow
+   ConvPrec(a, aa, KCTSB_DOUBLE_PRECISION);
+   // round to KCTSB_DOUBLE_PRECISION bits to avoid double overflow
 
    conv(x, a.x);
-   z = _ntl_ldexp(x, a.e);
+   z = _kctsb_ldexp(x, a.e);
 }
 
 
@@ -814,7 +814,7 @@ void conv(double& z, const RR& aa)
 
 void add(RR& z, const RR& a, double b)
 {
-   NTL_TLS_LOCAL(RR, B);
+   KCTSB_TLS_LOCAL(RR, B);
    B = b;
    add(z, a, B);
 }
@@ -823,14 +823,14 @@ void add(RR& z, const RR& a, double b)
 
 void sub(RR& z, const RR& a, double b)
 {
-   NTL_TLS_LOCAL(RR, B);
+   KCTSB_TLS_LOCAL(RR, B);
    B = b;
    sub(z, a, B);
 }
 
 void sub(RR& z, double a, const RR& b)
 {
-   NTL_TLS_LOCAL(RR, A);
+   KCTSB_TLS_LOCAL(RR, A);
    A = a;
    sub(z, A, b);
 }
@@ -839,7 +839,7 @@ void sub(RR& z, double a, const RR& b)
 
 void mul(RR& z, const RR& a, double b)
 {
-   NTL_TLS_LOCAL(RR, B);
+   KCTSB_TLS_LOCAL(RR, B);
    B = b;
    mul(z, a, B);
 }
@@ -847,14 +847,14 @@ void mul(RR& z, const RR& a, double b)
 
 void div(RR& z, const RR& a, double b)
 {
-   NTL_TLS_LOCAL(RR, B);
+   KCTSB_TLS_LOCAL(RR, B);
    B = b;
    div(z, a, B);
 }
 
 void div(RR& z, double a, const RR& b)
 {
-   NTL_TLS_LOCAL(RR, A);
+   KCTSB_TLS_LOCAL(RR, A);
    A = a;
    div(z, A, b);
 }
@@ -862,7 +862,7 @@ void div(RR& z, double a, const RR& b)
 
 void inv(RR& z, const RR& a)
 {
-   NTL_TLS_LOCAL_INIT(RR, one, (to_RR(1)));
+   KCTSB_TLS_LOCAL_INIT(RR, one, (to_RR(1)));
    div(z, one, a);
 }
 
@@ -870,7 +870,7 @@ void InvPrec(RR& x, const RR& a, long p)
 {
    if (p < 1)
       LogicError("InvPrec: bad precsion");
-   if (NTL_OVERFLOW(p, 1, 0))
+   if (KCTSB_OVERFLOW(p, 1, 0))
       ResourceError("InvPrec: bad precsion");
 
    RRPush push;
@@ -883,7 +883,7 @@ long compare(const RR& a, double b)
 {
    if (b == 0) return sign(a);
 
-   NTL_TLS_LOCAL(RR, B);
+   KCTSB_TLS_LOCAL(RR, B);
    B = b;
    return compare(a, B);
 }
@@ -894,7 +894,7 @@ long operator==(const RR& a, double b)
    if (b == 0) return IsZero(a);
    if (b == 1) return IsOne(a);
 
-   NTL_TLS_LOCAL(RR, B);
+   KCTSB_TLS_LOCAL(RR, B);
    B = b;
    return a == B;
 }
@@ -942,7 +942,7 @@ istream& operator>>(istream& s, RR& x)
       long sign;
       ZZ a, b;
 
-      if (!s) NTL_INPUT_ERROR(s, "bad RR input");
+      if (!s) KCTSB_INPUT_ERROR(s, "bad RR input");
 
 
       c = s.peek();
@@ -1001,7 +1001,7 @@ istream& operator>>(istream& s, RR& x)
          }
       }
 
-      if (got_dot && !got1 && !got2)  NTL_INPUT_ERROR(s, "bad RR input");
+      if (got_dot && !got1 && !got2)  KCTSB_INPUT_ERROR(s, "bad RR input");
 
       ZZ e;
 
@@ -1029,7 +1029,7 @@ istream& operator>>(istream& s, RR& x)
 
          cval = CharToIntVal(c);
 
-         if (cval < 0 || cval > 9) NTL_INPUT_ERROR(s, "bad RR input");
+         if (cval < 0 || cval > 9) KCTSB_INPUT_ERROR(s, "bad RR input");
 
          e = 0;
          while (cval >= 0 && cval <= 9) {
@@ -1041,7 +1041,7 @@ istream& operator>>(istream& s, RR& x)
          }
       }
 
-      if (!got1 && !got2 && !got_e) NTL_INPUT_ERROR(s, "bad RR input");
+      if (!got1 && !got2 && !got_e) KCTSB_INPUT_ERROR(s, "bad RR input");
 
       RR t1, t2;
 
@@ -1063,7 +1063,7 @@ istream& operator>>(istream& s, RR& x)
          negate(v, v);
 
       if (got_e) {
-         if (e >= NTL_OVFBND) ResourceError("RR input overflow");
+         if (e >= KCTSB_OVFBND) ResourceError("RR input overflow");
          long E;
          conv(E, e);
          if (e_sign < 0) E = -E;
@@ -1081,7 +1081,7 @@ istream& InputPrec(RR& x, istream& s, long p)
 {
    if (p < 1)
       LogicError("InputPrec: bad precsion");
-   if (NTL_OVERFLOW(p, 1, 0))
+   if (KCTSB_OVERFLOW(p, 1, 0))
       ResourceError("InputPrec: bad precsion");
 
    RRPush push;
@@ -1095,18 +1095,18 @@ void conv(RR& z, const xdouble& a)
 {
    conv(z, a.mantissa());
 
-   if (a.exponent() >  ((2*NTL_OVFBND)/(2*NTL_XD_HBOUND_LOG))) 
+   if (a.exponent() >  ((2*KCTSB_OVFBND)/(2*KCTSB_XD_HBOUND_LOG))) 
       ResourceError("RR: overlow");
 
-   if (a.exponent() < -((2*NTL_OVFBND)/(2*NTL_XD_HBOUND_LOG))) 
+   if (a.exponent() < -((2*KCTSB_OVFBND)/(2*KCTSB_XD_HBOUND_LOG))) 
       ResourceError("RR: underflow");
 
-   z.e += a.exponent()*(2*NTL_XD_HBOUND_LOG);
+   z.e += a.exponent()*(2*KCTSB_XD_HBOUND_LOG);
 
-   if (z.e >= NTL_OVFBND)
+   if (z.e >= KCTSB_OVFBND)
       ResourceError("RR: overflow");
 
-   if (z.e <= -NTL_OVFBND)
+   if (z.e <= -KCTSB_OVFBND)
       ResourceError("RR: underflow");
 }
 
@@ -1114,7 +1114,7 @@ void ConvPrec(RR& x, const xdouble& a, long p)
 {
    if (p < 1)
       LogicError("ConvPrec: bad precsion");
-   if (NTL_OVERFLOW(p, 1, 0))
+   if (KCTSB_OVERFLOW(p, 1, 0))
       ResourceError("ConvPrec: bad precsion");
 
    RRPush push;
@@ -1136,10 +1136,10 @@ void conv(xdouble& z, const RR& a)
       
 void power2(RR& z, long e)
 {
-   if (e >= NTL_OVFBND)
+   if (e >= KCTSB_OVFBND)
       ResourceError("RR: overflow");
 
-   if (e <= -NTL_OVFBND)
+   if (e <= -KCTSB_OVFBND)
       ResourceError("RR: underflow");
 
    set(z.x); 
@@ -1148,12 +1148,12 @@ void power2(RR& z, long e)
 
 void conv(RR& z, const quad_float& a)
 {
-   NTL_TLS_LOCAL(RR, hi);
-   NTL_TLS_LOCAL(RR, lo);
-   NTL_TLS_LOCAL(RR, res);
+   KCTSB_TLS_LOCAL(RR, hi);
+   KCTSB_TLS_LOCAL(RR, lo);
+   KCTSB_TLS_LOCAL(RR, res);
 
-   ConvPrec(hi, a.hi, NTL_DOUBLE_PRECISION);
-   ConvPrec(lo, a.lo, NTL_DOUBLE_PRECISION);
+   ConvPrec(hi, a.hi, KCTSB_DOUBLE_PRECISION);
+   ConvPrec(lo, a.lo, KCTSB_DOUBLE_PRECISION);
 
    add(res, hi, lo);
 
@@ -1164,7 +1164,7 @@ void ConvPrec(RR& x, const quad_float& a, long p)
 {
    if (p < 1)
       LogicError("ConvPrec: bad precsion");
-   if (NTL_OVERFLOW(p, 1, 0))
+   if (KCTSB_OVERFLOW(p, 1, 0))
       ResourceError("ConvPrec: bad precsion");
 
    RRPush push;
@@ -1175,11 +1175,11 @@ void ConvPrec(RR& x, const quad_float& a, long p)
 
 void conv(quad_float& z, const RR& a)
 {
-   NTL_TLS_LOCAL(RR, a_hi);
-   NTL_TLS_LOCAL(RR, a_lo);
+   KCTSB_TLS_LOCAL(RR, a_hi);
+   KCTSB_TLS_LOCAL(RR, a_lo);
 
-   ConvPrec(a_hi, a, NTL_DOUBLE_PRECISION);  // high order bits
-   SubPrec(a_lo, a, a_hi, NTL_DOUBLE_PRECISION);  // low order bits
+   ConvPrec(a_hi, a, KCTSB_DOUBLE_PRECISION);  // high order bits
+   SubPrec(a_lo, a, a_hi, KCTSB_DOUBLE_PRECISION);  // low order bits
 
    z = to_quad_float(a_hi.x)*power2_quad_float(a_hi.e) +
        to_quad_float(a_lo.x)*power2_quad_float(a_lo.e);
@@ -1190,7 +1190,7 @@ void ConvPrec(RR& x, const char *s, long p)
 {
    if (p < 1)
       LogicError("ConvPrec: bad precsion");
-   if (NTL_OVERFLOW(p, 1, 0))
+   if (KCTSB_OVERFLOW(p, 1, 0))
       ResourceError("ConvPrec: bad precsion");
 
    RRPush push;
@@ -1225,9 +1225,9 @@ void ReallyComputeE(RR& res)
 
 void ComputeE(RR& res)
 {
-   static NTL_CHEAP_THREAD_LOCAL long prec = 0;
+   static KCTSB_CHEAP_THREAD_LOCAL long prec = 0;
 
-   NTL_TLS_LOCAL(RR, e);
+   KCTSB_TLS_LOCAL(RR, e);
 
    RRPush push;
    long p = RR::precision();
@@ -1245,7 +1245,7 @@ void ComputeE(RR& res)
 
 void exp(RR& res, const RR& x)
 {
-   if (x >= NTL_OVFBND || x <= -NTL_OVFBND)
+   if (x >= KCTSB_OVFBND || x <= -KCTSB_OVFBND)
       ResourceError("RR: overflow");
 
    RRPush push;
@@ -1256,7 +1256,7 @@ void exp(RR& res, const RR& x)
 
 
    RR f, nn;
-   RR::SetPrecision(NTL_BITS_PER_LONG);
+   RR::SetPrecision(KCTSB_BITS_PER_LONG);
    round(nn, x);
    RR::SetPrecision(p + 10);
    sub(f, x, nn);
@@ -1330,9 +1330,9 @@ void ReallyComputeLn2(RR& res)
 
 void ComputeLn2(RR& res)
 {
-   static NTL_CHEAP_THREAD_LOCAL long prec = 0;
+   static KCTSB_CHEAP_THREAD_LOCAL long prec = 0;
 
-   NTL_TLS_LOCAL(RR, ln2);
+   KCTSB_TLS_LOCAL(RR, ln2);
 
    RRPush push;
    long p = RR::precision();
@@ -1416,9 +1416,9 @@ void log(RR& res, const RR& x)
 
 void ComputeLn10(RR& res)
 {
-   static NTL_CHEAP_THREAD_LOCAL long prec = 0;
+   static KCTSB_CHEAP_THREAD_LOCAL long prec = 0;
 
-   NTL_TLS_LOCAL(RR, ln10);
+   KCTSB_TLS_LOCAL(RR, ln10);
 
    RRPush push;
    long p = RR::precision();
@@ -1563,7 +1563,7 @@ void pow(RR& res, const RR& x, const RR& y)
    RRPush push;
    long p = RR::precision();
 
-   // calculate working precison...one could use p + NTL_BITS_PER_LONG + 10,
+   // calculate working precison...one could use p + KCTSB_BITS_PER_LONG + 10,
    // for example, but we want the behaviour to be machine independent.
    // so we calculate instead a rough approximation to log |y log(x)|
 
@@ -1580,7 +1580,7 @@ void pow(RR& res, const RR& x, const RR& y)
 
    k += Lg2(y);
 
-   if (k > NTL_BITS_PER_LONG+10) ResourceError("RR: overflow");
+   if (k > KCTSB_BITS_PER_LONG+10) ResourceError("RR: overflow");
 
    if (k < 0) k = 0;
 
@@ -1653,9 +1653,9 @@ void ReallyComputePi(RR& res)
 
 void ComputePi(RR& res)
 {
-   static NTL_CHEAP_THREAD_LOCAL long prec = 0;
+   static KCTSB_CHEAP_THREAD_LOCAL long prec = 0;
 
-   NTL_TLS_LOCAL(RR, pi);
+   KCTSB_TLS_LOCAL(RR, pi);
 
    RRPush push;
    long p = RR::precision();
@@ -1976,4 +1976,4 @@ ostream& operator<<(ostream& s, const RR& a)
 }
 
 
-NTL_END_IMPL
+KCTSB_END_IMPL

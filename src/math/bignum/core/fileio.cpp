@@ -1,6 +1,6 @@
-
-#include <NTL/fileio.h>
-#include <NTL/thread.h>
+﻿
+#include <kctsb/math/bignum/fileio.h>
+#include <kctsb/math/bignum/thread.h>
 
 #include <string>
 #include <sstream>
@@ -9,7 +9,7 @@
 
 
 
-NTL_START_IMPL
+KCTSB_START_IMPL
 
 
 void OpenWrite(ofstream& s, const char *name)
@@ -81,10 +81,10 @@ FileList::~FileList()
 
 const char *FileName(const char* stem, long d)
 {
-   NTL_TLS_LOCAL(std::string, sbuf);
+   KCTSB_TLS_LOCAL(std::string, sbuf);
 
    std::stringstream ss;
-   ss << "tmp-ntl-" << stem;
+   ss << "tmp-bignum-" << stem;
    ss << "-" << std::setfill('0') << std::setw(5) << d << "-";
    sbuf = ss.str() + UniqueID();
    return sbuf.c_str();
@@ -111,12 +111,12 @@ const std::string& UniqueID()
    static AtomicCounter cnt; // a GLOBAL counter
    
 
-   NTL_TLS_LOCAL(std::string, ID);
+   KCTSB_TLS_LOCAL(std::string, ID);
 
-   NTL_TLS_LOCAL_INIT(bool, initialized, (false));
-   NTL_TLS_LOCAL_INIT(unsigned long, local_cnt, (cnt.inc()));
-   NTL_TLS_LOCAL_INIT(unsigned long, local_time, (time(0)));
-   NTL_TLS_LOCAL_INIT(unsigned long, local_clock, (clock()));
+   KCTSB_TLS_LOCAL_INIT(bool, initialized, (false));
+   KCTSB_TLS_LOCAL_INIT(unsigned long, local_cnt, (cnt.inc()));
+   KCTSB_TLS_LOCAL_INIT(unsigned long, local_time, (time(0)));
+   KCTSB_TLS_LOCAL_INIT(unsigned long, local_clock, (clock()));
 
    if (!initialized) {
       std::stringstream ss;
@@ -130,4 +130,4 @@ const std::string& UniqueID()
 }
 
 
-NTL_END_IMPL
+KCTSB_END_IMPL

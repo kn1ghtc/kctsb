@@ -1,7 +1,7 @@
+﻿
+#include <kctsb/math/bignum/vec_lzz_pE.h>
 
-#include <NTL/vec_lzz_pE.h>
-
-NTL_START_IMPL
+KCTSB_START_IMPL
 
 void InnerProduct(zz_pE& x, const vec_zz_pE& a, const vec_zz_pE& b)
 {
@@ -22,7 +22,7 @@ void InnerProduct(zz_pE& x, const vec_zz_pE& a, const vec_zz_pE& b,
                   long offset)
 {
    if (offset < 0) LogicError("InnerProduct: negative offset");
-   if (NTL_OVERFLOW(offset, 1, 0)) ResourceError("InnerProduct: offset too big");
+   if (KCTSB_OVERFLOW(offset, 1, 0)) ResourceError("InnerProduct: offset too big");
 
    long n = min(a.length(), b.length()+offset);
    long i;
@@ -49,7 +49,7 @@ void mul(vec_zz_pE& x, const vec_zz_pE& a, const zz_pE& b_in)
 
 void mul(vec_zz_pE& x, const vec_zz_pE& a, const zz_p& b_in)
 {
-   NTL_zz_pRegister(b);
+   KCTSB_zz_pRegister(b);
    b = b_in;
    long n = a.length();
    x.SetLength(n);
@@ -60,7 +60,7 @@ void mul(vec_zz_pE& x, const vec_zz_pE& a, const zz_p& b_in)
 
 void mul(vec_zz_pE& x, const vec_zz_pE& a, long b_in)
 {
-   NTL_zz_pRegister(b);
+   KCTSB_zz_pRegister(b);
    b = b_in;
    long n = a.length();
    x.SetLength(n);
@@ -129,14 +129,14 @@ vec_zz_pE operator+(const vec_zz_pE& a, const vec_zz_pE& b)
 {
    vec_zz_pE res;
    add(res, a, b);
-   NTL_OPT_RETURN(vec_zz_pE, res);
+   KCTSB_OPT_RETURN(vec_zz_pE, res);
 }
 
 vec_zz_pE operator-(const vec_zz_pE& a, const vec_zz_pE& b)
 {
    vec_zz_pE res;
    sub(res, a, b);
-   NTL_OPT_RETURN(vec_zz_pE, res);
+   KCTSB_OPT_RETURN(vec_zz_pE, res);
 }
 
 
@@ -144,7 +144,7 @@ vec_zz_pE operator-(const vec_zz_pE& a)
 {
    vec_zz_pE res;
    negate(res, a);
-   NTL_OPT_RETURN(vec_zz_pE, res);
+   KCTSB_OPT_RETURN(vec_zz_pE, res);
 }
 
 
@@ -158,7 +158,7 @@ zz_pE operator*(const vec_zz_pE& a, const vec_zz_pE& b)
 void VectorCopy(vec_zz_pE& x, const vec_zz_pE& a, long n)
 {
    if (n < 0) LogicError("VectorCopy: negative length");
-   if (NTL_OVERFLOW(n, 1, 0)) ResourceError("overflow in VectorCopy");
+   if (KCTSB_OVERFLOW(n, 1, 0)) ResourceError("overflow in VectorCopy");
 
    long m = min(n, a.length());
 
@@ -180,4 +180,4 @@ void random(vec_zz_pE& x, long n)
    for (long i = 0; i < n; i++) random(x[i]);
 }
 
-NTL_END_IMPL
+KCTSB_END_IMPL

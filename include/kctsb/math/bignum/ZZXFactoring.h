@@ -1,11 +1,11 @@
-#ifndef NTL_ZZXFactoring__H
-#define NTL_ZZXFactoring__H
+﻿#ifndef KCTSB_ZZXFactoring__H
+#define KCTSB_ZZXFactoring__H
 
 
-#include <NTL/ZZX.h>
-#include <NTL/pair_ZZX_long.h>
+#include <kctsb/math/bignum/ZZX.h>
+#include <kctsb/math/bignum/pair_ZZX_long.h>
 
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 void mul(ZZX& x, const vec_pair_ZZX_long& a);
 inline ZZX mul(const vec_pair_ZZX_long& v)
@@ -41,11 +41,11 @@ inline vec_ZZX SFFactor(const ZZX& f, long verbose=0, long bnd=0)
 // f divides a polynomial h whose Euclidean norm
 // is bounded by 2^{bnd} in absolute value.
 
-extern NTL_CHEAP_THREAD_LOCAL long ZZXFac_MaxPrune;
-extern NTL_CHEAP_THREAD_LOCAL long ZZXFac_InitNumPrimes;
-extern NTL_CHEAP_THREAD_LOCAL long ZZXFac_MaxNumPrimes;
-extern NTL_CHEAP_THREAD_LOCAL long ZZXFac_PowerHack;
-extern NTL_CHEAP_THREAD_LOCAL long ZZXFac_van_Hoeij;
+extern KCTSB_CHEAP_THREAD_LOCAL long ZZXFac_MaxPrune;
+extern KCTSB_CHEAP_THREAD_LOCAL long ZZXFac_InitNumPrimes;
+extern KCTSB_CHEAP_THREAD_LOCAL long ZZXFac_MaxNumPrimes;
+extern KCTSB_CHEAP_THREAD_LOCAL long ZZXFac_PowerHack;
+extern KCTSB_CHEAP_THREAD_LOCAL long ZZXFac_van_Hoeij;
 
 
 void factor(ZZ& c,
@@ -60,6 +60,6 @@ void factor(ZZ& c,
 
 // bnd is as in SFFactor.
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 #endif

@@ -1,16 +1,16 @@
+﻿
+
+#ifndef KCTSB_SmartPtr__H
+#define KCTSB_SmartPtr__H
+
+#include <kctsb/math/bignum/tools.h>
+#include <kctsb/math/bignum/thread.h>
+
+// NOTE: <bignum/tools.h> includes <utility>, which provides std::forward
 
 
-#ifndef NTL_SmartPtr__H
-#define NTL_SmartPtr__H
 
-#include <NTL/tools.h>
-#include <NTL/thread.h>
-
-// NOTE: <NTL/tools.h> includes <utility>, which provides std::forward
-
-
-
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 
 
@@ -89,14 +89,14 @@ MakeRaw:
 
 One can also write T *p = MakeRaw<T>(x1, ..., xn) to create a 
 raw pointer.  This is the same as writing T *p = new T(x1, ..., xn),
-except that if the construction fails, NTL's error routine will be called
+except that if the construction fails, bignum's error routine will be called
 (as opposed to an exception being thrown).  The same restrictions and
 limitations that apply to MakeSmart appy to MakeRaw.
 
 MakeRawArray:
 
 Another utility routine: one can write T *p = MakeRawArray<T>(n)
-to make a plain array of n T's.  NTL's error routine will be
+to make a plain array of n T's.  bignum's error routine will be
 called if the allocation fails.
 
 Dynamic casting:
@@ -114,7 +114,7 @@ I've also supplied a dynamic cast operation for smart pointers.
 
 Implementation notes:
 
-If NTL is compiled with the NTL_THREADS option, then the reference counting
+If bignum is compiled with the KCTSB_THREADS option, then the reference counting
 should be thread safe.
 
 The SmartPtrControl class heirarchy is used to make sure the right destructor
@@ -227,7 +227,7 @@ public:
    explicit SmartPtr(Y* p) : dp(p), cp(0) 
    {
       if (p) {
-         cp = NTL_NEW_OP SmartPtrControlDerived<Y>(p);
+         cp = KCTSB_NEW_OP SmartPtrControlDerived<Y>(p);
          if (!cp) {
             delete p;  // this could theoretically throw an exception
             MemoryError();
@@ -240,7 +240,7 @@ public:
    SmartPtr(Y* p, ChoosePolicy<P>) : dp(p), cp(0) 
    {
       if (p) {
-         cp = NTL_NEW_OP SmartPtrControlDerived<Y,P>(p);
+         cp = KCTSB_NEW_OP SmartPtrControlDerived<Y,P>(p);
          if (!cp) {
             delete p;  // this could theoretically throw an exception
             MemoryError();
@@ -291,7 +291,7 @@ public:
       return *this;
    }
 
-#if (NTL_CXX_STANDARD >= 2011 && !defined(NTL_DISABLE_MOVE))
+#if (KCTSB_CXX_STANDARD >= 2011 && !defined(KCTSB_DISABLE_MOVE))
 
    SmartPtr(SmartPtr&& other) noexcept : dp(other.dp), cp(other.cp) 
    {
@@ -333,8 +333,8 @@ public:
 
    void swap(SmartPtr& other)
    {
-      _ntl_swap(dp, other.dp);
-      _ntl_swap(cp, other.cp);
+      _kctsb_swap(dp, other.dp);
+      _kctsb_swap(cp, other.cp);
    }
 
 
@@ -360,7 +360,7 @@ public:
 };
 
 
-template <class T> NTL_DECLARE_RELOCATABLE((SmartPtr<T>*))
+template <class T> KCTSB_DECLARE_RELOCATABLE((SmartPtr<T>*))
 
 
 // free swap function
@@ -429,7 +429,7 @@ standard, but this seems reasonable, and it seems to work.
 Like I said, it is experimental, and I would appreciate feedback
 from C++ gurus.
 
-Note that NTL does not use this feature, but I do have applications where this
+Note that bignum does not use this feature, but I do have applications where this
 is convenient.
 
 
@@ -451,7 +451,7 @@ public:
    CloneablePtrControlDerived(const T& x) : d(x) { }
    CloneablePtrControl *clone() const 
    {
-      CloneablePtrControl *q = NTL_NEW_OP CloneablePtrControlDerived<T>(d);
+      CloneablePtrControl *q = KCTSB_NEW_OP CloneablePtrControlDerived<T>(d);
       if (!q) MemoryError();
       return q;
    }
@@ -534,7 +534,7 @@ public:
       return *this;
    }
 
-#if (NTL_CXX_STANDARD >= 2011 && !defined(NTL_DISABLE_MOVE))
+#if (KCTSB_CXX_STANDARD >= 2011 && !defined(KCTSB_DISABLE_MOVE))
 
    CloneablePtr(CloneablePtr&& other) noexcept : dp(other.dp), cp(other.cp) 
    {
@@ -574,8 +574,8 @@ public:
 
    void swap(CloneablePtr& other)
    {
-      _ntl_swap(dp, other.dp);
-      _ntl_swap(cp, other.cp);
+      _kctsb_swap(dp, other.dp);
+      _kctsb_swap(cp, other.cp);
    }
 
    operator fake_null_type() const 
@@ -613,7 +613,7 @@ public:
 
 };
 
-template<class T> NTL_DECLARE_RELOCATABLE((CloneablePtr<T>*))
+template<class T> KCTSB_DECLARE_RELOCATABLE((CloneablePtr<T>*))
 
 
 // free swap function
@@ -649,9 +649,9 @@ bool operator!=(const CloneablePtr<X>& a, const CloneablePtr<Y>& b)
 // Implementation of MakeSmart and friends
 
 
-#if (NTL_CXX_STANDARD >= 2011)
+#if (KCTSB_CXX_STANDARD >= 2011)
 
-// Declared for backward compatibility with pre-C++11 NTL clients
+// Declared for backward compatibility with pre-C++11 bignum clients
 template<class T> 
 T& Fwd(T& x) { return x; }
 
@@ -671,7 +671,7 @@ template<class T, class... Args>
 SmartPtr<T> MakeSmart(Args&&... args)
 {
    MakeSmartAux<T> *cp = 
-      NTL_NEW_OP MakeSmartAux<T>( std::forward<Args>(args)...  ); 
+      KCTSB_NEW_OP MakeSmartAux<T>( std::forward<Args>(args)...  ); 
    if (!cp) MemoryError();
    return SmartPtr<T>(SmartPtrLoopHole(), &cp->d, cp);
 }
@@ -685,19 +685,19 @@ public:
    MakeCloneableAux(Args&&... args) : d(std::forward<Args>(args)...) { }
    CloneablePtrControl *clone() const \
    {
-      CloneablePtrControl *q = NTL_NEW_OP CloneablePtrControlDerived<T>(d);
+      CloneablePtrControl *q = KCTSB_NEW_OP CloneablePtrControlDerived<T>(d);
       if (!q) MemoryError();
       return q;
    }
    void *get() { return &d; }
 };
 
-#ifdef NTL_TEST_EXCEPTIONS
+#ifdef KCTSB_TEST_EXCEPTIONS
 
 template<class T, class... Args>
 T* MakeRaw(Args&&... args) { 
    T *p = 0;
-   if (--exception_counter != 0) p = NTL_NEW_OP T(std::forward<Args>(args)...); 
+   if (--exception_counter != 0) p = KCTSB_NEW_OP T(std::forward<Args>(args)...); 
    if (!p) MemoryError();
    return p;
 };
@@ -707,7 +707,7 @@ T* MakeRaw(Args&&... args) {
 
 template<class T, class... Args>
 T* MakeRaw(Args&&... args) { 
-   T *p = NTL_NEW_OP T(std::forward<Args>(args)...); 
+   T *p = KCTSB_NEW_OP T(std::forward<Args>(args)...); 
    if (!p) MemoryError();
    return p;
 }
@@ -719,7 +719,7 @@ template<class T, class... Args>
 CloneablePtr<T> MakeCloneable(Args&&... args)
 {
    MakeCloneableAux<T> *cp = 
-      NTL_NEW_OP MakeCloneableAux<T>( std::forward<Args>(args)...  ); 
+      KCTSB_NEW_OP MakeCloneableAux<T>( std::forward<Args>(args)...  ); 
    if (!cp) MemoryError();
    return CloneablePtr<T>(CloneablePtrLoopHole(), &cp->d, cp);
 }
@@ -769,63 +769,63 @@ const T& UnwrapReference(const T& x) { return x; }
 
 // Some useful macros for simulating variadic templates
 
-#define NTL_REPEATER_0(m) 
-#define NTL_REPEATER_1(m)  m(1)
-#define NTL_REPEATER_2(m)  m(1),m(2)
-#define NTL_REPEATER_3(m)  m(1),m(2),m(3)
-#define NTL_REPEATER_4(m)  m(1),m(2),m(3),m(4)
-#define NTL_REPEATER_5(m)  m(1),m(2),m(3),m(4),m(5)
-#define NTL_REPEATER_6(m)  m(1),m(2),m(3),m(4),m(5),m(6)
-#define NTL_REPEATER_7(m)  m(1),m(2),m(3),m(4),m(5),m(6),m(7)
-#define NTL_REPEATER_8(m)  m(1),m(2),m(3),m(4),m(5),m(6),m(7),m(8)
-#define NTL_REPEATER_9(m)  m(1),m(2),m(3),m(4),m(5),m(6),m(7),m(8),m(9)
+#define KCTSB_REPEATER_0(m) 
+#define KCTSB_REPEATER_1(m)  m(1)
+#define KCTSB_REPEATER_2(m)  m(1),m(2)
+#define KCTSB_REPEATER_3(m)  m(1),m(2),m(3)
+#define KCTSB_REPEATER_4(m)  m(1),m(2),m(3),m(4)
+#define KCTSB_REPEATER_5(m)  m(1),m(2),m(3),m(4),m(5)
+#define KCTSB_REPEATER_6(m)  m(1),m(2),m(3),m(4),m(5),m(6)
+#define KCTSB_REPEATER_7(m)  m(1),m(2),m(3),m(4),m(5),m(6),m(7)
+#define KCTSB_REPEATER_8(m)  m(1),m(2),m(3),m(4),m(5),m(6),m(7),m(8)
+#define KCTSB_REPEATER_9(m)  m(1),m(2),m(3),m(4),m(5),m(6),m(7),m(8),m(9)
 
-#define NTL_SEPARATOR_0 
-#define NTL_SEPARATOR_1  ,
-#define NTL_SEPARATOR_2  ,
-#define NTL_SEPARATOR_3  ,
-#define NTL_SEPARATOR_4  ,
-#define NTL_SEPARATOR_5  ,
-#define NTL_SEPARATOR_6  ,
-#define NTL_SEPARATOR_7  ,
-#define NTL_SEPARATOR_8  ,
-#define NTL_SEPARATOR_9  ,
+#define KCTSB_SEPARATOR_0 
+#define KCTSB_SEPARATOR_1  ,
+#define KCTSB_SEPARATOR_2  ,
+#define KCTSB_SEPARATOR_3  ,
+#define KCTSB_SEPARATOR_4  ,
+#define KCTSB_SEPARATOR_5  ,
+#define KCTSB_SEPARATOR_6  ,
+#define KCTSB_SEPARATOR_7  ,
+#define KCTSB_SEPARATOR_8  ,
+#define KCTSB_SEPARATOR_9  ,
 
-#define NTL_KEEP_NONZERO_0(x) 
-#define NTL_KEEP_NONZERO_1(x)  x
-#define NTL_KEEP_NONZERO_2(x)  x
-#define NTL_KEEP_NONZERO_3(x)  x
-#define NTL_KEEP_NONZERO_4(x)  x
-#define NTL_KEEP_NONZERO_5(x)  x
-#define NTL_KEEP_NONZERO_6(x)  x
-#define NTL_KEEP_NONZERO_7(x)  x
-#define NTL_KEEP_NONZERO_8(x)  x
-#define NTL_KEEP_NONZERO_9(x)  x
+#define KCTSB_KEEP_NONZERO_0(x) 
+#define KCTSB_KEEP_NONZERO_1(x)  x
+#define KCTSB_KEEP_NONZERO_2(x)  x
+#define KCTSB_KEEP_NONZERO_3(x)  x
+#define KCTSB_KEEP_NONZERO_4(x)  x
+#define KCTSB_KEEP_NONZERO_5(x)  x
+#define KCTSB_KEEP_NONZERO_6(x)  x
+#define KCTSB_KEEP_NONZERO_7(x)  x
+#define KCTSB_KEEP_NONZERO_8(x)  x
+#define KCTSB_KEEP_NONZERO_9(x)  x
 
-#define NTL_FOREACH_ARG(m) \
+#define KCTSB_FOREACH_ARG(m) \
    m(0) m(1) m(2) m(3) m(4) m(5) m(6) m(7) m(8) m(9)
 
-#define NTL_FOREACH_ARG1(m) \
+#define KCTSB_FOREACH_ARG1(m) \
    m(1) m(2) m(3) m(4) m(5) m(6) m(7) m(8) m(9)
 
 // ********************************
 
-#define NTL_ARGTYPE(n) class X##n
-#define NTL_ARGTYPES(n) NTL_REPEATER_##n(NTL_ARGTYPE)
-#define NTL_MORE_ARGTYPES(n) NTL_SEPARATOR_##n NTL_REPEATER_##n(NTL_ARGTYPE)
+#define KCTSB_ARGTYPE(n) class X##n
+#define KCTSB_ARGTYPES(n) KCTSB_REPEATER_##n(KCTSB_ARGTYPE)
+#define KCTSB_MORE_ARGTYPES(n) KCTSB_SEPARATOR_##n KCTSB_REPEATER_##n(KCTSB_ARGTYPE)
 
-#define NTL_VARARG(n) const X##n & x##n
-#define NTL_VARARGS(n) NTL_REPEATER_##n(NTL_VARARG)
+#define KCTSB_VARARG(n) const X##n & x##n
+#define KCTSB_VARARGS(n) KCTSB_REPEATER_##n(KCTSB_VARARG)
 
-#define NTL_PASSTYPE(n) X ## n
-#define NTL_PASSTYPES(n) NTL_REPEATER_##n(NTL_PASSTYPE)
-#define NTL_MORE_PASSTYPES(n) NTL_SEPARATOR_##n NTL_REPEATER_##n(NTL_PASSTYPE)
+#define KCTSB_PASSTYPE(n) X ## n
+#define KCTSB_PASSTYPES(n) KCTSB_REPEATER_##n(KCTSB_PASSTYPE)
+#define KCTSB_MORE_PASSTYPES(n) KCTSB_SEPARATOR_##n KCTSB_REPEATER_##n(KCTSB_PASSTYPE)
 
-#define NTL_PASSARG(n) x ## n
-#define NTL_PASSARGS(n) NTL_REPEATER_##n(NTL_PASSARG)
+#define KCTSB_PASSARG(n) x ## n
+#define KCTSB_PASSARGS(n) KCTSB_REPEATER_##n(KCTSB_PASSARG)
 
-#define NTL_UNWRAPARG(n) UnwrapReference(x ## n)
-#define NTL_UNWRAPARGS(n) NTL_REPEATER_##n(NTL_UNWRAPARG)
+#define KCTSB_UNWRAPARG(n) UnwrapReference(x ## n)
+#define KCTSB_UNWRAPARGS(n) KCTSB_REPEATER_##n(KCTSB_UNWRAPARG)
 
 
 
@@ -834,75 +834,75 @@ const T& UnwrapReference(const T& x) { return x; }
 
 #if 0
 
-#define NTL_DEFINE_MAKESMART(n) \
-template<class T  NTL_MORE_ARGTYPES(n)> \
+#define KCTSB_DEFINE_MAKESMART(n) \
+template<class T  KCTSB_MORE_ARGTYPES(n)> \
 class MakeSmartAux##n : public SmartPtrControl {\
 public: T d; \
-MakeSmartAux##n( NTL_VARARGS(n) ) : \
-d( NTL_UNWRAPARGS(n) ) { }\
+MakeSmartAux##n( KCTSB_VARARGS(n) ) : \
+d( KCTSB_UNWRAPARGS(n) ) { }\
 };\
 \
-template<class T NTL_MORE_ARGTYPES(n)>\
-SmartPtr<T> MakeSmart( NTL_VARARGS(n) ) { \
-   MakeSmartAux##n<T NTL_MORE_PASSTYPES(n) > *cp = \
-   NTL_NEW_OP MakeSmartAux##n<T NTL_MORE_PASSTYPES(n)>( NTL_PASSARGS(n) ); \
+template<class T KCTSB_MORE_ARGTYPES(n)>\
+SmartPtr<T> MakeSmart( KCTSB_VARARGS(n) ) { \
+   MakeSmartAux##n<T KCTSB_MORE_PASSTYPES(n) > *cp = \
+   KCTSB_NEW_OP MakeSmartAux##n<T KCTSB_MORE_PASSTYPES(n)>( KCTSB_PASSARGS(n) ); \
    if (!cp) MemoryError();\
    return SmartPtr<T>(SmartPtrLoopHole(), &cp->d, cp);\
 };\
 
 
-NTL_FOREACH_ARG(NTL_DEFINE_MAKESMART)
+KCTSB_FOREACH_ARG(KCTSB_DEFINE_MAKESMART)
 
 #elif 1
 
 // alternative implementation
 
-#define NTL_DEFINE_SMART_CONSTRUCTOR(n) \
-NTL_KEEP_NONZERO_##n(template< NTL_ARGTYPES(n) >) \
-MakeSmartAux( NTL_VARARGS(n) ) : \
-d( NTL_UNWRAPARGS(n) ) { }\
+#define KCTSB_DEFINE_SMART_CONSTRUCTOR(n) \
+KCTSB_KEEP_NONZERO_##n(template< KCTSB_ARGTYPES(n) >) \
+MakeSmartAux( KCTSB_VARARGS(n) ) : \
+d( KCTSB_UNWRAPARGS(n) ) { }\
 
 
 template<class T>
 class MakeSmartAux : public SmartPtrControl {
 public: T d; 
-NTL_FOREACH_ARG(NTL_DEFINE_SMART_CONSTRUCTOR)
+KCTSB_FOREACH_ARG(KCTSB_DEFINE_SMART_CONSTRUCTOR)
 };
 
-#define NTL_DEFINE_MAKESMART(n) \
-template<class T NTL_MORE_ARGTYPES(n)>\
-SmartPtr<T> MakeSmart( NTL_VARARGS(n) ) { \
+#define KCTSB_DEFINE_MAKESMART(n) \
+template<class T KCTSB_MORE_ARGTYPES(n)>\
+SmartPtr<T> MakeSmart( KCTSB_VARARGS(n) ) { \
    MakeSmartAux<T> *cp = \
-   NTL_NEW_OP MakeSmartAux<T>( NTL_PASSARGS(n) ); \
+   KCTSB_NEW_OP MakeSmartAux<T>( KCTSB_PASSARGS(n) ); \
    if (!cp) MemoryError();\
    return SmartPtr<T>(SmartPtrLoopHole(), &cp->d, cp);\
 };\
 
-NTL_FOREACH_ARG(NTL_DEFINE_MAKESMART)
+KCTSB_FOREACH_ARG(KCTSB_DEFINE_MAKESMART)
 
 #else
 
 // alternative implementation
 
 
-#define NTL_DEFINE_MAKESMART(n) \
+#define KCTSB_DEFINE_MAKESMART(n) \
 template<class T> \
 class MakeSmartAux##n : public SmartPtrControl {\
 public: T d; \
-NTL_KEEP_NONZERO_##n(template< NTL_ARGTYPES(n) >) \
-MakeSmartAux##n( NTL_VARARGS(n) ) : \
-d( NTL_UNWRAPARGS(n) ) { }\
+KCTSB_KEEP_NONZERO_##n(template< KCTSB_ARGTYPES(n) >) \
+MakeSmartAux##n( KCTSB_VARARGS(n) ) : \
+d( KCTSB_UNWRAPARGS(n) ) { }\
 };\
 \
-template<class T NTL_MORE_ARGTYPES(n)>\
-SmartPtr<T> MakeSmart( NTL_VARARGS(n) ) { \
+template<class T KCTSB_MORE_ARGTYPES(n)>\
+SmartPtr<T> MakeSmart( KCTSB_VARARGS(n) ) { \
    MakeSmartAux##n<T> *cp = \
-   NTL_NEW_OP MakeSmartAux##n<T>( NTL_PASSARGS(n) ); \
+   KCTSB_NEW_OP MakeSmartAux##n<T>( KCTSB_PASSARGS(n) ); \
    if (!cp) MemoryError();\
    return SmartPtr<T>(SmartPtrLoopHole(), &cp->d, cp);\
 };\
 
-NTL_FOREACH_ARG(NTL_DEFINE_MAKESMART)
+KCTSB_FOREACH_ARG(KCTSB_DEFINE_MAKESMART)
 
 #endif
 
@@ -913,43 +913,43 @@ NTL_FOREACH_ARG(NTL_DEFINE_MAKESMART)
 // ********************************
 
 
-#define NTL_DEFINE_MAKECLONEABLE(n) \
-template<class T  NTL_MORE_ARGTYPES(n)> \
+#define KCTSB_DEFINE_MAKECLONEABLE(n) \
+template<class T  KCTSB_MORE_ARGTYPES(n)> \
 class MakeCloneableAux##n : public CloneablePtrControl {\
 public: T d; \
-MakeCloneableAux##n( NTL_VARARGS(n) ) : \
-d( NTL_UNWRAPARGS(n) ) { }\
+MakeCloneableAux##n( KCTSB_VARARGS(n) ) : \
+d( KCTSB_UNWRAPARGS(n) ) { }\
 CloneablePtrControl *clone() const \
 {\
-   CloneablePtrControl *q = NTL_NEW_OP CloneablePtrControlDerived<T>(d);\
+   CloneablePtrControl *q = KCTSB_NEW_OP CloneablePtrControlDerived<T>(d);\
    if (!q) MemoryError();\
    return q;\
 }\
 void *get() { return &d; }\
 };\
 \
-template<class T NTL_MORE_ARGTYPES(n)>\
-CloneablePtr<T> MakeCloneable( NTL_VARARGS(n) ) { \
-   MakeCloneableAux##n<T NTL_MORE_PASSTYPES(n) > *cp = \
-   NTL_NEW_OP MakeCloneableAux##n<T NTL_MORE_PASSTYPES(n)>( NTL_PASSARGS(n) ); \
+template<class T KCTSB_MORE_ARGTYPES(n)>\
+CloneablePtr<T> MakeCloneable( KCTSB_VARARGS(n) ) { \
+   MakeCloneableAux##n<T KCTSB_MORE_PASSTYPES(n) > *cp = \
+   KCTSB_NEW_OP MakeCloneableAux##n<T KCTSB_MORE_PASSTYPES(n)>( KCTSB_PASSARGS(n) ); \
    if (!cp) MemoryError();\
    return CloneablePtr<T>(CloneablePtrLoopHole(), &cp->d, cp);\
 };\
 
-NTL_FOREACH_ARG(NTL_DEFINE_MAKECLONEABLE)
+KCTSB_FOREACH_ARG(KCTSB_DEFINE_MAKECLONEABLE)
 
 
 
 // ********************************
 
 
-#ifdef NTL_TEST_EXCEPTIONS
+#ifdef KCTSB_TEST_EXCEPTIONS
 
-#define NTL_DEFINE_MAKERAW(n)\
-template<class T  NTL_MORE_ARGTYPES(n)>\
-T* MakeRaw(NTL_VARARGS(n)) { \
+#define KCTSB_DEFINE_MAKERAW(n)\
+template<class T  KCTSB_MORE_ARGTYPES(n)>\
+T* MakeRaw(KCTSB_VARARGS(n)) { \
    T *p = 0; \
-   if (--exception_counter != 0) p =  NTL_NEW_OP T(NTL_UNWRAPARGS(n)); \
+   if (--exception_counter != 0) p =  KCTSB_NEW_OP T(KCTSB_UNWRAPARGS(n)); \
    if (!p) MemoryError();\
    return p;\
 };\
@@ -957,10 +957,10 @@ T* MakeRaw(NTL_VARARGS(n)) { \
 
 #else
 
-#define NTL_DEFINE_MAKERAW(n)\
-template<class T  NTL_MORE_ARGTYPES(n)>\
-T* MakeRaw(NTL_VARARGS(n)) { \
-   T *p = NTL_NEW_OP T(NTL_UNWRAPARGS(n)); \
+#define KCTSB_DEFINE_MAKERAW(n)\
+template<class T  KCTSB_MORE_ARGTYPES(n)>\
+T* MakeRaw(KCTSB_VARARGS(n)) { \
+   T *p = KCTSB_NEW_OP T(KCTSB_UNWRAPARGS(n)); \
    if (!p) MemoryError();\
    return p;\
 };\
@@ -968,14 +968,14 @@ T* MakeRaw(NTL_VARARGS(n)) { \
 #endif
 
 
-NTL_FOREACH_ARG(NTL_DEFINE_MAKERAW)
+KCTSB_FOREACH_ARG(KCTSB_DEFINE_MAKERAW)
 
 #endif
 
 // ********************************
 
 
-#ifdef NTL_TEST_EXCEPTIONS
+#ifdef KCTSB_TEST_EXCEPTIONS
 
 template<class T>
 T *MakeRawArray(long n)
@@ -1077,7 +1077,7 @@ public:
    UniquePtr() : dp(0) { }
    ~UniquePtr() { P::deleter(dp); }
 
-#if (NTL_CXX_STANDARD >= 2011 && !defined(NTL_DISABLE_MOVE))
+#if (KCTSB_CXX_STANDARD >= 2011 && !defined(KCTSB_DISABLE_MOVE))
 
    UniquePtr(UniquePtr&& other) noexcept : UniquePtr() 
    {
@@ -1101,7 +1101,7 @@ public:
    UniquePtr& operator=(fake_null_type1) { reset(); return *this; }
 
 
-#if (NTL_CXX_STANDARD >= 2011)
+#if (KCTSB_CXX_STANDARD >= 2011)
 
    template<class... Args>
    void make(Args&&... args) 
@@ -1116,14 +1116,14 @@ public:
       reset(MakeRaw<T>());
    }
 
-#define NTL_DEFINE_UNIQUE_MAKE(n) \
-   template< NTL_ARGTYPES(n) >\
-   void make( NTL_VARARGS(n) )\
+#define KCTSB_DEFINE_UNIQUE_MAKE(n) \
+   template< KCTSB_ARGTYPES(n) >\
+   void make( KCTSB_VARARGS(n) )\
    {\
-      reset(MakeRaw<T>( NTL_PASSARGS(n) ));\
+      reset(MakeRaw<T>( KCTSB_PASSARGS(n) ));\
    }\
 
-   NTL_FOREACH_ARG1(NTL_DEFINE_UNIQUE_MAKE)
+   KCTSB_FOREACH_ARG1(KCTSB_DEFINE_UNIQUE_MAKE)
 
 #endif
 
@@ -1137,7 +1137,7 @@ public:
 
    void swap(UniquePtr& other)
    {
-      _ntl_swap(dp, other.dp);
+      _kctsb_swap(dp, other.dp);
    }
 
 
@@ -1149,7 +1149,7 @@ public:
 };
 
 
-template<class T, class P> NTL_DECLARE_RELOCATABLE((UniquePtr<T,P>*))
+template<class T, class P> KCTSB_DECLARE_RELOCATABLE((UniquePtr<T,P>*))
 
 
 // free swap function
@@ -1260,7 +1260,7 @@ public:
    }
 
 
-#if (NTL_CXX_STANDARD >= 2011 && !defined(NTL_DISABLE_MOVE))
+#if (KCTSB_CXX_STANDARD >= 2011 && !defined(KCTSB_DISABLE_MOVE))
 
    CopiedPtr(CopiedPtr&& other) noexcept : CopiedPtr() 
    {
@@ -1286,7 +1286,7 @@ public:
    CopiedPtr& operator=(fake_null_type1) { reset(); return *this; }
 
 
-#if (NTL_CXX_STANDARD >= 2011)
+#if (KCTSB_CXX_STANDARD >= 2011)
 
    template<class... Args>
    void make(Args&&... args) 
@@ -1301,14 +1301,14 @@ public:
       reset(MakeRaw<T>());
    }
 
-#define NTL_DEFINE_COPIED_MAKE(n) \
-   template< NTL_ARGTYPES(n) >\
-   void make( NTL_VARARGS(n) )\
+#define KCTSB_DEFINE_COPIED_MAKE(n) \
+   template< KCTSB_ARGTYPES(n) >\
+   void make( KCTSB_VARARGS(n) )\
    {\
-      reset(MakeRaw<T>( NTL_PASSARGS(n) ));\
+      reset(MakeRaw<T>( KCTSB_PASSARGS(n) ));\
    }\
 
-   NTL_FOREACH_ARG1(NTL_DEFINE_COPIED_MAKE)
+   KCTSB_FOREACH_ARG1(KCTSB_DEFINE_COPIED_MAKE)
 
 #endif
 
@@ -1322,7 +1322,7 @@ public:
 
    void swap(CopiedPtr& other)
    {
-      _ntl_swap(dp, other.dp);
+      _kctsb_swap(dp, other.dp);
    }
 
 
@@ -1337,7 +1337,7 @@ public:
 
 
 
-template<class T, class P> NTL_DECLARE_RELOCATABLE((CopiedPtr<T,P>*))
+template<class T, class P> KCTSB_DECLARE_RELOCATABLE((CopiedPtr<T,P>*))
 
 
 
@@ -1453,7 +1453,7 @@ public:
    }
 
 
-#if (NTL_CXX_STANDARD >= 2011 && !defined(NTL_DISABLE_MOVE))
+#if (KCTSB_CXX_STANDARD >= 2011 && !defined(KCTSB_DISABLE_MOVE))
 
    OptionalVal(OptionalVal&& other) noexcept : OptionalVal() 
    {
@@ -1471,7 +1471,7 @@ public:
 
    void reset(T* p = 0) { dp.reset(p); }
 
-#if (NTL_CXX_STANDARD >= 2011)
+#if (KCTSB_CXX_STANDARD >= 2011)
 
    template<class... Args>
    void make(Args&&... args) 
@@ -1483,15 +1483,15 @@ public:
 
    void make() { dp.make(); }
 
-#define NTL_DEFINE_OPTIONAL_VAL_MAKE(n) \
+#define KCTSB_DEFINE_OPTIONAL_VAL_MAKE(n) \
 \
-   template< NTL_ARGTYPES(n) >\
-   void make( NTL_VARARGS(n) )\
+   template< KCTSB_ARGTYPES(n) >\
+   void make( KCTSB_VARARGS(n) )\
    {\
-      dp.make( NTL_PASSARGS(n) );\
+      dp.make( KCTSB_PASSARGS(n) );\
    }\
 
-   NTL_FOREACH_ARG1(NTL_DEFINE_OPTIONAL_VAL_MAKE)
+   KCTSB_FOREACH_ARG1(KCTSB_DEFINE_OPTIONAL_VAL_MAKE)
 
 #endif
 
@@ -1510,7 +1510,7 @@ public:
 };
 
 
-template<class T> NTL_DECLARE_RELOCATABLE((OptionalVal<T>*))
+template<class T> KCTSB_DECLARE_RELOCATABLE((OptionalVal<T>*))
 
 
 // free swap function
@@ -1592,7 +1592,7 @@ public:
 
    ~UniqueArray() { delete[] dp; }
 
-#if (NTL_CXX_STANDARD >= 2011 && !defined(NTL_DISABLE_MOVE))
+#if (KCTSB_CXX_STANDARD >= 2011 && !defined(KCTSB_DISABLE_MOVE))
 
    UniqueArray(UniqueArray&& other) noexcept : UniqueArray() 
    {
@@ -1630,7 +1630,7 @@ public:
 
    void swap(UniqueArray& other)
    {
-      _ntl_swap(dp, other.dp);
+      _kctsb_swap(dp, other.dp);
    }
 
    operator fake_null_type() const 
@@ -1641,7 +1641,7 @@ public:
 };
 
 
-template<class T> NTL_DECLARE_RELOCATABLE((UniqueArray<T>*))
+template<class T> KCTSB_DECLARE_RELOCATABLE((UniqueArray<T>*))
 
 
 
@@ -1769,7 +1769,7 @@ public:
    }
 
 
-#if (NTL_CXX_STANDARD >= 2011 && !defined(NTL_DISABLE_MOVE))
+#if (KCTSB_CXX_STANDARD >= 2011 && !defined(KCTSB_DISABLE_MOVE))
 
    Unique2DArray(Unique2DArray&& other) noexcept : Unique2DArray() 
    {
@@ -1850,7 +1850,7 @@ public:
    void swap(Unique2DArray& other)
    {
       dp.swap(other.dp);
-      _ntl_swap(len, other.len);
+      _kctsb_swap(len, other.len);
    }
 
    operator fake_null_type() const 
@@ -1861,7 +1861,7 @@ public:
 };
 
 
-template<class T> NTL_DECLARE_RELOCATABLE((Unique2DArray<T>*))
+template<class T> KCTSB_DECLARE_RELOCATABLE((Unique2DArray<T>*))
 
 
 // free swap function
@@ -1913,9 +1913,9 @@ bool operator!=(const Unique2DArray<X>& a, const Unique2DArray<Y>& b)
 //  * they (currently) only work on POD types
 //
 // DIRT:
-// The current implementation just uses the _ntl_make_aligned function,
+// The current implementation just uses the _kctsb_make_aligned function,
 // which is not entirely portable.
-// However, AlignedArray is currently only used if NTL_HAVE_AVX
+// However, AlignedArray is currently only used if KCTSB_HAVE_AVX
 // is defined, and under the assumptions imposed with that,
 // it should definitely work.
 //
@@ -1925,7 +1925,7 @@ bool operator!=(const Unique2DArray<X>& a, const Unique2DArray<Y>& b)
 // way of doing this.
 
 
-template<class T, long align=NTL_DEFAULT_ALIGN>
+template<class T, long align=KCTSB_DEFAULT_ALIGN>
 class AlignedArray {
 private:
    T *dp;
@@ -1949,7 +1949,7 @@ private:
    {
       AlignedArray tmp;
       if (p) {
-         tmp.dp = (T*) _ntl_make_aligned(p, align);
+         tmp.dp = (T*) _kctsb_make_aligned(p, align);
          tmp.sp = p;
       }
       else {
@@ -1967,10 +1967,10 @@ public:
    AlignedArray() : dp(0), sp(0) { }
    explicit AlignedArray(fake_null_type1) : dp(0), sp(0) { }
 
-   ~AlignedArray() { NTL_SNS free(sp); }
+   ~AlignedArray() { KCTSB_SNS free(sp); }
 
 
-#if (NTL_CXX_STANDARD >= 2011 && !defined(NTL_DISABLE_MOVE))
+#if (KCTSB_CXX_STANDARD >= 2011 && !defined(KCTSB_DISABLE_MOVE))
 
    AlignedArray(AlignedArray&& other) noexcept : AlignedArray() 
    {
@@ -1993,13 +1993,13 @@ public:
    void SetLength(long n)
    {
       if (align <= 0 || n < 0) LogicError("AlignedArray::SetLength: bad args");
-      if (NTL_OVERFLOW1(n, sizeof(T), align)) ResourceError("AlignedArray::SetLength: overflow");
+      if (KCTSB_OVERFLOW1(n, sizeof(T), align)) ResourceError("AlignedArray::SetLength: overflow");
 
       if (n == 0) {
          reset();
       }
       else {
-	 char *p = (char *) NTL_SNS malloc(n*sizeof(T) + align);
+	 char *p = (char *) KCTSB_SNS malloc(n*sizeof(T) + align);
          if (!p) MemoryError();
          reset(p);
       }
@@ -2015,8 +2015,8 @@ public:
 
    void swap(AlignedArray& other)
    {
-      _ntl_swap(dp, other.dp);
-      _ntl_swap(sp, other.sp);
+      _kctsb_swap(dp, other.dp);
+      _kctsb_swap(sp, other.sp);
    }
 
    operator fake_null_type() const 
@@ -2027,7 +2027,7 @@ public:
 };
 
 template<class T, long align> 
-NTL_DECLARE_RELOCATABLE((AlignedArray<T,align>*))
+KCTSB_DECLARE_RELOCATABLE((AlignedArray<T,align>*))
 
 
 // free swap function
@@ -2043,7 +2043,7 @@ void swap(AlignedArray<T,align>& p, AlignedArray<T,align>& q) { p.swap(q); }
 
 
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 
 #endif

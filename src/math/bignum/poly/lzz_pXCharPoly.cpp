@@ -1,7 +1,7 @@
-#include <NTL/mat_poly_lzz_p.h>
+﻿#include <kctsb/math/bignum/mat_poly_lzz_p.h>
 
 
-NTL_START_IMPL
+KCTSB_START_IMPL
 
 static
 void HessCharPoly(zz_pX& g, const zz_pX& a, const zz_pX& f)
@@ -73,4 +73,4 @@ void CharPolyMod(zz_pX& g, const zz_pX& a, const zz_pX& ff)
    interpolate(g, u, v);
 }
 
-NTL_END_IMPL
+KCTSB_END_IMPL

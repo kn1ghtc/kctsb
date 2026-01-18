@@ -1,6 +1,6 @@
-/**
+﻿/**
  * @file dsa.h
- * @brief Digital Signature Algorithm (DSA) Interface - NTL Backend
+ * @brief Digital Signature Algorithm (DSA) Interface - Bignum Backend
  * 
  * Provides complete DSA signature functionality:
  * - FIPS 186-4 compliant implementation
@@ -39,7 +39,7 @@
 #include <vector>
 #include <cstdint>
 #include <string>
-#include <NTL/ZZ.h>
+#include <kctsb/math/bignum/ZZ.h>
 
 using kctsb::ZZ;
 using kctsb::conv;

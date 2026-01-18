@@ -1,8 +1,8 @@
+﻿
+#include <kctsb/math/bignum/mat_ZZ.h>
 
-#include <NTL/mat_ZZ.h>
 
-
-NTL_START_IMPL
+KCTSB_START_IMPL
 
 
 void add(mat_ZZ& X, const mat_ZZ& A, const mat_ZZ& B)  
@@ -774,21 +774,21 @@ mat_ZZ operator+(const mat_ZZ& a, const mat_ZZ& b)
 {
    mat_ZZ res;
    add(res, a, b);
-   NTL_OPT_RETURN(mat_ZZ, res);
+   KCTSB_OPT_RETURN(mat_ZZ, res);
 }
 
 mat_ZZ operator*(const mat_ZZ& a, const mat_ZZ& b)
 {
    mat_ZZ res;
    mul_aux(res, a, b);
-   NTL_OPT_RETURN(mat_ZZ, res);
+   KCTSB_OPT_RETURN(mat_ZZ, res);
 }
 
 mat_ZZ operator-(const mat_ZZ& a, const mat_ZZ& b)
 {
    mat_ZZ res;
    sub(res, a, b);
-   NTL_OPT_RETURN(mat_ZZ, res);
+   KCTSB_OPT_RETURN(mat_ZZ, res);
 }
 
 
@@ -796,21 +796,21 @@ mat_ZZ operator-(const mat_ZZ& a)
 {
    mat_ZZ res;
    negate(res, a);
-   NTL_OPT_RETURN(mat_ZZ, res);
+   KCTSB_OPT_RETURN(mat_ZZ, res);
 }
 
 vec_ZZ operator*(const mat_ZZ& a, const vec_ZZ& b)
 {
    vec_ZZ res;
    mul_aux(res, a, b);
-   NTL_OPT_RETURN(vec_ZZ, res);
+   KCTSB_OPT_RETURN(vec_ZZ, res);
 }
 
 vec_ZZ operator*(const vec_ZZ& a, const mat_ZZ& b)
 {
    vec_ZZ res;
    mul_aux(res, a, b);
-   NTL_OPT_RETURN(vec_ZZ, res);
+   KCTSB_OPT_RETURN(vec_ZZ, res);
 }
 
 
@@ -1147,24 +1147,24 @@ void solve1(ZZ& d_out, vec_ZZ& x_out, const mat_ZZ& A, const vec_ZZ& b)
    long use_double_mul2 = 0;
    long double_limit = 0;
 
-   if (max_A_len + NTL_SP_NBITS + NumBits(n) <= NTL_DOUBLE_PRECISION-1)
+   if (max_A_len + KCTSB_SP_NBITS + NumBits(n) <= KCTSB_DOUBLE_PRECISION-1)
       use_double_mul1 = 1;
 
-   if (!use_double_mul1 && max_A_len+NTL_SP_NBITS+2 <= NTL_DOUBLE_PRECISION-1) {
+   if (!use_double_mul1 && max_A_len+KCTSB_SP_NBITS+2 <= KCTSB_DOUBLE_PRECISION-1) {
       use_double_mul2 = 1;
-      double_limit = (1L << (NTL_DOUBLE_PRECISION-1-max_A_len-NTL_SP_NBITS));
+      double_limit = (1L << (KCTSB_DOUBLE_PRECISION-1-max_A_len-KCTSB_SP_NBITS));
    }
 
    long use_long_mul1 = 0;
    long use_long_mul2 = 0;
    long long_limit = 0;
 
-   if (max_A_len + NTL_SP_NBITS + NumBits(n) <= NTL_BITS_PER_LONG-1)
+   if (max_A_len + KCTSB_SP_NBITS + NumBits(n) <= KCTSB_BITS_PER_LONG-1)
       use_long_mul1 = 1;
 
-   if (!use_long_mul1 && max_A_len+NTL_SP_NBITS+2 <= NTL_BITS_PER_LONG-1) {
+   if (!use_long_mul1 && max_A_len+KCTSB_SP_NBITS+2 <= KCTSB_BITS_PER_LONG-1) {
       use_long_mul2 = 1;
-      long_limit = (1L << (NTL_BITS_PER_LONG-1-max_A_len-NTL_SP_NBITS));
+      long_limit = (1L << (KCTSB_BITS_PER_LONG-1-max_A_len-KCTSB_SP_NBITS));
    }
 
 
@@ -1333,4 +1333,4 @@ void solve1(ZZ& d_out, vec_ZZ& x_out, const mat_ZZ& A, const vec_ZZ& b)
    d_out = d;
 }
 
-NTL_END_IMPL
+KCTSB_END_IMPL

@@ -1,11 +1,11 @@
+﻿
+#include <kctsb/math/bignum/ZZ_pXFactoring.h>
+#include <kctsb/math/bignum/vec_ZZVec.h>
+#include <kctsb/math/bignum/fileio.h>
+#include <kctsb/math/bignum/FacVec.h>
 
-#include <NTL/ZZ_pXFactoring.h>
-#include <NTL/vec_ZZVec.h>
-#include <NTL/fileio.h>
-#include <NTL/FacVec.h>
 
-
-NTL_START_IMPL
+KCTSB_START_IMPL
 
 
 
@@ -682,7 +682,7 @@ long ProbIrredTest(const ZZ_pX& f, long iter)
    return !IsX(s);
 }
 
-NTL_CHEAP_THREAD_LOCAL long ZZ_pX_BlockingFactor = 10;
+KCTSB_CHEAP_THREAD_LOCAL long ZZ_pX_BlockingFactor = 10;
 
 void DDF(vec_pair_ZZ_pX_long& factors, const ZZ_pX& ff, const ZZ_pX& hh, 
          long verbose)
@@ -1433,7 +1433,7 @@ void BuildIrred(ZZ_pX& f, long n)
    if (n <= 0)
       LogicError("BuildIrred: n must be positive");
 
-   if (NTL_OVERFLOW(n, 1, 0)) ResourceError("overflow in BuildIrred");
+   if (KCTSB_OVERFLOW(n, 1, 0)) ResourceError("overflow in BuildIrred");
 
    if (n == 1) {
       SetX(f);
@@ -1466,11 +1466,11 @@ void BuildRandomIrred(ZZ_pX& f, const ZZ_pX& g)
 
 /************* NEW DDF ****************/
 
-NTL_CHEAP_THREAD_LOCAL long ZZ_pX_GCDTableSize = 4;
-NTL_CHEAP_THREAD_LOCAL double ZZ_pXFileThresh = NTL_FILE_THRESH;
-static NTL_CHEAP_THREAD_LOCAL vec_ZZ_pX *BabyStepFile = 0;
-static NTL_CHEAP_THREAD_LOCAL vec_ZZ_pX *GiantStepFile = 0;
-static NTL_CHEAP_THREAD_LOCAL long use_files;
+KCTSB_CHEAP_THREAD_LOCAL long ZZ_pX_GCDTableSize = 4;
+KCTSB_CHEAP_THREAD_LOCAL double ZZ_pXFileThresh = KCTSB_FILE_THRESH;
+static KCTSB_CHEAP_THREAD_LOCAL vec_ZZ_pX *BabyStepFile = 0;
+static KCTSB_CHEAP_THREAD_LOCAL vec_ZZ_pX *GiantStepFile = 0;
+static KCTSB_CHEAP_THREAD_LOCAL long use_files;
 
 
 static 
@@ -1478,7 +1478,7 @@ double CalcTableSize(long n, long k)
 {
    double sz = ZZ_p::storage();
    sz = sz * n;
-   sz = sz + NTL_VECTOR_HEADER_SIZE + sizeof(vec_ZZ_p);
+   sz = sz + KCTSB_VECTOR_HEADER_SIZE + sizeof(vec_ZZ_p);
    sz = sz * k;
    sz = sz/1024;
    return sz;
@@ -1651,7 +1651,7 @@ void FetchGiantStep(ZZ_pX& g, long gs, const ZZ_pXModulus& F)
    if (use_files) {
       ifstream s;
       OpenRead(s, FileName("giant", gs));
-      NTL_INPUT_CHECK_ERR(s >> g);
+      KCTSB_INPUT_CHECK_ERR(s >> g);
    }
    else
       g = (*GiantStepFile)(gs);
@@ -1672,7 +1672,7 @@ void FetchBabySteps(vec_ZZ_pX& v, long k)
       if (use_files) {
          ifstream s;
          OpenRead(s, FileName("baby", i));
-         NTL_INPUT_CHECK_ERR(s >> v[i]);
+         KCTSB_INPUT_CHECK_ERR(s >> v[i]);
       }
       else
          v[i] = (*BabyStepFile)(i);
@@ -1912,4 +1912,4 @@ void NewDDF(vec_pair_ZZ_pX_long& factors,
    BabyRefine(factors, u, k, l, verbose);
 }
 
-NTL_END_IMPL
+KCTSB_END_IMPL

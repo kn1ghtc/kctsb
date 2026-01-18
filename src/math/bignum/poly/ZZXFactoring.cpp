@@ -1,18 +1,18 @@
+﻿
+#include <kctsb/math/bignum/ZZXFactoring.h>
+#include <kctsb/math/bignum/lzz_pXFactoring.h>
+#include <kctsb/math/bignum/vec_vec_long.h>
+#include <kctsb/math/bignum/vec_vec_ulong.h>
+#include <kctsb/math/bignum/vec_double.h>
 
-#include <NTL/ZZXFactoring.h>
-#include <NTL/lzz_pXFactoring.h>
-#include <NTL/vec_vec_long.h>
-#include <NTL/vec_vec_ulong.h>
-#include <NTL/vec_double.h>
-
-#include <NTL/LLL.h>
+#include <kctsb/math/bignum/LLL.h>
 
 
-NTL_START_IMPL
+KCTSB_START_IMPL
 
-NTL_CHEAP_THREAD_LOCAL long ZZXFac_van_Hoeij = 1;
+KCTSB_CHEAP_THREAD_LOCAL long ZZXFac_van_Hoeij = 1;
 
-static NTL_CHEAP_THREAD_LOCAL long ok_to_abandon = 0;
+static KCTSB_CHEAP_THREAD_LOCAL long ok_to_abandon = 0;
 
 struct LocalInfoT {
    long n;
@@ -388,7 +388,7 @@ void MultiLift(vec_ZZX& A, const vec_zz_pX& a, const ZZX& f, long e,
    long k = a.length();
    long i;
 
-   if (k < 2 || e < 1 || NTL_OVERFLOW(e, 1, 0)) LogicError("MultiLift: bad args");
+   if (k < 2 || e < 1 || KCTSB_OVERFLOW(e, 1, 0)) LogicError("MultiLift: bad args");
 
    if (!IsOne(LeadCoeff(f)))
       LogicError("MultiLift: bad args");
@@ -463,8 +463,8 @@ void inplace_rev(ZZX& f)
    f.normalize();
 }
 
-NTL_CHEAP_THREAD_LOCAL long ZZXFac_InitNumPrimes = 7;
-NTL_CHEAP_THREAD_LOCAL long ZZXFac_MaxNumPrimes = 50;
+KCTSB_CHEAP_THREAD_LOCAL long ZZXFac_InitNumPrimes = 7;
+KCTSB_CHEAP_THREAD_LOCAL long ZZXFac_MaxNumPrimes = 50;
 
 static 
 void RecordPattern(vec_long& pat, vec_pair_zz_pX_long& fac)
@@ -846,7 +846,7 @@ void UpdateLocalInfo(LocalInfoT& LocalInfo, vec_ZZ& pdeg,
                      const vec_ZZ_pX& W, const vec_ZZX& factors,
                      const ZZX& f, long k, long verbose)
 {
-   static NTL_CHEAP_THREAD_LOCAL long cnt = 0;
+   static KCTSB_CHEAP_THREAD_LOCAL long cnt = 0;
 
    if (verbose) {
       cnt = (cnt + 1) % 100;
@@ -974,10 +974,10 @@ void UpdateLocalInfo(LocalInfoT& LocalInfo, vec_ZZ& pdeg,
 
 
 
-const int ZZX_OVERLIFT = NTL_BITS_PER_LONG;
+const int ZZX_OVERLIFT = KCTSB_BITS_PER_LONG;
   // number of bits by which we "overlift"....this enables, in particular,
   // the "n-1" test.  
-  // Must lie in the range 4..NTL_BITS_PER_LONG.
+  // Must lie in the range 4..KCTSB_BITS_PER_LONG.
 
 
 #define EXTRA_BITS (1)
@@ -1183,7 +1183,7 @@ void CardinalitySearch(vec_ZZX& factors, ZZX& f,
 
 typedef unsigned long TBL_T;
 
-#if (NTL_BITS_PER_LONG >= 64)
+#if (KCTSB_BITS_PER_LONG >= 64)
 
 // for 64-bit machines
 
@@ -1329,7 +1329,7 @@ void InitTab(lookup_tab_t& lookup_tab, const vec_ulong& ratio, long r, long k,
       for (i = 2; i <= pruning; i++) {
          long len = min(k-1, i);
          for (j = 2; j <= len; j++) {
-            long ub = (((1L << (NTL_BITS_PER_LONG-shamt_tab[i][j])) 
+            long ub = (((1L << (KCTSB_BITS_PER_LONG-shamt_tab[i][j])) 
                       + TBL_MSK) >> TBL_SHAMT); 
             for (t = 0; t < ub; t++)
                lookup_tab[i][j][t] = 0;
@@ -1360,7 +1360,7 @@ void RatioInit1(vec_ulong& ratio, const vec_ZZ_pX& W, const ZZ_p& lc,
    for (i = 0; i < r; i++) {
       long m = deg(W[i]);
       mul(a, W[i].rep[m-1], lc);
-      LeftShift(aa, rep(a), NTL_BITS_PER_LONG);
+      LeftShift(aa, rep(a), KCTSB_BITS_PER_LONG);
       div(aa, aa, p);
       ratio[i] = to_ulong(aa);
    }
@@ -1371,7 +1371,7 @@ void RatioInit1(vec_ulong& ratio, const vec_ZZ_pX& W, const ZZ_p& lc,
       for (j = 0; j < i; j++) {
          mul(a, W[i].rep[deg(W[i])-1], W[j].rep[deg(W[j])-1]);
          mul(a, a, lc);
-         LeftShift(aa, rep(a), NTL_BITS_PER_LONG);
+         LeftShift(aa, rep(a), KCTSB_BITS_PER_LONG);
          div(aa, aa, p);
          pair_ratio[i][j] = to_ulong(aa);
       }
@@ -1380,7 +1380,7 @@ void RatioInit1(vec_ulong& ratio, const vec_ZZ_pX& W, const ZZ_p& lc,
       long m = deg(W[i]);
       if (m >= 2) {
          mul(a, W[i].rep[m-2], lc);
-         LeftShift(aa, rep(a), NTL_BITS_PER_LONG);
+         LeftShift(aa, rep(a), KCTSB_BITS_PER_LONG);
          div(aa, aa, p);
          pair_ratio[i][i] = to_ulong(aa);
       }
@@ -1400,7 +1400,7 @@ long SecondOrderTest(const vec_long& I_vec, const vec_vec_ulong& pair_ratio_vec,
    unsigned long sum, thresh1;
 
    if (SumLen == 0) {
-      unsigned long epsilon = (1UL << (NTL_BITS_PER_LONG-ZZX_OVERLIFT));
+      unsigned long epsilon = (1UL << (KCTSB_BITS_PER_LONG-ZZX_OVERLIFT));
       unsigned long delta = (unsigned long) ((k*(k+1)) >> 1);
       unsigned long thresh = epsilon + delta;
       thresh1 = (epsilon << 1) + delta;
@@ -1512,7 +1512,7 @@ void RemoveFactors1(vec_ulong& W, const vec_long& I, long r)
       if (i < k && j == I[i])
          i++;
       else
-         _ntl_swap(W[j-i], W[j]); 
+         _kctsb_swap(W[j-i], W[j]); 
    }
 }
 
@@ -1610,7 +1610,7 @@ long ConstTermTest(const vec_ZZ_p& W,
 }
 
 
-NTL_CHEAP_THREAD_LOCAL long ZZXFac_MaxPrune = 10;
+KCTSB_CHEAP_THREAD_LOCAL long ZZXFac_MaxPrune = 10;
 
 
 
@@ -1645,10 +1645,10 @@ long shamt_tab_init(long pos, long card, long pruning, long thresh1_len)
 
    t = max(t, TBL_SHAMT); 
 
-   t = min(t, NTL_BITS_PER_LONG-thresh1_len);
+   t = min(t, KCTSB_BITS_PER_LONG-thresh1_len);
 
 
-   return NTL_BITS_PER_LONG-t;
+   return KCTSB_BITS_PER_LONG-t;
 }
 
 // The following routine should only be called for k > 1,
@@ -1674,7 +1674,7 @@ void CardinalitySearch1(vec_ZZX& factors, ZZX& f,
    if (k <= 1) LogicError("internal error: call CardinalitySearch");
 
    // This test is needed to ensure correcntes of "n-2" test
-   if (NumBits(k) > NTL_BITS_PER_LONG/2-2)
+   if (NumBits(k) > KCTSB_BITS_PER_LONG/2-2)
       ResourceError("Cardinality Search: k too large...");
 
    vec_ZZ pdeg;
@@ -1699,7 +1699,7 @@ void CardinalitySearch1(vec_ZZX& factors, ZZX& f,
    ratio.SetLength(r);
    ratio_sum.SetLength(k);
 
-   unsigned long epsilon = (1UL << (NTL_BITS_PER_LONG-ZZX_OVERLIFT));
+   unsigned long epsilon = (1UL << (KCTSB_BITS_PER_LONG-ZZX_OVERLIFT));
    unsigned long delta = (unsigned long) k;
    unsigned long thresh = epsilon + delta;
    unsigned long thresh1 = (epsilon << 1) + delta;
@@ -1710,7 +1710,7 @@ void CardinalitySearch1(vec_ZZX& factors, ZZX& f,
 
    pruning = min(r/2, ZZXFac_MaxPrune);
    pruning = min(pruning, pruning_bnd(r, k));
-   pruning = min(pruning, NTL_BITS_PER_LONG-EXTRA_BITS-thresh1_len);
+   pruning = min(pruning, KCTSB_BITS_PER_LONG-EXTRA_BITS-thresh1_len);
 
    if (pruning <= 4) pruning = 0;
 
@@ -1742,7 +1742,7 @@ void CardinalitySearch1(vec_ZZX& factors, ZZX& f,
          lookup_tab[i].SetLength(len+1);
 
          for (j = 2; j <= len; j++) {
-            lookup_tab[i][j].SetLength(((1L << (NTL_BITS_PER_LONG-shamt_tab[i][j]))+TBL_MSK) >> TBL_SHAMT);
+            lookup_tab[i][j].SetLength(((1L << (KCTSB_BITS_PER_LONG-shamt_tab[i][j]))+TBL_MSK) >> TBL_SHAMT);
          }
       }
    }
@@ -2292,7 +2292,7 @@ void gauss(ZZ& d_out, mat_ZZ& R_out, const mat_ZZ& M)
    bak.save();
 
    for (;;) {
-      long p = GenPrime_long(NTL_SP_NBITS);
+      long p = GenPrime_long(KCTSB_SP_NBITS);
       zz_p::init(p);
 
       mat_zz_p MM;
@@ -2736,7 +2736,7 @@ long GotThem(vec_ZZX& factors,
    for (i = 0; i < s-1; i++)
       for (j = 0; j < s-1-i; j++)
          if (deg_vec[j] > deg_vec[j+1]) {
-            _ntl_swap(deg_vec[j], deg_vec[j+1]);
+            _kctsb_swap(deg_vec[j], deg_vec[j+1]);
             swap(I_vec[j], I_vec[j+1]);
          }
 
@@ -3652,7 +3652,7 @@ void MakeFacList(vec_long& v, long m)
    }
 }
 
-NTL_CHEAP_THREAD_LOCAL long ZZXFac_PowerHack = 1;
+KCTSB_CHEAP_THREAD_LOCAL long ZZXFac_PowerHack = 1;
 
 void SFFactor(vec_ZZX& factors, const ZZX& ff, 
               long verbose,
@@ -3813,4 +3813,4 @@ void factor(ZZ& c,
    }
 }
 
-NTL_END_IMPL
+KCTSB_END_IMPL

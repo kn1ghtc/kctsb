@@ -1,10 +1,10 @@
+﻿
+#ifndef KCTSB_FacVec__H
+#define KCTSB_FacVec__H
 
-#ifndef NTL_FacVec__H
-#define NTL_FacVec__H
+#include <kctsb/math/bignum/vector.h>
 
-#include <NTL/vector.h>
-
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 struct IntFactor {
    long q;
@@ -19,6 +19,6 @@ typedef vec_IntFactor FacVec;
 
 void FactorInt(FacVec& fvec, long n);
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 #endif

@@ -1,5 +1,5 @@
-#ifndef NTL_SIMDE_FMA__H
-#define NTL_SIMDE_FMA__H
+﻿#ifndef KCTSB_SIMDE_FMA__H
+#define KCTSB_SIMDE_FMA__H
 
 #if (defined(__GNUC__) && defined(__x86_64__) && defined(__AVX2__))
 
@@ -9,7 +9,7 @@
 
 #elif (defined(__GNUC__) && defined(__aarch64__)) 
 
-#include <NTL/simde_avx.h>
+#include <kctsb/math/bignum/simde_avx.h>
 
 namespace {
 

@@ -1,14 +1,14 @@
+﻿
+#ifndef KCTSB_vec_quad_float__H
+#define KCTSB_vec_quad_float__H
 
-#ifndef NTL_vec_quad_float__H
-#define NTL_vec_quad_float__H
+#include <kctsb/math/bignum/vector.h>
+#include <kctsb/math/bignum/quad_float.h>
 
-#include <NTL/vector.h>
-#include <NTL/quad_float.h>
-
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 typedef Vec<quad_float> vec_quad_float;
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 #endif

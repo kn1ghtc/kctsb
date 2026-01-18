@@ -1,14 +1,14 @@
+﻿
+#ifndef KCTSB_vec_ZZVec__H
+#define KCTSB_vec_ZZVec__H
 
-#ifndef NTL_vec_ZZVec__H
-#define NTL_vec_ZZVec__H
+#include <kctsb/math/bignum/vector.h>
+#include <kctsb/math/bignum/ZZVec.h>
 
-#include <NTL/vector.h>
-#include <NTL/ZZVec.h>
-
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 typedef Vec<ZZVec> vec_ZZVec;
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 #endif

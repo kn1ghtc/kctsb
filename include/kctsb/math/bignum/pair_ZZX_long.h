@@ -1,16 +1,16 @@
+﻿
+#ifndef KCTSB_pair_ZZX_long__H
+#define KCTSB_pair_ZZX_long__H
 
-#ifndef NTL_pair_ZZX_long__H
-#define NTL_pair_ZZX_long__H
+#include <kctsb/math/bignum/pair.h>
+#include <kctsb/math/bignum/vector.h>
+#include <kctsb/math/bignum/ZZX.h>
 
-#include <NTL/pair.h>
-#include <NTL/vector.h>
-#include <NTL/ZZX.h>
-
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 typedef Pair<ZZX,long> pair_ZZX_long;
 typedef Vec<pair_ZZX_long> vec_pair_ZZX_long;
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 #endif

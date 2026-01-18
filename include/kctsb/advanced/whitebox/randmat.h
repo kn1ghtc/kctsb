@@ -1,12 +1,12 @@
-#ifndef UTILS_HPP
+﻿#ifndef UTILS_HPP
 #define UTILS_HPP
 
 #include <iostream>
 #include <vector>
-#include <NTL/mat_GF2.h>
+#include <kctsb/math/bignum/mat_GF2.h>
 
 using namespace std;
-// Bignum namespace is now kctsb (was NTL)
+// Bignum namespace is now kctsb (was bignum)
 using namespace kctsb;
 
 class RandMat {

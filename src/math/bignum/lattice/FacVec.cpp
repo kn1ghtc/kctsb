@@ -1,9 +1,9 @@
+﻿
+#include <kctsb/math/bignum/FacVec.h>
+#include <kctsb/math/bignum/ZZ.h>
 
-#include <NTL/FacVec.h>
-#include <NTL/ZZ.h>
 
-
-NTL_START_IMPL
+KCTSB_START_IMPL
 
 
 static
@@ -36,7 +36,7 @@ void FactorInt(FacVec& fvec, long n)
 {
    if (n <= 1) LogicError("internal error: FactorInt(FacVec,long n) with n<=1");
 
-   if (NTL_OVERFLOW(n, 1, 0))
+   if (KCTSB_OVERFLOW(n, 1, 0))
       ResourceError("internal error: FactorInt(FacVec,long n) with n too large");
 
    long NumFactors;
@@ -82,4 +82,4 @@ void FactorInt(FacVec& fvec, long n)
 
 
 
-NTL_END_IMPL
+KCTSB_END_IMPL

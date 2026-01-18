@@ -1,10 +1,10 @@
+﻿
+#include <kctsb/math/bignum/lzz_pXFactoring.h>
+#include <kctsb/math/bignum/mat_lzz_p.h>
+#include <kctsb/math/bignum/FacVec.h>
 
-#include <NTL/lzz_pXFactoring.h>
-#include <NTL/mat_lzz_p.h>
-#include <NTL/FacVec.h>
 
-
-NTL_START_IMPL
+KCTSB_START_IMPL
 
 
 
@@ -641,7 +641,7 @@ long ProbIrredTest(const zz_pX& f, long iter)
    return !IsX(s);
 }
 
-NTL_CHEAP_THREAD_LOCAL long zz_pX_BlockingFactor = 10;
+KCTSB_CHEAP_THREAD_LOCAL long zz_pX_BlockingFactor = 10;
 
 void DDF(vec_pair_zz_pX_long& factors, const zz_pX& ff, const zz_pX& hh, 
          long verbose)
@@ -1464,7 +1464,7 @@ void BuildIrred(zz_pX& f, long n)
    if (n <= 0)
       LogicError("BuildIrred: n must be positive");
 
-   if (NTL_OVERFLOW(n, 1, 0)) ResourceError("overflow in BuildIrred");
+   if (KCTSB_OVERFLOW(n, 1, 0)) ResourceError("overflow in BuildIrred");
 
    if (n == 1) {
       SetX(f);
@@ -1497,11 +1497,11 @@ void BuildRandomIrred(zz_pX& f, const zz_pX& g)
 
 /************* NEW DDF ****************/
 
-NTL_CHEAP_THREAD_LOCAL long zz_pX_GCDTableSize = 4;
-static NTL_CHEAP_THREAD_LOCAL vec_zz_pX *BabyStepFile = 0;
-static NTL_CHEAP_THREAD_LOCAL vec_zz_pX *GiantStepFile = 0;
-static NTL_CHEAP_THREAD_LOCAL zz_pXNewArgument *HHH = 0;
-static NTL_CHEAP_THREAD_LOCAL long OldN = 0;
+KCTSB_CHEAP_THREAD_LOCAL long zz_pX_GCDTableSize = 4;
+static KCTSB_CHEAP_THREAD_LOCAL vec_zz_pX *BabyStepFile = 0;
+static KCTSB_CHEAP_THREAD_LOCAL vec_zz_pX *GiantStepFile = 0;
+static KCTSB_CHEAP_THREAD_LOCAL zz_pXNewArgument *HHH = 0;
+static KCTSB_CHEAP_THREAD_LOCAL long OldN = 0;
 
 
 static
@@ -1911,4 +1911,4 @@ void NewDDF(vec_pair_zz_pX_long& factors,
    BabyRefine(factors, u, k, l, verbose);
 }
 
-NTL_END_IMPL
+KCTSB_END_IMPL

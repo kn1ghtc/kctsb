@@ -1,16 +1,16 @@
+﻿
+#ifndef KCTSB_zz_p__H
+#define KCTSB_zz_p__H
 
-#ifndef NTL_zz_p__H
-#define NTL_zz_p__H
-
-#include <NTL/ZZ.h>
-#include <NTL/FFT.h>
-#include <NTL/SmartPtr.h>
-#include <NTL/vector.h>
-
-
+#include <kctsb/math/bignum/ZZ.h>
+#include <kctsb/math/bignum/FFT.h>
+#include <kctsb/math/bignum/SmartPtr.h>
+#include <kctsb/math/bignum/vector.h>
 
 
-NTL_OPEN_NNS
+
+
+KCTSB_OPEN_NNS
 
 
 class zz_pInfoT {
@@ -61,7 +61,7 @@ public:
 };
 
 extern 
-NTL_CHEAP_THREAD_LOCAL 
+KCTSB_CHEAP_THREAD_LOCAL 
 zz_pInfoT *zz_pInfo;  
 // current modulus, initially null
 
@@ -76,7 +76,7 @@ zz_pContext() { }
 
 // copy constructor, assignment, destructor: default
 
-explicit zz_pContext(long p, long maxroot=NTL_FFTMaxRoot);
+explicit zz_pContext(long p, long maxroot=KCTSB_FFTMaxRoot);
 zz_pContext(INIT_FFT_TYPE, long index);
 zz_pContext(INIT_USER_FFT_TYPE, long q);
 
@@ -99,7 +99,7 @@ sp_reduce_struct red_struct() const { return ptr->red_struct; }
 };
 
 
-// should be in FFT.h, but because of some weirdess involving NTL_WIZARD_HACK,
+// should be in FFT.h, but because of some weirdess involving KCTSB_WIZARD_HACK,
 // it has to be here
 inline const sp_ZZ_reduce_struct& GetFFT_ZZ_red_struct(long i) 
 {
@@ -138,7 +138,7 @@ public:
 zz_pPush() { bak.save(); }
 explicit zz_pPush(const zz_pContext& context) { bak.save(); context.restore(); }
 
-explicit zz_pPush(long p, long maxroot=NTL_FFTMaxRoot) 
+explicit zz_pPush(long p, long maxroot=KCTSB_FFTMaxRoot) 
    { bak.save(); zz_pContext c(p, maxroot); c.restore(); }
 
 zz_pPush(INIT_FFT_TYPE, long index) 
@@ -152,7 +152,7 @@ zz_pPush(INIT_USER_FFT_TYPE, long q)
 
 
 
-#define NTL_zz_pRegister(x) zz_p x
+#define KCTSB_zz_pRegister(x) zz_p x
 
 
 class zz_pX; // forward declaration
@@ -170,7 +170,7 @@ typedef zz_pX poly_type;
 long _zz_p__rep;
 
 
-static void init(long NewP, long maxroot=NTL_FFTMaxRoot);
+static void init(long NewP, long maxroot=KCTSB_FFTMaxRoot);
 static void FFTInit(long index);
 static void UserFFTInit(long q);
 
@@ -217,7 +217,7 @@ void allocate() { }
 
 
 
-NTL_DECLARE_RELOCATABLE((zz_p*))
+KCTSB_DECLARE_RELOCATABLE((zz_p*))
 
 inline
 zz_p to_zz_p(long a) 
@@ -472,9 +472,9 @@ inline void VectorRandom(long k, zz_p* x)
 
 // ****** input/output
 
-NTL_SNS ostream& operator<<(NTL_SNS ostream& s, zz_p a);
+KCTSB_SNS ostream& operator<<(KCTSB_SNS ostream& s, zz_p a);
    
-NTL_SNS istream& operator>>(NTL_SNS istream& s, zz_p& x);
+KCTSB_SNS istream& operator>>(KCTSB_SNS istream& s, zz_p& x);
 
 
 void conv(Vec<zz_p>& x, const Vec<ZZ>& a);
@@ -502,7 +502,7 @@ inline void conv(zz_p& x, zz_p a) { x = a; }
 // *** specialized inner-product routines, for internal consumption
 // *********************************************************
 
-#ifdef NTL_HAVE_LL_TYPE
+#ifdef KCTSB_HAVE_LL_TYPE
 long 
 InnerProd_LL(const long *ap, const zz_p *bp, long n, long d, 
           sp_ll_reduce_struct dinv);
@@ -540,6 +540,6 @@ InnerProd_L(const zz_p *ap, const zz_p *bp, long n, long d,
 
 #endif
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 #endif

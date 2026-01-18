@@ -1,14 +1,14 @@
+﻿
+#ifndef KCTSB_mat_poly_ZZ__H
+#define KCTSB_mat_poly_ZZ__H
 
-#ifndef NTL_mat_poly_ZZ__H
-#define NTL_mat_poly_ZZ__H
+#include <kctsb/math/bignum/mat_ZZ.h>
+#include <kctsb/math/bignum/ZZX.h>
 
-#include <NTL/mat_ZZ.h>
-#include <NTL/ZZX.h>
-
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 void CharPoly(ZZX& f, const mat_ZZ& M, long deterministic=0);
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 #endif

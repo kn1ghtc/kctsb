@@ -1,8 +1,8 @@
+﻿
+#include <kctsb/math/bignum/GF2XVec.h>
 
-#include <NTL/GF2XVec.h>
 
-
-NTL_START_IMPL
+KCTSB_START_IMPL
 
 
 void GF2XVec::SetSize(long n, long d)
@@ -25,7 +25,7 @@ void GF2XVec::SetSize(long n, long d)
    tmp.bsize = d;
 
 
-   tmp.v = (GF2X*) NTL_SNS_MALLOC(n, sizeof(GF2X), 0);
+   tmp.v = (GF2X*) KCTSB_SNS_MALLOC(n, sizeof(GF2X), 0);
    if (!tmp.v) MemoryError();
 
    long i = 0;
@@ -83,4 +83,4 @@ GF2XVec::GF2XVec(const GF2XVec& a) : v(0), len(0), bsize(0)
 
 
 
-NTL_END_IMPL
+KCTSB_END_IMPL

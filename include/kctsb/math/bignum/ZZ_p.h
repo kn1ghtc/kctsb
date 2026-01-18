@@ -1,14 +1,14 @@
+﻿
 
+#ifndef KCTSB_ZZ_p__H
+#define KCTSB_ZZ_p__H
 
-#ifndef NTL_ZZ_p__H
-#define NTL_ZZ_p__H
+#include <kctsb/math/bignum/ZZ.h>
+#include <kctsb/math/bignum/ZZVec.h>
+#include <kctsb/math/bignum/SmartPtr.h>
+#include <kctsb/math/bignum/Lazy.h>
 
-#include <NTL/ZZ.h>
-#include <NTL/ZZVec.h>
-#include <NTL/SmartPtr.h>
-#include <NTL/Lazy.h>
-
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 
 // ZZ_p representation:  each ZZ_p is represented by a ZZ in the range 0..p-1.
@@ -41,7 +41,7 @@ public:
 };
 
 
-#ifndef NTL_WIZARD_HACK
+#ifndef KCTSB_WIZARD_HACK
 
 struct MatPrime_crt_helper;
 void MatPrime_crt_helper_deleter(MatPrime_crt_helper*);
@@ -63,7 +63,7 @@ public:
 
    Lazy<ZZ_pFFTInfoT> FFTInfo;
 
-#ifndef NTL_WIZARD_HACK
+#ifndef KCTSB_WIZARD_HACK
 
    struct MatPrime_crt_helper_deleter_policy {
       static void deleter(MatPrime_crt_helper *p) { MatPrime_crt_helper_deleter(p); }
@@ -93,19 +93,19 @@ public:
 
 
 extern 
-NTL_CHEAP_THREAD_LOCAL
+KCTSB_CHEAP_THREAD_LOCAL
 ZZ_pInfoT *ZZ_pInfo; 
 // info for current modulus, initially null
 // plain pointer for faster TLS access
 
 extern 
-NTL_CHEAP_THREAD_LOCAL
+KCTSB_CHEAP_THREAD_LOCAL
 ZZ_pTmpSpaceT *ZZ_pTmpSpace;  
 // space for temps associated with current modulus, 
 // plain pointer for faster TLS access
 
 extern 
-NTL_CHEAP_THREAD_LOCAL
+KCTSB_CHEAP_THREAD_LOCAL
 bool ZZ_pInstalled;
 // flag indicating if current modulus is fully installed
 
@@ -186,7 +186,7 @@ static void init(const ZZ&);
 typedef void (*DivHandlerPtr)(const ZZ_p& a);   // error-handler for division
 
 static 
-NTL_CHEAP_THREAD_LOCAL 
+KCTSB_CHEAP_THREAD_LOCAL 
 DivHandlerPtr DivHandler;
 
 
@@ -265,7 +265,7 @@ void KillBig() { _ZZ_p__rep.KillBig(); }
 
 
 
-NTL_DECLARE_RELOCATABLE((ZZ_p*))
+KCTSB_DECLARE_RELOCATABLE((ZZ_p*))
 
 
 
@@ -349,7 +349,7 @@ inline void sqr(ZZ_p& x, const ZZ_p& a)
    { SqrMod(x._ZZ_p__rep, a._ZZ_p__rep, ZZ_p::modulus()); }
 
 inline ZZ_p sqr(const ZZ_p& a)
-   { ZZ_p x; sqr(x, a); NTL_OPT_RETURN(ZZ_p, x); }
+   { ZZ_p x; sqr(x, a); KCTSB_OPT_RETURN(ZZ_p, x); }
 
 
 // scalar versions
@@ -373,7 +373,7 @@ void inv(ZZ_p& x, const ZZ_p& a);
 // Error handling is the same as above.
 
 inline ZZ_p inv(const ZZ_p& a)
-   { ZZ_p x; inv(x, a); NTL_OPT_RETURN(ZZ_p, x); }
+   { ZZ_p x; inv(x, a); KCTSB_OPT_RETURN(ZZ_p, x); }
 
 void div(ZZ_p& x, const ZZ_p& a, long b);
 void div(ZZ_p& x, long a, const ZZ_p& b);
@@ -382,13 +382,13 @@ void div(ZZ_p& x, long a, const ZZ_p& b);
 // operator notation:
 
 inline ZZ_p operator+(const ZZ_p& a, const ZZ_p& b)
-   { ZZ_p x; add(x, a, b); NTL_OPT_RETURN(ZZ_p, x); }
+   { ZZ_p x; add(x, a, b); KCTSB_OPT_RETURN(ZZ_p, x); }
 
 inline ZZ_p operator+(const ZZ_p& a, long b)
-   { ZZ_p x; add(x, a, b); NTL_OPT_RETURN(ZZ_p, x); }
+   { ZZ_p x; add(x, a, b); KCTSB_OPT_RETURN(ZZ_p, x); }
 
 inline ZZ_p operator+(long a, const ZZ_p& b)
-   { ZZ_p x; add(x, a, b); NTL_OPT_RETURN(ZZ_p, x); }
+   { ZZ_p x; add(x, a, b); KCTSB_OPT_RETURN(ZZ_p, x); }
 
 inline ZZ_p& operator+=(ZZ_p& x, const ZZ_p& b)
    { add(x, x, b); return x; } 
@@ -399,13 +399,13 @@ inline ZZ_p& operator+=(ZZ_p& x, long b)
 
 
 inline ZZ_p operator-(const ZZ_p& a, const ZZ_p& b)
-   { ZZ_p x; sub(x, a, b); NTL_OPT_RETURN(ZZ_p, x); }
+   { ZZ_p x; sub(x, a, b); KCTSB_OPT_RETURN(ZZ_p, x); }
 
 inline ZZ_p operator-(const ZZ_p& a, long b)
-   { ZZ_p x; sub(x, a, b); NTL_OPT_RETURN(ZZ_p, x); }
+   { ZZ_p x; sub(x, a, b); KCTSB_OPT_RETURN(ZZ_p, x); }
 
 inline ZZ_p operator-(long a, const ZZ_p& b)
-   { ZZ_p x; sub(x, a, b); NTL_OPT_RETURN(ZZ_p, x); }
+   { ZZ_p x; sub(x, a, b); KCTSB_OPT_RETURN(ZZ_p, x); }
 
 inline ZZ_p& operator-=(ZZ_p& x, const ZZ_p& b)
    { sub(x, x, b); return x; } 
@@ -416,13 +416,13 @@ inline ZZ_p& operator-=(ZZ_p& x, long b)
 
 
 inline ZZ_p operator*(const ZZ_p& a, const ZZ_p& b)
-   { ZZ_p x; mul(x, a, b); NTL_OPT_RETURN(ZZ_p, x); }
+   { ZZ_p x; mul(x, a, b); KCTSB_OPT_RETURN(ZZ_p, x); }
 
 inline ZZ_p operator*(const ZZ_p& a, long b)
-   { ZZ_p x; mul(x, a, b); NTL_OPT_RETURN(ZZ_p, x); }
+   { ZZ_p x; mul(x, a, b); KCTSB_OPT_RETURN(ZZ_p, x); }
 
 inline ZZ_p operator*(long a, const ZZ_p& b)
-   { ZZ_p x; mul(x, a, b); NTL_OPT_RETURN(ZZ_p, x); }
+   { ZZ_p x; mul(x, a, b); KCTSB_OPT_RETURN(ZZ_p, x); }
 
 inline ZZ_p& operator*=(ZZ_p& x, const ZZ_p& b)
    { mul(x, x, b); return x; } 
@@ -432,13 +432,13 @@ inline ZZ_p& operator*=(ZZ_p& x, long b)
 
 
 inline ZZ_p operator/(const ZZ_p& a, const ZZ_p& b)
-   { ZZ_p x; div(x, a, b); NTL_OPT_RETURN(ZZ_p, x); }
+   { ZZ_p x; div(x, a, b); KCTSB_OPT_RETURN(ZZ_p, x); }
 
 inline ZZ_p operator/(const ZZ_p& a, long b)
-   { ZZ_p x; div(x, a, b); NTL_OPT_RETURN(ZZ_p, x); }
+   { ZZ_p x; div(x, a, b); KCTSB_OPT_RETURN(ZZ_p, x); }
 
 inline ZZ_p operator/(long a, const ZZ_p& b)
-   { ZZ_p x; div(x, a, b); NTL_OPT_RETURN(ZZ_p, x); }
+   { ZZ_p x; div(x, a, b); KCTSB_OPT_RETURN(ZZ_p, x); }
 
 inline ZZ_p& operator/=(ZZ_p& x, const ZZ_p& b)
    { div(x, x, b); return x; } 
@@ -448,7 +448,7 @@ inline ZZ_p& operator/=(ZZ_p& x, long b)
 
 
 inline ZZ_p operator-(const ZZ_p& a)
-   { ZZ_p x; negate(x, a); NTL_OPT_RETURN(ZZ_p, x); }
+   { ZZ_p x; negate(x, a); KCTSB_OPT_RETURN(ZZ_p, x); }
 
 
 inline ZZ_p& operator++(ZZ_p& x) { add(x, x, 1); return x; }
@@ -463,13 +463,13 @@ inline void power(ZZ_p& x, const ZZ_p& a, const ZZ& e)
    { PowerMod(x._ZZ_p__rep, a._ZZ_p__rep, e, ZZ_p::modulus()); }
 
 inline ZZ_p power(const ZZ_p& a, const ZZ& e)
-   { ZZ_p x; power(x, a, e); NTL_OPT_RETURN(ZZ_p, x); }
+   { ZZ_p x; power(x, a, e); KCTSB_OPT_RETURN(ZZ_p, x); }
 
 inline void power(ZZ_p& x, const ZZ_p& a, long e)
    { PowerMod(x._ZZ_p__rep, a._ZZ_p__rep, e, ZZ_p::modulus()); }
 
 inline ZZ_p power(const ZZ_p& a, long e)
-   { ZZ_p x; power(x, a, e); NTL_OPT_RETURN(ZZ_p, x); }
+   { ZZ_p x; power(x, a, e); KCTSB_OPT_RETURN(ZZ_p, x); }
 
 
 // ****** comparison
@@ -502,15 +502,15 @@ inline void random(ZZ_p& x)
    { RandomBnd(x._ZZ_p__rep, ZZ_p::modulus()); }
 
 inline ZZ_p random_ZZ_p()
-   { ZZ_p x; random(x); NTL_OPT_RETURN(ZZ_p, x); }
+   { ZZ_p x; random(x); KCTSB_OPT_RETURN(ZZ_p, x); }
 
 
 // ****** input/output
 
-inline NTL_SNS ostream& operator<<(NTL_SNS ostream& s, const ZZ_p& a)
+inline KCTSB_SNS ostream& operator<<(KCTSB_SNS ostream& s, const ZZ_p& a)
    { return s << a._ZZ_p__rep; }
    
-NTL_SNS istream& operator>>(NTL_SNS istream& s, ZZ_p& x);
+KCTSB_SNS istream& operator>>(KCTSB_SNS istream& s, ZZ_p& x);
 
 
 inline ZZ_p& ZZ_p::operator=(long a) { conv(*this, a); return *this; }
@@ -556,7 +556,7 @@ public:
    ~ZZ_pWatcher() { watched.KillBig(); }
 };
 
-#define NTL_ZZ_pRegister(x) NTL_TLS_LOCAL(ZZ_p, x); ZZ_pWatcher _WATCHER__ ## x(x); x.allocate()
+#define KCTSB_ZZ_pRegister(x) KCTSB_TLS_LOCAL(ZZ_p, x); ZZ_pWatcher _WATCHER__ ## x(x); x.allocate()
 
 // FIXME: register variables that are allocated with respect to one modulus
 // and then reused with another modulus may have initial values that are
@@ -570,6 +570,6 @@ public:
 
 
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 #endif

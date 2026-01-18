@@ -1,22 +1,22 @@
+﻿
 
+#ifndef KCTSB_ZZ_pX__H
+#define KCTSB_ZZ_pX__H
 
-#ifndef NTL_ZZ_pX__H
-#define NTL_ZZ_pX__H
+#include <kctsb/math/bignum/vector.h>
+#include <kctsb/math/bignum/ZZ_p.h>
+#include <kctsb/math/bignum/vec_ZZ.h>
+#include <kctsb/math/bignum/vec_ZZ_p.h>
+#include <kctsb/math/bignum/FFT.h>
+#include <kctsb/math/bignum/Lazy.h>
+#include <kctsb/math/bignum/SmartPtr.h>
 
-#include <NTL/vector.h>
-#include <NTL/ZZ_p.h>
-#include <NTL/vec_ZZ.h>
-#include <NTL/vec_ZZ_p.h>
-#include <NTL/FFT.h>
-#include <NTL/Lazy.h>
-#include <NTL/SmartPtr.h>
-
-#ifndef NTL_WIZARD_HACK
-#include <NTL/mat_ZZ_p.h>
+#ifndef KCTSB_WIZARD_HACK
+#include <kctsb/math/bignum/mat_ZZ_p.h>
 #endif
 
 
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 
 
@@ -24,13 +24,13 @@ NTL_OPEN_NNS
 // some cross-over points
 // macros are used so as to be consistent with zz_pX 
 
-#define NTL_ZZ_pX_FFT_CROSSOVER (20)  
-#define NTL_ZZ_pX_NEWTON_CROSSOVER (45)
-#define NTL_ZZ_pX_DIV_CROSSOVER (90)
-#define NTL_ZZ_pX_HalfGCD_CROSSOVER (25)
-#define NTL_ZZ_pX_GCD_CROSSOVER (180)
-#define NTL_ZZ_pX_BERMASS_CROSSOVER (90)
-#define NTL_ZZ_pX_TRACE_CROSSOVER (90)
+#define KCTSB_ZZ_pX_FFT_CROSSOVER (20)  
+#define KCTSB_ZZ_pX_NEWTON_CROSSOVER (45)
+#define KCTSB_ZZ_pX_DIV_CROSSOVER (90)
+#define KCTSB_ZZ_pX_HalfGCD_CROSSOVER (25)
+#define KCTSB_ZZ_pX_GCD_CROSSOVER (180)
+#define KCTSB_ZZ_pX_BERMASS_CROSSOVER (90)
+#define KCTSB_ZZ_pX_TRACE_CROSSOVER (90)
 
 
 
@@ -137,7 +137,7 @@ void swap(ZZ_pX& x)
 
 
 
-NTL_DECLARE_RELOCATABLE((ZZ_pX*))
+KCTSB_DECLARE_RELOCATABLE((ZZ_pX*))
 
 
 
@@ -160,8 +160,8 @@ then reduced modulo p, and leading zeros stripped.
 *********************************************************************/
 
 
-NTL_SNS istream& operator>>(NTL_SNS istream& s, ZZ_pX& x);
-NTL_SNS ostream& operator<<(NTL_SNS ostream& s, const ZZ_pX& a);
+KCTSB_SNS istream& operator>>(KCTSB_SNS istream& s, ZZ_pX& x);
+KCTSB_SNS ostream& operator<<(KCTSB_SNS ostream& s, const ZZ_pX& a);
 
 
 
@@ -227,34 +227,34 @@ inline void swap(ZZ_pX& x, ZZ_pX& y)
 
 void random(ZZ_pX& x, long n);
 inline ZZ_pX random_ZZ_pX(long n)
-   { ZZ_pX x; random(x, n); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; random(x, n); KCTSB_OPT_RETURN(ZZ_pX, x); }
 // generate a random polynomial of degree < n 
 
 void trunc(ZZ_pX& x, const ZZ_pX& a, long m);
 // x = a % X^m
 
 inline ZZ_pX trunc(const ZZ_pX& a, long m)
-   { ZZ_pX x; trunc(x, a, m); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; trunc(x, a, m); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 void RightShift(ZZ_pX& x, const ZZ_pX& a, long n);
 // x = a/X^n
 
 inline ZZ_pX RightShift(const ZZ_pX& a, long n)
-   { ZZ_pX x; RightShift(x, a, n); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; RightShift(x, a, n); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 void LeftShift(ZZ_pX& x, const ZZ_pX& a, long n);
 // x = a*X^n
 
 inline ZZ_pX LeftShift(const ZZ_pX& a, long n)
-   { ZZ_pX x; LeftShift(x, a, n); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; LeftShift(x, a, n); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
-#ifndef NTL_TRANSITION
+#ifndef KCTSB_TRANSITION
 
 inline ZZ_pX operator>>(const ZZ_pX& a, long n)
-   { ZZ_pX x; RightShift(x, a, n); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; RightShift(x, a, n); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 inline ZZ_pX operator<<(const ZZ_pX& a, long n)
-   { ZZ_pX x; LeftShift(x, a, n); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; LeftShift(x, a, n); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 inline ZZ_pX& operator<<=(ZZ_pX& x, long n)
    { LeftShift(x, x, n); return x; }
@@ -270,7 +270,7 @@ void diff(ZZ_pX& x, const ZZ_pX& a);
 // x = derivative of a
 
 inline ZZ_pX diff(const ZZ_pX& a)
-   { ZZ_pX x; diff(x, a); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; diff(x, a); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 
 void MakeMonic(ZZ_pX& x);
@@ -278,13 +278,13 @@ void MakeMonic(ZZ_pX& x);
 void reverse(ZZ_pX& c, const ZZ_pX& a, long hi);
 
 inline ZZ_pX reverse(const ZZ_pX& a, long hi)
-   { ZZ_pX x; reverse(x, a, hi); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; reverse(x, a, hi); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 inline void reverse(ZZ_pX& c, const ZZ_pX& a)
 {  reverse(c, a, deg(a)); }
 
 inline ZZ_pX reverse(const ZZ_pX& a)
-   { ZZ_pX x; reverse(x, a); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; reverse(x, a); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 inline void VectorCopy(vec_ZZ_p& x, const ZZ_pX& a, long n)
    { VectorCopy(x, a.rep, n); }
@@ -309,16 +309,16 @@ void conv(ZZ_pX& x, const ZZ_p& a);
 void conv(ZZ_pX& x, const vec_ZZ_p& a);
 
 inline ZZ_pX to_ZZ_pX(long a)
-   { ZZ_pX x; conv(x, a); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; conv(x, a); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 inline ZZ_pX to_ZZ_pX(const ZZ& a)
-   { ZZ_pX x; conv(x, a); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; conv(x, a); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 inline ZZ_pX to_ZZ_pX(const ZZ_p& a)
-   { ZZ_pX x; conv(x, a); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; conv(x, a); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 inline ZZ_pX to_ZZ_pX(const vec_ZZ_p& a)
-   { ZZ_pX x; conv(x, a); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; conv(x, a); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 
 
@@ -403,35 +403,35 @@ void sub(ZZ_pX& x, long a, const ZZ_pX& b);
 void sub(ZZ_pX& x, const ZZ_p& a, const ZZ_pX& b);
 
 inline ZZ_pX operator+(const ZZ_pX& a, const ZZ_pX& b)
-   { ZZ_pX x; add(x, a, b); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; add(x, a, b); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 inline ZZ_pX operator+(const ZZ_pX& a, const ZZ_p& b)
-   { ZZ_pX x; add(x, a, b); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; add(x, a, b); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 inline ZZ_pX operator+(const ZZ_pX& a, long b)
-   { ZZ_pX x; add(x, a, b); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; add(x, a, b); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 inline ZZ_pX operator+(const ZZ_p& a, const ZZ_pX& b)
-   { ZZ_pX x; add(x, a, b); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; add(x, a, b); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 inline ZZ_pX operator+(long a, const ZZ_pX& b)
-   { ZZ_pX x; add(x, a, b); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; add(x, a, b); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 
 inline ZZ_pX operator-(const ZZ_pX& a, const ZZ_pX& b)
-   { ZZ_pX x; sub(x, a, b); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; sub(x, a, b); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 inline ZZ_pX operator-(const ZZ_pX& a, const ZZ_p& b)
-   { ZZ_pX x; sub(x, a, b); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; sub(x, a, b); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 inline ZZ_pX operator-(const ZZ_pX& a, long b)
-   { ZZ_pX x; sub(x, a, b); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; sub(x, a, b); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 inline ZZ_pX operator-(const ZZ_p& a, const ZZ_pX& b)
-   { ZZ_pX x; sub(x, a, b); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; sub(x, a, b); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 inline ZZ_pX operator-(long a, const ZZ_pX& b)
-   { ZZ_pX x; sub(x, a, b); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; sub(x, a, b); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 
 inline ZZ_pX& operator+=(ZZ_pX& x, const ZZ_pX& b)
@@ -454,7 +454,7 @@ inline ZZ_pX& operator-=(ZZ_pX& x, long b)
 
 
 inline ZZ_pX operator-(const ZZ_pX& a) 
-   { ZZ_pX x; negate(x, a); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; negate(x, a); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 inline ZZ_pX& operator++(ZZ_pX& x) { add(x, x, 1); return x; }
 inline void operator++(ZZ_pX& x, int) { add(x, x, 1); }
@@ -473,7 +473,7 @@ void mul(ZZ_pX& x, const ZZ_pX& a, const ZZ_pX& b);
 
 void sqr(ZZ_pX& x, const ZZ_pX& a);
 inline ZZ_pX sqr(const ZZ_pX& a)
-   { ZZ_pX x; sqr(x, a); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; sqr(x, a); KCTSB_OPT_RETURN(ZZ_pX, x); }
 // x = a^2
 
 void mul(ZZ_pX & x, const ZZ_pX& a, const ZZ_p& b); 
@@ -487,19 +487,19 @@ inline void mul(ZZ_pX& x, long a, const ZZ_pX& b)
    { mul(x, b, a); }
 
 inline ZZ_pX operator*(const ZZ_pX& a, const ZZ_pX& b)
-   { ZZ_pX x; mul(x, a, b); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; mul(x, a, b); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 inline ZZ_pX operator*(const ZZ_pX& a, const ZZ_p& b)
-   { ZZ_pX x; mul(x, a, b); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; mul(x, a, b); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 inline ZZ_pX operator*(const ZZ_pX& a, long b)
-   { ZZ_pX x; mul(x, a, b); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; mul(x, a, b); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 inline ZZ_pX operator*(const ZZ_p& a, const ZZ_pX& b)
-   { ZZ_pX x; mul(x, a, b); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; mul(x, a, b); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 inline ZZ_pX operator*(long a, const ZZ_pX& b)
-   { ZZ_pX x; mul(x, a, b); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; mul(x, a, b); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 inline ZZ_pX& operator*=(ZZ_pX& x, const ZZ_pX& b)
    { mul(x, x, b); return x; }
@@ -528,7 +528,7 @@ void MulTrunc(ZZ_pX& x, const ZZ_pX& a, const ZZ_pX& b, long n);
 // x = a * b % X^n
 
 inline ZZ_pX MulTrunc(const ZZ_pX& a, const ZZ_pX& b, long n)
-   { ZZ_pX x; MulTrunc(x, a, b, n); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; MulTrunc(x, a, b, n); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 void PlainMulTrunc(ZZ_pX& x, const ZZ_pX& a, const ZZ_pX& b, long n);
 void FFTMulTrunc(ZZ_pX& x, const ZZ_pX& a, const ZZ_pX& b, long n);
@@ -537,7 +537,7 @@ void SqrTrunc(ZZ_pX& x, const ZZ_pX& a, long n);
 // x = a^2 % X^n
 
 inline ZZ_pX SqrTrunc(const ZZ_pX& a, long n)
-   { ZZ_pX x; SqrTrunc(x, a, n); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; SqrTrunc(x, a, n); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 void PlainSqrTrunc(ZZ_pX& x, const ZZ_pX& a, long n);
 void FFTSqrTrunc(ZZ_pX& x, const ZZ_pX& a, long n);
@@ -545,7 +545,7 @@ void FFTSqrTrunc(ZZ_pX& x, const ZZ_pX& a, long n);
 
 void power(ZZ_pX& x, const ZZ_pX& a, long e);
 inline ZZ_pX power(const ZZ_pX& a, long e)
-   { ZZ_pX x; power(x, a, e); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; power(x, a, e); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 
 // The following data structures and routines allow one
@@ -709,7 +709,7 @@ void InvTrunc(ZZ_pX& x, const ZZ_pX& a, long m);
 // constant term must be non-zero
 
 inline ZZ_pX InvTrunc(const ZZ_pX& a, long m)
-   { ZZ_pX x; InvTrunc(x, a, m); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; InvTrunc(x, a, m); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 
 
@@ -738,13 +738,13 @@ void NewtonInvTrunc(ZZ_pX& x, const ZZ_pX& a, long m);
 
 
 inline ZZ_pX operator/(const ZZ_pX& a, const ZZ_pX& b)
-   { ZZ_pX x; div(x, a, b); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; div(x, a, b); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 inline ZZ_pX operator/(const ZZ_pX& a, const ZZ_p& b)
-   { ZZ_pX x; div(x, a, b); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; div(x, a, b); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 inline ZZ_pX operator/(const ZZ_pX& a, long b)
-   { ZZ_pX x; div(x, a, b); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; div(x, a, b); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 inline ZZ_pX& operator/=(ZZ_pX& x, const ZZ_p& b)
    { div(x, x, b); return x; }
@@ -757,7 +757,7 @@ inline ZZ_pX& operator/=(ZZ_pX& x, const ZZ_pX& b)
 
 
 inline ZZ_pX operator%(const ZZ_pX& a, const ZZ_pX& b)
-   { ZZ_pX x; rem(x, a, b); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; rem(x, a, b); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 inline ZZ_pX& operator%=(ZZ_pX& x, const ZZ_pX& b)
    { rem(x, x, b); return x; }
@@ -774,7 +774,7 @@ void GCD(ZZ_pX& x, const ZZ_pX& a, const ZZ_pX& b);
 // x = GCD(a, b),  x is always monic (or zero if a==b==0).
 
 inline ZZ_pX GCD(const ZZ_pX& a, const ZZ_pX& b)
-   { ZZ_pX x; GCD(x, a, b); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; GCD(x, a, b); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 void XGCD(ZZ_pX& d, ZZ_pX& s, ZZ_pX& t, const ZZ_pX& a, const ZZ_pX& b);
 // d = gcd(a,b), a s + b t = d 
@@ -835,19 +835,19 @@ void MulMod(ZZ_pX& x, const ZZ_pX& a, const ZZ_pX& b, const ZZ_pX& f);
 // x = (a * b) % f
 
 inline ZZ_pX MulMod(const ZZ_pX& a, const ZZ_pX& b, const ZZ_pX& f)
-   { ZZ_pX x; MulMod(x, a, b, f); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; MulMod(x, a, b, f); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 void SqrMod(ZZ_pX& x, const ZZ_pX& a, const ZZ_pX& f);
 // x = a^2 % f
 
 inline ZZ_pX SqrMod(const ZZ_pX& a,  const ZZ_pX& f)
-   { ZZ_pX x; SqrMod(x, a, f); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; SqrMod(x, a, f); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 void MulByXMod(ZZ_pX& x, const ZZ_pX& a, const ZZ_pX& f);
 // x = (a * X) mod f
 
 inline ZZ_pX MulByXMod(const ZZ_pX& a,  const ZZ_pX& f)
-   { ZZ_pX x; MulByXMod(x, a, f); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; MulByXMod(x, a, f); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 
 
@@ -855,7 +855,7 @@ void InvMod(ZZ_pX& x, const ZZ_pX& a, const ZZ_pX& f);
 // x = a^{-1} % f, error is a is not invertible
 
 inline ZZ_pX InvMod(const ZZ_pX& a,  const ZZ_pX& f)
-   { ZZ_pX x; InvMod(x, a, f); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; InvMod(x, a, f); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 long InvModStatus(ZZ_pX& x, const ZZ_pX& a, const ZZ_pX& f);
 // if (a, f) = 1, returns 0 and sets x = a^{-1} % f
@@ -904,7 +904,7 @@ public:
 };
 
 
-NTL_DECLARE_RELOCATABLE((ZZ_pXModulus*))
+KCTSB_DECLARE_RELOCATABLE((ZZ_pXModulus*))
 
 inline long deg(const ZZ_pXModulus& F) { return F.n; }
 
@@ -920,7 +920,7 @@ void rem(ZZ_pX& x, const ZZ_pX& a, const ZZ_pXModulus& F);
 // x = a % f, no restrictions on deg(a);  makes repeated calls to rem21
 
 inline ZZ_pX operator%(const ZZ_pX& a, const ZZ_pXModulus& F)
-   { ZZ_pX x; rem(x, a, F); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; rem(x, a, F); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 inline ZZ_pX& operator%=(ZZ_pX& x, const ZZ_pXModulus& F)
    { rem(x, x, F); return x; } 
@@ -930,7 +930,7 @@ void DivRem(ZZ_pX& q, ZZ_pX& r, const ZZ_pX& a, const ZZ_pXModulus& F);
 void div(ZZ_pX& q, const ZZ_pX& a, const ZZ_pXModulus& F);
 
 inline ZZ_pX operator/(const ZZ_pX& a, const ZZ_pXModulus& F)
-   { ZZ_pX x; div(x, a, F); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; div(x, a, F); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 inline ZZ_pX& operator/=(ZZ_pX& x, const ZZ_pXModulus& F)
    { div(x, x, F); return x; } 
@@ -940,26 +940,26 @@ void MulMod(ZZ_pX& x, const ZZ_pX& a, const ZZ_pX& b, const ZZ_pXModulus& F);
 // deg(a), deg(b) < n
 
 inline ZZ_pX MulMod(const ZZ_pX& a, const ZZ_pX& b, const ZZ_pXModulus& F)
-   { ZZ_pX x; MulMod(x, a, b, F); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; MulMod(x, a, b, F); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 void SqrMod(ZZ_pX& x, const ZZ_pX& a, const ZZ_pXModulus& F);
 // x = a^2 % f
 // deg(a) < n
 
 inline ZZ_pX SqrMod(const ZZ_pX& a, const ZZ_pXModulus& F)
-   { ZZ_pX x; SqrMod(x, a, F); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; SqrMod(x, a, F); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 void PowerMod(ZZ_pX& x, const ZZ_pX& a, const ZZ& e, const ZZ_pXModulus& F);
 // x = a^e % f, e >= 0
 
 inline ZZ_pX PowerMod(const ZZ_pX& a, const ZZ& e, const ZZ_pXModulus& F)
-   { ZZ_pX x; PowerMod(x, a, e, F); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; PowerMod(x, a, e, F); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 inline void PowerMod(ZZ_pX& x, const ZZ_pX& a, long e, const ZZ_pXModulus& F)
    { PowerMod(x, a, ZZ_expo(e), F); }
 
 inline ZZ_pX PowerMod(const ZZ_pX& a, long e, const ZZ_pXModulus& F)
-   { ZZ_pX x; PowerMod(x, a, e, F); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; PowerMod(x, a, e, F); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 
 
@@ -967,26 +967,26 @@ void PowerXMod(ZZ_pX& x, const ZZ& e, const ZZ_pXModulus& F);
 // x = X^e % f, e >= 0
 
 inline ZZ_pX PowerXMod(const ZZ& e, const ZZ_pXModulus& F)
-   { ZZ_pX x; PowerXMod(x, e, F); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; PowerXMod(x, e, F); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 inline void PowerXMod(ZZ_pX& x, long e, const ZZ_pXModulus& F)
    { PowerXMod(x, ZZ_expo(e), F); }
 
 inline ZZ_pX PowerXMod(long e, const ZZ_pXModulus& F)
-   { ZZ_pX x; PowerXMod(x, e, F); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; PowerXMod(x, e, F); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 void PowerXPlusAMod(ZZ_pX& x, const ZZ_p& a, const ZZ& e, const ZZ_pXModulus& F);
 // x = (X + a)^e % f, e >= 0
 
 inline ZZ_pX PowerXPlusAMod(const ZZ_p& a, const ZZ& e, const ZZ_pXModulus& F)
-   { ZZ_pX x; PowerXPlusAMod(x, a, e, F); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; PowerXPlusAMod(x, a, e, F); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 inline void PowerXPlusAMod(ZZ_pX& x, const ZZ_p& a, long e, const ZZ_pXModulus& F)
    { PowerXPlusAMod(x, a, ZZ_expo(e), F); }
 
 
 inline ZZ_pX PowerXPlusAMod(const ZZ_p& a, long e, const ZZ_pXModulus& F)
-   { ZZ_pX x; PowerXPlusAMod(x, a, e, F); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; PowerXPlusAMod(x, a, e, F); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 // If you need to compute a * b % f for a fixed b, but for many a's
 // (for example, computing powers of b modulo f), it is
@@ -1018,7 +1018,7 @@ void MulMod(ZZ_pX& x, const ZZ_pX& a, const ZZ_pXMultiplier& B,
 
 inline ZZ_pX MulMod(const ZZ_pX& a, const ZZ_pXMultiplier& B,
                                           const ZZ_pXModulus& F)
-   { ZZ_pX x; MulMod(x, a, B, F); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; MulMod(x, a, B, F); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 // x = (a * b) % f
 
@@ -1034,27 +1034,27 @@ void BuildFromRoots(ZZ_pX& x, const vec_ZZ_p& a);
 // computes the polynomial (X-a[0]) ... (X-a[n-1]), where n = a.length()
 
 inline ZZ_pX BuildFromRoots(const vec_ZZ_p& a)
-   { ZZ_pX x; BuildFromRoots(x, a); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; BuildFromRoots(x, a); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 
 void eval(ZZ_p& b, const ZZ_pX& f, const ZZ_p& a);
 // b = f(a)
 
 inline ZZ_p eval(const ZZ_pX& f, const ZZ_p& a)
-   { ZZ_p x; eval(x, f, a); NTL_OPT_RETURN(ZZ_p, x); }
+   { ZZ_p x; eval(x, f, a); KCTSB_OPT_RETURN(ZZ_p, x); }
 
 void eval(vec_ZZ_p& b, const ZZ_pX& f, const vec_ZZ_p& a);
 //  b[i] = f(a[i])
 
 inline vec_ZZ_p eval(const ZZ_pX& f, const vec_ZZ_p& a)
-   { vec_ZZ_p x; eval(x, f, a); NTL_OPT_RETURN(vec_ZZ_p, x); }
+   { vec_ZZ_p x; eval(x, f, a); KCTSB_OPT_RETURN(vec_ZZ_p, x); }
 
 
 void interpolate(ZZ_pX& f, const vec_ZZ_p& a, const vec_ZZ_p& b);
 // computes f such that f(a[i]) = b[i]
 
 inline ZZ_pX interpolate(const vec_ZZ_p& a, const vec_ZZ_p& b)
-   { ZZ_pX x; interpolate(x, a, b); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; interpolate(x, a, b); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 
 /*****************************************************************
@@ -1083,7 +1083,7 @@ void CompMod(ZZ_pX& x, const ZZ_pX& g, const ZZ_pX& h, const ZZ_pXModulus& F);
 
 inline ZZ_pX CompMod(const ZZ_pX& g, const ZZ_pX& h, 
                            const ZZ_pXModulus& F)
-   { ZZ_pX x; CompMod(x, g, h, F); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; CompMod(x, g, h, F); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 void Comp2Mod(ZZ_pX& x1, ZZ_pX& x2, const ZZ_pX& g1, const ZZ_pX& g2,
               const ZZ_pX& h, const ZZ_pXModulus& F);
@@ -1121,7 +1121,7 @@ struct ZZ_pXArgument {
    vec_ZZ_pX H;
 };
 
-extern NTL_CHEAP_THREAD_LOCAL long ZZ_pXArgBound;
+extern KCTSB_CHEAP_THREAD_LOCAL long ZZ_pXArgBound;
 
 
 void build(ZZ_pXArgument& H, const ZZ_pX& h, const ZZ_pXModulus& F, long m);
@@ -1133,21 +1133,21 @@ void CompMod(ZZ_pX& x, const ZZ_pX& g, const ZZ_pXArgument& H,
 
 inline ZZ_pX 
 CompMod(const ZZ_pX& g, const ZZ_pXArgument& H, const ZZ_pXModulus& F)
-   { ZZ_pX x; CompMod(x, g, H, F); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; CompMod(x, g, H, F); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 
 // New alternative CompMod strategy that just reduces to 
 // matrix multiplication ... 
 
-#if (!defined(NTL_WIZARD_HACK) && defined(NTL_HAVE_LL_TYPE))
-// NOTE: currently, we only ise the multi-modular matmul NTL_HAVE_LL_TYPE
-// if NTL_HAVE_LL_TYPE is defined.
+#if (!defined(KCTSB_WIZARD_HACK) && defined(KCTSB_HAVE_LL_TYPE))
+// NOTE: currently, we only ise the multi-modular matmul KCTSB_HAVE_LL_TYPE
+// if KCTSB_HAVE_LL_TYPE is defined.
 
-#define NTL_USE_ZZ_pXNewArgument
+#define KCTSB_USE_ZZ_pXNewArgument
 
 #endif
 
-#ifdef NTL_USE_ZZ_pXNewArgument
+#ifdef KCTSB_USE_ZZ_pXNewArgument
 
 struct ZZ_pXNewArgument {
    mat_ZZ_p_opaque mat;
@@ -1170,7 +1170,7 @@ typedef ZZ_pXArgument ZZ_pXNewArgument;
 
 
 
-#ifndef NTL_TRANSITION
+#ifndef KCTSB_TRANSITION
 
 void UpdateMap(vec_ZZ_p& x, const vec_ZZ_p& a,
                const ZZ_pXMultiplier& B, const ZZ_pXModulus& F);
@@ -1179,7 +1179,7 @@ inline vec_ZZ_p
 UpdateMap(const vec_ZZ_p& a, 
           const ZZ_pXMultiplier& B, const ZZ_pXModulus& F)
    { vec_ZZ_p x; UpdateMap(x, a, B, F); 
-     NTL_OPT_RETURN(vec_ZZ_p, x); }
+     KCTSB_OPT_RETURN(vec_ZZ_p, x); }
 
 #endif
 
@@ -1204,7 +1204,7 @@ inline vec_ZZ_p ProjectPowers(const vec_ZZ_p& a, long k,
 {
    vec_ZZ_p x;
    ProjectPowers(x, a, k, h, F);
-   NTL_OPT_RETURN(vec_ZZ_p, x);
+   KCTSB_OPT_RETURN(vec_ZZ_p, x);
 }
 
 
@@ -1219,7 +1219,7 @@ inline vec_ZZ_p ProjectPowers(const vec_ZZ_p& a, long k,
 {
    vec_ZZ_p x;
    ProjectPowers(x, a, k, H, F);
-   NTL_OPT_RETURN(vec_ZZ_p, x);
+   KCTSB_OPT_RETURN(vec_ZZ_p, x);
 }
 
 // same as above, but uses a pre-computed ZZ_pXArgument
@@ -1228,7 +1228,7 @@ inline void project(ZZ_p& x, const vec_ZZ_p& a, const ZZ_pX& b)
    { InnerProduct(x, a, b.rep); }
 
 inline ZZ_p project(const vec_ZZ_p& a, const ZZ_pX& b)
-   {  ZZ_p x; project(x, a, b); NTL_OPT_RETURN(ZZ_p, x); }
+   {  ZZ_p x; project(x, a, b); KCTSB_OPT_RETURN(ZZ_p, x); }
 
 void MinPolySeq(ZZ_pX& h, const vec_ZZ_p& a, long m);
 // computes the minimum polynomial of a linealy generated sequence;
@@ -1236,19 +1236,19 @@ void MinPolySeq(ZZ_pX& h, const vec_ZZ_p& a, long m);
 // required: a.length() >= 2*m
 
 inline ZZ_pX MinPolySeq(const vec_ZZ_p& a, long m)
-   { ZZ_pX x; MinPolySeq(x, a, m); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; MinPolySeq(x, a, m); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 void ProbMinPolyMod(ZZ_pX& h, const ZZ_pX& g, const ZZ_pXModulus& F, long m);
 
 inline ZZ_pX ProbMinPolyMod(const ZZ_pX& g, const ZZ_pXModulus& F, long m)
-   { ZZ_pX x; ProbMinPolyMod(x, g, F, m); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; ProbMinPolyMod(x, g, F, m); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 
 inline void ProbMinPolyMod(ZZ_pX& h, const ZZ_pX& g, const ZZ_pXModulus& F)
    { ProbMinPolyMod(h, g, F, F.n); }
 
 inline ZZ_pX ProbMinPolyMod(const ZZ_pX& g, const ZZ_pXModulus& F)
-   { ZZ_pX x; ProbMinPolyMod(x, g, F); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; ProbMinPolyMod(x, g, F); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 
 // computes the monic minimal polynomial if (g mod f).
@@ -1261,27 +1261,27 @@ inline ZZ_pX ProbMinPolyMod(const ZZ_pX& g, const ZZ_pXModulus& F)
 void MinPolyMod(ZZ_pX& h, const ZZ_pX& g, const ZZ_pXModulus& F, long m);
 
 inline ZZ_pX MinPolyMod(const ZZ_pX& g, const ZZ_pXModulus& F, long m)
-   { ZZ_pX x; MinPolyMod(x, g, F, m); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; MinPolyMod(x, g, F, m); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 inline void MinPolyMod(ZZ_pX& h, const ZZ_pX& g, const ZZ_pXModulus& F)
    { MinPolyMod(h, g, F, F.n); }
 
 inline ZZ_pX MinPolyMod(const ZZ_pX& g, const ZZ_pXModulus& F)
-   { ZZ_pX x; MinPolyMod(x, g, F); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; MinPolyMod(x, g, F); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 // same as above, but guarantees that result is correct
 
 void IrredPolyMod(ZZ_pX& h, const ZZ_pX& g, const ZZ_pXModulus& F, long m);
 
 inline ZZ_pX IrredPolyMod(const ZZ_pX& g, const ZZ_pXModulus& F, long m)
-   { ZZ_pX x; IrredPolyMod(x, g, F, m); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; IrredPolyMod(x, g, F, m); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 
 inline void IrredPolyMod(ZZ_pX& h, const ZZ_pX& g, const ZZ_pXModulus& F)
    { IrredPolyMod(h, g, F, F.n); }
 
 inline ZZ_pX IrredPolyMod(const ZZ_pX& g, const ZZ_pXModulus& F)
-   { ZZ_pX x; IrredPolyMod(x, g, F); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; IrredPolyMod(x, g, F); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 // same as above, but assumes that f is irreducible, 
 // or at least that the minimal poly of g is itself irreducible.
@@ -1296,7 +1296,7 @@ inline ZZ_pX IrredPolyMod(const ZZ_pX& g, const ZZ_pXModulus& F)
 void TraceVec(vec_ZZ_p& S, const ZZ_pX& f);
 
 inline vec_ZZ_p TraceVec(const ZZ_pX& f)
-   { vec_ZZ_p x; TraceVec(x, f); NTL_OPT_RETURN(vec_ZZ_p, x); }
+   { vec_ZZ_p x; TraceVec(x, f); KCTSB_OPT_RETURN(vec_ZZ_p, x); }
 
 void FastTraceVec(vec_ZZ_p& S, const ZZ_pX& f);
 void PlainTraceVec(vec_ZZ_p& S, const ZZ_pX& f);
@@ -1304,12 +1304,12 @@ void PlainTraceVec(vec_ZZ_p& S, const ZZ_pX& f);
 void TraceMod(ZZ_p& x, const ZZ_pX& a, const ZZ_pXModulus& F);
 
 inline ZZ_p TraceMod(const ZZ_pX& a, const ZZ_pXModulus& F)
-   { ZZ_p x; TraceMod(x, a, F); NTL_OPT_RETURN(ZZ_p, x); }
+   { ZZ_p x; TraceMod(x, a, F); KCTSB_OPT_RETURN(ZZ_p, x); }
 
 void TraceMod(ZZ_p& x, const ZZ_pX& a, const ZZ_pX& f);
 
 inline ZZ_p TraceMod(const ZZ_pX& a, const ZZ_pX& f)
-   { ZZ_p x; TraceMod(x, a, f); NTL_OPT_RETURN(ZZ_p, x); }
+   { ZZ_p x; TraceMod(x, a, f); KCTSB_OPT_RETURN(ZZ_p, x); }
 
 
 
@@ -1319,21 +1319,21 @@ void ComputeTraceVec(const ZZ_pXModulus& F);
 void NormMod(ZZ_p& x, const ZZ_pX& a, const ZZ_pX& f);
 
 inline ZZ_p NormMod(const ZZ_pX& a, const ZZ_pX& f)
-   { ZZ_p x; NormMod(x, a, f); NTL_OPT_RETURN(ZZ_p, x); }
+   { ZZ_p x; NormMod(x, a, f); KCTSB_OPT_RETURN(ZZ_p, x); }
 
 void resultant(ZZ_p& rres, const ZZ_pX& a, const ZZ_pX& b);
 
 inline ZZ_p resultant(const ZZ_pX& a, const ZZ_pX& b)
-   { ZZ_p x; resultant(x, a, b); NTL_OPT_RETURN(ZZ_p, x); }
+   { ZZ_p x; resultant(x, a, b); KCTSB_OPT_RETURN(ZZ_p, x); }
 
 void CharPolyMod(ZZ_pX& g, const ZZ_pX& a, const ZZ_pX& f);
 // g = char poly of (a mod f)
 
 inline ZZ_pX CharPolyMod(const ZZ_pX& a, const ZZ_pX& f)
-   { ZZ_pX x; CharPolyMod(x, a, f); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; CharPolyMod(x, a, f); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 #endif

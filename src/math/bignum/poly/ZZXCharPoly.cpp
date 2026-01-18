@@ -1,7 +1,7 @@
-#include <NTL/ZZX.h>
+﻿#include <kctsb/math/bignum/ZZX.h>
 
 
-NTL_START_IMPL
+KCTSB_START_IMPL
 
 
 void CharPolyMod(ZZX& gg, const ZZX& a, const ZZX& f, long deterministic)
@@ -75,4 +75,4 @@ void CharPolyMod(ZZX& gg, const ZZX& a, const ZZX& f, long deterministic)
    bak1.restore();
 }
 
-NTL_END_IMPL
+KCTSB_END_IMPL

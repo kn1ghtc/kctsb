@@ -1,12 +1,12 @@
+﻿
 
+#ifndef KCTSB_GF2EXFactoring__H
+#define KCTSB_GF2EXFactoring__H
 
-#ifndef NTL_GF2EXFactoring__H
-#define NTL_GF2EXFactoring__H
+#include <kctsb/math/bignum/GF2EX.h>
+#include <kctsb/math/bignum/pair_GF2EX_long.h>
 
-#include <NTL/GF2EX.h>
-#include <NTL/pair_GF2EX_long.h>
-
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 
 /************************************************************
@@ -70,7 +70,7 @@ berlekamp(const GF2EX& f, long verbose=0)
 
 
 extern 
-NTL_CHEAP_THREAD_LOCAL
+KCTSB_CHEAP_THREAD_LOCAL
 long GF2EX_BlockingFactor;
 // Controls GCD blocking for DDF.
 
@@ -87,13 +87,13 @@ inline vec_pair_GF2EX_long DDF(const GF2EX& f, const GF2EX& h,
 // Obsolete: see NewDDF, below.
 
 extern 
-NTL_CHEAP_THREAD_LOCAL
+KCTSB_CHEAP_THREAD_LOCAL
 long GF2EX_GCDTableSize; /* = 4 */
 // Controls GCD blocking for NewDDF
 
 
 extern 
-NTL_CHEAP_THREAD_LOCAL
+KCTSB_CHEAP_THREAD_LOCAL
 double GF2EXFileThresh; 
 // external files are used for baby/giant steps if size
 // of these tables exceeds GF2EXFileThresh KB.
@@ -184,7 +184,7 @@ long IterIrredTest(const GF2EX& f);
 
 void BuildIrred(GF2EX& f, long n);
 inline GF2EX BuildIrred_GF2EX(long n)
-   { GF2EX x; BuildIrred(x, n); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; BuildIrred(x, n); KCTSB_OPT_RETURN(GF2EX, x); }
 
 
 
@@ -192,7 +192,7 @@ inline GF2EX BuildIrred_GF2EX(long n)
 
 void BuildRandomIrred(GF2EX& f, const GF2EX& g);
 inline GF2EX BuildRandomIrred(const GF2EX& g)
-   { GF2EX x; BuildRandomIrred(x, g); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; BuildRandomIrred(x, g); KCTSB_OPT_RETURN(GF2EX, x); }
 
 
 // g is a monic irreducible polynomial.
@@ -219,7 +219,7 @@ inline GF2EX TraceMap(const GF2EX& a, long d, const GF2EXModulus& F,
 
 // w = a+a^q+...+^{q^{d-1}} mod f;
 // it is assumed that d >= 0, and b = X^q mod f, q a power of p
-// Space allocation can be controlled via ComposeBound (see <NTL/GF2EX.h>)
+// Space allocation can be controlled via ComposeBound (see <bignum/GF2EX.h>)
 
 
 
@@ -230,7 +230,7 @@ inline GF2EX PowerCompose(const GF2EX& a, long d, const GF2EXModulus& F)
 
 // w = X^{q^d} mod f;
 // it is assumed that d >= 0, and b = X^q mod f, q a power of p
-// Space allocation can be controlled via ComposeBound (see <NTL/GF2EX.h>)
+// Space allocation can be controlled via ComposeBound (see <bignum/GF2EX.h>)
 
 void PlainFrobeniusMap(GF2EX& h, const GF2EXModulus& F);
 void ComposeFrobeniusMap(GF2EX& y, const GF2EXModulus& F);
@@ -240,6 +240,6 @@ inline GF2EX FrobeniusMap(const GF2EXModulus& F)
 long UseComposeFrobenius(long d, long n);
 
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 #endif

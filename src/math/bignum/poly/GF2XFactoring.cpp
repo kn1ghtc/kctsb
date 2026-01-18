@@ -1,8 +1,8 @@
+﻿
+#include <kctsb/math/bignum/GF2XFactoring.h>
 
-#include <NTL/GF2XFactoring.h>
 
-
-NTL_START_IMPL
+KCTSB_START_IMPL
 
 
 long IterIrredTest(const GF2X& f)
@@ -460,12 +460,12 @@ void mul(GF2X& f, const vec_pair_GF2X_long& v)
 
 
 static
-void ConvertBits(GF2X& x, _ntl_ulong b)
+void ConvertBits(GF2X& x, _kctsb_ulong b)
 {
    clear(x);
    long i;
 
-   for (i = NTL_BITS_PER_LONG-1; i >= 0; i--)
+   for (i = KCTSB_BITS_PER_LONG-1; i >= 0; i--)
       if (b & (1UL << i))
          SetCoeff(x, i);
 
@@ -476,7 +476,7 @@ void BuildIrred(GF2X& f, long n)
    if (n <= 0)
       LogicError("BuildIrred: n must be positive");
 
-   if (NTL_OVERFLOW(n, 1, 0)) ResourceError("overflow in BuildIrred");
+   if (KCTSB_OVERFLOW(n, 1, 0)) ResourceError("overflow in BuildIrred");
 
    if (n == 1) {
       SetX(f);
@@ -485,11 +485,11 @@ void BuildIrred(GF2X& f, long n)
 
    GF2X g;
 
-   _ntl_ulong i;
+   _kctsb_ulong i;
 
    i = 0;
    do {
-      if (i >> (NTL_BITS_PER_LONG-1)) 
+      if (i >> (KCTSB_BITS_PER_LONG-1)) 
          ResourceError("BuildIrred: limit exceeded");
 
       ConvertBits(g, 2*i+1);
@@ -906,7 +906,7 @@ void BuildSparseIrred(GF2X& f, long n)
 {
    if (n <= 0) LogicError("SparseIrred: n <= 0");
 
-   if (NTL_OVERFLOW(n, 1, 0)) 
+   if (KCTSB_OVERFLOW(n, 1, 0)) 
       ResourceError("overflow in BuildSparseIrred");
 
    if (n == 1) {
@@ -963,4 +963,4 @@ void BuildSparseIrred(GF2X& f, long n)
    BuildIrred(f, n);
 }
 
-NTL_END_IMPL
+KCTSB_END_IMPL

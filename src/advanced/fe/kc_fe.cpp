@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file kc_fe.cpp
  * @brief Functional Encryption (FE) module implementation
  * @note Currently a placeholder - HElib BGV integration pending
@@ -10,7 +10,7 @@
 #include <kctsb/advanced/fe/kc_fe.hpp>
 
 // BGV (Brakerski-Gentry-Vaikuntanathan) Scheme
-// Requires HElib and NTL libraries
+// Requires HElib and bignum libraries
 // Full implementation pending HElib v2.3.0 API migration
 
 

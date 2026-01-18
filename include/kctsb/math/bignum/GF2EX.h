@@ -1,17 +1,17 @@
+﻿
+
+#ifndef KCTSB_GF2EX__H
+#define KCTSB_GF2EX__H
+
+#include <kctsb/math/bignum/vector.h>
+#include <kctsb/math/bignum/GF2E.h>
+#include <kctsb/math/bignum/vec_GF2E.h>
+#include <kctsb/math/bignum/vec_long.h>
+#include <kctsb/math/bignum/GF2XVec.h>
+#include <kctsb/math/bignum/Lazy.h>
 
 
-#ifndef NTL_GF2EX__H
-#define NTL_GF2EX__H
-
-#include <NTL/vector.h>
-#include <NTL/GF2E.h>
-#include <NTL/vec_GF2E.h>
-#include <NTL/vec_long.h>
-#include <NTL/GF2XVec.h>
-#include <NTL/Lazy.h>
-
-
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 class GF2EXModulus; // forward declaration
 
@@ -95,7 +95,7 @@ void swap(GF2EX& x) { rep.swap(x.rep); }
 
 
 
-NTL_DECLARE_RELOCATABLE((GF2EX*))
+KCTSB_DECLARE_RELOCATABLE((GF2EX*))
 
 
 
@@ -107,8 +107,8 @@ NTL_DECLARE_RELOCATABLE((GF2EX*))
 *********************************************************************/
 
 
-NTL_SNS istream& operator>>(NTL_SNS istream& s, GF2EX& x);
-NTL_SNS ostream& operator<<(NTL_SNS ostream& s, const GF2EX& a);
+KCTSB_SNS istream& operator>>(KCTSB_SNS istream& s, GF2EX& x);
+KCTSB_SNS ostream& operator<<(KCTSB_SNS ostream& s, const GF2EX& a);
 
 
 
@@ -176,31 +176,31 @@ inline void swap(GF2EX& x, GF2EX& y)
 
 void random(GF2EX& x, long n);
 inline GF2EX random_GF2EX(long n)
-   { GF2EX x; random(x, n); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; random(x, n); KCTSB_OPT_RETURN(GF2EX, x); }
 // generate a random polynomial of degree < n 
 
 void trunc(GF2EX& x, const GF2EX& a, long m);
 inline GF2EX trunc(const GF2EX& a, long m)
-   { GF2EX x; trunc(x, a, m); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; trunc(x, a, m); KCTSB_OPT_RETURN(GF2EX, x); }
 // x = a % X^m
 
 void RightShift(GF2EX& x, const GF2EX& a, long n);
 inline GF2EX RightShift(const GF2EX& a, long n)
-   { GF2EX x; RightShift(x, a, n); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; RightShift(x, a, n); KCTSB_OPT_RETURN(GF2EX, x); }
 // x = a/X^n
 
 void LeftShift(GF2EX& x, const GF2EX& a, long n);
 inline GF2EX LeftShift(const GF2EX& a, long n)
-   { GF2EX x; LeftShift(x, a, n); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; LeftShift(x, a, n); KCTSB_OPT_RETURN(GF2EX, x); }
 // x = a*X^n
 
-#ifndef NTL_TRANSITION
+#ifndef KCTSB_TRANSITION
 
 inline GF2EX operator>>(const GF2EX& a, long n)
-   { GF2EX x; RightShift(x, a, n); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; RightShift(x, a, n); KCTSB_OPT_RETURN(GF2EX, x); }
 
 inline GF2EX operator<<(const GF2EX& a, long n)
-   { GF2EX x; LeftShift(x, a, n); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; LeftShift(x, a, n); KCTSB_OPT_RETURN(GF2EX, x); }
 
 inline GF2EX& operator<<=(GF2EX& x, long n)
    { LeftShift(x, x, n); return x; }
@@ -214,7 +214,7 @@ inline GF2EX& operator>>=(GF2EX& x, long n)
 
 void diff(GF2EX& x, const GF2EX& a);
 inline GF2EX diff(const GF2EX& a)
-   { GF2EX x; diff(x, a); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; diff(x, a); KCTSB_OPT_RETURN(GF2EX, x); }
 // x = derivative of a
 
 
@@ -224,13 +224,13 @@ void MakeMonic(GF2EX& x);
 void reverse(GF2EX& c, const GF2EX& a, long hi);
 
 inline GF2EX reverse(const GF2EX& a, long hi)
-   { GF2EX x; reverse(x, a, hi); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; reverse(x, a, hi); KCTSB_OPT_RETURN(GF2EX, x); }
 
 inline void reverse(GF2EX& c, const GF2EX& a)
 {  reverse(c, a, deg(a)); }
 
 inline GF2EX reverse(const GF2EX& a)
-   { GF2EX x; reverse(x, a); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; reverse(x, a); KCTSB_OPT_RETURN(GF2EX, x); }
 
 inline void VectorCopy(vec_GF2E& x, const GF2EX& a, long n)
    { VectorCopy(x, a.rep, n); }
@@ -254,31 +254,31 @@ void conv(GF2EX& x, GF2 a);
 void conv(GF2EX& x, const GF2E& a);
 void conv(GF2EX& x, const ZZ& a);
 
-#ifndef NTL_TRANSITION
+#ifndef KCTSB_TRANSITION
 void conv(GF2EX& x, const GF2X& a);
 #endif
 
 void conv(GF2EX& x, const vec_GF2E& a);
 
 inline GF2EX to_GF2EX(long a)
-   { GF2EX x; conv(x, a); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; conv(x, a); KCTSB_OPT_RETURN(GF2EX, x); }
 
 inline GF2EX to_GF2EX(GF2 a)
-   { GF2EX x; conv(x, a); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; conv(x, a); KCTSB_OPT_RETURN(GF2EX, x); }
 
 inline GF2EX to_GF2EX(const GF2E& a)
-   { GF2EX x; conv(x, a); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; conv(x, a); KCTSB_OPT_RETURN(GF2EX, x); }
 
 inline GF2EX to_GF2EX(const ZZ& a)
-   { GF2EX x; conv(x, a); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; conv(x, a); KCTSB_OPT_RETURN(GF2EX, x); }
 
-#ifndef NTL_TRANSITION
+#ifndef KCTSB_TRANSITION
 inline GF2EX to_GF2EX(const GF2X& a)
-   { GF2EX x; conv(x, a); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; conv(x, a); KCTSB_OPT_RETURN(GF2EX, x); }
 #endif
 
 inline GF2EX to_GF2EX(const vec_GF2E& a)
-   { GF2EX x; conv(x, a); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; conv(x, a); KCTSB_OPT_RETURN(GF2EX, x); }
 
 inline GF2EX& GF2EX::operator=(const GF2E& a) { conv(*this, a); return *this; }
 inline GF2EX& GF2EX::operator=(GF2 a) { conv(*this, a); return *this; }
@@ -370,47 +370,47 @@ inline void negate(GF2EX& x, const GF2EX& a) { x = a; }
 
 
 inline GF2EX operator+(const GF2EX& a, const GF2EX& b)
-   { GF2EX x; add(x, a, b); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; add(x, a, b); KCTSB_OPT_RETURN(GF2EX, x); }
 
 inline GF2EX operator+(const GF2EX& a, const GF2E& b)
-   { GF2EX x; add(x, a, b); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; add(x, a, b); KCTSB_OPT_RETURN(GF2EX, x); }
 
 inline GF2EX operator+(const GF2EX& a, GF2 b)
-   { GF2EX x; add(x, a, b); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; add(x, a, b); KCTSB_OPT_RETURN(GF2EX, x); }
 
 inline GF2EX operator+(const GF2EX& a, long b)
-   { GF2EX x; add(x, a, b); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; add(x, a, b); KCTSB_OPT_RETURN(GF2EX, x); }
 
 inline GF2EX operator+(const GF2E& a, const GF2EX& b)
-   { GF2EX x; add(x, a, b); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; add(x, a, b); KCTSB_OPT_RETURN(GF2EX, x); }
 
 inline GF2EX operator+(GF2 a, const GF2EX& b)
-   { GF2EX x; add(x, a, b); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; add(x, a, b); KCTSB_OPT_RETURN(GF2EX, x); }
 
 inline GF2EX operator+(long a, const GF2EX& b)
-   { GF2EX x; add(x, a, b); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; add(x, a, b); KCTSB_OPT_RETURN(GF2EX, x); }
 
 
 inline GF2EX operator-(const GF2EX& a, const GF2EX& b)
-   { GF2EX x; sub(x, a, b); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; sub(x, a, b); KCTSB_OPT_RETURN(GF2EX, x); }
 
 inline GF2EX operator-(const GF2EX& a, const GF2E& b)
-   { GF2EX x; sub(x, a, b); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; sub(x, a, b); KCTSB_OPT_RETURN(GF2EX, x); }
 
 inline GF2EX operator-(const GF2EX& a, GF2 b)
-   { GF2EX x; sub(x, a, b); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; sub(x, a, b); KCTSB_OPT_RETURN(GF2EX, x); }
 
 inline GF2EX operator-(const GF2EX& a, long b)
-   { GF2EX x; sub(x, a, b); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; sub(x, a, b); KCTSB_OPT_RETURN(GF2EX, x); }
 
 inline GF2EX operator-(const GF2E& a, const GF2EX& b)
-   { GF2EX x; sub(x, a, b); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; sub(x, a, b); KCTSB_OPT_RETURN(GF2EX, x); }
 
 inline GF2EX operator-(GF2 a, const GF2EX& b)
-   { GF2EX x; sub(x, a, b); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; sub(x, a, b); KCTSB_OPT_RETURN(GF2EX, x); }
 
 inline GF2EX operator-(long a, const GF2EX& b)
-   { GF2EX x; sub(x, a, b); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; sub(x, a, b); KCTSB_OPT_RETURN(GF2EX, x); }
 
 
 inline GF2EX& operator+=(GF2EX& x, const GF2EX& b)
@@ -439,7 +439,7 @@ inline GF2EX& operator-=(GF2EX& x, long b)
 
 
 inline GF2EX operator-(const GF2EX& a) 
-   { GF2EX x; negate(x, a); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; negate(x, a); KCTSB_OPT_RETURN(GF2EX, x); }
 
 inline GF2EX& operator++(GF2EX& x) { add(x, x, 1); return x; }
 inline void operator++(GF2EX& x, int) { add(x, x, 1); }
@@ -459,7 +459,7 @@ void mul(GF2EX& x, const GF2EX& a, const GF2EX& b);
 
 void sqr(GF2EX& x, const GF2EX& a);
 inline GF2EX sqr(const GF2EX& a)
-   { GF2EX x; sqr(x, a); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; sqr(x, a); KCTSB_OPT_RETURN(GF2EX, x); }
 // x = a^2
 
 void mul(GF2EX & x, const GF2EX& a, const GF2E& b);
@@ -472,35 +472,35 @@ inline void mul(GF2EX& x, long a, const GF2EX& b) { mul(x, b, a); }
 
 void MulTrunc(GF2EX& x, const GF2EX& a, const GF2EX& b, long n);
 inline GF2EX MulTrunc(const GF2EX& a, const GF2EX& b, long n)
-   { GF2EX x; MulTrunc(x, a, b, n); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; MulTrunc(x, a, b, n); KCTSB_OPT_RETURN(GF2EX, x); }
 // x = a * b % X^n
 
 void SqrTrunc(GF2EX& x, const GF2EX& a, long n);
 inline GF2EX SqrTrunc(const GF2EX& a, long n)
-   { GF2EX x; SqrTrunc(x, a, n); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; SqrTrunc(x, a, n); KCTSB_OPT_RETURN(GF2EX, x); }
 // x = a*a % X^n
 
 
 inline GF2EX operator*(const GF2EX& a, const GF2EX& b)
-   { GF2EX x; mul(x, a, b); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; mul(x, a, b); KCTSB_OPT_RETURN(GF2EX, x); }
 
 inline GF2EX operator*(const GF2EX& a, const GF2E& b)
-   { GF2EX x; mul(x, a, b); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; mul(x, a, b); KCTSB_OPT_RETURN(GF2EX, x); }
 
 inline GF2EX operator*(const GF2EX& a, GF2 b)
-   { GF2EX x; mul(x, a, b); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; mul(x, a, b); KCTSB_OPT_RETURN(GF2EX, x); }
 
 inline GF2EX operator*(const GF2EX& a, long b)
-   { GF2EX x; mul(x, a, b); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; mul(x, a, b); KCTSB_OPT_RETURN(GF2EX, x); }
 
 inline GF2EX operator*(const GF2E& a, const GF2EX& b)
-   { GF2EX x; mul(x, a, b); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; mul(x, a, b); KCTSB_OPT_RETURN(GF2EX, x); }
 
 inline GF2EX operator*(GF2 a, const GF2EX& b)
-   { GF2EX x; mul(x, a, b); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; mul(x, a, b); KCTSB_OPT_RETURN(GF2EX, x); }
 
 inline GF2EX operator*(long a, const GF2EX& b)
-   { GF2EX x; mul(x, a, b); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; mul(x, a, b); KCTSB_OPT_RETURN(GF2EX, x); }
 
 inline GF2EX& operator*=(GF2EX& x, const GF2EX& b)
    { mul(x, x, b); return x; }
@@ -517,7 +517,7 @@ inline GF2EX& operator*=(GF2EX& x, long b)
 
 void power(GF2EX& x, const GF2EX& a, long e);
 inline GF2EX power(const GF2EX& a, long e)
-   { GF2EX x; power(x, a, e); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; power(x, a, e); KCTSB_OPT_RETURN(GF2EX, x); }
 
 
 
@@ -548,7 +548,7 @@ long divide(const GF2EX& a, const GF2EX& b);
 
 void InvTrunc(GF2EX& x, const GF2EX& a, long m);
 inline GF2EX InvTrunc(const GF2EX& a, long m)
-   { GF2EX x; InvTrunc(x, a, m); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; InvTrunc(x, a, m); KCTSB_OPT_RETURN(GF2EX, x); }
 
 // computes x = a^{-1} % X^m 
 // constant term must be non-zero
@@ -556,16 +556,16 @@ inline GF2EX InvTrunc(const GF2EX& a, long m)
 
 
 inline GF2EX operator/(const GF2EX& a, const GF2EX& b)
-   { GF2EX x; div(x, a, b); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; div(x, a, b); KCTSB_OPT_RETURN(GF2EX, x); }
 
 inline GF2EX operator/(const GF2EX& a, const GF2E& b)
-   { GF2EX x; div(x, a, b); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; div(x, a, b); KCTSB_OPT_RETURN(GF2EX, x); }
 
 inline GF2EX operator/(const GF2EX& a, GF2 b)
-   { GF2EX x; div(x, a, b); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; div(x, a, b); KCTSB_OPT_RETURN(GF2EX, x); }
 
 inline GF2EX operator/(const GF2EX& a, long b)
-   { GF2EX x; div(x, a, b); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; div(x, a, b); KCTSB_OPT_RETURN(GF2EX, x); }
 
 inline GF2EX& operator/=(GF2EX& x, const GF2EX& b)
    { div(x, x, b); return x; }
@@ -581,7 +581,7 @@ inline GF2EX& operator/=(GF2EX& x, long b)
 
 
 inline GF2EX operator%(const GF2EX& a, const GF2EX& b)
-   { GF2EX x; rem(x, a, b); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; rem(x, a, b); KCTSB_OPT_RETURN(GF2EX, x); }
 
 inline GF2EX& operator%=(GF2EX& x, const GF2EX& b)
    { rem(x, x, b); return x; }
@@ -598,7 +598,7 @@ inline GF2EX& operator%=(GF2EX& x, const GF2EX& b)
 
 void GCD(GF2EX& x, const GF2EX& a, const GF2EX& b);
 inline GF2EX GCD(const GF2EX& a, const GF2EX& b)
-   { GF2EX x; GCD(x, a, b); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; GCD(x, a, b); KCTSB_OPT_RETURN(GF2EX, x); }
 
 // x = GCD(a, b),  x is always monic (or zero if a==b==0).
 
@@ -622,22 +622,22 @@ void XGCD(GF2EX& d, GF2EX& s, GF2EX& t, const GF2EX& a, const GF2EX& b);
 
 void MulMod(GF2EX& x, const GF2EX& a, const GF2EX& b, const GF2EX& f);
 inline GF2EX MulMod(const GF2EX& a, const GF2EX& b, const GF2EX& f)
-   { GF2EX x; MulMod(x, a, b, f); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; MulMod(x, a, b, f); KCTSB_OPT_RETURN(GF2EX, x); }
 // x = (a * b) % f
 
 void SqrMod(GF2EX& x, const GF2EX& a, const GF2EX& f);
 inline GF2EX SqrMod(const GF2EX& a, const GF2EX& f)
-   { GF2EX x; SqrMod(x, a, f); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; SqrMod(x, a, f); KCTSB_OPT_RETURN(GF2EX, x); }
 // x = a^2 % f
 
 void MulByXMod(GF2EX& x, const GF2EX& a, const GF2EX& f);
 inline GF2EX MulByXMod(const GF2EX& a, const GF2EX& f)
-   { GF2EX x; MulByXMod(x, a, f); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; MulByXMod(x, a, f); KCTSB_OPT_RETURN(GF2EX, x); }
 // x = (a * X) mod f
 
 void InvMod(GF2EX& x, const GF2EX& a, const GF2EX& f);
 inline GF2EX InvMod(const GF2EX& a, const GF2EX& f)
-   { GF2EX x; InvMod(x, a, f); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; InvMod(x, a, f); KCTSB_OPT_RETURN(GF2EX, x); }
 // x = a^{-1} % f, error is a is not invertible
 
 long InvModStatus(GF2EX& x, const GF2EX& a, const GF2EX& f);
@@ -684,7 +684,7 @@ public:
 }; 
 
 
-NTL_DECLARE_RELOCATABLE((GF2EXModulus*))
+KCTSB_DECLARE_RELOCATABLE((GF2EXModulus*))
 inline long deg(const GF2EXModulus& F) { return F.n; }
 
 void build(GF2EXModulus& F, const GF2EX& f);
@@ -699,11 +699,11 @@ void div(GF2EX& q, const GF2EX& a, const GF2EXModulus& F);
 
 void MulMod(GF2EX& c, const GF2EX& a, const GF2EX& b, const GF2EXModulus& F);
 inline GF2EX MulMod(const GF2EX& a, const GF2EX& b, const GF2EXModulus& F)
-   { GF2EX x; MulMod(x, a, b, F); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; MulMod(x, a, b, F); KCTSB_OPT_RETURN(GF2EX, x); }
 
 void SqrMod(GF2EX& c, const GF2EX& a, const GF2EXModulus& F);
 inline GF2EX SqrMod(const GF2EX& a, const GF2EXModulus& F)
-   { GF2EX x; SqrMod(x, a, F); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; SqrMod(x, a, F); KCTSB_OPT_RETURN(GF2EX, x); }
 
 
 void PowerMod(GF2EX& h, const GF2EX& g, const ZZ& e, const GF2EXModulus& F);
@@ -712,10 +712,10 @@ inline void PowerMod(GF2EX& h, const GF2EX& g, long e, const GF2EXModulus& F)
    { PowerMod(h, g, ZZ_expo(e), F); }
 
 inline GF2EX PowerMod(const GF2EX& g, const ZZ& e, const GF2EXModulus& F)
-   { GF2EX x; PowerMod(x, g, e, F);  NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; PowerMod(x, g, e, F);  KCTSB_OPT_RETURN(GF2EX, x); }
 
 inline GF2EX PowerMod(const GF2EX& g, long e, const GF2EXModulus& F)
-   { GF2EX x; PowerMod(x, g, e, F);  NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; PowerMod(x, g, e, F);  KCTSB_OPT_RETURN(GF2EX, x); }
 
 void PowerXMod(GF2EX& hh, const ZZ& e, const GF2EXModulus& F);
 
@@ -724,19 +724,19 @@ inline void PowerXMod(GF2EX& h, long e, const GF2EXModulus& F)
 
 
 inline GF2EX PowerXMod(const ZZ& e, const GF2EXModulus& F)
-   { GF2EX x; PowerXMod(x, e, F);  NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; PowerXMod(x, e, F);  KCTSB_OPT_RETURN(GF2EX, x); }
 
 inline GF2EX PowerXMod(long e, const GF2EXModulus& F)
-   { GF2EX x; PowerXMod(x, e, F);  NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; PowerXMod(x, e, F);  KCTSB_OPT_RETURN(GF2EX, x); }
 
 inline GF2EX operator%(const GF2EX& a, const GF2EXModulus& F)
-   { GF2EX x; rem(x, a, F); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; rem(x, a, F); KCTSB_OPT_RETURN(GF2EX, x); }
 
 inline GF2EX& operator%=(GF2EX& x, const GF2EXModulus& F)
    { rem(x, x, F); return x; }
 
 inline GF2EX operator/(const GF2EX& a, const GF2EXModulus& F)
-   { GF2EX x; div(x, a, F); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; div(x, a, F); KCTSB_OPT_RETURN(GF2EX, x); }
 
 inline GF2EX& operator/=(GF2EX& x, const GF2EXModulus& F)
    { div(x, x, F); return x; }
@@ -764,31 +764,31 @@ typedef Vec<GF2EX> vec_GF2EX;
 
 void BuildFromRoots(GF2EX& x, const vec_GF2E& a);
 inline GF2EX BuildFromRoots(const vec_GF2E& a)
-   { GF2EX x; BuildFromRoots(x, a); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; BuildFromRoots(x, a); KCTSB_OPT_RETURN(GF2EX, x); }
 // computes the polynomial (X-a[0]) ... (X-a[n-1]), where n = a.length()
 
 
 void eval(GF2E& b, const GF2EX& f, const GF2E& a);
 inline GF2E eval(const GF2EX& f, const GF2E& a)
-   { GF2E x; eval(x, f, a); NTL_OPT_RETURN(GF2E, x); }
+   { GF2E x; eval(x, f, a); KCTSB_OPT_RETURN(GF2E, x); }
 // b = f(a)
 
 void eval(vec_GF2E& b, const GF2EX& f, const vec_GF2E& a);
 inline vec_GF2E eval(const GF2EX& f, const vec_GF2E& a)
-   { vec_GF2E x; eval(x, f, a); NTL_OPT_RETURN(vec_GF2E, x); }
+   { vec_GF2E x; eval(x, f, a); KCTSB_OPT_RETURN(vec_GF2E, x); }
 //  b[i] = f(a[i])
 
 inline void eval(GF2E& b, const GF2X& f, const GF2E& a)
    { conv(b, CompMod(f, rep(a), GF2E::modulus())); }
    
 inline GF2E eval(const GF2X& f, const GF2E& a)
-   { GF2E x; eval(x, f, a); NTL_OPT_RETURN(GF2E, x); }
+   { GF2E x; eval(x, f, a); KCTSB_OPT_RETURN(GF2E, x); }
 // b = f(a)
 
 
 void interpolate(GF2EX& f, const vec_GF2E& a, const vec_GF2E& b);
 inline GF2EX interpolate(const vec_GF2E& a, const vec_GF2E& b)
-   { GF2EX x; interpolate(x, a, b); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; interpolate(x, a, b); KCTSB_OPT_RETURN(GF2EX, x); }
 // computes f such that f(a[i]) = b[i]
 
 
@@ -809,7 +809,7 @@ inline GF2EX interpolate(const vec_GF2E& a, const vec_GF2E& b)
 void CompMod(GF2EX& x, const GF2EX& g, const GF2EX& h, const GF2EXModulus& F);
 inline GF2EX 
 CompMod(const GF2EX& g, const GF2EX& h, const GF2EXModulus& F)
-   { GF2EX x; CompMod(x, g, h, F); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; CompMod(x, g, h, F); KCTSB_OPT_RETURN(GF2EX, x); }
 // x = g(h) mod f
 
 void Comp2Mod(GF2EX& x1, GF2EX& x2, const GF2EX& g1, const GF2EX& g2,
@@ -849,7 +849,7 @@ struct GF2EXArgument {
 };
 
 extern 
-NTL_CHEAP_THREAD_LOCAL
+KCTSB_CHEAP_THREAD_LOCAL
 long GF2EXArgBound;
 
 
@@ -862,40 +862,40 @@ void CompMod(GF2EX& x, const GF2EX& g, const GF2EXArgument& H,
 
 inline GF2EX 
 CompMod(const GF2EX& g, const GF2EXArgument& H, const GF2EXModulus& F)
-   { GF2EX x; CompMod(x, g, H, F); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; CompMod(x, g, H, F); KCTSB_OPT_RETURN(GF2EX, x); }
    
 
 
 
 void MinPolySeq(GF2EX& h, const vec_GF2E& a, long m);
 inline GF2EX MinPolySeq(const vec_GF2E& a, long m)
-   { GF2EX x; MinPolySeq(x, a, m); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; MinPolySeq(x, a, m); KCTSB_OPT_RETURN(GF2EX, x); }
 
 
 void MinPolyMod(GF2EX& hh, const GF2EX& g, const GF2EXModulus& F);
 inline GF2EX MinPolyMod(const GF2EX& g, const GF2EXModulus& F)
-   { GF2EX x; MinPolyMod(x, g, F); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; MinPolyMod(x, g, F); KCTSB_OPT_RETURN(GF2EX, x); }
 
 
 void MinPolyMod(GF2EX& hh, const GF2EX& g, const GF2EXModulus& F, long m);
 inline GF2EX MinPolyMod(const GF2EX& g, const GF2EXModulus& F, long m)
-   { GF2EX x; MinPolyMod(x, g, F, m); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; MinPolyMod(x, g, F, m); KCTSB_OPT_RETURN(GF2EX, x); }
 
 void ProbMinPolyMod(GF2EX& hh, const GF2EX& g, const GF2EXModulus& F);
 inline GF2EX ProbMinPolyMod(const GF2EX& g, const GF2EXModulus& F)
-   { GF2EX x; ProbMinPolyMod(x, g, F); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; ProbMinPolyMod(x, g, F); KCTSB_OPT_RETURN(GF2EX, x); }
 
 void ProbMinPolyMod(GF2EX& hh, const GF2EX& g, const GF2EXModulus& F, long m);
 inline GF2EX ProbMinPolyMod(const GF2EX& g, const GF2EXModulus& F, long m)
-   { GF2EX x; ProbMinPolyMod(x, g, F, m); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; ProbMinPolyMod(x, g, F, m); KCTSB_OPT_RETURN(GF2EX, x); }
 
 void IrredPolyMod(GF2EX& h, const GF2EX& g, const GF2EXModulus& F);
 inline GF2EX IrredPolyMod(const GF2EX& g, const GF2EXModulus& F)
-   { GF2EX x; IrredPolyMod(x, g, F); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; IrredPolyMod(x, g, F); KCTSB_OPT_RETURN(GF2EX, x); }
 
 void IrredPolyMod(GF2EX& h, const GF2EX& g, const GF2EXModulus& F, long m);
 inline GF2EX IrredPolyMod(const GF2EX& g, const GF2EXModulus& F, long m)
-   { GF2EX x; IrredPolyMod(x, g, F, m); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; IrredPolyMod(x, g, F, m); KCTSB_OPT_RETURN(GF2EX, x); }
 
 
 struct GF2EXTransMultiplier {
@@ -913,25 +913,25 @@ void UpdateMap(vec_GF2E& x, const vec_GF2E& a,
 
 inline vec_GF2E UpdateMap(const vec_GF2E& a,
          const GF2EXTransMultiplier& B, const GF2EXModulus& F)
-   { vec_GF2E x; UpdateMap(x, a, B, F); NTL_OPT_RETURN(vec_GF2E, x); }
+   { vec_GF2E x; UpdateMap(x, a, B, F); KCTSB_OPT_RETURN(vec_GF2E, x); }
 
 void ProjectPowers(vec_GF2E& x, const vec_GF2E& a, long k, 
                    const GF2EXArgument& H, const GF2EXModulus& F);
 inline vec_GF2E ProjectPowers(const vec_GF2E& a, long k, 
                    const GF2EXArgument& H, const GF2EXModulus& F)
-   { vec_GF2E x; ProjectPowers(x, a, k, H, F); NTL_OPT_RETURN(vec_GF2E, x); }
+   { vec_GF2E x; ProjectPowers(x, a, k, H, F); KCTSB_OPT_RETURN(vec_GF2E, x); }
 
 void ProjectPowers(vec_GF2E& x, const vec_GF2E& a, long k, const GF2EX& h, 
                    const GF2EXModulus& F);
 inline vec_GF2E ProjectPowers(const vec_GF2E& a, long k, 
                    const GF2EX& H, const GF2EXModulus& F)
-   { vec_GF2E x; ProjectPowers(x, a, k, H, F); NTL_OPT_RETURN(vec_GF2E, x); }
+   { vec_GF2E x; ProjectPowers(x, a, k, H, F); KCTSB_OPT_RETURN(vec_GF2E, x); }
 
 inline void project(GF2E& x, const vec_GF2E& a, const GF2EX& b)
    { InnerProduct(x, a, b.rep); }
 
 inline GF2E project(const vec_GF2E& a, const GF2EX& b)
-   { GF2E x; InnerProduct(x, a, b.rep); NTL_OPT_RETURN(GF2E, x); }
+   { GF2E x; InnerProduct(x, a, b.rep); KCTSB_OPT_RETURN(GF2E, x); }
 
 /**********************************************************
 
@@ -947,14 +947,14 @@ void CompTower(GF2EX& x, const GF2X& g, const GF2EXArgument& A,
 
 inline GF2EX CompTower(const GF2X& g, const GF2EXArgument& A,
              const GF2EXModulus& F)
-   { GF2EX x; CompTower(x, g, A, F); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; CompTower(x, g, A, F); KCTSB_OPT_RETURN(GF2EX, x); }
 
 void CompTower(GF2EX& x, const GF2X& g, const GF2EX& h,
              const GF2EXModulus& F);
 
 inline GF2EX CompTower(const GF2X& g, const GF2EX& h,
              const GF2EXModulus& F)
-   { GF2EX x; CompTower(x, g, h, F); NTL_OPT_RETURN(GF2EX, x); }
+   { GF2EX x; CompTower(x, g, h, F); KCTSB_OPT_RETURN(GF2EX, x); }
 
 // prob min poly
 
@@ -963,14 +963,14 @@ void ProbMinPolyTower(GF2X& h, const GF2EX& g, const GF2EXModulus& F,
 
 inline GF2X ProbMinPolyTower(const GF2EX& g, const GF2EXModulus& F,
                       long m)
-   { GF2X x; ProbMinPolyTower(x, g, F, m); NTL_OPT_RETURN(GF2X, x); }
+   { GF2X x; ProbMinPolyTower(x, g, F, m); KCTSB_OPT_RETURN(GF2X, x); }
 
 inline void ProbMinPolyTower(GF2X& h, const GF2EX& g, 
                              const GF2EXModulus& F)
    { ProbMinPolyTower(h, g, F, deg(F)*GF2E::degree()); }
 
 inline GF2X ProbMinPolyTower(const GF2EX& g, const GF2EXModulus& F)
-   { GF2X x; ProbMinPolyTower(x, g, F); NTL_OPT_RETURN(GF2X, x); }
+   { GF2X x; ProbMinPolyTower(x, g, F); KCTSB_OPT_RETURN(GF2X, x); }
 
 
 // min poly
@@ -981,14 +981,14 @@ void MinPolyTower(GF2X& h, const GF2EX& g, const GF2EXModulus& F,
 
 inline GF2X MinPolyTower(const GF2EX& g, const GF2EXModulus& F,
                       long m)
-   { GF2X x; MinPolyTower(x, g, F, m); NTL_OPT_RETURN(GF2X, x); }
+   { GF2X x; MinPolyTower(x, g, F, m); KCTSB_OPT_RETURN(GF2X, x); }
 
 inline void MinPolyTower(GF2X& h, const GF2EX& g, 
                              const GF2EXModulus& F)
    { MinPolyTower(h, g, F, deg(F)*GF2E::degree()); }
 
 inline GF2X MinPolyTower(const GF2EX& g, const GF2EXModulus& F)
-   { GF2X x; MinPolyTower(x, g, F); NTL_OPT_RETURN(GF2X, x); }
+   { GF2X x; MinPolyTower(x, g, F); KCTSB_OPT_RETURN(GF2X, x); }
 
 // irred poly
 
@@ -998,14 +998,14 @@ void IrredPolyTower(GF2X& h, const GF2EX& g, const GF2EXModulus& F,
 
 inline GF2X IrredPolyTower(const GF2EX& g, const GF2EXModulus& F,
                       long m)
-   { GF2X x; IrredPolyTower(x, g, F, m); NTL_OPT_RETURN(GF2X, x); }
+   { GF2X x; IrredPolyTower(x, g, F, m); KCTSB_OPT_RETURN(GF2X, x); }
 
 inline void IrredPolyTower(GF2X& h, const GF2EX& g, 
                              const GF2EXModulus& F)
    { IrredPolyTower(h, g, F, deg(F)*GF2E::degree()); }
 
 inline GF2X IrredPolyTower(const GF2EX& g, const GF2EXModulus& F)
-   { GF2X x; IrredPolyTower(x, g, F); NTL_OPT_RETURN(GF2X, x); }
+   { GF2X x; IrredPolyTower(x, g, F); KCTSB_OPT_RETURN(GF2X, x); }
 
 
 
@@ -1018,18 +1018,18 @@ inline GF2X IrredPolyTower(const GF2EX& g, const GF2EXModulus& F)
 void TraceVec(vec_GF2E& S, const GF2EX& f);
 
 inline vec_GF2E TraceVec(const GF2EX& f)
-   { vec_GF2E x; TraceVec(x, f); NTL_OPT_RETURN(vec_GF2E, x); }
+   { vec_GF2E x; TraceVec(x, f); KCTSB_OPT_RETURN(vec_GF2E, x); }
 
 
 void TraceMod(GF2E& x, const GF2EX& a, const GF2EXModulus& F);
 
 inline GF2E TraceMod(const GF2EX& a, const GF2EXModulus& F)
-   { GF2E x; TraceMod(x, a, F); NTL_OPT_RETURN(GF2E, x); }
+   { GF2E x; TraceMod(x, a, F); KCTSB_OPT_RETURN(GF2E, x); }
 
 void TraceMod(GF2E& x, const GF2EX& a, const GF2EX& f);
 
 inline GF2E TraceMod(const GF2EX& a, const GF2EX& f)
-   { GF2E x; TraceMod(x, a, f); NTL_OPT_RETURN(GF2E, x); }
+   { GF2E x; TraceMod(x, a, f); KCTSB_OPT_RETURN(GF2E, x); }
 
 
 
@@ -1038,14 +1038,14 @@ inline GF2E TraceMod(const GF2EX& a, const GF2EX& f)
 void NormMod(GF2E& x, const GF2EX& a, const GF2EX& f);
 
 inline GF2E NormMod(const GF2EX& a, const GF2EX& f)
-   { GF2E x; NormMod(x, a, f); NTL_OPT_RETURN(GF2E, x); }
+   { GF2E x; NormMod(x, a, f); KCTSB_OPT_RETURN(GF2E, x); }
 
 void resultant(GF2E& rres, const GF2EX& a, const GF2EX& b);
 
 inline GF2E resultant(const GF2EX& a, const GF2EX& b)
-   { GF2E x; resultant(x, a, b); NTL_OPT_RETURN(GF2E, x); }
+   { GF2E x; resultant(x, a, b); KCTSB_OPT_RETURN(GF2E, x); }
 
 
-NTL_CLOSE_NNS 
+KCTSB_CLOSE_NNS 
 
 #endif

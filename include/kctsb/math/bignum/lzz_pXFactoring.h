@@ -1,13 +1,13 @@
+﻿
 
+#ifndef KCTSB_zz_pXFactoring__H
+#define KCTSB_zz_pXFactoring__H
 
-#ifndef NTL_zz_pXFactoring__H
-#define NTL_zz_pXFactoring__H
+#include <kctsb/math/bignum/lzz_p.h>
+#include <kctsb/math/bignum/lzz_pX.h>
+#include <kctsb/math/bignum/pair_lzz_pX_long.h>
 
-#include <NTL/lzz_p.h>
-#include <NTL/lzz_pX.h>
-#include <NTL/pair_lzz_pX_long.h>
-
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 
 
@@ -75,7 +75,7 @@ inline vec_pair_zz_pX_long berlekamp(const zz_pX& f, long verbose=0)
 
 
 extern 
-NTL_CHEAP_THREAD_LOCAL 
+KCTSB_CHEAP_THREAD_LOCAL 
 long zz_pX_BlockingFactor;
 // Controls GCD blocking for DDF.
 
@@ -93,7 +93,7 @@ inline vec_pair_zz_pX_long DDF(const zz_pX& f, const zz_pX& h,
 
 
 extern 
-NTL_CHEAP_THREAD_LOCAL 
+KCTSB_CHEAP_THREAD_LOCAL 
 long zz_pX_GCDTableSize; /* = 4 */
 // Controls GCD blocking for NewDDF
 
@@ -198,14 +198,14 @@ long IterIrredTest(const zz_pX& f);
 
 void BuildIrred(zz_pX& f, long n);
 inline zz_pX BuildIrred_zz_pX(long n)
-   { zz_pX x; BuildIrred(x, n); NTL_OPT_RETURN(zz_pX, x); }
+   { zz_pX x; BuildIrred(x, n); KCTSB_OPT_RETURN(zz_pX, x); }
 
 
 // Build a monic irreducible poly of degree n.
 
 void BuildRandomIrred(zz_pX& f, const zz_pX& g);
 inline zz_pX BuildRandomIrred(const zz_pX& g)
-   { zz_pX x; BuildRandomIrred(x, g); NTL_OPT_RETURN(zz_pX, x); }
+   { zz_pX x; BuildRandomIrred(x, g); KCTSB_OPT_RETURN(zz_pX, x); }
 
 
 // g is a monic irreducible polynomial.
@@ -250,6 +250,6 @@ inline zz_pX PowerCompose(const zz_pX& a, long d, const zz_pXModulus& F)
 // it is assumed that d >= 0, and b = X^q mod f, q a power of p
 // Space allocation can be controlled via ComposeBound (see "zz_pX.h")
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 #endif

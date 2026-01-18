@@ -1,1 +1,1 @@
-#define NTL_PACKAGE (1)
+#define KCTSB_PACKAGE (1)

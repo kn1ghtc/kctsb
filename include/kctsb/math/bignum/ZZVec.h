@@ -1,9 +1,9 @@
-#ifndef NTL_ZZVec__H
-#define NTL_ZZVec__H
+﻿#ifndef KCTSB_ZZVec__H
+#define KCTSB_ZZVec__H
 
-#include <NTL/ZZ.h>
+#include <kctsb/math/bignum/ZZ.h>
 
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 /*****************************************************************
 
@@ -53,9 +53,9 @@ public:
 
    void swap(ZZVec& x)
    {
-      _ntl_swap(v, x.v);
-      _ntl_swap(len, x.len);
-      _ntl_swap(bsize, x.bsize);
+      _kctsb_swap(v, x.v);
+      _kctsb_swap(len, x.len);
+      _kctsb_swap(bsize, x.bsize);
    }
 
    void move(ZZVec& other) 
@@ -66,7 +66,7 @@ public:
    }
 
 
-#if (NTL_CXX_STANDARD >= 2011 && !defined(NTL_DISABLE_MOVE))
+#if (KCTSB_CXX_STANDARD >= 2011 && !defined(KCTSB_DISABLE_MOVE))
 
    ZZVec(ZZVec&& other) noexcept : ZZVec() 
    {
@@ -85,11 +85,11 @@ public:
 };
 
 
-NTL_DECLARE_RELOCATABLE((ZZVec*))
+KCTSB_DECLARE_RELOCATABLE((ZZVec*))
 
 
 inline void swap(ZZVec& x, ZZVec& y) { x.swap(y); }
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 #endif

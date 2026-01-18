@@ -1,15 +1,15 @@
+﻿
+#ifndef KCTSB_mat_poly_zz_p__H
+#define KCTSB_mat_poly_zz_p__H
 
-#ifndef NTL_mat_poly_zz_p__H
-#define NTL_mat_poly_zz_p__H
+#include <kctsb/math/bignum/mat_lzz_p.h>
+#include <kctsb/math/bignum/lzz_pX.h>
 
-#include <NTL/mat_lzz_p.h>
-#include <NTL/lzz_pX.h>
-
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 void CharPoly(zz_pX& f, const mat_zz_p& M);
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 
 #endif

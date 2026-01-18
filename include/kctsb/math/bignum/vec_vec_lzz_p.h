@@ -1,13 +1,13 @@
+﻿
+#ifndef KCTSB_vec_vec_zz_p__H
+#define KCTSB_vec_vec_zz_p__H
 
-#ifndef NTL_vec_vec_zz_p__H
-#define NTL_vec_vec_zz_p__H
+#include <kctsb/math/bignum/vec_lzz_p.h>
 
-#include <NTL/vec_lzz_p.h>
-
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 typedef Vec< Vec<zz_p> > vec_vec_zz_p;
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 #endif

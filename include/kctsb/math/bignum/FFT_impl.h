@@ -1,29 +1,29 @@
+﻿
+#ifndef KCTSB_FFT_impl__H
+#define KCTSB_FFT_impl__H
 
-#ifndef NTL_FFT_impl__H
-#define NTL_FFT_impl__H
+#include <kctsb/math/bignum/tools.h>
 
-#include <NTL/tools.h>
+KCTSB_OPEN_NNS
 
-NTL_OPEN_NNS
+#ifdef KCTSB_ENABLE_AVX_FFT
 
-#ifdef NTL_ENABLE_AVX_FFT
-
-#if (!defined(NTL_HAVE_AVX512F) && !(defined(NTL_HAVE_AVX2) && defined(NTL_HAVE_FMA)))
-#error "NTL_ENABLE_AVX_FFT: not supported on this platform"
+#if (!defined(KCTSB_HAVE_AVX512F) && !(defined(KCTSB_HAVE_AVX2) && defined(KCTSB_HAVE_FMA)))
+#error "KCTSB_ENABLE_AVX_FFT: not supported on this platform"
 #endif
 
-#if (defined(NTL_HAVE_AVX512F) && !defined(NTL_AVOID_AVX512))
-#define NTL_LG2_PDSZ (3)
+#if (defined(KCTSB_HAVE_AVX512F) && !defined(KCTSB_AVOID_AVX512))
+#define KCTSB_LG2_PDSZ (3)
 #else
-#define NTL_LG2_PDSZ (2)
+#define KCTSB_LG2_PDSZ (2)
 #endif
 
-#define NTL_FFT_RDUP (NTL_LG2_PDSZ+3)
-#define NTL_PDSZ (1 << NTL_LG2_PDSZ)
+#define KCTSB_FFT_RDUP (KCTSB_LG2_PDSZ+3)
+#define KCTSB_PDSZ (1 << KCTSB_LG2_PDSZ)
 
 #else
 
-#define NTL_FFT_RDUP (4)
+#define KCTSB_FFT_RDUP (4)
 // Currently, this should be at least 2 to support
 // loop unrolling in the FFT implementation
 
@@ -33,13 +33,13 @@ inline
 long FFTRoundUp(long xn, long k)
 // Assumes k >= 0.
 // Returns an integer m such that 1 <= m <= n = 2^k and 
-// m divsisible my 2^NTL_FFT_RDUP.
+// m divsisible my 2^KCTSB_FFT_RDUP.
 // Also, if xn <= n, then m >= xn.
 {
    long n = 1L << k;
    if (xn <= 0) xn = 1;
 
-   xn = ((xn+((1L << NTL_FFT_RDUP)-1)) >> NTL_FFT_RDUP) << NTL_FFT_RDUP; 
+   xn = ((xn+((1L << KCTSB_FFT_RDUP)-1)) >> KCTSB_FFT_RDUP) << KCTSB_FFT_RDUP; 
 
    if (k >= 10) {
       if (xn > n - (n >> 4)) xn = n;
@@ -58,6 +58,6 @@ long FFTRoundUp(long xn, long k)
 }
 
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 #endif

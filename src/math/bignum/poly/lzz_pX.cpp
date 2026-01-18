@@ -1,9 +1,9 @@
+﻿
+#include <kctsb/math/bignum/lzz_pX.h>
+#include <kctsb/math/bignum/FFT_impl.h>
 
-#include <NTL/lzz_pX.h>
-#include <NTL/FFT_impl.h>
 
-
-NTL_START_IMPL
+KCTSB_START_IMPL
 
 
 // NOTE: these are declared extern in lzz_pX.h
@@ -30,7 +30,7 @@ const zz_pX& zz_pX::zero()
 
 istream& operator>>(istream& s, zz_pX& x)
 {
-   NTL_INPUT_CHECK_RET(s, s >> x.rep);
+   KCTSB_INPUT_CHECK_RET(s, s >> x.rep);
    x.normalize();
    return s;
 }
@@ -82,7 +82,7 @@ void SetCoeff(zz_pX& x, long i, zz_p a)
    if (i < 0) 
       LogicError("SetCoeff: negative index");
 
-   if (NTL_OVERFLOW(i, 1, 0))
+   if (KCTSB_OVERFLOW(i, 1, 0))
       ResourceError("overflow in SetCoeff");
 
    m = deg(x);
@@ -113,7 +113,7 @@ void SetCoeff(zz_pX& x, long i)
    if (i < 0) 
       LogicError("coefficient index out of range");
 
-   if (NTL_OVERFLOW(i, 1, 0))
+   if (KCTSB_OVERFLOW(i, 1, 0))
       ResourceError("overflow in SetCoeff");
 
    m = deg(x);
@@ -321,7 +321,7 @@ void mul(zz_pX& x, const zz_pX& a, const zz_pX& b)
       return;
    }
 
-   if (deg(a) > NTL_zz_pX_MUL_CROSSOVER && deg(b) > NTL_zz_pX_MUL_CROSSOVER)
+   if (deg(a) > KCTSB_zz_pX_MUL_CROSSOVER && deg(b) > KCTSB_zz_pX_MUL_CROSSOVER)
       FFTMul(x, a, b);
    else
       PlainMul(x, a, b);
@@ -329,7 +329,7 @@ void mul(zz_pX& x, const zz_pX& a, const zz_pX& b)
 
 void sqr(zz_pX& x, const zz_pX& a)
 {
-   if (deg(a) > NTL_zz_pX_MUL_CROSSOVER)
+   if (deg(a) > KCTSB_zz_pX_MUL_CROSSOVER)
       FFTSqr(x, a);
    else
       PlainSqr(x, a);
@@ -645,7 +645,7 @@ void PlainMul(zz_pX& c, const zz_pX& a, const zz_pX& b)
    cp = c.rep.elts();
 
    long p = zz_p::modulus();
-   long use_long = (p < NTL_SP_BOUND/KARX && p*KARX < NTL_SP_BOUND/p);
+   long use_long = (p < KCTSB_SP_BOUND/KARX && p*KARX < KCTSB_SP_BOUND/p);
 
    if (sa < KARX || sb < KARX) {
       if (use_long) 
@@ -846,7 +846,7 @@ void PlainSqr(zz_pX& c, const zz_pX& a)
    cp = c.rep.elts();
 
    long p = zz_p::modulus();
-   long use_long = (p < NTL_SP_BOUND/KARSX && p*KARSX < NTL_SP_BOUND/p);
+   long use_long = (p < KCTSB_SP_BOUND/KARSX && p*KARSX < KCTSB_SP_BOUND/p);
 
    if (sa < KARSX) {
       if (use_long) 
@@ -1352,7 +1352,7 @@ void fftRep::DoSetSize(long NewK, long NewNumPrimes)
 {
    if (NewK < -1) LogicError("bad arg to fftRep::SetSize()");
    
-   if (NewK >= NTL_BITS_PER_LONG-1)
+   if (NewK >= KCTSB_BITS_PER_LONG-1)
       ResourceError("bad arg to fftRep::SetSize()");
 
    if (NewK == -1) {
@@ -1524,7 +1524,7 @@ void FromModularRep(zz_p* res, const fftRep& R, long lo, long cnt,
 }
 #else
 
-#define NTL_FMR_LOOP_BODY(i) \
+#define KCTSB_FMR_LOOP_BODY(i) \
          s = MulModPrecon(tbl[i][j+lo], u[i], primes[i], uqinv[i]);\
          y = y + double(s)*prime_recip[i];\
 \
@@ -1536,7 +1536,7 @@ void FromModularRep(zz_p* res, const fftRep& R, long lo, long cnt,
          t = AddMod(t, s, p);\
 
 
-#define NTL_FMP_OUTER_LOOP(XXX) \
+#define KCTSB_FMP_OUTER_LOOP(XXX) \
    for (j = 0; j < cnt; j++) {\
       y = double(0L);\
       t = 0;\
@@ -1600,13 +1600,13 @@ void FromModularRep(zz_p* res, const fftRep& R, long lo, long cnt,
       }
    }
    else if (nprimes == 2) {
-      NTL_FMP_OUTER_LOOP( NTL_FMR_LOOP_BODY(0) NTL_FMR_LOOP_BODY(1) )
+      KCTSB_FMP_OUTER_LOOP( KCTSB_FMR_LOOP_BODY(0) KCTSB_FMR_LOOP_BODY(1) )
    }
    else if (nprimes == 3) {
-      NTL_FMP_OUTER_LOOP( NTL_FMR_LOOP_BODY(0) NTL_FMR_LOOP_BODY(1) NTL_FMR_LOOP_BODY(2) )
+      KCTSB_FMP_OUTER_LOOP( KCTSB_FMR_LOOP_BODY(0) KCTSB_FMR_LOOP_BODY(1) KCTSB_FMR_LOOP_BODY(2) )
    }
    else { // nprimes == 4
-      NTL_FMP_OUTER_LOOP( NTL_FMR_LOOP_BODY(0) NTL_FMR_LOOP_BODY(1) NTL_FMR_LOOP_BODY(2)  NTL_FMR_LOOP_BODY(3) )
+      KCTSB_FMP_OUTER_LOOP( KCTSB_FMR_LOOP_BODY(0) KCTSB_FMR_LOOP_BODY(1) KCTSB_FMR_LOOP_BODY(2)  KCTSB_FMR_LOOP_BODY(3) )
    }
 }
 
@@ -2306,7 +2306,7 @@ void rem21(zz_pX& x, const zz_pX& a, const zz_pXModulus& F)
       return;
    }
 
-   if (!F.UseFFT || da - n <= NTL_zz_pX_MOD_CROSSOVER) {
+   if (!F.UseFFT || da - n <= KCTSB_zz_pX_MOD_CROSSOVER) {
       PlainRem(x, a, F.f);
       return;
    }
@@ -2362,7 +2362,7 @@ void DivRem21(zz_pX& q, zz_pX& x, const zz_pX& a, const zz_pXModulus& F)
       return;
    }
 
-   if (!F.UseFFT || da - n <= NTL_zz_pX_MOD_CROSSOVER) {
+   if (!F.UseFFT || da - n <= KCTSB_zz_pX_MOD_CROSSOVER) {
       PlainDivRem(q, x, a, F.f);
       return;
    }
@@ -2418,7 +2418,7 @@ void div21(zz_pX& x, const zz_pX& a, const zz_pXModulus& F)
       return;
    }
 
-   if (!F.UseFFT || da - n <= NTL_zz_pX_MOD_CROSSOVER) {
+   if (!F.UseFFT || da - n <= KCTSB_zz_pX_MOD_CROSSOVER) {
       PlainDiv(x, a, F.f);
       return;
    }
@@ -2443,7 +2443,7 @@ void rem(zz_pX& x, const zz_pX& a, const zz_pXModulus& F)
       rem21(x, a, F);
       return;
    }
-   else if (!F.UseFFT || da-n <= NTL_zz_pX_MOD_CROSSOVER) {
+   else if (!F.UseFFT || da-n <= KCTSB_zz_pX_MOD_CROSSOVER) {
       PlainRem(x, a, F.f);
       return;
    }
@@ -2487,7 +2487,7 @@ void DivRem(zz_pX& q, zz_pX& r, const zz_pX& a, const zz_pXModulus& F)
       DivRem21(q, r, a, F);
       return;
    }
-   else if (!F.UseFFT || da-n <= NTL_zz_pX_MOD_CROSSOVER) {
+   else if (!F.UseFFT || da-n <= KCTSB_zz_pX_MOD_CROSSOVER) {
       PlainDivRem(q, r, a, F.f);
       return;
    }
@@ -2544,7 +2544,7 @@ void div(zz_pX& q, const zz_pX& a, const zz_pXModulus& F)
       div21(q, a, F);
       return;
    }
-   else if (!F.UseFFT || da-n <= NTL_zz_pX_MOD_CROSSOVER) {
+   else if (!F.UseFFT || da-n <= KCTSB_zz_pX_MOD_CROSSOVER) {
       PlainDiv(q, a, F.f);
       return;
    }
@@ -2611,7 +2611,7 @@ void MulMod(zz_pX& x, const zz_pX& a, const zz_pX& b, const zz_pXModulus& F)
       return;
    }
 
-   if (!F.UseFFT || da <= NTL_zz_pX_MUL_CROSSOVER || db <= NTL_zz_pX_MUL_CROSSOVER) {
+   if (!F.UseFFT || da <= KCTSB_zz_pX_MUL_CROSSOVER || db <= KCTSB_zz_pX_MUL_CROSSOVER) {
       zz_pX P1;
       mul(P1, a, b);
       rem(x, P1, F);
@@ -2660,7 +2660,7 @@ void SqrMod(zz_pX& x, const zz_pX& a, const zz_pXModulus& F)
    if (da >= n) 
       LogicError("bad args to SqrMod(zz_pX,zz_pX,zz_pXModulus)");
 
-   if (!F.UseFFT || da <= NTL_zz_pX_MUL_CROSSOVER) {
+   if (!F.UseFFT || da <= KCTSB_zz_pX_MUL_CROSSOVER) {
       zz_pX P1;
       sqr(P1, a);
       rem(x, P1, F);
@@ -2816,19 +2816,19 @@ void InvTrunc(zz_pX& x, const zz_pX& a, long m)
       return;
    }
 
-   if (NTL_OVERFLOW(m, 1, 0))
+   if (KCTSB_OVERFLOW(m, 1, 0))
       ResourceError("overflow in InvTrunc");
 
    if (&x == &a) {
       zz_pX la;
       la = a;
-      if (m > NTL_zz_pX_NEWTON_CROSSOVER && deg(a) > 0)
+      if (m > KCTSB_zz_pX_NEWTON_CROSSOVER && deg(a) > 0)
          NewtonInvTrunc(x, la, m);
       else
          PlainInvTrunc(x, la, m);
    }
    else {
-      if (m > NTL_zz_pX_NEWTON_CROSSOVER && deg(a) > 0)
+      if (m > KCTSB_zz_pX_NEWTON_CROSSOVER && deg(a) > 0)
          NewtonInvTrunc(x, a, m);
       else
          PlainInvTrunc(x, a, m);
@@ -2847,7 +2847,7 @@ void build(zz_pXModulus& x, const zz_pX& f)
    if (x.n <= 0)
       LogicError("build: deg(f) must be at least 1");
 
-   if (x.n <= NTL_zz_pX_MOD_CROSSOVER + 1) {
+   if (x.n <= KCTSB_zz_pX_MOD_CROSSOVER + 1) {
       x.UseFFT = 0;
       return;
    }
@@ -2892,7 +2892,7 @@ void build(zz_pXMultiplier& x, const zz_pX& b,
 
    if (db >= n) LogicError("build zz_pXMultiplier: deg(b) >= deg(f)");
 
-   if (!F.UseFFT || db <= NTL_zz_pX_MOD_CROSSOVER) {
+   if (!F.UseFFT || db <= KCTSB_zz_pX_MOD_CROSSOVER) {
       x.UseFFT = 0;
       return;
    }
@@ -2933,7 +2933,7 @@ void MulMod(zz_pX& x, const zz_pX& a, const zz_pXMultiplier& B,
       return;
    }
 
-   if (!B.UseFFT || !F.UseFFT || da <= NTL_zz_pX_MOD_CROSSOVER) {
+   if (!B.UseFFT || !F.UseFFT || da <= KCTSB_zz_pX_MOD_CROSSOVER) {
       zz_pX P1;
       mul(P1, a, B.b);
       rem(x, P1, F);
@@ -3073,7 +3073,7 @@ void NewtonInvTrunc(zz_pX& x, const zz_pX& a, long m)
    fftRep R1(INIT_SIZE, t), R2(INIT_SIZE, t);
    zz_pX P1(INIT_SIZE, m);
 
-   long log2_newton = NextPowerOfTwo(NTL_zz_pX_NEWTON_CROSSOVER)-1;
+   long log2_newton = NextPowerOfTwo(KCTSB_zz_pX_NEWTON_CROSSOVER)-1;
 
    PlainInvTrunc(x, a, 1L << log2_newton);
    long k = 1L << log2_newton;
@@ -3249,7 +3249,7 @@ void FFTRem(zz_pX& r, const zz_pX& a, const zz_pX& b)
 
 void DivRem(zz_pX& q, zz_pX& r, const zz_pX& a, const zz_pX& b)
 {
-   if (deg(b) > NTL_zz_pX_DIV_CROSSOVER && deg(a) - deg(b) > NTL_zz_pX_DIV_CROSSOVER)
+   if (deg(b) > KCTSB_zz_pX_DIV_CROSSOVER && deg(a) - deg(b) > KCTSB_zz_pX_DIV_CROSSOVER)
       FFTDivRem(q, r, a, b);
    else
       PlainDivRem(q, r, a, b);
@@ -3257,7 +3257,7 @@ void DivRem(zz_pX& q, zz_pX& r, const zz_pX& a, const zz_pX& b)
 
 void div(zz_pX& q, const zz_pX& a, const zz_pX& b)
 {
-   if (deg(b) > NTL_zz_pX_DIV_CROSSOVER && deg(a) - deg(b) > NTL_zz_pX_DIV_CROSSOVER)
+   if (deg(b) > KCTSB_zz_pX_DIV_CROSSOVER && deg(a) - deg(b) > KCTSB_zz_pX_DIV_CROSSOVER)
       FFTDiv(q, a, b);
    else
       PlainDiv(q, a, b);
@@ -3273,7 +3273,7 @@ void div(zz_pX& q, const zz_pX& a, zz_p b)
 
 void rem(zz_pX& r, const zz_pX& a, const zz_pX& b)
 {
-   if (deg(b) > NTL_zz_pX_DIV_CROSSOVER && deg(a) - deg(b) > NTL_zz_pX_DIV_CROSSOVER)
+   if (deg(b) > KCTSB_zz_pX_DIV_CROSSOVER && deg(a) - deg(b) > KCTSB_zz_pX_DIV_CROSSOVER)
       FFTRem(r, a, b);
    else
       PlainRem(r, a, b);
@@ -3339,7 +3339,7 @@ void power(zz_pX& x, const zz_pX& a, long e)
       return;
    }
 
-   if (da > (NTL_MAX_LONG-1)/e)
+   if (da > (KCTSB_MAX_LONG-1)/e)
       ResourceError("overflow in power");
 
    zz_pX res;
@@ -3361,7 +3361,7 @@ void power(zz_pX& x, const zz_pX& a, long e)
 void reverse(zz_pX& x, const zz_pX& a, long hi)
 {
    if (hi < 0) { clear(x); return; }
-   if (NTL_OVERFLOW(hi, 1, 0))
+   if (KCTSB_OVERFLOW(hi, 1, 0))
       ResourceError("overflow in reverse");
 
    if (&x == &a) {
@@ -3373,4 +3373,4 @@ void reverse(zz_pX& x, const zz_pX& a, long hi)
       CopyReverse(x, a, 0, hi);
 }
 
-NTL_END_IMPL
+KCTSB_END_IMPL

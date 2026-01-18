@@ -1,12 +1,12 @@
 
-#ifndef NTL_version__H
-#define NTL_version__H
+#ifndef KCTSB_version__H
+#define KCTSB_version__H
 
-#define NTL_VERSION "11.6.0"
+#define KCTSB_VERSION "11.6.0"
 
-#define NTL_MAJOR_VERSION  (11)
-#define NTL_MINOR_VERSION  (6)
-#define NTL_REVISION       (0)
+#define KCTSB_MAJOR_VERSION  (11)
+#define KCTSB_MINOR_VERSION  (6)
+#define KCTSB_REVISION       (0)
 
 #endif
 

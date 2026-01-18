@@ -1,7 +1,7 @@
+﻿
+#include <kctsb/math/bignum/vec_lzz_p.h>
 
-#include <NTL/vec_lzz_p.h>
-
-NTL_START_IMPL
+KCTSB_START_IMPL
 
 
 // NOTE: the signature for this is in lzz_p.h
@@ -54,7 +54,7 @@ void InnerProduct(zz_p& x, const vec_zz_p& a, const vec_zz_p& b,
                   long offset)
 {
    if (offset < 0) LogicError("InnerProduct: negative offset");
-   if (NTL_OVERFLOW(offset, 1, 0)) ResourceError("InnerProduct: offset too big");
+   if (KCTSB_OVERFLOW(offset, 1, 0)) ResourceError("InnerProduct: offset too big");
 
    long n = min(a.length(), b.length()+offset);
    long i;
@@ -263,14 +263,14 @@ vec_zz_p operator+(const vec_zz_p& a, const vec_zz_p& b)
 {
    vec_zz_p res;
    add(res, a, b);
-   NTL_OPT_RETURN(vec_zz_p, res);
+   KCTSB_OPT_RETURN(vec_zz_p, res);
 }
 
 vec_zz_p operator-(const vec_zz_p& a, const vec_zz_p& b)
 {
    vec_zz_p res;
    sub(res, a, b);
-   NTL_OPT_RETURN(vec_zz_p, res);
+   KCTSB_OPT_RETURN(vec_zz_p, res);
 }
 
 
@@ -278,7 +278,7 @@ vec_zz_p operator-(const vec_zz_p& a)
 {
    vec_zz_p res;
    negate(res, a);
-   NTL_OPT_RETURN(vec_zz_p, res);
+   KCTSB_OPT_RETURN(vec_zz_p, res);
 }
 
 
@@ -293,7 +293,7 @@ zz_p operator*(const vec_zz_p& a, const vec_zz_p& b)
 void VectorCopy(vec_zz_p& x, const vec_zz_p& a, long n)
 {
    if (n < 0) LogicError("VectorCopy: negative length");
-   if (NTL_OVERFLOW(n, 1, 0)) ResourceError("overflow in VectorCopy");
+   if (KCTSB_OVERFLOW(n, 1, 0)) ResourceError("overflow in VectorCopy");
 
    long m = min(n, a.length());
 
@@ -320,4 +320,4 @@ void random(vec_zz_p& x, long n)
    VectorRandom(n, x.elts());
 }
 
-NTL_END_IMPL
+KCTSB_END_IMPL

@@ -1,8 +1,8 @@
+﻿
+#include <kctsb/math/bignum/HNF.h>
 
-#include <NTL/HNF.h>
 
-
-NTL_START_IMPL
+KCTSB_START_IMPL
 
 
 // This implements a variation of an algorithm in
@@ -124,4 +124,4 @@ void HNF(mat_ZZ& W, const mat_ZZ& A_in, const ZZ& D_in)
    }
 }
 
-NTL_END_IMPL
+KCTSB_END_IMPL

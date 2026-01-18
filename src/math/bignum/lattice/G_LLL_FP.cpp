@@ -1,11 +1,11 @@
+﻿
+#include <kctsb/math/bignum/LLL.h>
+#include <kctsb/math/bignum/fileio.h>
+#include <kctsb/math/bignum/vec_double.h>
 
-#include <NTL/LLL.h>
-#include <NTL/fileio.h>
-#include <NTL/vec_double.h>
 
 
-
-NTL_START_IMPL
+KCTSB_START_IMPL
 
 static inline
 void CheckFinite(double *p)
@@ -19,8 +19,8 @@ void CheckFinite(double *p)
 static void RowTransform(vec_ZZ& A, vec_ZZ& B, const ZZ& MU1)
 // x = x - y*MU
 {
-   NTL_ZZRegister(T);
-   NTL_ZZRegister(MU);
+   KCTSB_ZZRegister(T);
+   KCTSB_ZZRegister(MU);
    long k;
 
    long n = A.length();
@@ -44,7 +44,7 @@ static void RowTransform(vec_ZZ& A, vec_ZZ& B, const ZZ& MU1)
 
    if (MU == 0) return;
 
-   if (NumTwos(MU) >= NTL_ZZ_NBITS) 
+   if (NumTwos(MU) >= KCTSB_ZZ_NBITS) 
       k = MakeOdd(MU);
    else
       k = 0;
@@ -82,7 +82,7 @@ static void RowTransform(vec_ZZ& A, vec_ZZ& B, const ZZ& MU1)
 
 
 
-#define TR_BND (NTL_FDOUBLE_PRECISION/2.0)
+#define TR_BND (KCTSB_FDOUBLE_PRECISION/2.0)
 // Just to be safe!!
 
 static double max_abs(double *v, long n)
@@ -137,8 +137,8 @@ static void RowTransform(vec_ZZ& A, vec_ZZ& B, const ZZ& MU1,
                          double& max_a, double max_b, long& in_float)
 // x = x - y*MU
 {
-   NTL_ZZRegister(T);
-   NTL_ZZRegister(MU);
+   KCTSB_ZZRegister(T);
+   KCTSB_ZZRegister(MU);
    long k;
    double mu;
 
@@ -230,7 +230,7 @@ static void RowTransform(vec_ZZ& A, vec_ZZ& B, const ZZ& MU1,
    double b_bnd = fabs(TR_BND/mu) - 1;
    if (b_bnd < 0) b_bnd = 0; 
 
-   if (NumTwos(MU) >= NTL_ZZ_NBITS) 
+   if (NumTwos(MU) >= KCTSB_ZZ_NBITS) 
       k = MakeOdd(MU);
    else
       k = 0;
@@ -286,8 +286,8 @@ static void RowTransform2(vec_ZZ& A, vec_ZZ& B, const ZZ& MU1)
 // x = x + y*MU
 
 {
-   NTL_ZZRegister(T);
-   NTL_ZZRegister(MU);
+   KCTSB_ZZRegister(T);
+   KCTSB_ZZRegister(MU);
    long k;
 
    long n = A.length();
@@ -311,7 +311,7 @@ static void RowTransform2(vec_ZZ& A, vec_ZZ& B, const ZZ& MU1)
 
    if (MU == 0) return;
 
-   if (NumTwos(MU) >= NTL_ZZ_NBITS) 
+   if (NumTwos(MU) >= KCTSB_ZZ_NBITS) 
       k = MakeOdd(MU);
    else
       k = 0;
@@ -562,12 +562,12 @@ void GivensComputeGS(double **B1, double **mu, double **aux, long k, long n,
       CheckFinite(&p[i]);
 }
 
-static NTL_CHEAP_THREAD_LOCAL double red_fudge = 0;
-static NTL_CHEAP_THREAD_LOCAL long log_red = 0;
-static NTL_CHEAP_THREAD_LOCAL long verbose = 0;
-static NTL_CHEAP_THREAD_LOCAL unsigned long NumSwaps = 0;
-static NTL_CHEAP_THREAD_LOCAL double StartTime = 0;
-static NTL_CHEAP_THREAD_LOCAL double LastTime = 0;
+static KCTSB_CHEAP_THREAD_LOCAL double red_fudge = 0;
+static KCTSB_CHEAP_THREAD_LOCAL long log_red = 0;
+static KCTSB_CHEAP_THREAD_LOCAL long verbose = 0;
+static KCTSB_CHEAP_THREAD_LOCAL unsigned long NumSwaps = 0;
+static KCTSB_CHEAP_THREAD_LOCAL double StartTime = 0;
+static KCTSB_CHEAP_THREAD_LOCAL double LastTime = 0;
 
 
 
@@ -617,7 +617,7 @@ static void init_red_fudge()
 {
    long i;
 
-   log_red = long(0.50*NTL_DOUBLE_PRECISION);
+   log_red = long(0.50*KCTSB_DOUBLE_PRECISION);
    red_fudge = 1;
 
    for (i = log_red; i > 0; i--)
@@ -973,12 +973,12 @@ long G_LLL_FP(mat_ZZ& B, mat_ZZ& U, double delta, long deep,
 
 
 
-NTL_TLS_GLOBAL_DECL(vec_double, G_BKZConstant)
+KCTSB_TLS_GLOBAL_DECL(vec_double, G_BKZConstant)
 
 static
 void ComputeG_BKZConstant(long beta, long p)
 {
-   NTL_TLS_GLOBAL_ACCESS(G_BKZConstant);
+   KCTSB_TLS_GLOBAL_ACCESS(G_BKZConstant);
 
    const double c_PI = 3.14159265358979323846264338328;
    const double LogPI = 1.14472988584940017414342735135;
@@ -1030,13 +1030,13 @@ void ComputeG_BKZConstant(long beta, long p)
    }
 }
 
-NTL_TLS_GLOBAL_DECL(vec_double, G_BKZThresh)
+KCTSB_TLS_GLOBAL_DECL(vec_double, G_BKZThresh)
 
 static 
 void ComputeG_BKZThresh(double *c, long beta)
 {
-   NTL_TLS_GLOBAL_ACCESS(G_BKZConstant);
-   NTL_TLS_GLOBAL_ACCESS(G_BKZThresh);
+   KCTSB_TLS_GLOBAL_ACCESS(G_BKZConstant);
+   KCTSB_TLS_GLOBAL_ACCESS(G_BKZThresh);
 
    G_BKZThresh.SetLength(beta-1);
 
@@ -1112,7 +1112,7 @@ static
 long G_BKZ_FP(mat_ZZ& BB, mat_ZZ* UU, double delta, 
          long beta, long prune, LLLCheckFct check)
 {
-   NTL_TLS_GLOBAL_ACCESS(G_BKZThresh);
+   KCTSB_TLS_GLOBAL_ACCESS(G_BKZThresh);
 
 
    
@@ -1566,4 +1566,4 @@ long G_BKZ_FP(mat_ZZ& BB, double delta,
    return G_BKZ_FP(BB, 0, delta, beta, prune, check);
 }
 
-NTL_END_IMPL
+KCTSB_END_IMPL

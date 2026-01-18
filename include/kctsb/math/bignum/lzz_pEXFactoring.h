@@ -1,10 +1,10 @@
+﻿
+#ifndef KCTSB_zz_pEXFactoring__H
+#define KCTSB_zz_pEXFactoring__H
 
-#ifndef NTL_zz_pEXFactoring__H
-#define NTL_zz_pEXFactoring__H
+#include <kctsb/math/bignum/pair_lzz_pEX_long.h>
 
-#include <NTL/pair_lzz_pEX_long.h>
-
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 
 void SquareFreeDecomp(vec_pair_zz_pEX_long& u, const zz_pEX& f);
@@ -37,13 +37,13 @@ inline zz_pE FindRoot(const zz_pEX& f)
 
 
 extern 
-NTL_CHEAP_THREAD_LOCAL 
+KCTSB_CHEAP_THREAD_LOCAL 
 long zz_pEX_GCDTableSize; /* = 4 */
 // Controls GCD blocking for NewDDF
 
 
 extern 
-NTL_CHEAP_THREAD_LOCAL 
+KCTSB_CHEAP_THREAD_LOCAL 
 double zz_pEXFileThresh; 
 // external files are used for baby/giant steps if size
 // of these tables exceeds zz_pEXFileThresh KB.
@@ -135,14 +135,14 @@ long IterIrredTest(const zz_pEX& f);
 
 void BuildIrred(zz_pEX& f, long n);
 inline zz_pEX BuildIrred_zz_pEX(long n)
-   { zz_pEX x; BuildIrred(x, n); NTL_OPT_RETURN(zz_pEX, x); }
+   { zz_pEX x; BuildIrred(x, n); KCTSB_OPT_RETURN(zz_pEX, x); }
 
 
 // Build a monic irreducible poly of degree n.
 
 void BuildRandomIrred(zz_pEX& f, const zz_pEX& g);
 inline zz_pEX BuildRandomIrred(const zz_pEX& g)
-    { zz_pEX x; BuildRandomIrred(x, g); NTL_OPT_RETURN(zz_pEX, x); }
+    { zz_pEX x; BuildRandomIrred(x, g); KCTSB_OPT_RETURN(zz_pEX, x); }
 
 
 // g is a monic irreducible polynomial.
@@ -189,6 +189,6 @@ inline zz_pEX PowerCompose(const zz_pEX& a, long d, const zz_pEXModulus& F)
 
 
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 #endif

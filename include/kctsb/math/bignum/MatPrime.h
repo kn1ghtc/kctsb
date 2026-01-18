@@ -1,44 +1,44 @@
+﻿
+#ifndef KCTSB_MatPrime__H
+#define KCTSB_MatPrime__H
 
-#ifndef NTL_MatPrime__H
-#define NTL_MatPrime__H
+#include <kctsb/math/bignum/ZZ.h>
+#include <kctsb/math/bignum/ZZVec.h>
+#include <kctsb/math/bignum/lzz_p.h>
+#include <kctsb/math/bignum/vector.h>
+#include <kctsb/math/bignum/SmartPtr.h>
+#include <kctsb/math/bignum/LazyTable.h>
 
-#include <NTL/ZZ.h>
-#include <NTL/ZZVec.h>
-#include <NTL/lzz_p.h>
-#include <NTL/vector.h>
-#include <NTL/SmartPtr.h>
-#include <NTL/LazyTable.h>
+KCTSB_OPEN_NNS
 
-NTL_OPEN_NNS
-
-#define NTL_MatPrimeFudge (3)
+#define KCTSB_MatPrimeFudge (3)
 // similar to the FFTPrime strategy...ensures
 // we can use floating point to approximate a quotient
 
-#define NTL_MatPrimeLimit (1L << 20)
+#define KCTSB_MatPrimeLimit (1L << 20)
 // Limit on dimension for matrix mul
 
 
 
-#ifdef NTL_HAVE_AVX
-#define NTL_MatPrime_NBITS (23)
+#ifdef KCTSB_HAVE_AVX
+#define KCTSB_MatPrime_NBITS (23)
 #else
-#define NTL_MatPrime_NBITS NTL_SP_NBITS
+#define KCTSB_MatPrime_NBITS KCTSB_SP_NBITS
 #endif
 
-#if (NTL_MatPrime_NBITS > NTL_SP_NBITS)
+#if (KCTSB_MatPrime_NBITS > KCTSB_SP_NBITS)
 // This is mainly academic
-#define NTL_MatPrime_NBITS NTL_SP_NBITS
+#define KCTSB_MatPrime_NBITS KCTSB_SP_NBITS
 #endif
 
-#if (NTL_MatPrime_NBITS < NTL_BITS_PER_INT)
+#if (KCTSB_MatPrime_NBITS < KCTSB_BITS_PER_INT)
 typedef int MatPrime_residue_t;
 #else
 typedef long MatPrime_residue_t;
 #endif
 
-#if (2*NTL_MatPrime_NBITS+1 <= NTL_SP_NBITS)
-#define NTL_MatPrime_HALF_SIZE_STRATEGY
+#if (2*KCTSB_MatPrime_NBITS+1 <= KCTSB_SP_NBITS)
+#define KCTSB_MatPrime_HALF_SIZE_STRATEGY
 #endif
 
 
@@ -50,10 +50,10 @@ struct MatPrimeInfo {
 void InitMatPrimeInfo(MatPrimeInfo& info, long q, long w);
 
 
-#define NTL_MAX_MATPRIMES (20000)
+#define KCTSB_MAX_MATPRIMES (20000)
 
 
-typedef LazyTable<MatPrimeInfo, NTL_MAX_MATPRIMES> MatPrimeTablesType;
+typedef LazyTable<MatPrimeInfo, KCTSB_MAX_MATPRIMES> MatPrimeTablesType;
 
 extern MatPrimeTablesType MatPrimeTables;
 // a truly GLOBAL variable, shared among all threads
@@ -76,7 +76,7 @@ void UseMatPrime(long index);
 
 
 
-#ifndef NTL_MatPrime_HALF_SIZE_STRATEGY
+#ifndef KCTSB_MatPrime_HALF_SIZE_STRATEGY
 
 
 struct MatPrime_crt_helper_scratch {
@@ -166,6 +166,6 @@ void reconstruct(const MatPrime_crt_helper& H, ZZ& value, const MatPrime_residue
 
 
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 #endif

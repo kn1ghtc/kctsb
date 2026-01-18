@@ -1,8 +1,8 @@
-/**
+﻿/**
  * @file zkp.cpp
  * @brief Zero-Knowledge Proof System Implementation - Groth16 Protocol
  *
- * Complete Groth16 implementation using NTL backend:
+ * Complete Groth16 implementation using Bignum Backend:
  * - BN254 pairing-friendly curve
  * - Quadratic Arithmetic Program (QAP) compilation
  * - Proof generation with randomization
@@ -18,7 +18,7 @@
 #include <random>
 #include <algorithm>
 
-// Bignum namespace is now kctsb (was NTL)
+// Bignum namespace is now kctsb (was bignum)
 using namespace kctsb;
 
 namespace kctsb {

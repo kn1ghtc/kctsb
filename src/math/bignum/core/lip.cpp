@@ -1,4 +1,4 @@
-
+﻿
 /*
  * This is a "wrapper" layer that builds on top of the "mpn" layer of gmp.
  * This layer provides much of the same functionality of the "mpz"
@@ -25,16 +25,16 @@
 
 
 
-#include <NTL/lip.h>
+#include <kctsb/math/bignum/lip.h>
 
-#include <NTL/tools.h>
-#include <NTL/vector.h>
-#include <NTL/SmartPtr.h>
+#include <kctsb/math/bignum/tools.h>
+#include <kctsb/math/bignum/vector.h>
+#include <kctsb/math/bignum/SmartPtr.h>
 
-#include <NTL/sp_arith.h>
+#include <kctsb/math/bignum/sp_arith.h>
 
 
-#ifdef NTL_GMP_LIP
+#ifdef KCTSB_GMP_LIP
 #include <gmp.h>
 
 #if (__GNU_MP_VERSION < 5)
@@ -43,50 +43,50 @@
 
 #endif
 
-NTL_IMPORT_FROM_STD
-NTL_USE_NNS
+KCTSB_IMPORT_FROM_STD
+KCTSB_USE_NNS
 
 
-#if (defined(NTL_HAVE_LL_TYPE) && NTL_BITS_PER_LIMB_T == NTL_BITS_PER_LONG)
-#define NTL_VIABLE_LL
+#if (defined(KCTSB_HAVE_LL_TYPE) && KCTSB_BITS_PER_LIMB_T == KCTSB_BITS_PER_LONG)
+#define KCTSB_VIABLE_LL
 #endif
 
 
-#ifdef NTL_GMP_LIP
+#ifdef KCTSB_GMP_LIP
 
-typedef mp_limb_t _ntl_limb_t;
+typedef mp_limb_t _kctsb_limb_t;
 
-#define NTL_MPN(fun) mpn_ ## fun
+#define KCTSB_MPN(fun) mpn_ ## fun
 
 #else
 
-typedef unsigned long _ntl_limb_t;
-typedef long _ntl_signed_limb_t;
+typedef unsigned long _kctsb_limb_t;
+typedef long _kctsb_signed_limb_t;
 
-#define NTL_MPN(fun) _ntl_mpn_ ## fun
+#define KCTSB_MPN(fun) _kctsb_mpn_ ## fun
 
 #endif
 
 
 
-typedef _ntl_limb_t *_ntl_limb_t_ptr;
+typedef _kctsb_limb_t *_kctsb_limb_t_ptr;
 
-#define NTL_NAIL_BITS (NTL_BITS_PER_LIMB_T-NTL_ZZ_NBITS)
+#define KCTSB_NAIL_BITS (KCTSB_BITS_PER_LIMB_T-KCTSB_ZZ_NBITS)
 
-#define NTL_LIMB_MASK (_ntl_limb_t(-1) >> NTL_NAIL_BITS)
+#define KCTSB_LIMB_MASK (_kctsb_limb_t(-1) >> KCTSB_NAIL_BITS)
 
-#define NTL_ZZ_RADIX (NTL_LIMB_MASK+_ntl_limb_t(1))
+#define KCTSB_ZZ_RADIX (KCTSB_LIMB_MASK+_kctsb_limb_t(1))
 // this will be zero if no nails
 
-#define NTL_ZZ_FRADIX_INV  (1.0/NTL_ZZ_FRADIX)
+#define KCTSB_ZZ_FRADIX_INV  (1.0/KCTSB_ZZ_FRADIX)
 
 
 
 
-#if (NTL_ZZ_NBITS > NTL_BITS_PER_LONG-2)
+#if (KCTSB_ZZ_NBITS > KCTSB_BITS_PER_LONG-2)
 
 static inline double 
-DBL(_ntl_limb_t x)
+DBL(_kctsb_limb_t x)
 {
    return double(x);
 }
@@ -95,7 +95,7 @@ DBL(_ntl_limb_t x)
 
 // this might be a bit faster
 static inline double 
-DBL(_ntl_limb_t x)
+DBL(_kctsb_limb_t x)
 {
    return double(long(x));
 }
@@ -103,14 +103,14 @@ DBL(_ntl_limb_t x)
 #endif
 
 
-// DIRT: we assume that NTL_BITS_PER_LIMB_T >= BITS_PER_LONG
-static inline _ntl_limb_t
+// DIRT: we assume that KCTSB_BITS_PER_LIMB_T >= BITS_PER_LONG
+static inline _kctsb_limb_t
 ABS(long x)
 {
    if (x < 0)
-      return -_ntl_limb_t(x); // careful !
+      return -_kctsb_limb_t(x); // careful !
    else
-      return _ntl_limb_t(x);
+      return _kctsb_limb_t(x);
 }
 
 static inline long
@@ -121,32 +121,32 @@ XOR(long a, long b)
 
 
 static 
-inline _ntl_limb_t CLIP(_ntl_limb_t a)
+inline _kctsb_limb_t CLIP(_kctsb_limb_t a)
 {
-   return a & NTL_LIMB_MASK;
+   return a & KCTSB_LIMB_MASK;
 }
 
 static 
-inline _ntl_limb_t XCLIP(_ntl_limb_t a)
+inline _kctsb_limb_t XCLIP(_kctsb_limb_t a)
 {
-   return a & ~NTL_LIMB_MASK;
+   return a & ~KCTSB_LIMB_MASK;
 }
 
 
-#if (NTL_BITS_PER_LIMB_T == NTL_BITS_PER_LONG)
+#if (KCTSB_BITS_PER_LIMB_T == KCTSB_BITS_PER_LONG)
 static
-inline long COUNT_BITS(_ntl_limb_t x)
+inline long COUNT_BITS(_kctsb_limb_t x)
 {
-   return _ntl_count_bits(x);
+   return _kctsb_count_bits(x);
 }
 #else
 static
-inline long COUNT_BITS(_ntl_limb_t x)
+inline long COUNT_BITS(_kctsb_limb_t x)
 {
    if (!x) { return 0; } 
 
-   long res = NTL_BITS_PER_LIMB_T;
-   while (x < (_ntl_limb_t(1) << (NTL_BITS_PER_LIMB_T-1))) {
+   long res = KCTSB_BITS_PER_LIMB_T;
+   while (x < (_kctsb_limb_t(1) << (KCTSB_BITS_PER_LIMB_T-1))) {
       x <<= 1;
       res--;
    }
@@ -157,7 +157,7 @@ inline long COUNT_BITS(_ntl_limb_t x)
 
 
 
-#ifndef NTL_GMP_LIP
+#ifndef KCTSB_GMP_LIP
 
 /*
  * Kind of a "mini LIP" --- this implements some of GMP's mpn interface using
@@ -167,11 +167,11 @@ inline long COUNT_BITS(_ntl_limb_t x)
  *
  */
 
-_ntl_signed_limb_t 
-_ntl_mpn_cmp(const _ntl_limb_t *s1p, const _ntl_limb_t *s2p, long n)
+_kctsb_signed_limb_t 
+_kctsb_mpn_cmp(const _kctsb_limb_t *s1p, const _kctsb_limb_t *s2p, long n)
 {
    for (long i = n-1; i >= 0; i--) {
-      _ntl_signed_limb_t diff = _ntl_signed_limb_t(s1p[i]) - _ntl_signed_limb_t(s2p[i]);
+      _kctsb_signed_limb_t diff = _kctsb_signed_limb_t(s1p[i]) - _kctsb_signed_limb_t(s2p[i]);
       if (diff) return diff;
    }
 
@@ -179,17 +179,17 @@ _ntl_mpn_cmp(const _ntl_limb_t *s1p, const _ntl_limb_t *s2p, long n)
 }
 
 
-_ntl_limb_t
-_ntl_mpn_lshift (_ntl_limb_t *rp, const _ntl_limb_t *up, long n, long cnt)
+_kctsb_limb_t
+_kctsb_mpn_lshift (_kctsb_limb_t *rp, const _kctsb_limb_t *up, long n, long cnt)
 {
-  _ntl_limb_t high_limb, low_limb;
+  _kctsb_limb_t high_limb, low_limb;
   long tnc;
-  _ntl_limb_t retval;
+  _kctsb_limb_t retval;
 
   up += n;
   rp += n;
 
-  tnc = NTL_ZZ_NBITS - cnt;
+  tnc = KCTSB_ZZ_NBITS - cnt;
   low_limb = *--up;
   retval = low_limb >> tnc;
   high_limb = CLIP(low_limb << cnt);
@@ -206,14 +206,14 @@ _ntl_mpn_lshift (_ntl_limb_t *rp, const _ntl_limb_t *up, long n, long cnt)
 }
 
 
-_ntl_limb_t
-_ntl_mpn_rshift(_ntl_limb_t *rp, const _ntl_limb_t *up, long n, long cnt)
+_kctsb_limb_t
+_kctsb_mpn_rshift(_kctsb_limb_t *rp, const _kctsb_limb_t *up, long n, long cnt)
 {
-  _ntl_limb_t high_limb, low_limb;
+  _kctsb_limb_t high_limb, low_limb;
   long tnc;
-  _ntl_limb_t retval;
+  _kctsb_limb_t retval;
 
-  tnc = NTL_ZZ_NBITS - cnt;
+  tnc = KCTSB_ZZ_NBITS - cnt;
   high_limb = *up++;
   retval = CLIP(high_limb << tnc);
   low_limb = high_limb >> cnt;
@@ -229,8 +229,8 @@ _ntl_mpn_rshift(_ntl_limb_t *rp, const _ntl_limb_t *up, long n, long cnt)
   return retval;
 }
 
-_ntl_limb_t
-_ntl_mpn_add_1 (_ntl_limb_t *rp, const _ntl_limb_t *ap, long  n, _ntl_limb_t b)
+_kctsb_limb_t
+_kctsb_mpn_add_1 (_kctsb_limb_t *rp, const _kctsb_limb_t *ap, long  n, _kctsb_limb_t b)
 {
   long i;
 
@@ -238,9 +238,9 @@ _ntl_mpn_add_1 (_ntl_limb_t *rp, const _ntl_limb_t *ap, long  n, _ntl_limb_t b)
     i = 0;
     do
       {
-	_ntl_limb_t r = ap[i] + b;
+	_kctsb_limb_t r = ap[i] + b;
 	rp[i] = CLIP(r);
-	b = r >> NTL_ZZ_NBITS;
+	b = r >> KCTSB_ZZ_NBITS;
       }
     while (++i < n);
 
@@ -251,9 +251,9 @@ _ntl_mpn_add_1 (_ntl_limb_t *rp, const _ntl_limb_t *ap, long  n, _ntl_limb_t b)
     do
       {
         if (!b) return 0;
-	_ntl_limb_t r = ap[i] + b;
+	_kctsb_limb_t r = ap[i] + b;
 	rp[i] = CLIP(r);
-	b = r >> NTL_ZZ_NBITS;
+	b = r >> KCTSB_ZZ_NBITS;
       }
     while (++i < n);
 
@@ -263,36 +263,36 @@ _ntl_mpn_add_1 (_ntl_limb_t *rp, const _ntl_limb_t *ap, long  n, _ntl_limb_t b)
 
 
 
-_ntl_limb_t
-_ntl_mpn_add_n (_ntl_limb_t *rp, const  _ntl_limb_t *ap, const _ntl_limb_t *bp, long n)
+_kctsb_limb_t
+_kctsb_mpn_add_n (_kctsb_limb_t *rp, const  _kctsb_limb_t *ap, const _kctsb_limb_t *bp, long n)
 {
   long i;
-  _ntl_limb_t cy;
+  _kctsb_limb_t cy;
 
   for (i = 0, cy = 0; i < n; i++)
     {
-      _ntl_limb_t sum = ap[i] + bp[i] + cy;
+      _kctsb_limb_t sum = ap[i] + bp[i] + cy;
       rp[i] = CLIP(sum);
-      cy = sum >> NTL_ZZ_NBITS;
+      cy = sum >> KCTSB_ZZ_NBITS;
     }
   return cy;
 }
 
 
-_ntl_limb_t
-_ntl_mpn_add (_ntl_limb_t *rp, const _ntl_limb_t *ap, long an, const  _ntl_limb_t *bp, long bn)
+_kctsb_limb_t
+_kctsb_mpn_add (_kctsb_limb_t *rp, const _kctsb_limb_t *ap, long an, const  _kctsb_limb_t *bp, long bn)
 {
-  _ntl_limb_t cy;
+  _kctsb_limb_t cy;
 
-  cy = _ntl_mpn_add_n (rp, ap, bp, bn);
+  cy = _kctsb_mpn_add_n (rp, ap, bp, bn);
   if (an > bn)
-    cy = _ntl_mpn_add_1 (rp + bn, ap + bn, an - bn, cy);
+    cy = _kctsb_mpn_add_1 (rp + bn, ap + bn, an - bn, cy);
   return cy;
 }
 
 
-_ntl_limb_t
-_ntl_mpn_sub_1 (_ntl_limb_t *rp, const _ntl_limb_t *ap, long  n, _ntl_limb_t b)
+_kctsb_limb_t
+_kctsb_mpn_sub_1 (_kctsb_limb_t *rp, const _kctsb_limb_t *ap, long  n, _kctsb_limb_t b)
 {
   long i;
 
@@ -300,9 +300,9 @@ _ntl_mpn_sub_1 (_ntl_limb_t *rp, const _ntl_limb_t *ap, long  n, _ntl_limb_t b)
      i = 0;
      do
        {
-	 _ntl_limb_t r = ap[i] - b;
+	 _kctsb_limb_t r = ap[i] - b;
 	 rp[i] = CLIP(r);
-	 b = (r >> NTL_ZZ_NBITS) & 1;
+	 b = (r >> KCTSB_ZZ_NBITS) & 1;
        }
      while (++i < n);
 
@@ -313,9 +313,9 @@ _ntl_mpn_sub_1 (_ntl_limb_t *rp, const _ntl_limb_t *ap, long  n, _ntl_limb_t b)
      do
        {
          if (!b) return 0;
-	 _ntl_limb_t r = ap[i] - b;
+	 _kctsb_limb_t r = ap[i] - b;
 	 rp[i] = CLIP(r);
-	 b = (r >> NTL_ZZ_NBITS) & 1;
+	 b = (r >> KCTSB_ZZ_NBITS) & 1;
        }
      while (++i < n);
 
@@ -326,36 +326,36 @@ _ntl_mpn_sub_1 (_ntl_limb_t *rp, const _ntl_limb_t *ap, long  n, _ntl_limb_t b)
 
 
 
-_ntl_limb_t
-_ntl_mpn_sub_n (_ntl_limb_t *rp, const  _ntl_limb_t *ap, const _ntl_limb_t *bp, long n)
+_kctsb_limb_t
+_kctsb_mpn_sub_n (_kctsb_limb_t *rp, const  _kctsb_limb_t *ap, const _kctsb_limb_t *bp, long n)
 {
   long i;
-  _ntl_limb_t cy;
+  _kctsb_limb_t cy;
 
   for (i = 0, cy = 0; i < n; i++)
     {
-      _ntl_limb_t sum = ap[i] - bp[i] - cy;
+      _kctsb_limb_t sum = ap[i] - bp[i] - cy;
       rp[i] = CLIP(sum);
-      cy = (sum >> NTL_ZZ_NBITS) & 1;
+      cy = (sum >> KCTSB_ZZ_NBITS) & 1;
     }
   return cy;
 }
 
 
-_ntl_limb_t
-_ntl_mpn_sub (_ntl_limb_t *rp, const _ntl_limb_t *ap, long an, const  _ntl_limb_t *bp, long bn)
+_kctsb_limb_t
+_kctsb_mpn_sub (_kctsb_limb_t *rp, const _kctsb_limb_t *ap, long an, const  _kctsb_limb_t *bp, long bn)
 {
-  _ntl_limb_t cy;
+  _kctsb_limb_t cy;
 
-  cy = _ntl_mpn_sub_n (rp, ap, bp, bn);
+  cy = _kctsb_mpn_sub_n (rp, ap, bp, bn);
   if (an > bn)
-    cy = _ntl_mpn_sub_1 (rp + bn, ap + bn, an - bn, cy);
+    cy = _kctsb_mpn_sub_1 (rp + bn, ap + bn, an - bn, cy);
   return cy;
 }
 
 
 
-#ifndef NTL_HAVE_LL_TYPE
+#ifndef KCTSB_HAVE_LL_TYPE
 
 
 // (t, a) = b*d + a + t
@@ -366,40 +366,40 @@ _ntl_mpn_sub (_ntl_limb_t *rp, const _ntl_limb_t *ap, long an, const  _ntl_limb_
 // it makes multiplication about twice as slow, which is a bit surprising
 // I think the main issue is the extra int to double conversion.
 static inline void
-_ntl_addmulp(_ntl_limb_t& a, _ntl_limb_t b, _ntl_limb_t d, _ntl_limb_t& t) 
+_kctsb_addmulp(_kctsb_limb_t& a, _kctsb_limb_t b, _kctsb_limb_t d, _kctsb_limb_t& t) 
 {
-   _ntl_limb_t t1 = b * d; 
-   _ntl_limb_t t2 = a + t;
-   _ntl_limb_t t3 = CLIP(t1+t2);
+   _kctsb_limb_t t1 = b * d; 
+   _kctsb_limb_t t2 = a + t;
+   _kctsb_limb_t t3 = CLIP(t1+t2);
 
    double d1 = DBL(b) * DBL(d);
-   double d2 = d1 + double( _ntl_signed_limb_t(t2) - _ntl_signed_limb_t(t3) 
-                         + _ntl_signed_limb_t(NTL_ZZ_RADIX/2) );
-   double d3 = d2 * NTL_ZZ_FRADIX_INV;
+   double d2 = d1 + double( _kctsb_signed_limb_t(t2) - _kctsb_signed_limb_t(t3) 
+                         + _kctsb_signed_limb_t(KCTSB_ZZ_RADIX/2) );
+   double d3 = d2 * KCTSB_ZZ_FRADIX_INV;
 
-   t = _ntl_signed_limb_t(d3);
+   t = _kctsb_signed_limb_t(d3);
    a = t3;
 }
 
 #else
-#if (NTL_NAIL_BITS == 2)
+#if (KCTSB_NAIL_BITS == 2)
 static inline void
-_ntl_addmulp(_ntl_limb_t& a, _ntl_limb_t b, _ntl_limb_t d, _ntl_limb_t& t) 
+_kctsb_addmulp(_kctsb_limb_t& a, _kctsb_limb_t b, _kctsb_limb_t d, _kctsb_limb_t& t) 
 { 
-   _ntl_limb_t t1 = b * d; 
-   _ntl_limb_t t2 = _ntl_signed_limb_t( DBL(b)*(DBL(d)*NTL_ZZ_FRADIX_INV) ) - 1; 
-   t2 = t2 + ( (t1 - (t2 << NTL_ZZ_NBITS)) >> NTL_ZZ_NBITS ); 
+   _kctsb_limb_t t1 = b * d; 
+   _kctsb_limb_t t2 = _kctsb_signed_limb_t( DBL(b)*(DBL(d)*KCTSB_ZZ_FRADIX_INV) ) - 1; 
+   t2 = t2 + ( (t1 - (t2 << KCTSB_ZZ_NBITS)) >> KCTSB_ZZ_NBITS ); 
    t1 = CLIP(t1) + a + t;
-   t = t2 + (t1 >> NTL_ZZ_NBITS); 
+   t = t2 + (t1 >> KCTSB_ZZ_NBITS); 
    a = CLIP(t1);
 }
 #else
 static inline void
-_ntl_addmulp(_ntl_limb_t& a, _ntl_limb_t b, _ntl_limb_t d, _ntl_limb_t& t) 
+_kctsb_addmulp(_kctsb_limb_t& a, _kctsb_limb_t b, _kctsb_limb_t d, _kctsb_limb_t& t) 
 { 
-   _ntl_limb_t t1 = b * d + a + t; 
-   _ntl_limb_t t2 = _ntl_signed_limb_t( DBL(b)*(DBL(d)*NTL_ZZ_FRADIX_INV) ) - 1; 
-   t = t2 + ( (t1 - (t2 << NTL_ZZ_NBITS)) >> NTL_ZZ_NBITS ); 
+   _kctsb_limb_t t1 = b * d + a + t; 
+   _kctsb_limb_t t2 = _kctsb_signed_limb_t( DBL(b)*(DBL(d)*KCTSB_ZZ_FRADIX_INV) ) - 1; 
+   t = t2 + ( (t1 - (t2 << KCTSB_ZZ_NBITS)) >> KCTSB_ZZ_NBITS ); 
    a = CLIP(t1);
 }
 #endif
@@ -407,35 +407,35 @@ _ntl_addmulp(_ntl_limb_t& a, _ntl_limb_t b, _ntl_limb_t d, _ntl_limb_t& t)
 
 // (t, a) = b*b + a
 static inline void
-_ntl_addmulpsq(_ntl_limb_t& a, _ntl_limb_t b, _ntl_limb_t& t)
+_kctsb_addmulpsq(_kctsb_limb_t& a, _kctsb_limb_t b, _kctsb_limb_t& t)
 { 
-   _ntl_limb_t t1 =  b*b + a; 
-   _ntl_limb_t t2 = _ntl_signed_limb_t( DBL(b)*(DBL(b)*NTL_ZZ_FRADIX_INV) ) - 1; 
-   t = t2 + ((t1 - (t2 << NTL_ZZ_NBITS)) >> NTL_ZZ_NBITS); 
+   _kctsb_limb_t t1 =  b*b + a; 
+   _kctsb_limb_t t2 = _kctsb_signed_limb_t( DBL(b)*(DBL(b)*KCTSB_ZZ_FRADIX_INV) ) - 1; 
+   t = t2 + ((t1 - (t2 << KCTSB_ZZ_NBITS)) >> KCTSB_ZZ_NBITS); 
    a = CLIP(t1);
 }
 
 // (t, a) = b*d + t
 static inline void
-_ntl_mulp(_ntl_limb_t& a, _ntl_limb_t b, _ntl_limb_t d, _ntl_limb_t& t) 
+_kctsb_mulp(_kctsb_limb_t& a, _kctsb_limb_t b, _kctsb_limb_t d, _kctsb_limb_t& t) 
 { 
-   _ntl_limb_t t1 =  b*d + t; 
-   _ntl_limb_t t2 = _ntl_signed_limb_t( DBL(b)*(DBL(d)*NTL_ZZ_FRADIX_INV) ) - 1; 
-   t = t2 + ((t1 - (t2 << NTL_ZZ_NBITS)) >> NTL_ZZ_NBITS); 
+   _kctsb_limb_t t1 =  b*d + t; 
+   _kctsb_limb_t t2 = _kctsb_signed_limb_t( DBL(b)*(DBL(d)*KCTSB_ZZ_FRADIX_INV) ) - 1; 
+   t = t2 + ((t1 - (t2 << KCTSB_ZZ_NBITS)) >> KCTSB_ZZ_NBITS); 
    a = CLIP(t1);
 }
 
 // (t, a) = b*(-d) + a + t, where t is "signed"
 static inline void
-_ntl_submulp(_ntl_limb_t& a, _ntl_limb_t b, _ntl_limb_t d, _ntl_limb_t& t) 
+_kctsb_submulp(_kctsb_limb_t& a, _kctsb_limb_t b, _kctsb_limb_t d, _kctsb_limb_t& t) 
 { 
-   _ntl_limb_t t1 =  b*(NTL_ZZ_RADIX-d) + a;
-   _ntl_limb_t t2 = _ntl_signed_limb_t( DBL(b)*(DBL(NTL_ZZ_RADIX-d)*NTL_ZZ_FRADIX_INV) ) - 1; 
-   _ntl_limb_t lo = CLIP(t1);
-   _ntl_limb_t hi = t2 + ((t1 - (t2 << NTL_ZZ_NBITS)) >> NTL_ZZ_NBITS); 
+   _kctsb_limb_t t1 =  b*(KCTSB_ZZ_RADIX-d) + a;
+   _kctsb_limb_t t2 = _kctsb_signed_limb_t( DBL(b)*(DBL(KCTSB_ZZ_RADIX-d)*KCTSB_ZZ_FRADIX_INV) ) - 1; 
+   _kctsb_limb_t lo = CLIP(t1);
+   _kctsb_limb_t hi = t2 + ((t1 - (t2 << KCTSB_ZZ_NBITS)) >> KCTSB_ZZ_NBITS); 
    lo += t;
    a = CLIP(lo);
-   t = hi - b - (lo >> (NTL_BITS_PER_LIMB_T-1));
+   t = hi - b - (lo >> (KCTSB_BITS_PER_LIMB_T-1));
 }
 
 
@@ -443,97 +443,97 @@ _ntl_submulp(_ntl_limb_t& a, _ntl_limb_t b, _ntl_limb_t d, _ntl_limb_t& t)
 
 // (t, a) = b*d + a + t
 static inline void
-_ntl_addmulp(_ntl_limb_t& a, _ntl_limb_t b, _ntl_limb_t d, _ntl_limb_t& t) 
+_kctsb_addmulp(_kctsb_limb_t& a, _kctsb_limb_t b, _kctsb_limb_t d, _kctsb_limb_t& t) 
 {
    ll_type x;
    ll_imul(x, b, d);
    ll_add(x, a+t);
    a = CLIP(ll_get_lo(x));
-   t = ll_rshift_get_lo<NTL_ZZ_NBITS>(x);
+   t = ll_rshift_get_lo<KCTSB_ZZ_NBITS>(x);
 }
 
 // (t, a) = b*b + a
 static inline void
-_ntl_addmulpsq(_ntl_limb_t& a, _ntl_limb_t b, _ntl_limb_t& t)
+_kctsb_addmulpsq(_kctsb_limb_t& a, _kctsb_limb_t b, _kctsb_limb_t& t)
 {
    ll_type x;
    ll_imul(x, b, b);
    ll_add(x, a);
    a = CLIP(ll_get_lo(x));
-   t = ll_rshift_get_lo<NTL_ZZ_NBITS>(x);
+   t = ll_rshift_get_lo<KCTSB_ZZ_NBITS>(x);
 }
 
 // (t, a) = b*d + t
 static inline void
-_ntl_mulp(_ntl_limb_t& a, _ntl_limb_t b, _ntl_limb_t d, _ntl_limb_t& t) 
+_kctsb_mulp(_kctsb_limb_t& a, _kctsb_limb_t b, _kctsb_limb_t d, _kctsb_limb_t& t) 
 {
    ll_type x;
    ll_imul(x, b, d);
    ll_add(x, t);
    a = CLIP(ll_get_lo(x));
-   t = ll_rshift_get_lo<NTL_ZZ_NBITS>(x);
+   t = ll_rshift_get_lo<KCTSB_ZZ_NBITS>(x);
 }
 
 // (t, a) = b*(-d) + a + t, where t is "signed"
 static inline void
-_ntl_submulp(_ntl_limb_t& a, _ntl_limb_t b, _ntl_limb_t d, _ntl_limb_t& t) 
+_kctsb_submulp(_kctsb_limb_t& a, _kctsb_limb_t b, _kctsb_limb_t d, _kctsb_limb_t& t) 
 {
    ll_type x;
-   ll_imul(x, b, NTL_ZZ_RADIX-d);
-   _ntl_limb_t lo = CLIP(ll_get_lo(x));
-   _ntl_limb_t hi = ll_rshift_get_lo<NTL_ZZ_NBITS>(x);
+   ll_imul(x, b, KCTSB_ZZ_RADIX-d);
+   _kctsb_limb_t lo = CLIP(ll_get_lo(x));
+   _kctsb_limb_t hi = ll_rshift_get_lo<KCTSB_ZZ_NBITS>(x);
    lo += a+t;
    a = CLIP(lo);
 
    // NOTE: the high-order bits of lo encode 0, 1, or -1
-#if (!defined(NTL_CLEAN_INT) && NTL_ARITH_RIGHT_SHIFT)
-   t = hi - b + (cast_signed(lo) >> NTL_ZZ_NBITS);
+#if (!defined(KCTSB_CLEAN_INT) && KCTSB_ARITH_RIGHT_SHIFT)
+   t = hi - b + (cast_signed(lo) >> KCTSB_ZZ_NBITS);
 #else
-   t = hi - b + ((lo + NTL_ZZ_RADIX) >> NTL_ZZ_NBITS) - 1;
+   t = hi - b + ((lo + KCTSB_ZZ_RADIX) >> KCTSB_ZZ_NBITS) - 1;
 #endif
 }
 
 #endif
 
 void 
-_ntl_addmulsq(long n, _ntl_limb_t *a, const _ntl_limb_t *b)
+_kctsb_addmulsq(long n, _kctsb_limb_t *a, const _kctsb_limb_t *b)
 {
-   _ntl_limb_t s = b[0];
-   _ntl_limb_t carry = 0;
+   _kctsb_limb_t s = b[0];
+   _kctsb_limb_t carry = 0;
    for (long i = 0; i < n; i++) {
-      _ntl_addmulp(a[i], b[i+1], s, carry);
+      _kctsb_addmulp(a[i], b[i+1], s, carry);
    }
    a[n] += carry;
 }
 
 
-_ntl_limb_t
-_ntl_mpn_mul_1 (_ntl_limb_t* rp, const _ntl_limb_t* up, long n, _ntl_limb_t vl) 
+_kctsb_limb_t
+_kctsb_mpn_mul_1 (_kctsb_limb_t* rp, const _kctsb_limb_t* up, long n, _kctsb_limb_t vl) 
 {
-   _ntl_limb_t carry = 0;
+   _kctsb_limb_t carry = 0;
    for (long i = 0; i < n; i++) 
-      _ntl_mulp(rp[i], up[i], vl, carry);
+      _kctsb_mulp(rp[i], up[i], vl, carry);
    return carry;
 }
 
 
-_ntl_limb_t
-_ntl_mpn_addmul_1 (_ntl_limb_t* rp, const _ntl_limb_t* up, long n, _ntl_limb_t vl)
+_kctsb_limb_t
+_kctsb_mpn_addmul_1 (_kctsb_limb_t* rp, const _kctsb_limb_t* up, long n, _kctsb_limb_t vl)
 {
-   _ntl_limb_t carry = 0;
+   _kctsb_limb_t carry = 0;
    for (long i = 0; i < n; i++) 
-      _ntl_addmulp(rp[i], up[i], vl, carry);
+      _kctsb_addmulp(rp[i], up[i], vl, carry);
    return carry;
 }
 
 
 
-_ntl_limb_t
-_ntl_mpn_submul_1 (_ntl_limb_t* rp, const _ntl_limb_t* up, long n, _ntl_limb_t vl)
+_kctsb_limb_t
+_kctsb_mpn_submul_1 (_kctsb_limb_t* rp, const _kctsb_limb_t* up, long n, _kctsb_limb_t vl)
 {
-   _ntl_limb_t carry = 0;
+   _kctsb_limb_t carry = 0;
    for (long i = 0; i < n; i++) {
-      _ntl_submulp(rp[i], up[i], vl, carry);
+      _kctsb_submulp(rp[i], up[i], vl, carry);
    }
    return -carry;
 }
@@ -545,42 +545,42 @@ _ntl_mpn_submul_1 (_ntl_limb_t* rp, const _ntl_limb_t* up, long n, _ntl_limb_t v
 // to avoid allocating extra buffer space and extra shifting.  It is not a part
 // of GMP interface.
 
-_ntl_limb_t
-_ntl_mpn_shift_submul_1(_ntl_limb_t* NTL_RESTRICT rp, _ntl_limb_t shift_in, const _ntl_limb_t* NTL_RESTRICT up, long n, _ntl_limb_t vl)
+_kctsb_limb_t
+_kctsb_mpn_shift_submul_1(_kctsb_limb_t* KCTSB_RESTRICT rp, _kctsb_limb_t shift_in, const _kctsb_limb_t* KCTSB_RESTRICT up, long n, _kctsb_limb_t vl)
 {
 #if 0
-   _ntl_limb_t carry = 0;
+   _kctsb_limb_t carry = 0;
    for (long i = 0; i < n; i++) {
-      _ntl_submulp(shift_in, up[i], vl, carry);
-      _ntl_swap(shift_in, rp[i]);
+      _kctsb_submulp(shift_in, up[i], vl, carry);
+      _kctsb_swap(shift_in, rp[i]);
    }
 
    return carry + shift_in;
 #else
    // NOTE: loop unrolling seems to help a little bit
-   _ntl_limb_t carry = 0;
+   _kctsb_limb_t carry = 0;
    long i = 0;
    for (; i <= n-4; i += 4) {
-      _ntl_submulp(shift_in, up[i], vl, carry);
-      _ntl_limb_t tmp1 = rp[i];
+      _kctsb_submulp(shift_in, up[i], vl, carry);
+      _kctsb_limb_t tmp1 = rp[i];
       rp[i] = shift_in;
 
-      _ntl_submulp(tmp1, up[i+1], vl, carry);
-      _ntl_limb_t tmp2 = rp[i+1];
+      _kctsb_submulp(tmp1, up[i+1], vl, carry);
+      _kctsb_limb_t tmp2 = rp[i+1];
       rp[i+1] = tmp1;
 
-      _ntl_submulp(tmp2, up[i+2], vl, carry);
-      _ntl_limb_t tmp3 = rp[i+2];
+      _kctsb_submulp(tmp2, up[i+2], vl, carry);
+      _kctsb_limb_t tmp3 = rp[i+2];
       rp[i+2] = tmp2;
 
-      _ntl_submulp(tmp3, up[i+3], vl, carry);
+      _kctsb_submulp(tmp3, up[i+3], vl, carry);
       shift_in = rp[i+3];
       rp[i+3] = tmp3;
    }
 
    for (; i < n; i++) {
-      _ntl_submulp(shift_in, up[i], vl, carry);
-      _ntl_swap(shift_in, rp[i]);
+      _kctsb_submulp(shift_in, up[i], vl, carry);
+      _kctsb_swap(shift_in, rp[i]);
    }
 
    return carry + shift_in;
@@ -588,36 +588,36 @@ _ntl_mpn_shift_submul_1(_ntl_limb_t* NTL_RESTRICT rp, _ntl_limb_t shift_in, cons
 }
 
 static inline void
-_ntl_mpn_base_sqr(_ntl_limb_t *c, const _ntl_limb_t *a, long sa)
+_kctsb_mpn_base_sqr(_kctsb_limb_t *c, const _kctsb_limb_t *a, long sa)
 {
    long sc = 2*sa;
 
    for (long i = 0; i < sc; i++) c[i] = 0;
 
-   _ntl_limb_t carry = 0;
+   _kctsb_limb_t carry = 0;
    for (long i = 0, j = 0; j < sa; i += 2, j++) {
-      _ntl_limb_t uc, t; 
+      _kctsb_limb_t uc, t; 
        uc = carry + (c[i] << 1);
        t = CLIP(uc);
-       _ntl_addmulpsq(t, a[j], carry);
+       _kctsb_addmulpsq(t, a[j], carry);
        c[i] = t;
-       _ntl_addmulsq(sa-j-1, c+i+1, a+j);
-       uc =  (uc >> NTL_ZZ_NBITS) + (c[i+1] << 1);
+       _kctsb_addmulsq(sa-j-1, c+i+1, a+j);
+       uc =  (uc >> KCTSB_ZZ_NBITS) + (c[i+1] << 1);
        uc += carry;
-       carry = uc >> NTL_ZZ_NBITS;
+       carry = uc >> KCTSB_ZZ_NBITS;
        c[i+1] = CLIP(uc);
    }
 }
 
-static inline _ntl_limb_t
-_ntl_mpn_base_mul (_ntl_limb_t* rp, const _ntl_limb_t* up, long un, const _ntl_limb_t* vp, long vn)
+static inline _kctsb_limb_t
+_kctsb_mpn_base_mul (_kctsb_limb_t* rp, const _kctsb_limb_t* up, long un, const _kctsb_limb_t* vp, long vn)
 {
-  rp[un] = _ntl_mpn_mul_1 (rp, up, un, vp[0]);
+  rp[un] = _kctsb_mpn_mul_1 (rp, up, un, vp[0]);
 
   while (--vn >= 1)
     {
       rp += 1, vp += 1;
-      rp[un] = _ntl_mpn_addmul_1 (rp, up, un, vp[0]);
+      rp[un] = _kctsb_mpn_addmul_1 (rp, up, un, vp[0]);
     }
   return rp[un];
 }
@@ -629,19 +629,19 @@ _ntl_mpn_base_mul (_ntl_limb_t* rp, const _ntl_limb_t* up, long un, const _ntl_l
 // multiplication is subquadratic 
 
 static 
-long kar_fold(_ntl_limb_t *T, const _ntl_limb_t *b, long sb, long hsa)
+long kar_fold(_kctsb_limb_t *T, const _kctsb_limb_t *b, long sb, long hsa)
 {
-   _ntl_limb_t carry = 0;
+   _kctsb_limb_t carry = 0;
 
    for (long i = 0; i < sb-hsa; i++) {
-      _ntl_limb_t t = b[i] + b[i+hsa] + carry;
-      carry = t >> NTL_ZZ_NBITS;
+      _kctsb_limb_t t = b[i] + b[i+hsa] + carry;
+      carry = t >> KCTSB_ZZ_NBITS;
       T[i] = CLIP(t);
    }
 
    for (long i = sb-hsa; i < hsa; i++) {
-      _ntl_limb_t t = b[i] + carry;
-      carry = t >> NTL_ZZ_NBITS;
+      _kctsb_limb_t t = b[i] + carry;
+      carry = t >> KCTSB_ZZ_NBITS;
       T[i] = CLIP(t);
    }
 
@@ -656,62 +656,62 @@ long kar_fold(_ntl_limb_t *T, const _ntl_limb_t *b, long sb, long hsa)
 }
 
 static
-void kar_sub(_ntl_limb_t *T, const _ntl_limb_t *c, long sc)
+void kar_sub(_kctsb_limb_t *T, const _kctsb_limb_t *c, long sc)
 {
-   _ntl_limb_t carry = 0;
+   _kctsb_limb_t carry = 0;
 
    for (long i = 0; i < sc; i++) {
-      _ntl_limb_t t = T[i] - c[i] - carry;
-      carry = (t >> NTL_ZZ_NBITS) & 1;
+      _kctsb_limb_t t = T[i] - c[i] - carry;
+      carry = (t >> KCTSB_ZZ_NBITS) & 1;
       T[i] = CLIP(t);
    }
 
    for (long i = sc; carry; i++) {
-      _ntl_limb_t t = T[i] - 1;
-      carry = (t >> NTL_ZZ_NBITS) & 1;
+      _kctsb_limb_t t = T[i] - 1;
+      carry = (t >> KCTSB_ZZ_NBITS) & 1;
       T[i] = CLIP(t);
    }
 }
 
 static
-void kar_add(_ntl_limb_t *c, const _ntl_limb_t *T, long sT, long hsa)
+void kar_add(_kctsb_limb_t *c, const _kctsb_limb_t *T, long sT, long hsa)
 {
    c += hsa;
-   _ntl_limb_t carry = 0;
+   _kctsb_limb_t carry = 0;
 
    while (sT > 0 && T[sT-1] == 0) sT--;
 
    for (long i = 0; i < sT; i++) {
-      _ntl_limb_t t = c[i] + T[i] + carry;
-      carry = t >> NTL_NBITS;
+      _kctsb_limb_t t = c[i] + T[i] + carry;
+      carry = t >> KCTSB_NBITS;
       c[i] = CLIP(t);
    }
 
    for (long i = sT; carry; i++) {
-      _ntl_limb_t t = c[i] + 1;
-      carry = t >> NTL_NBITS;
+      _kctsb_limb_t t = c[i] + 1;
+      carry = t >> KCTSB_NBITS;
       c[i] = CLIP(t);
    }
 }
 
 static
-void kar_fix(_ntl_limb_t *c, const _ntl_limb_t *T, long sT, long hsa)
+void kar_fix(_kctsb_limb_t *c, const _kctsb_limb_t *T, long sT, long hsa)
 {
    for (long i = 0; i < hsa; i++) {
       c[i] = T[i];
    }
 
-   _ntl_limb_t carry = 0;
+   _kctsb_limb_t carry = 0;
 
    for (long i = hsa; i < sT; i++) {
-      _ntl_limb_t t = c[i] + T[i] + carry;
-      carry = t >> NTL_NBITS;
+      _kctsb_limb_t t = c[i] + T[i] + carry;
+      carry = t >> KCTSB_NBITS;
       c[i] = CLIP(t);
    }
 
    for (long i = sT; carry; i++) {
-      _ntl_limb_t t = c[i] + 1;
-      carry = t >> NTL_NBITS;
+      _kctsb_limb_t t = c[i] + 1;
+      carry = t >> KCTSB_NBITS;
       c[i] = CLIP(t);
    }
 }
@@ -720,19 +720,19 @@ void kar_fix(_ntl_limb_t *c, const _ntl_limb_t *T, long sT, long hsa)
 #define KARX (16)
 
 static
-void kar_mul(_ntl_limb_t *c, const _ntl_limb_t *a, long sa, 
-             const _ntl_limb_t *b, long sb, _ntl_limb_t *stk, long sp)
+void kar_mul(_kctsb_limb_t *c, const _kctsb_limb_t *a, long sa, 
+             const _kctsb_limb_t *b, long sb, _kctsb_limb_t *stk, long sp)
 {
 
    if (sa < sb) {
-      _ntl_swap(a, b);
-      _ntl_swap(sa, sb);
+      _kctsb_swap(a, b);
+      _kctsb_swap(sa, sb);
    }
 
    if (sb < KARX) {
       /* classic algorithm */
  
-      _ntl_mpn_base_mul(c, a, sa, b, sb);
+      _kctsb_mpn_base_mul(c, a, sa, b, sb);
 
    }
    else {
@@ -741,7 +741,7 @@ void kar_mul(_ntl_limb_t *c, const _ntl_limb_t *a, long sa,
       if (hsa < sb) {
          /* normal case */
 
-         _ntl_limb_t *T1, *T2, *T3;
+         _kctsb_limb_t *T1, *T2, *T3;
 
          /* allocate space */
 
@@ -772,13 +772,13 @@ void kar_mul(_ntl_limb_t *c, const _ntl_limb_t *a, long sa,
          kar_mul(c, a, hsa, b, hsa, stk, sp);
          kar_sub(T3, c, 2*hsa);
 
-         /* finally, add T3 * NTL_RADIX^{hsa} to c */
+         /* finally, add T3 * KCTSB_RADIX^{hsa} to c */
          kar_add(c, T3, sT1+sT2, hsa);
       }
       else {
          /* degenerate case */
 
-         _ntl_limb_t *T;
+         _kctsb_limb_t *T;
          
     
          sp -= (sb + hsa);
@@ -798,11 +798,11 @@ void kar_mul(_ntl_limb_t *c, const _ntl_limb_t *a, long sa,
    }
 }
 
-NTL_TLS_GLOBAL_DECL(Vec<_ntl_limb_t>, kmem)
+KCTSB_TLS_GLOBAL_DECL(Vec<_kctsb_limb_t>, kmem)
 
 static
-void kar_mul(_ntl_limb_t *c, const _ntl_limb_t *a, long sa, 
-             const _ntl_limb_t *b, long sb)
+void kar_mul(_kctsb_limb_t *c, const _kctsb_limb_t *a, long sa, 
+             const _kctsb_limb_t *b, long sb)
 {
    long n = sa;
    long sp = 0;
@@ -812,8 +812,8 @@ void kar_mul(_ntl_limb_t *c, const _ntl_limb_t *a, long sa,
       n = hn+1;
    } while (n >= KARX);
 
-   NTL_TLS_GLOBAL_ACCESS(kmem);
-   Vec<_ntl_limb_t>::Watcher kmem_watcher(kmem);
+   KCTSB_TLS_GLOBAL_ACCESS(kmem);
+   Vec<_kctsb_limb_t>::Watcher kmem_watcher(kmem);
 
    kmem.SetLength(sp);
    kar_mul(c, a, sa, b, sb, kmem.elts(), sp);
@@ -823,17 +823,17 @@ void kar_mul(_ntl_limb_t *c, const _ntl_limb_t *a, long sa,
 #define KARSX (32) 
 
 static
-void kar_sq(_ntl_limb_t *c, const _ntl_limb_t *a, long sa, 
-            _ntl_limb_t *stk, long sp)
+void kar_sq(_kctsb_limb_t *c, const _kctsb_limb_t *a, long sa, 
+            _kctsb_limb_t *stk, long sp)
 {
    if (sa < KARSX) {
       /* classic algorithm */
 
-      _ntl_mpn_base_sqr(c, a, sa);
+      _kctsb_mpn_base_sqr(c, a, sa);
    }
    else {
       long hsa = (sa + 1) >> 1;
-      _ntl_limb_t *T1, *T2;
+      _kctsb_limb_t *T1, *T2;
 
       sp -= (hsa << 1) + 2;
       if (sp < 0) TerminalError("internal error: kmem overflow");
@@ -856,7 +856,7 @@ void kar_sq(_ntl_limb_t *c, const _ntl_limb_t *a, long sa,
 
 
 static
-void kar_sq(_ntl_limb_t *c, const _ntl_limb_t *a, long sa) 
+void kar_sq(_kctsb_limb_t *c, const _kctsb_limb_t *a, long sa) 
 {
    long n = sa;
    long sp = 0;
@@ -866,8 +866,8 @@ void kar_sq(_ntl_limb_t *c, const _ntl_limb_t *a, long sa)
       n = hn+1;
    } while (n >= KARSX);
 
-   NTL_TLS_GLOBAL_ACCESS(kmem);
-   Vec<_ntl_limb_t>::Watcher kmem_watcher(kmem);
+   KCTSB_TLS_GLOBAL_ACCESS(kmem);
+   Vec<_kctsb_limb_t>::Watcher kmem_watcher(kmem);
 
    kmem.SetLength(sp);
    kar_sq(c, a, sa, kmem.elts(), sp);
@@ -879,23 +879,23 @@ void kar_sq(_ntl_limb_t *c, const _ntl_limb_t *a, long sa)
 
 
 void
-_ntl_mpn_sqr(_ntl_limb_t *c, const _ntl_limb_t *a, long sa)
+_kctsb_mpn_sqr(_kctsb_limb_t *c, const _kctsb_limb_t *a, long sa)
 {
   if (sa >= KARSX) {
     kar_sq(c, a, sa);
     return;
   }
 
-  _ntl_mpn_base_sqr(c, a, sa);
+  _kctsb_mpn_base_sqr(c, a, sa);
 }
 
 
 // Like the corresponding GMP routine, this assumes un >= vn >= 1
-_ntl_limb_t
-_ntl_mpn_mul (_ntl_limb_t* rp, const _ntl_limb_t* up, long un, const _ntl_limb_t* vp, long vn)
+_kctsb_limb_t
+_kctsb_mpn_mul (_kctsb_limb_t* rp, const _kctsb_limb_t* up, long un, const _kctsb_limb_t* vp, long vn)
 {
   if (up == vp && un == vn) {
-    _ntl_mpn_sqr(rp, up, un);
+    _kctsb_mpn_sqr(rp, up, un);
     return rp[2*un-1];
   }
 
@@ -904,7 +904,7 @@ _ntl_mpn_mul (_ntl_limb_t* rp, const _ntl_limb_t* up, long un, const _ntl_limb_t
     return rp[un+vn-1];
   }
 
-  return _ntl_mpn_base_mul(rp, up, un, vp, vn);
+  return _kctsb_mpn_base_mul(rp, up, un, vp, vn);
 }
 
 
@@ -915,19 +915,19 @@ _ntl_mpn_mul (_ntl_limb_t* rp, const _ntl_limb_t* up, long un, const _ntl_limb_t
 // which could exploited in the general division routine (but it currently is not).
 
 // NOTE: these are the only routines left that completely rely on the assumption
-// that NTL_ZZ_NBITS is less than floating point precision.  It would be possible
-// to increase NTL_ZZ_NBITS if defined(NTL_HAVE_LL_TYPE), but this is not something
+// that KCTSB_ZZ_NBITS is less than floating point precision.  It would be possible
+// to increase KCTSB_ZZ_NBITS if defined(KCTSB_HAVE_LL_TYPE), but this is not something
 // I want to spend time on.  Use GMP instead!
 static inline void
-_ntl_div21p(_ntl_limb_t& numhigh, _ntl_limb_t numlow, _ntl_limb_t denom, double deninv, _ntl_limb_t& quot) 
+_kctsb_div21p(_kctsb_limb_t& numhigh, _kctsb_limb_t numlow, _kctsb_limb_t denom, double deninv, _kctsb_limb_t& quot) 
 { 
-   _ntl_limb_t q21 = _ntl_signed_limb_t(((NTL_ZZ_FRADIX * DBL(numhigh)) + 
+   _kctsb_limb_t q21 = _kctsb_signed_limb_t(((KCTSB_ZZ_FRADIX * DBL(numhigh)) + 
                                           DBL(numlow))* deninv); 
 
-   _ntl_limb_t r21 = (numhigh << NTL_ZZ_NBITS) + numlow - denom*q21;
+   _kctsb_limb_t r21 = (numhigh << KCTSB_ZZ_NBITS) + numlow - denom*q21;
 
-   r21 = sp_CorrectDeficitQuo(q21, r21, _ntl_signed_limb_t(denom));
-   r21 = sp_CorrectExcessQuo (q21, r21, _ntl_signed_limb_t(denom));
+   r21 = sp_CorrectDeficitQuo(q21, r21, _kctsb_signed_limb_t(denom));
+   r21 = sp_CorrectExcessQuo (q21, r21, _kctsb_signed_limb_t(denom));
  
    quot = q21; 
    numhigh = r21; 
@@ -935,40 +935,40 @@ _ntl_div21p(_ntl_limb_t& numhigh, _ntl_limb_t numlow, _ntl_limb_t denom, double 
 
 // same as above, but quot not computed
 static inline void
-_ntl_rem21p(_ntl_limb_t& numhigh, _ntl_limb_t numlow, _ntl_limb_t denom, double deninv) 
+_kctsb_rem21p(_kctsb_limb_t& numhigh, _kctsb_limb_t numlow, _kctsb_limb_t denom, double deninv) 
 { 
-   _ntl_limb_t q21 = _ntl_signed_limb_t(((NTL_ZZ_FRADIX * DBL(numhigh)) + 
+   _kctsb_limb_t q21 = _kctsb_signed_limb_t(((KCTSB_ZZ_FRADIX * DBL(numhigh)) + 
                                           DBL(numlow))* deninv); 
 
-   _ntl_limb_t r21 = (numhigh << NTL_ZZ_NBITS) + numlow - denom*q21;
+   _kctsb_limb_t r21 = (numhigh << KCTSB_ZZ_NBITS) + numlow - denom*q21;
 
-   r21 = sp_CorrectDeficit(r21, _ntl_signed_limb_t(denom));
-   r21 = sp_CorrectExcess (r21, _ntl_signed_limb_t(denom));
+   r21 = sp_CorrectDeficit(r21, _kctsb_signed_limb_t(denom));
+   r21 = sp_CorrectExcess (r21, _kctsb_signed_limb_t(denom));
  
    numhigh = r21; 
 }
 
 // same as above, but remainder not computed, returns quot
-static inline _ntl_limb_t
-_ntl_quo21p(_ntl_limb_t numhigh, _ntl_limb_t numlow, _ntl_limb_t denom, double deninv)
+static inline _kctsb_limb_t
+_kctsb_quo21p(_kctsb_limb_t numhigh, _kctsb_limb_t numlow, _kctsb_limb_t denom, double deninv)
 { 
-   _ntl_limb_t q21 = _ntl_signed_limb_t(((NTL_ZZ_FRADIX * DBL(numhigh)) + 
+   _kctsb_limb_t q21 = _kctsb_signed_limb_t(((KCTSB_ZZ_FRADIX * DBL(numhigh)) + 
                                           DBL(numlow))* deninv); 
 
-   _ntl_limb_t r21 = (numhigh << NTL_ZZ_NBITS) + numlow - denom*q21;
+   _kctsb_limb_t r21 = (numhigh << KCTSB_ZZ_NBITS) + numlow - denom*q21;
 
-   r21 = sp_CorrectDeficitQuo(q21, r21, _ntl_signed_limb_t(denom));
-   r21 = sp_CorrectExcessQuo (q21, r21, _ntl_signed_limb_t(denom));
+   r21 = sp_CorrectDeficitQuo(q21, r21, _kctsb_signed_limb_t(denom));
+   r21 = sp_CorrectExcessQuo (q21, r21, _kctsb_signed_limb_t(denom));
  
    return q21;
 }
 
 
-_ntl_limb_t
-_ntl_mpn_divmod_1 (_ntl_limb_t *q, const _ntl_limb_t *a, long sa, _ntl_limb_t d)
+_kctsb_limb_t
+_kctsb_mpn_divmod_1 (_kctsb_limb_t *q, const _kctsb_limb_t *a, long sa, _kctsb_limb_t d)
 {
    double dinv = 1.0/DBL(d);
-   _ntl_limb_t carry = 0;
+   _kctsb_limb_t carry = 0;
 
    if (a[sa-1] < d) {
       carry = a[sa-1];
@@ -977,17 +977,17 @@ _ntl_mpn_divmod_1 (_ntl_limb_t *q, const _ntl_limb_t *a, long sa, _ntl_limb_t d)
    }
 
    for (long i = sa-1; i >= 0; i--) {
-      _ntl_div21p(carry, a[i], d, dinv, q[i]);
+      _kctsb_div21p(carry, a[i], d, dinv, q[i]);
    }
 
    return carry;
 }
 
-_ntl_limb_t 
-_ntl_mpn_mod_1 (const _ntl_limb_t *a, long sa, _ntl_limb_t d)
+_kctsb_limb_t 
+_kctsb_mpn_mod_1 (const _kctsb_limb_t *a, long sa, _kctsb_limb_t d)
 {
    double dinv = 1.0/DBL(d);
-   _ntl_limb_t carry = 0;
+   _kctsb_limb_t carry = 0;
 
    if (a[sa-1] < d) {
       carry = a[sa-1];
@@ -995,7 +995,7 @@ _ntl_mpn_mod_1 (const _ntl_limb_t *a, long sa, _ntl_limb_t d)
    }
 
    for (long i = sa-1; i >= 0; i--) {
-      _ntl_rem21p(carry, a[i], d, dinv);
+      _kctsb_rem21p(carry, a[i], d, dinv);
    }
 
    return carry;
@@ -1003,19 +1003,19 @@ _ntl_mpn_mod_1 (const _ntl_limb_t *a, long sa, _ntl_limb_t d)
 
 // NOTE: no aliasing allowed (more recent versions of GMP allow a==r)
 void 
-_ntl_mpn_tdiv_qr (_ntl_limb_t *q, _ntl_limb_t *r,long  /* qxn */, 
-                  const _ntl_limb_t *a, long sa, const _ntl_limb_t *d, long sd)
+_kctsb_mpn_tdiv_qr (_kctsb_limb_t *q, _kctsb_limb_t *r,long  /* qxn */, 
+                  const _kctsb_limb_t *a, long sa, const _kctsb_limb_t *d, long sd)
 {
    if (sd == 1) {
-      r[0] = _ntl_mpn_divmod_1(q, a, sa, d[0]);
+      r[0] = _kctsb_mpn_divmod_1(q, a, sa, d[0]);
       return;
    }
 
-   // compute dhi = high order NTL_ZZ_NBITS of (d[sd-1], ..., d[0])
-   _ntl_limb_t d1 = d[sd-1];
-   _ntl_limb_t d0 = d[sd-2];
+   // compute dhi = high order KCTSB_ZZ_NBITS of (d[sd-1], ..., d[0])
+   _kctsb_limb_t d1 = d[sd-1];
+   _kctsb_limb_t d0 = d[sd-2];
    long dbits = COUNT_BITS(d1); 
-   _ntl_limb_t dhi = (d1 << (NTL_ZZ_NBITS-dbits)) | (d0 >> dbits);
+   _kctsb_limb_t dhi = (d1 << (KCTSB_ZZ_NBITS-dbits)) | (d0 >> dbits);
 
 
    double dhi_inv = 1.0/DBL(dhi);
@@ -1026,26 +1026,26 @@ _ntl_mpn_tdiv_qr (_ntl_limb_t *q, _ntl_limb_t *r,long  /* qxn */,
    r[sd-1] = 0;
 
    for (long i = sa-sd; i >= 0; i--) {
-      // compute (rhi1, rhi0) = high order 2*NTL_ZZ_NBITS of buffer
-      _ntl_limb_t r2, r1, r0;
+      // compute (rhi1, rhi0) = high order 2*KCTSB_ZZ_NBITS of buffer
+      _kctsb_limb_t r2, r1, r0;
       r2 = r[sd-1];
       r1 = r[sd-2];
       r0 = sd > 2 ? r[sd-3] : a[i];
 
-      _ntl_limb_t rhi1 = (r2 << (NTL_ZZ_NBITS-dbits)) | (r1 >> dbits);
-      _ntl_limb_t rhi0 = CLIP(r1 << (NTL_ZZ_NBITS-dbits)) | (r0 >> dbits);
+      _kctsb_limb_t rhi1 = (r2 << (KCTSB_ZZ_NBITS-dbits)) | (r1 >> dbits);
+      _kctsb_limb_t rhi0 = CLIP(r1 << (KCTSB_ZZ_NBITS-dbits)) | (r0 >> dbits);
 
       // compute estimate for quotient digit: it may be too large by at most  2
-      _ntl_limb_t qdigit;
+      _kctsb_limb_t qdigit;
       if (rhi1 >= dhi) 
-         qdigit = NTL_ZZ_RADIX-1;
+         qdigit = KCTSB_ZZ_RADIX-1;
       else
-         qdigit = _ntl_quo21p(rhi1, rhi0, dhi, dhi_inv);
+         qdigit = _kctsb_quo21p(rhi1, rhi0, dhi, dhi_inv);
 
-      _ntl_limb_t carry = _ntl_mpn_shift_submul_1(r, a[i], d, sd, qdigit);
+      _kctsb_limb_t carry = _kctsb_mpn_shift_submul_1(r, a[i], d, sd, qdigit);
       while (carry) {
          // loop body executes at most twice
-         carry += _ntl_mpn_add_n(r, r, d, sd);
+         carry += _kctsb_mpn_add_n(r, r, d, sd);
          qdigit--;
       }
 
@@ -1058,20 +1058,20 @@ _ntl_mpn_tdiv_qr (_ntl_limb_t *q, _ntl_limb_t *r,long  /* qxn */,
 
 
 /* A bigint is represented as two long's, ALLOC and SIZE, followed by a 
- * vector DATA of _ntl_limb_t's.  
+ * vector DATA of _kctsb_limb_t's.  
  * 
  * ALLOC is of the form
  *    (alloc << 2) | continue_flag | frozen_flag
  * where 
- *    - alloc is the number of allocated _ntl_limb_t's,
+ *    - alloc is the number of allocated _kctsb_limb_t's,
  *    - continue flag is either 2 or 0,
  *    - frozen_flag is either 1 or 0.
  * If frozen_flag is set, then the space for this bigint is *not*
- * managed by the _ntl_gsetlength and _ntl_gfree routines,
+ * managed by the _kctsb_gsetlength and _kctsb_gfree routines,
  * but are instead managed by the vec_ZZ_p and ZZVec routines.
  * The continue_flag is only set when the frozen_flag is set.
  * 
- * SIZE is the number of _ntl_limb_t's actually
+ * SIZE is the number of _kctsb_limb_t's actually
  * used by the bigint, with the sign of SIZE having
  * the sign of the bigint.
  * Note that the zero bigint is represented as SIZE=0.
@@ -1079,7 +1079,7 @@ _ntl_mpn_tdiv_qr (_ntl_limb_t *q, _ntl_limb_t *r,long  /* qxn */,
  * Bigint's are accessed through a handle, which is pointer to void.
  * A null handle logically represents the bigint zero.
  * This is done so that the interface presented to higher level
- * routines is essentially the same as that of NTL's traditional
+ * routines is essentially the same as that of bignum's traditional
  * long integer package.
  * 
  * The components ALLOC, SIZE, and DATA are all accessed through
@@ -1089,11 +1089,11 @@ _ntl_mpn_tdiv_qr (_ntl_limb_t *q, _ntl_limb_t *r,long  /* qxn */,
  * problems should arise.
  * 
  * DIRT: This rule is broken in the file g_lip.h: the inline definition
- * of _ntl_gmaxalloc in that file has the definition of ALLOC pasted in.
+ * of _kctsb_gmaxalloc in that file has the definition of ALLOC pasted in.
  * 
- * Actually, _ntl_limb_t is usually the type unsigned long.
+ * Actually, _kctsb_limb_t is usually the type unsigned long.
  * However, on some 64-bit platforms, the type long is only 32 bits,
- * and gmp makes _ntl_limb_t unsigned long long in this case.
+ * and gmp makes _kctsb_limb_t unsigned long long in this case.
  * This is fairly rare, as the industry standard for Unix is to
  * have 64-bit longs on 64-bit machines.
  */ 
@@ -1102,8 +1102,8 @@ _ntl_mpn_tdiv_qr (_ntl_limb_t *q, _ntl_limb_t *r,long  /* qxn */,
  * of maximal SIZE len.  This should be computed so that one
  * can store several such bigints in a contiguous array
  * of memory without breaking any alignment requirements.
- * Currently, it is assumed (and explicitly checked in the NTL installation
- * script) that sizeof(_ntl_limb_t) is either sizeof(long) or
+ * Currently, it is assumed (and explicitly checked in the bignum installation
+ * script) that sizeof(_kctsb_limb_t) is either sizeof(long) or
  * 2*sizeof(long), and therfore, nothing special needs to
  * be done to enfoce alignment requirements.  If this assumption
  * should change, then the storage layout for bigints must be
@@ -1112,28 +1112,28 @@ _ntl_mpn_tdiv_qr (_ntl_limb_t *q, _ntl_limb_t *r,long  /* qxn */,
 
 
 static
-inline long& ALLOC(_ntl_gbigint p) 
+inline long& ALLOC(_kctsb_gbigint p) 
    { return p->alloc_; }
 
 static
-inline long& SIZE(_ntl_gbigint p) 
+inline long& SIZE(_kctsb_gbigint p) 
    { return p->size_; }
 
 static
-inline _ntl_limb_t * DATA(_ntl_gbigint p) 
-   { return (_ntl_limb_t *) (p+1); }
+inline _kctsb_limb_t * DATA(_kctsb_gbigint p) 
+   { return (_kctsb_limb_t *) (p+1); }
 
 static
 inline long STORAGE(long len)
-   { return ((long)(sizeof(_ntl_gbigint_body) + (len)*sizeof(_ntl_limb_t))); }
+   { return ((long)(sizeof(_kctsb_gbigint_body) + (len)*sizeof(_kctsb_limb_t))); }
 
 static
-inline long MustAlloc(_ntl_gbigint c, long len)  
+inline long MustAlloc(_kctsb_gbigint c, long len)  
    { return (!(c) || (ALLOC(c) >> 2) < (len)); }
 
 
 static
-inline void GET_SIZE_NEG(long& sz, long& neg, _ntl_gbigint p)
+inline void GET_SIZE_NEG(long& sz, long& neg, _kctsb_gbigint p)
 { 
    long s; 
    s = SIZE(p); 
@@ -1148,7 +1148,7 @@ inline void GET_SIZE_NEG(long& sz, long& neg, _ntl_gbigint p)
 }
 
 static
-inline void STRIP(long& sz, const _ntl_limb_t *p)
+inline void STRIP(long& sz, const _kctsb_limb_t *p)
 {
    long n = sz;
    while (n > 0 && p[n-1] == 0) n--;
@@ -1156,21 +1156,21 @@ inline void STRIP(long& sz, const _ntl_limb_t *p)
 }
 
 static
-inline long ZEROP(_ntl_gbigint p)
+inline long ZEROP(_kctsb_gbigint p)
 {
    return !p || !SIZE(p);
 }
 
 static
-inline long ONEP(_ntl_gbigint p)
+inline long ONEP(_kctsb_gbigint p)
 {
    return p && SIZE(p) == 1 && DATA(p)[0] == 1;
 }
 
 static
-inline void SWAP_BIGINT(_ntl_gbigint& a, _ntl_gbigint& b)
+inline void SWAP_BIGINT(_kctsb_gbigint& a, _kctsb_gbigint& b)
 {
-   _ntl_gbigint t;
+   _kctsb_gbigint t;
    t = a;
    a = b;
    b = t;
@@ -1186,16 +1186,16 @@ inline void SWAP_LONG(long& a, long& b)
 }
 
 static
-inline void SWAP_LIMB_PTR(_ntl_limb_t_ptr& a, _ntl_limb_t_ptr& b)
+inline void SWAP_LIMB_PTR(_kctsb_limb_t_ptr& a, _kctsb_limb_t_ptr& b)
 {
-   _ntl_limb_t_ptr t;
+   _kctsb_limb_t_ptr t;
    t = a;
    a = b;
    b = t;
 }
 
 
-static void DUMP(_ntl_gbigint a)
+static void DUMP(_kctsb_gbigint a)
 {
    if (ZEROP(a)) 
       cerr << "[]";
@@ -1213,21 +1213,21 @@ static void DUMP(_ntl_gbigint a)
 
 
 
-#if (defined(NTL_CRT_ALTCODE) || defined(NTL_CRT_ALTCODE_SMALL))
+#if (defined(KCTSB_CRT_ALTCODE) || defined(KCTSB_CRT_ALTCODE_SMALL))
 
-#if (defined(NTL_VIABLE_LL) && NTL_NAIL_BITS == 0)
+#if (defined(KCTSB_VIABLE_LL) && KCTSB_NAIL_BITS == 0)
 
 // alternative CRT code is requested and viable
 // we do not attempt to implement this with non-empty nails,
 // as it is not a huge win
-#define NTL_TBL_CRT
+#define KCTSB_TBL_CRT
 
 #else
 
 
 // raise an error if running the wizard
-#ifdef NTL_WIZARD_HACK
-#error "NTL_CRT_ALTCODE/NTL_CRT_ALTCODE_SMALL not viable"
+#ifdef KCTSB_WIZARD_HACK
+#error "KCTSB_CRT_ALTCODE/KCTSB_CRT_ALTCODE_SMALL not viable"
 #endif
 
 
@@ -1236,28 +1236,28 @@ static void DUMP(_ntl_gbigint a)
 #endif
 
 
-#if (defined(NTL_TBL_REM) && !defined(NTL_VIABLE_LL))
-#undef NTL_TBL_REM
+#if (defined(KCTSB_TBL_REM) && !defined(KCTSB_VIABLE_LL))
+#undef KCTSB_TBL_REM
 // raise an error if running the wizard
-#ifdef NTL_WIZARD_HACK
-#error "NTL_TBL_REM not viable"
+#ifdef KCTSB_WIZARD_HACK
+#error "KCTSB_TBL_REM not viable"
 #endif
 #endif
 
 
 
 
-class _ntl_gbigint_watcher {
+class _kctsb_gbigint_watcher {
 public:
-   _ntl_gbigint *watched;
+   _kctsb_gbigint *watched;
 
    explicit
-   _ntl_gbigint_watcher(_ntl_gbigint *_watched) : watched(_watched) {}
+   _kctsb_gbigint_watcher(_kctsb_gbigint *_watched) : watched(_watched) {}
 
-   ~_ntl_gbigint_watcher() 
+   ~_kctsb_gbigint_watcher() 
    {
-      if (*watched && (ALLOC(*watched) >> 2) > NTL_RELEASE_THRESH) {
-         _ntl_gfree(*watched);
+      if (*watched && (ALLOC(*watched) >> 2) > KCTSB_RELEASE_THRESH) {
+         _kctsb_gfree(*watched);
          *watched = 0;
       }
    }
@@ -1265,15 +1265,15 @@ public:
 
 
 
-class _ntl_gbigint_deleter {
+class _kctsb_gbigint_deleter {
 public:
-   static void apply(_ntl_gbigint p) { _ntl_gfree(p); }
+   static void apply(_kctsb_gbigint p) { _kctsb_gfree(p); }
 };
 
-typedef WrappedPtr<_ntl_gbigint_body, _ntl_gbigint_deleter> _ntl_gbigint_wrapped;
+typedef WrappedPtr<_kctsb_gbigint_body, _kctsb_gbigint_deleter> _kctsb_gbigint_wrapped;
 
 static inline void
-_ntl_swap(_ntl_gbigint_wrapped& p, _ntl_gbigint_wrapped& q)
+_kctsb_swap(_kctsb_gbigint_wrapped& p, _kctsb_gbigint_wrapped& q)
 {
    p.swap(q);
 }
@@ -1306,26 +1306,26 @@ _ntl_swap(_ntl_gbigint_wrapped& p, _ntl_gbigint_wrapped& q)
 // this logic onto what was originally pure-C code.
 
 
-#define GRegister(x) NTL_TLS_LOCAL(_ntl_gbigint_wrapped, x); _ntl_gbigint_watcher _WATCHER__ ## x(&x)
+#define GRegister(x) KCTSB_TLS_LOCAL(_kctsb_gbigint_wrapped, x); _kctsb_gbigint_watcher _WATCHER__ ## x(&x)
 
-//#define GRegister(x) NTL_THREAD_LOCAL static _ntl_gbigint x(0); _ntl_gbigint_watcher _WATCHER__ ## x(&x)
+//#define GRegister(x) KCTSB_THREAD_LOCAL static _kctsb_gbigint x(0); _kctsb_gbigint_watcher _WATCHER__ ## x(&x)
 
-// #define GRegister(x) _ntl_gbigint_wrapped x(0);
+// #define GRegister(x) _kctsb_gbigint_wrapped x(0);
 
-// #define GRegister(x) static _ntl_gbigint x = 0 
-
-
+// #define GRegister(x) static _kctsb_gbigint x = 0 
 
 
 
-#define STORAGE_OVF(len) NTL_OVERFLOW(len, sizeof(_ntl_limb_t), 2*sizeof(long))
+
+
+#define STORAGE_OVF(len) KCTSB_OVERFLOW(len, sizeof(_kctsb_limb_t), 2*sizeof(long))
 
 
 
-#ifndef NTL_GMP_LIP
+#ifndef KCTSB_GMP_LIP
 // legacy function
 
-long _ntl_gdigit(_ntl_gbigint a, long i)
+long _kctsb_gdigit(_kctsb_gbigint a, long i)
 {
    if (ZEROP(a) || i < 0) return 0;
    long sa = SIZE(a);
@@ -1338,13 +1338,13 @@ long _ntl_gdigit(_ntl_gbigint a, long i)
 #endif
 
 
-long _ntl_gvalidate(_ntl_gbigint a)
+long _kctsb_gvalidate(_kctsb_gbigint a)
 {
    if (ZEROP(a)) return 1;
    long sa = SIZE(a);
    if (sa < 0) sa = -sa;
 
-   _ntl_limb_t *adata = DATA(a);
+   _kctsb_limb_t *adata = DATA(a);
    for (long i = 0; i < sa; i++)
       if (XCLIP(adata[i])) return 0;
 
@@ -1356,10 +1356,10 @@ long _ntl_gvalidate(_ntl_gbigint a)
 /* ForceNormal ensures a normalized bigint */
 
 static 
-void ForceNormal(_ntl_gbigint x)
+void ForceNormal(_kctsb_gbigint x)
 {
    long sx, xneg;
-   _ntl_limb_t *xdata;
+   _kctsb_limb_t *xdata;
 
    if (!x) return;
    GET_SIZE_NEG(sx, xneg, x);
@@ -1371,23 +1371,23 @@ void ForceNormal(_ntl_gbigint x)
 
 
 #define MIN_SETL	(4)
-   /* _ntl_gsetlength allocates a multiple of MIN_SETL digits */
+   /* _kctsb_gsetlength allocates a multiple of MIN_SETL digits */
 
 
 
-void _ntl_gsetlength(_ntl_gbigint *v, long len)
+void _kctsb_gsetlength(_kctsb_gbigint *v, long len)
 {
-   _ntl_gbigint x = *v;
+   _kctsb_gbigint x = *v;
 
    if (len < 0)
-      LogicError("negative size allocation in _ntl_zgetlength");
+      LogicError("negative size allocation in _kctsb_zgetlength");
 
-   if (NTL_OVERFLOW(len, NTL_ZZ_NBITS, 0))
-      ResourceError("size too big in _ntl_gsetlength");
+   if (KCTSB_OVERFLOW(len, KCTSB_ZZ_NBITS, 0))
+      ResourceError("size too big in _kctsb_gsetlength");
 
-#ifdef NTL_SMALL_MP_SIZE_T
+#ifdef KCTSB_SMALL_MP_SIZE_T
    /* this makes sure that numbers don't get too big for GMP */
-   if (len >= (1L << (NTL_BITS_PER_INT-4)))
+   if (len >= (1L << (KCTSB_BITS_PER_INT-4)))
       ResourceError("size too big for GMP");
 #endif
 
@@ -1399,7 +1399,7 @@ void _ntl_gsetlength(_ntl_gbigint *v, long len)
 
       if (fixed) {
          if (len > oldlen) 
-            LogicError("internal error: can't grow this _ntl_gbigint");
+            LogicError("internal error: can't grow this _kctsb_gbigint");
          else
             return;
       }
@@ -1408,7 +1408,7 @@ void _ntl_gsetlength(_ntl_gbigint *v, long len)
 
       len++;  /* always allocate at least one more than requested */
 
-      oldlen = _ntl_vec_grow(oldlen);
+      oldlen = _kctsb_vec_grow(oldlen);
       if (len < oldlen)
          len = oldlen;
 
@@ -1416,13 +1416,13 @@ void _ntl_gsetlength(_ntl_gbigint *v, long len)
       len = ((len+(MIN_SETL-1))/MIN_SETL)*MIN_SETL; 
 
       /* test len again */
-      if (NTL_OVERFLOW(len, NTL_ZZ_NBITS, 0))
-         ResourceError("size too big in _ntl_gsetlength");
+      if (KCTSB_OVERFLOW(len, KCTSB_ZZ_NBITS, 0))
+         ResourceError("size too big in _kctsb_gsetlength");
 
       if (STORAGE_OVF(len))
-         ResourceError("reallocation failed in _ntl_gsetlength");
+         ResourceError("reallocation failed in _kctsb_gsetlength");
 
-      if (!(x = (_ntl_gbigint)NTL_SNS_REALLOC((void *) x, 1, STORAGE(len), 0))) {
+      if (!(x = (_kctsb_gbigint)KCTSB_SNS_REALLOC((void *) x, 1, STORAGE(len), 0))) {
          MemoryError();
       }
       ALLOC(x) = len << 2;
@@ -1432,13 +1432,13 @@ void _ntl_gsetlength(_ntl_gbigint *v, long len)
       len = ((len+(MIN_SETL-1))/MIN_SETL)*MIN_SETL; 
 
       /* test len again */
-      if (NTL_OVERFLOW(len, NTL_ZZ_NBITS, 0))
-         ResourceError("size too big in _ntl_gsetlength");
+      if (KCTSB_OVERFLOW(len, KCTSB_ZZ_NBITS, 0))
+         ResourceError("size too big in _kctsb_gsetlength");
 
       if (STORAGE_OVF(len))
-         ResourceError("reallocation failed in _ntl_gsetlength");
+         ResourceError("reallocation failed in _kctsb_gsetlength");
 
-      if (!(x = (_ntl_gbigint)NTL_SNS_MALLOC(1, STORAGE(len), 0))) {
+      if (!(x = (_kctsb_gbigint)KCTSB_SNS_MALLOC(1, STORAGE(len), 0))) {
          MemoryError();
       }
       ALLOC(x) = len << 2;
@@ -1448,7 +1448,7 @@ void _ntl_gsetlength(_ntl_gbigint *v, long len)
    *v = x;
 }
 
-void _ntl_gfree(_ntl_gbigint x)
+void _kctsb_gfree(_kctsb_gbigint x)
 {
 
 
@@ -1456,14 +1456,14 @@ void _ntl_gfree(_ntl_gbigint x)
       return;
 
    if (ALLOC(x) & 1)
-      TerminalError("Internal error: can't free this _ntl_gbigint");
+      TerminalError("Internal error: can't free this _kctsb_gbigint");
 
    free((void*) x);
    return;
 }
 
 void
-_ntl_gswap(_ntl_gbigint *a, _ntl_gbigint *b)
+_kctsb_gswap(_kctsb_gbigint *a, _kctsb_gbigint *b)
 {
    if ((*a && (ALLOC(*a) & 1)) || (*b && (ALLOC(*b) & 1))) {
       // one of the inputs points to an bigint that is 
@@ -1473,18 +1473,18 @@ _ntl_gswap(_ntl_gbigint *a, _ntl_gbigint *b)
       GRegister(t);
       long sz_a, sz_b, sz;
 
-      sz_a = _ntl_gsize(*a); 
-      sz_b = _ntl_gsize(*b); 
+      sz_a = _kctsb_gsize(*a); 
+      sz_b = _kctsb_gsize(*b); 
       sz = (sz_a > sz_b) ? sz_a : sz_b;
 
-      _ntl_gsetlength(a, sz);
-      _ntl_gsetlength(b, sz);
+      _kctsb_gsetlength(a, sz);
+      _kctsb_gsetlength(b, sz);
 
       // EXCEPTIONS: all of the above ensures that swap provides strong ES
 
-      _ntl_gcopy(*a, &t);
-      _ntl_gcopy(*b, a);
-      _ntl_gcopy(t, b);
+      _kctsb_gcopy(*a, &t);
+      _kctsb_gcopy(*b, a);
+      _kctsb_gcopy(t, b);
       return;
    }
 
@@ -1492,11 +1492,11 @@ _ntl_gswap(_ntl_gbigint *a, _ntl_gbigint *b)
 }
 
 
-void _ntl_gcopy(_ntl_gbigint a, _ntl_gbigint *bb)
+void _kctsb_gcopy(_kctsb_gbigint a, _kctsb_gbigint *bb)
 {
-   _ntl_gbigint b;
+   _kctsb_gbigint b;
    long sa, abs_sa, i;
-   _ntl_limb_t *adata, *bdata;
+   _kctsb_limb_t *adata, *bdata;
 
    b = *bb;
 
@@ -1511,7 +1511,7 @@ void _ntl_gcopy(_ntl_gbigint a, _ntl_gbigint *bb)
             abs_sa = -sa;
 
          if (MustAlloc(b, abs_sa)) {
-            _ntl_gsetlength(&b, abs_sa);
+            _kctsb_gsetlength(&b, abs_sa);
             *bb = b;
          }
 
@@ -1526,19 +1526,19 @@ void _ntl_gcopy(_ntl_gbigint a, _ntl_gbigint *bb)
    }
 }
 
-void _ntl_glimbs_set(const _ntl_limb_t *p, long n, _ntl_gbigint *x)
+void _kctsb_glimbs_set(const _kctsb_limb_t *p, long n, _kctsb_gbigint *x)
 {
-   if (n < 0) LogicError("_ntl_glimbs_set: negative size");
-   if (n > 0 && !p) LogicError("_ntl_glimbs_set: unexpected NULL pointer");
+   if (n < 0) LogicError("_kctsb_glimbs_set: negative size");
+   if (n > 0 && !p) LogicError("_kctsb_glimbs_set: unexpected NULL pointer");
 
    STRIP(n, p);
    if (n == 0) {
-      _ntl_gzero(x);
+      _kctsb_gzero(x);
       return;
    }
 
-   if (MustAlloc(*x, n)) _ntl_gsetlength(x, n);
-   _ntl_limb_t *xdata = DATA(*x);
+   if (MustAlloc(*x, n)) _kctsb_gsetlength(x, n);
+   _kctsb_limb_t *xdata = DATA(*x);
    for (long i = 0; i < n; i++) xdata[i] = p[i];
    SIZE(*x) = n;
 
@@ -1547,18 +1547,18 @@ void _ntl_glimbs_set(const _ntl_limb_t *p, long n, _ntl_gbigint *x)
 
 
 
-void _ntl_gzero(_ntl_gbigint *aa) 
+void _kctsb_gzero(_kctsb_gbigint *aa) 
 {
-   _ntl_gbigint a = *aa;
+   _kctsb_gbigint a = *aa;
 
    if (a) SIZE(a) = 0;
 }
 
-void _ntl_gone(_ntl_gbigint *aa)
+void _kctsb_gone(_kctsb_gbigint *aa)
 {
-   _ntl_gbigint a = *aa;
+   _kctsb_gbigint a = *aa;
    if (!a) {
-      _ntl_gsetlength(&a, 1);
+      _kctsb_gsetlength(&a, 1);
       *aa = a;
    }
 
@@ -1566,7 +1566,7 @@ void _ntl_gone(_ntl_gbigint *aa)
    DATA(a)[0] = 1;
 }
 
-long _ntl_godd(_ntl_gbigint a)
+long _kctsb_godd(_kctsb_gbigint a)
 {
    if (ZEROP(a)) 
       return 0;
@@ -1574,16 +1574,16 @@ long _ntl_godd(_ntl_gbigint a)
       return DATA(a)[0]&1;
 }
 
-long _ntl_gbit(_ntl_gbigint a, long p)
+long _kctsb_gbit(_kctsb_gbigint a, long p)
 {
    long bl;
    long sa;
-   _ntl_limb_t wh;
+   _kctsb_limb_t wh;
 
    if (p < 0 || !a) return 0;
 
-   bl = p/NTL_ZZ_NBITS;
-   wh = ((_ntl_limb_t) 1) << (p - NTL_ZZ_NBITS*bl);
+   bl = p/KCTSB_ZZ_NBITS;
+   wh = ((_kctsb_limb_t) 1) << (p - KCTSB_ZZ_NBITS*bl);
 
    sa = SIZE(a);
    if (sa < 0) sa = -sa;
@@ -1593,41 +1593,41 @@ long _ntl_gbit(_ntl_gbigint a, long p)
    return 0;
 }
 
-void _ntl_glowbits(_ntl_gbigint a, long b, _ntl_gbigint *cc)
+void _kctsb_glowbits(_kctsb_gbigint a, long b, _kctsb_gbigint *cc)
 {
-   _ntl_gbigint c;
+   _kctsb_gbigint c;
 
    long bl;
    long wh;
    long sa;
    long i;
-   _ntl_limb_t *adata, *cdata;
+   _kctsb_limb_t *adata, *cdata;
 
    if (ZEROP(a) || (b<=0)) {
-      _ntl_gzero(cc);
+      _kctsb_gzero(cc);
       return;
    }
 
-   bl = b/NTL_ZZ_NBITS;
-   wh = b - NTL_ZZ_NBITS*bl;
+   bl = b/KCTSB_ZZ_NBITS;
+   wh = b - KCTSB_ZZ_NBITS*bl;
    if (wh != 0) 
       bl++;
    else
-      wh = NTL_ZZ_NBITS;
+      wh = KCTSB_ZZ_NBITS;
 
    sa = SIZE(a);
    if (sa < 0) sa = -sa;
 
    if (sa < bl) {
-      _ntl_gcopy(a,cc);
-      _ntl_gabs(cc);
+      _kctsb_gcopy(a,cc);
+      _kctsb_gabs(cc);
       return;
    }
 
    c = *cc;
 
    /* a won't move if c aliases a */
-   _ntl_gsetlength(&c, bl);
+   _kctsb_gsetlength(&c, bl);
    *cc = c;
 
    adata = DATA(a);
@@ -1636,38 +1636,38 @@ void _ntl_glowbits(_ntl_gbigint a, long b, _ntl_gbigint *cc)
    for (i = 0; i < bl-1; i++)
       cdata[i] = adata[i];
 
-   if (wh == NTL_ZZ_NBITS)
+   if (wh == KCTSB_ZZ_NBITS)
       cdata[bl-1] = adata[bl-1];
    else
-      cdata[bl-1] = adata[bl-1] & ((((_ntl_limb_t) 1) << wh) - ((_ntl_limb_t) 1));
+      cdata[bl-1] = adata[bl-1] & ((((_kctsb_limb_t) 1) << wh) - ((_kctsb_limb_t) 1));
 
    STRIP(bl, cdata);
    SIZE(c) = bl; 
 }
 
-long _ntl_gslowbits(_ntl_gbigint a, long p)
+long _kctsb_gslowbits(_kctsb_gbigint a, long p)
 {
    GRegister(x);
 
-   if (p > NTL_BITS_PER_LONG)
-      p = NTL_BITS_PER_LONG;
+   if (p > KCTSB_BITS_PER_LONG)
+      p = KCTSB_BITS_PER_LONG;
 
-   _ntl_glowbits(a, p, &x);
+   _kctsb_glowbits(a, p, &x);
 
-   return _ntl_gtoint(x);
+   return _kctsb_gtoint(x);
 }
 
-long _ntl_gsetbit(_ntl_gbigint *a, long b)
+long _kctsb_gsetbit(_kctsb_gbigint *a, long b)
 {
    long bl;
    long sa, aneg;
    long i;
-   _ntl_limb_t wh, *adata, tmp;
+   _kctsb_limb_t wh, *adata, tmp;
 
-   if (b<0) LogicError("_ntl_gsetbit: negative index");
+   if (b<0) LogicError("_kctsb_gsetbit: negative index");
 
-   bl = (b/NTL_ZZ_NBITS);
-   wh = ((_ntl_limb_t) 1) << (b - NTL_ZZ_NBITS*bl);
+   bl = (b/KCTSB_ZZ_NBITS);
+   wh = ((_kctsb_limb_t) 1) << (b - KCTSB_ZZ_NBITS*bl);
 
    if (!*a) 
       sa = aneg = 0;
@@ -1682,7 +1682,7 @@ long _ntl_gsetbit(_ntl_gbigint *a, long b)
       return 0;
    } 
    else {
-      _ntl_gsetlength(a, bl+1);
+      _kctsb_gsetlength(a, bl+1);
       adata = DATA(*a);
       for (i = sa; i < bl; i++)
          adata[i] = 0;
@@ -1695,17 +1695,17 @@ long _ntl_gsetbit(_ntl_gbigint *a, long b)
    }
 }
 
-long _ntl_gswitchbit(_ntl_gbigint *a, long b)
+long _kctsb_gswitchbit(_kctsb_gbigint *a, long b)
 {
    long bl;
    long sa, aneg;
    long i;
-   _ntl_limb_t wh, *adata, tmp;
+   _kctsb_limb_t wh, *adata, tmp;
 
-   if (b<0) LogicError("_ntl_gswitchbit: negative index");
+   if (b<0) LogicError("_kctsb_gswitchbit: negative index");
 
-   bl = (b/NTL_ZZ_NBITS);
-   wh = ((_ntl_limb_t) 1) << (b - NTL_ZZ_NBITS*bl);
+   bl = (b/KCTSB_ZZ_NBITS);
+   wh = ((_kctsb_limb_t) 1) << (b - KCTSB_ZZ_NBITS*bl);
 
    if (!*a) 
       sa = aneg = 0;
@@ -1727,7 +1727,7 @@ long _ntl_gswitchbit(_ntl_gbigint *a, long b)
       return 0;
    } 
    else {
-      _ntl_gsetlength(a, bl+1);
+      _kctsb_gsetlength(a, bl+1);
       adata = DATA(*a);
       for (i = sa; i < bl; i++)
          adata[i] = 0;
@@ -1741,7 +1741,7 @@ long _ntl_gswitchbit(_ntl_gbigint *a, long b)
 }
 
 long
-_ntl_gweights(
+_kctsb_gweights(
 	long aa
 	)
 {
@@ -1761,7 +1761,7 @@ _ntl_gweights(
 
 static long
 gweights_mp_limb(
-	_ntl_limb_t a
+	_kctsb_limb_t a
 	)
 {
 	long res = 0;
@@ -1774,13 +1774,13 @@ gweights_mp_limb(
 }
 
 long
-_ntl_gweight(
-        _ntl_gbigint a
+_kctsb_gweight(
+        _kctsb_gbigint a
         )
 {
 	long i;
 	long sa;
-	_ntl_limb_t *adata;
+	_kctsb_limb_t *adata;
 	long res;
 
 	if (!a) return (0);
@@ -1797,7 +1797,7 @@ _ntl_gweight(
 }
 
 
-long _ntl_g2log(_ntl_gbigint a)
+long _kctsb_g2log(_kctsb_gbigint a)
 {
    long la;
    long t;
@@ -1807,17 +1807,17 @@ long _ntl_g2log(_ntl_gbigint a)
    if (la == 0) return 0;
    if (la < 0) la = -la;
    t = COUNT_BITS(DATA(a)[la-1]);
-   return NTL_ZZ_NBITS*(la - 1) + t;
+   return KCTSB_ZZ_NBITS*(la - 1) + t;
 }
 
 
 
-long _ntl_gmakeodd(_ntl_gbigint *nn)
+long _kctsb_gmakeodd(_kctsb_gbigint *nn)
 {
-   _ntl_gbigint n = *nn;
+   _kctsb_gbigint n = *nn;
    long shift;
-   _ntl_limb_t *ndata;
-   _ntl_limb_t i;
+   _kctsb_limb_t *ndata;
+   _kctsb_limb_t i;
 
    if (ZEROP(n))
       return (0);
@@ -1830,22 +1830,22 @@ long _ntl_gmakeodd(_ntl_gbigint *nn)
 
    i = ndata[shift];
 
-   shift = NTL_ZZ_NBITS * shift;
+   shift = KCTSB_ZZ_NBITS * shift;
 
    while ((i & 1) == 0) {
       shift++;
       i >>= 1;
    }
-   _ntl_grshift(n, shift, &n);
+   _kctsb_grshift(n, shift, &n);
    return shift;
 }
 
 
-long _ntl_gnumtwos(_ntl_gbigint n)
+long _kctsb_gnumtwos(_kctsb_gbigint n)
 {
    long shift;
-   _ntl_limb_t *ndata;
-   _ntl_limb_t i;
+   _kctsb_limb_t *ndata;
+   _kctsb_limb_t i;
 
    if (ZEROP(n))
       return (0);
@@ -1858,7 +1858,7 @@ long _ntl_gnumtwos(_ntl_gbigint n)
 
    i = ndata[shift];
 
-   shift = NTL_ZZ_NBITS * shift;
+   shift = KCTSB_ZZ_NBITS * shift;
 
    while ((i & 1) == 0) {
       shift++;
@@ -1869,18 +1869,18 @@ long _ntl_gnumtwos(_ntl_gbigint n)
 }
 
 
-void _ntl_gand(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *cc)
+void _kctsb_gand(_kctsb_gbigint a, _kctsb_gbigint b, _kctsb_gbigint *cc)
 {
-   _ntl_gbigint c;
+   _kctsb_gbigint c;
    long sa;
    long sb;
    long sm;
    long i;
    long a_alias, b_alias;
-   _ntl_limb_t *adata, *bdata, *cdata;
+   _kctsb_limb_t *adata, *bdata, *cdata;
 
    if (ZEROP(a) || ZEROP(b)) {
-      _ntl_gzero(cc);
+      _kctsb_gzero(cc);
       return;
    }
 
@@ -1896,7 +1896,7 @@ void _ntl_gand(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *cc)
 
    sm = (sa > sb ? sb : sa);
 
-   _ntl_gsetlength(&c, sm);
+   _kctsb_gsetlength(&c, sm);
    if (a_alias) a = c;
    if (b_alias) b = c;
    *cc = c;
@@ -1913,26 +1913,26 @@ void _ntl_gand(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *cc)
 }
 
 
-void _ntl_gxor(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *cc)
+void _kctsb_gxor(_kctsb_gbigint a, _kctsb_gbigint b, _kctsb_gbigint *cc)
 {
-   _ntl_gbigint c;
+   _kctsb_gbigint c;
    long sa;
    long sb;
    long sm;
    long la;
    long i;
    long a_alias, b_alias;
-   _ntl_limb_t *adata, *bdata, *cdata;
+   _kctsb_limb_t *adata, *bdata, *cdata;
 
    if (ZEROP(a)) {
-      _ntl_gcopy(b,cc);
-      _ntl_gabs(cc);
+      _kctsb_gcopy(b,cc);
+      _kctsb_gabs(cc);
       return;
    }
 
    if (ZEROP(b)) {
-      _ntl_gcopy(a,cc);
-      _ntl_gabs(cc);
+      _kctsb_gcopy(a,cc);
+      _kctsb_gabs(cc);
       return;
    }
 
@@ -1955,7 +1955,7 @@ void _ntl_gxor(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *cc)
       sm = sa;
    }
 
-   _ntl_gsetlength(&c, la);
+   _kctsb_gsetlength(&c, la);
    if (a_alias) a = c;
    if (b_alias) b = c;
    *cc = c;
@@ -1977,26 +1977,26 @@ void _ntl_gxor(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *cc)
 }
 
 
-void _ntl_gor(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *cc)
+void _kctsb_gor(_kctsb_gbigint a, _kctsb_gbigint b, _kctsb_gbigint *cc)
 {
-   _ntl_gbigint c;
+   _kctsb_gbigint c;
    long sa;
    long sb;
    long sm;
    long la;
    long i;
    long a_alias, b_alias;
-   _ntl_limb_t *adata, *bdata, *cdata;
+   _kctsb_limb_t *adata, *bdata, *cdata;
 
    if (ZEROP(a)) {
-      _ntl_gcopy(b,cc);
-      _ntl_gabs(cc);
+      _kctsb_gcopy(b,cc);
+      _kctsb_gabs(cc);
       return;
    }
 
    if (ZEROP(b)) {
-      _ntl_gcopy(a,cc);
-      _ntl_gabs(cc);
+      _kctsb_gcopy(a,cc);
+      _kctsb_gabs(cc);
       return;
    }
 
@@ -2019,7 +2019,7 @@ void _ntl_gor(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *cc)
       sm = sa;
    }
 
-   _ntl_gsetlength(&c, la);
+   _kctsb_gsetlength(&c, la);
    if (a_alias) a = c;
    if (b_alias) b = c;
    *cc = c;
@@ -2041,26 +2041,26 @@ void _ntl_gor(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *cc)
 }
 
 
-void _ntl_gnegate(_ntl_gbigint *aa)
+void _kctsb_gnegate(_kctsb_gbigint *aa)
 {
-   _ntl_gbigint a = *aa;
+   _kctsb_gbigint a = *aa;
    if (a) SIZE(a) = -SIZE(a);
 }
 
 
 
-#if (NTL_ZZ_NBITS >= NTL_BITS_PER_LONG)
+#if (KCTSB_ZZ_NBITS >= KCTSB_BITS_PER_LONG)
 
-void _ntl_gintoz(long d, _ntl_gbigint *aa)
+void _kctsb_gintoz(long d, _kctsb_gbigint *aa)
 {
-   _ntl_gbigint a = *aa;
+   _kctsb_gbigint a = *aa;
 
    if (d == 0) {
       if (a) SIZE(a) = 0;
    }
    else {
       if (!a) {
-         _ntl_gsetlength(&a, 1);
+         _kctsb_gsetlength(&a, 1);
          *aa = a;
       }
    
@@ -2072,12 +2072,12 @@ void _ntl_gintoz(long d, _ntl_gbigint *aa)
 #else
 
 
-void _ntl_gintoz(long d, _ntl_gbigint *aa)
+void _kctsb_gintoz(long d, _kctsb_gbigint *aa)
 {
    long sa, i;
-   _ntl_limb_t d1, d2;
+   _kctsb_limb_t d1, d2;
 
-   _ntl_gbigint a = *aa;
+   _kctsb_gbigint a = *aa;
 
    if (d == 0) {
       if (a) SIZE(a) = 0;
@@ -2089,21 +2089,21 @@ void _ntl_gintoz(long d, _ntl_gbigint *aa)
    sa = 0;
    d2 = d1;
    do {
-      d2 >>= NTL_ZZ_NBITS;
+      d2 >>= KCTSB_ZZ_NBITS;
       sa++;
    }
    while (d2);
 
    if (MustAlloc(a, sa)) {
-      _ntl_gsetlength(&a, sa);
+      _kctsb_gsetlength(&a, sa);
       *aa = a;
    }
  
-   _ntl_limb_t *adata = DATA(a);
+   _kctsb_limb_t *adata = DATA(a);
 
    for (i = 0; i < sa; i++) {
       adata[i] = CLIP(d1);
-      d1 >>= NTL_ZZ_NBITS;
+      d1 >>= KCTSB_ZZ_NBITS;
    }
 
    if (d < 0) sa = -sa;
@@ -2115,18 +2115,18 @@ void _ntl_gintoz(long d, _ntl_gbigint *aa)
 
 
 
-#if (NTL_ZZ_NBITS >= NTL_BITS_PER_LONG)
+#if (KCTSB_ZZ_NBITS >= KCTSB_BITS_PER_LONG)
 
-void _ntl_guintoz(unsigned long d, _ntl_gbigint *aa)
+void _kctsb_guintoz(unsigned long d, _kctsb_gbigint *aa)
 {
-   _ntl_gbigint a = *aa;
+   _kctsb_gbigint a = *aa;
 
    if (d == 0) {
       if (a) SIZE(a) = 0;
    }
    else {
       if (!a) {
-         _ntl_gsetlength(&a, 1);
+         _kctsb_gsetlength(&a, 1);
          *aa = a;
       }
    
@@ -2138,12 +2138,12 @@ void _ntl_guintoz(unsigned long d, _ntl_gbigint *aa)
 #else
 
 
-void _ntl_guintoz(unsigned long d, _ntl_gbigint *aa)
+void _kctsb_guintoz(unsigned long d, _kctsb_gbigint *aa)
 {
    long sa, i;
-   _ntl_limb_t d1, d2;
+   _kctsb_limb_t d1, d2;
 
-   _ntl_gbigint a = *aa;
+   _kctsb_gbigint a = *aa;
 
    if (d == 0) {
       if (a) SIZE(a) = 0;
@@ -2155,21 +2155,21 @@ void _ntl_guintoz(unsigned long d, _ntl_gbigint *aa)
    sa = 0;
    d2 = d1;
    do {
-      d2 >>= NTL_ZZ_NBITS;
+      d2 >>= KCTSB_ZZ_NBITS;
       sa++;
    }
    while (d2);
 
    if (MustAlloc(a, sa)) {
-      _ntl_gsetlength(&a, sa);
+      _kctsb_gsetlength(&a, sa);
       *aa = a;
    }
  
-   _ntl_limb_t *adata = DATA(a);
+   _kctsb_limb_t *adata = DATA(a);
 
    for (i = 0; i < sa; i++) {
       adata[i] = CLIP(d1);
-      d1 >>= NTL_ZZ_NBITS;
+      d1 >>= KCTSB_ZZ_NBITS;
    }
 
    SIZE(a) = sa;
@@ -2180,9 +2180,9 @@ void _ntl_guintoz(unsigned long d, _ntl_gbigint *aa)
 
 
 
-long _ntl_gtoint(_ntl_gbigint a)
+long _kctsb_gtoint(_kctsb_gbigint a)
 {
-   unsigned long res = _ntl_gtouint(a);
+   unsigned long res = _kctsb_gtouint(a);
    return cast_signed(res);
 }
 
@@ -2190,9 +2190,9 @@ long _ntl_gtoint(_ntl_gbigint a)
 
 
 
-#if (NTL_ZZ_NBITS >= NTL_BITS_PER_LONG)
+#if (KCTSB_ZZ_NBITS >= KCTSB_BITS_PER_LONG)
 
-unsigned long _ntl_gtouint(_ntl_gbigint a)
+unsigned long _kctsb_gtouint(_kctsb_gbigint a)
 {
    if (ZEROP(a)) 
       return 0;
@@ -2205,22 +2205,22 @@ unsigned long _ntl_gtouint(_ntl_gbigint a)
 
 #else
 
-unsigned long _ntl_gtouint(_ntl_gbigint a)
+unsigned long _kctsb_gtouint(_kctsb_gbigint a)
 {
    if (ZEROP(a))
       return 0;
 
    long sa, aneg;
-   _ntl_limb_t *adata;
+   _kctsb_limb_t *adata;
    GET_SIZE_NEG(sa, aneg, a);
    adata = DATA(a);
 
    unsigned long d = adata[0];
-   long bits = NTL_ZZ_NBITS;
+   long bits = KCTSB_ZZ_NBITS;
    long i = 1;
-   while (bits < NTL_BITS_PER_LONG && i < sa) {
+   while (bits < KCTSB_BITS_PER_LONG && i < sa) {
       d |= adata[i] << bits; 
-      bits += NTL_ZZ_NBITS; 
+      bits += KCTSB_ZZ_NBITS; 
       i++;
    }
 
@@ -2236,10 +2236,10 @@ unsigned long _ntl_gtouint(_ntl_gbigint a)
 
 
 
-long _ntl_gcompare(_ntl_gbigint a, _ntl_gbigint b)
+long _kctsb_gcompare(_kctsb_gbigint a, _kctsb_gbigint b)
 {
    long sa, sb, cmp;
-   _ntl_limb_t *adata, *bdata;
+   _kctsb_limb_t *adata, *bdata;
 
    if (!a) 
       sa = 0;
@@ -2265,7 +2265,7 @@ long _ntl_gcompare(_ntl_gbigint a, _ntl_gbigint b)
    bdata = DATA(b);
 
    if (sa > 0) {
-      cmp = NTL_MPN(cmp)(adata, bdata, sa);
+      cmp = KCTSB_MPN(cmp)(adata, bdata, sa);
 
       if (cmp > 0)
          return 1;
@@ -2275,7 +2275,7 @@ long _ntl_gcompare(_ntl_gbigint a, _ntl_gbigint b)
          return 0;
    }
    else {
-      cmp = NTL_MPN(cmp)(adata, bdata, -sa);
+      cmp = KCTSB_MPN(cmp)(adata, bdata, -sa);
 
       if (cmp > 0)
          return -1;
@@ -2287,15 +2287,15 @@ long _ntl_gcompare(_ntl_gbigint a, _ntl_gbigint b)
 }
 
 
-void _ntl_gabs(_ntl_gbigint *pa)
+void _kctsb_gabs(_kctsb_gbigint *pa)
 {
-   _ntl_gbigint a = *pa;
+   _kctsb_gbigint a = *pa;
 
    if (!a) return;
    if (SIZE(a) < 0) SIZE(a) = -SIZE(a);
 }
 
-long _ntl_gscompare(_ntl_gbigint a, long b)
+long _kctsb_gscompare(_kctsb_gbigint a, long b)
 {
    if (b == 0) {
       long sa;
@@ -2307,21 +2307,21 @@ long _ntl_gscompare(_ntl_gbigint a, long b)
    }
    else {
       GRegister(B);
-      _ntl_gintoz(b, &B);
-      return _ntl_gcompare(a, B);
+      _kctsb_gintoz(b, &B);
+      return _kctsb_gcompare(a, B);
    }
 }
 
 
-void _ntl_glshift(_ntl_gbigint n, long k, _ntl_gbigint *rres)
+void _kctsb_glshift(_kctsb_gbigint n, long k, _kctsb_gbigint *rres)
 {
-   _ntl_gbigint res;
-   _ntl_limb_t *ndata, *resdata, *resdata1;
+   _kctsb_gbigint res;
+   _kctsb_limb_t *ndata, *resdata, *resdata1;
    long limb_cnt, i, sn, nneg, sres;
    long n_alias;
 
    if (ZEROP(n)) {
-      _ntl_gzero(rres);
+      _kctsb_gzero(rres);
       return;
    }
 
@@ -2330,27 +2330,27 @@ void _ntl_glshift(_ntl_gbigint n, long k, _ntl_gbigint *rres)
 
    if (!k) {
       if (!n_alias)
-         _ntl_gcopy(n, rres);
+         _kctsb_gcopy(n, rres);
       return;
    }
 
    if (k < 0) {
-      if (k < -NTL_MAX_LONG) 
-         _ntl_gzero(rres);
+      if (k < -KCTSB_MAX_LONG) 
+         _kctsb_gzero(rres);
       else
-         _ntl_grshift(n, -k, rres);
+         _kctsb_grshift(n, -k, rres);
       return;
    }
 
    GET_SIZE_NEG(sn, nneg, n);
 
-   limb_cnt = ((unsigned long) k) / NTL_ZZ_NBITS;
-   k = ((unsigned long) k) % NTL_ZZ_NBITS;
+   limb_cnt = ((unsigned long) k) / KCTSB_ZZ_NBITS;
+   k = ((unsigned long) k) % KCTSB_ZZ_NBITS;
    sres = sn + limb_cnt;
    if (k != 0) sres++;
 
    if (MustAlloc(res, sres)) {
-      _ntl_gsetlength(&res, sres);
+      _kctsb_gsetlength(&res, sres);
       if (n_alias) n = res;
       *rres = res;
    }
@@ -2360,7 +2360,7 @@ void _ntl_glshift(_ntl_gbigint n, long k, _ntl_gbigint *rres)
    resdata1 = resdata + limb_cnt;
 
    if (k != 0) {
-      _ntl_limb_t t = NTL_MPN(lshift)(resdata1, ndata, sn, k);
+      _kctsb_limb_t t = KCTSB_MPN(lshift)(resdata1, ndata, sn, k);
       if (t != 0) 
          resdata[sres-1] = t;
       else
@@ -2378,54 +2378,54 @@ void _ntl_glshift(_ntl_gbigint n, long k, _ntl_gbigint *rres)
    SIZE(res) = sres;
 }
 
-void _ntl_grshift(_ntl_gbigint n, long k, _ntl_gbigint *rres)
+void _kctsb_grshift(_kctsb_gbigint n, long k, _kctsb_gbigint *rres)
 {
-   _ntl_gbigint res;
-   _ntl_limb_t *ndata, *resdata, *ndata1;
+   _kctsb_gbigint res;
+   _kctsb_limb_t *ndata, *resdata, *ndata1;
    long limb_cnt, i, sn, nneg, sres;
 
    if (ZEROP(n)) {
-      _ntl_gzero(rres);
+      _kctsb_gzero(rres);
       return;
    }
 
    if (!k) {
       if (n != *rres)
-         _ntl_gcopy(n, rres);
+         _kctsb_gcopy(n, rres);
       return;
    }
 
    if (k < 0) {
-      if (k < -NTL_MAX_LONG) ResourceError("overflow in _ntl_glshift");
-      _ntl_glshift(n, -k, rres);
+      if (k < -KCTSB_MAX_LONG) ResourceError("overflow in _kctsb_glshift");
+      _kctsb_glshift(n, -k, rres);
       return;
    }
 
    GET_SIZE_NEG(sn, nneg, n);
 
-   limb_cnt = ((unsigned long) k) / NTL_ZZ_NBITS;
+   limb_cnt = ((unsigned long) k) / KCTSB_ZZ_NBITS;
 
    sres = sn - limb_cnt;
 
    if (sres <= 0) {
-      _ntl_gzero(rres);
+      _kctsb_gzero(rres);
       return;
    }
 
    res = *rres;
    if (MustAlloc(res, sres)) {
       /* n won't move if res aliases n */
-      _ntl_gsetlength(&res, sres);
+      _kctsb_gsetlength(&res, sres);
       *rres = res;
    }
 
    ndata = DATA(n);
    resdata = DATA(res);
    ndata1 = ndata + limb_cnt;
-   k = ((unsigned long) k) % NTL_ZZ_NBITS;
+   k = ((unsigned long) k) % KCTSB_ZZ_NBITS;
 
    if (k != 0) {
-      NTL_MPN(rshift)(resdata, ndata1, sres, k);
+      KCTSB_MPN(rshift)(resdata, ndata1, sres, k);
       if (resdata[sres-1] == 0)
          sres--;
    }
@@ -2443,20 +2443,20 @@ void _ntl_grshift(_ntl_gbigint n, long k, _ntl_gbigint *rres)
 
 
 void
-_ntl_gadd(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *cc)
+_kctsb_gadd(_kctsb_gbigint a, _kctsb_gbigint b, _kctsb_gbigint *cc)
 {
    long sa, aneg, sb, bneg, sc, cmp;
-   _ntl_limb_t *adata, *bdata, *cdata, carry;
-   _ntl_gbigint c;
+   _kctsb_limb_t *adata, *bdata, *cdata, carry;
+   _kctsb_gbigint c;
    long a_alias, b_alias;
 
    if (ZEROP(a)) {
-      _ntl_gcopy(b, cc);
+      _kctsb_gcopy(b, cc);
       return;
    }
 
    if (ZEROP(b)) {
-      _ntl_gcopy(a, cc);
+      _kctsb_gcopy(a, cc);
       return;
    }
 
@@ -2480,7 +2480,7 @@ _ntl_gadd(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *cc)
 
       sc = sa + 1;
       if (MustAlloc(c, sc)) {
-         _ntl_gsetlength(&c, sc);
+         _kctsb_gsetlength(&c, sc);
          if (a_alias) a = c; 
          if (b_alias) b = c;
          *cc = c;
@@ -2490,7 +2490,7 @@ _ntl_gadd(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *cc)
       bdata = DATA(b);
       cdata = DATA(c);
 
-      carry = NTL_MPN(add)(cdata, adata, sa, bdata, sb);
+      carry = KCTSB_MPN(add)(cdata, adata, sa, bdata, sb);
       if (carry) 
          cdata[sc-1] = carry;
       else
@@ -2504,7 +2504,7 @@ _ntl_gadd(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *cc)
 
       sc = sa;
       if (MustAlloc(c, sc)) {
-         _ntl_gsetlength(&c, sc);
+         _kctsb_gsetlength(&c, sc);
          if (a_alias) a = c; 
          if (b_alias) b = c;
          *cc = c;
@@ -2517,7 +2517,7 @@ _ntl_gadd(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *cc)
       if (sa > sb) 
          cmp = 1;
       else
-         cmp = NTL_MPN(cmp)(adata, bdata, sa);
+         cmp = KCTSB_MPN(cmp)(adata, bdata, sa);
 
       if (cmp == 0) {
          SIZE(c) = 0;
@@ -2528,9 +2528,9 @@ _ntl_gadd(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *cc)
          /* abs(a) != abs(b) && (abs(a) > abs(b) <=> cmp) */
 
          if (cmp)
-            NTL_MPN(sub)(cdata, adata, sa, bdata, sb);
+            KCTSB_MPN(sub)(cdata, adata, sa, bdata, sb);
          else
-            NTL_MPN(sub)(cdata, bdata, sb, adata, sa); /* sa == sb */
+            KCTSB_MPN(sub)(cdata, bdata, sb, adata, sa); /* sa == sb */
 
          STRIP(sc, cdata);
          if (aneg == cmp) sc = -sc;
@@ -2541,19 +2541,19 @@ _ntl_gadd(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *cc)
 
 
 void
-_ntl_gsadd(_ntl_gbigint a, long b, _ntl_gbigint *cc)
+_kctsb_gsadd(_kctsb_gbigint a, long b, _kctsb_gbigint *cc)
 {
    if (b == 0) {
-      _ntl_gcopy(a, cc);
+      _kctsb_gcopy(a, cc);
       return;
    }
 
-   _ntl_limb_t abs_b = ABS(b);
+   _kctsb_limb_t abs_b = ABS(b);
 
    if (XCLIP(abs_b)) {
       GRegister(xb);
-      _ntl_gintoz(b,&xb);
-      _ntl_gadd(a, xb, cc);
+      _kctsb_gintoz(b,&xb);
+      _kctsb_gadd(a, xb, cc);
       return;
    }
 
@@ -2561,7 +2561,7 @@ _ntl_gsadd(_ntl_gbigint a, long b, _ntl_gbigint *cc)
 
 
    if (ZEROP(a)) {
-      if (!*cc) _ntl_gsetlength(cc, 1);
+      if (!*cc) _kctsb_gsetlength(cc, 1);
       SIZE(*cc) = 1 - 2*bneg;
       DATA(*cc)[0] = abs_b;
       return;
@@ -2577,12 +2577,12 @@ _ntl_gsadd(_ntl_gbigint a, long b, _ntl_gbigint *cc)
       if (a == *cc) {
          // a aliases c
 
-         _ntl_limb_t *adata = DATA(a);
-         _ntl_limb_t carry = NTL_MPN(add_1)(adata, adata, sa, abs_b);
+         _kctsb_limb_t *adata = DATA(a);
+         _kctsb_limb_t carry = KCTSB_MPN(add_1)(adata, adata, sa, abs_b);
 
          if (carry) {
             if (MustAlloc(a, sa+1)) {
-               _ntl_gsetlength(cc, sa+1);
+               _kctsb_gsetlength(cc, sa+1);
                a = *cc;
                adata = DATA(a);
             } 
@@ -2594,10 +2594,10 @@ _ntl_gsadd(_ntl_gbigint a, long b, _ntl_gbigint *cc)
       }
       else {
          // a and c do not alias
-         if (MustAlloc(*cc, sa+1)) _ntl_gsetlength(cc, sa+1);
-         _ntl_limb_t *adata = DATA(a);
-         _ntl_limb_t *cdata = DATA(*cc);
-         _ntl_limb_t carry = NTL_MPN(add_1)(cdata, adata, sa, abs_b);
+         if (MustAlloc(*cc, sa+1)) _kctsb_gsetlength(cc, sa+1);
+         _kctsb_limb_t *adata = DATA(a);
+         _kctsb_limb_t *cdata = DATA(*cc);
+         _kctsb_limb_t carry = KCTSB_MPN(add_1)(cdata, adata, sa, abs_b);
          if (carry) {
             cdata[sa] = 1;
             sa++;
@@ -2610,25 +2610,25 @@ _ntl_gsadd(_ntl_gbigint a, long b, _ntl_gbigint *cc)
       // opposite sign: subtraction
 
       if (sa == 1) {
-         _ntl_limb_t abs_a = DATA(a)[0];
+         _kctsb_limb_t abs_a = DATA(a)[0];
          if (abs_a == abs_b) 
-            _ntl_gzero(cc);
+            _kctsb_gzero(cc);
          else if (abs_a > abs_b) {
-            if (MustAlloc(*cc, 1)) _ntl_gsetlength(cc, 1);
+            if (MustAlloc(*cc, 1)) _kctsb_gsetlength(cc, 1);
             DATA(*cc)[0] = abs_a - abs_b;
             SIZE(*cc) = 1-2*aneg;
          }
          else {
-            if (MustAlloc(*cc, 1)) _ntl_gsetlength(cc, 1);
+            if (MustAlloc(*cc, 1)) _kctsb_gsetlength(cc, 1);
             DATA(*cc)[0] = abs_b - abs_a;
             SIZE(*cc) = -1+2*aneg;
          }
       }
       else {
-         if (MustAlloc(*cc, sa)) _ntl_gsetlength(cc, sa);
-         _ntl_limb_t *adata = DATA(a);
-         _ntl_limb_t *cdata = DATA(*cc);
-         NTL_MPN(sub_1)(cdata, adata, sa, abs_b);
+         if (MustAlloc(*cc, sa)) _kctsb_gsetlength(cc, sa);
+         _kctsb_limb_t *adata = DATA(a);
+         _kctsb_limb_t *cdata = DATA(*cc);
+         KCTSB_MPN(sub_1)(cdata, adata, sa, abs_b);
          if (cdata[sa-1] == 0) sa--;
          if (aneg) sa = -sa;
          SIZE(*cc) = sa;
@@ -2638,19 +2638,19 @@ _ntl_gsadd(_ntl_gbigint a, long b, _ntl_gbigint *cc)
 }
 
 void
-_ntl_gssub(_ntl_gbigint a, long b, _ntl_gbigint *cc)
+_kctsb_gssub(_kctsb_gbigint a, long b, _kctsb_gbigint *cc)
 {
    if (b == 0) {
-      _ntl_gcopy(a, cc);
+      _kctsb_gcopy(a, cc);
       return;
    }
 
-   _ntl_limb_t abs_b = ABS(b);
+   _kctsb_limb_t abs_b = ABS(b);
 
    if (XCLIP(abs_b)) {
       GRegister(xb);
-      _ntl_gintoz(b,&xb);
-      _ntl_gsub(a, xb, cc);
+      _kctsb_gintoz(b,&xb);
+      _kctsb_gsub(a, xb, cc);
       return;
    }
 
@@ -2661,7 +2661,7 @@ _ntl_gssub(_ntl_gbigint a, long b, _ntl_gbigint *cc)
 
 
    if (ZEROP(a)) {
-      if (!*cc) _ntl_gsetlength(cc, 1);
+      if (!*cc) _kctsb_gsetlength(cc, 1);
       SIZE(*cc) = 1 - 2*bneg;
       DATA(*cc)[0] = abs_b;
       return;
@@ -2677,12 +2677,12 @@ _ntl_gssub(_ntl_gbigint a, long b, _ntl_gbigint *cc)
       if (a == *cc) {
          // a aliases c
 
-         _ntl_limb_t *adata = DATA(a);
-         _ntl_limb_t carry = NTL_MPN(add_1)(adata, adata, sa, abs_b);
+         _kctsb_limb_t *adata = DATA(a);
+         _kctsb_limb_t carry = KCTSB_MPN(add_1)(adata, adata, sa, abs_b);
 
          if (carry) {
             if (MustAlloc(a, sa+1)) {
-               _ntl_gsetlength(cc, sa+1);
+               _kctsb_gsetlength(cc, sa+1);
                a = *cc;
                adata = DATA(a);
             } 
@@ -2694,10 +2694,10 @@ _ntl_gssub(_ntl_gbigint a, long b, _ntl_gbigint *cc)
       }
       else {
          // a and c do not alias
-         if (MustAlloc(*cc, sa+1)) _ntl_gsetlength(cc, sa+1);
-         _ntl_limb_t *adata = DATA(a);
-         _ntl_limb_t *cdata = DATA(*cc);
-         _ntl_limb_t carry = NTL_MPN(add_1)(cdata, adata, sa, abs_b);
+         if (MustAlloc(*cc, sa+1)) _kctsb_gsetlength(cc, sa+1);
+         _kctsb_limb_t *adata = DATA(a);
+         _kctsb_limb_t *cdata = DATA(*cc);
+         _kctsb_limb_t carry = KCTSB_MPN(add_1)(cdata, adata, sa, abs_b);
          if (carry) {
             cdata[sa] = 1;
             sa++;
@@ -2710,25 +2710,25 @@ _ntl_gssub(_ntl_gbigint a, long b, _ntl_gbigint *cc)
       // opposite sign: subtraction
 
       if (sa == 1) {
-         _ntl_limb_t abs_a = DATA(a)[0];
+         _kctsb_limb_t abs_a = DATA(a)[0];
          if (abs_a == abs_b) 
-            _ntl_gzero(cc);
+            _kctsb_gzero(cc);
          else if (abs_a > abs_b) {
-            if (MustAlloc(*cc, 1)) _ntl_gsetlength(cc, 1);
+            if (MustAlloc(*cc, 1)) _kctsb_gsetlength(cc, 1);
             DATA(*cc)[0] = abs_a - abs_b;
             SIZE(*cc) = 1-2*aneg;
          }
          else {
-            if (MustAlloc(*cc, 1)) _ntl_gsetlength(cc, 1);
+            if (MustAlloc(*cc, 1)) _kctsb_gsetlength(cc, 1);
             DATA(*cc)[0] = abs_b - abs_a;
             SIZE(*cc) = -1+2*aneg;
          }
       }
       else {
-         if (MustAlloc(*cc, sa)) _ntl_gsetlength(cc, sa);
-         _ntl_limb_t *adata = DATA(a);
-         _ntl_limb_t *cdata = DATA(*cc);
-         NTL_MPN(sub_1)(cdata, adata, sa, abs_b);
+         if (MustAlloc(*cc, sa)) _kctsb_gsetlength(cc, sa);
+         _kctsb_limb_t *adata = DATA(a);
+         _kctsb_limb_t *cdata = DATA(*cc);
+         KCTSB_MPN(sub_1)(cdata, adata, sa, abs_b);
          if (cdata[sa-1] == 0) sa--;
          if (aneg) sa = -sa;
          SIZE(*cc) = sa;
@@ -2740,22 +2740,22 @@ _ntl_gssub(_ntl_gbigint a, long b, _ntl_gbigint *cc)
 
 
 void
-_ntl_gsub(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *cc)
+_kctsb_gsub(_kctsb_gbigint a, _kctsb_gbigint b, _kctsb_gbigint *cc)
 {
    long sa, aneg, sb, bneg, sc, cmp, rev;
-   _ntl_limb_t *adata, *bdata, *cdata, carry;
-   _ntl_gbigint c;
+   _kctsb_limb_t *adata, *bdata, *cdata, carry;
+   _kctsb_gbigint c;
    long a_alias, b_alias;
 
    if (ZEROP(a)) {
-      _ntl_gcopy(b, cc);
+      _kctsb_gcopy(b, cc);
       c = *cc;
       if (c) SIZE(c) = -SIZE(c); 
       return;
    }
 
    if (ZEROP(b)) {
-      _ntl_gcopy(a, cc);
+      _kctsb_gcopy(a, cc);
       return;
    }
 
@@ -2782,7 +2782,7 @@ _ntl_gsub(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *cc)
 
       sc = sa + 1;
       if (MustAlloc(c, sc)) {
-         _ntl_gsetlength(&c, sc);
+         _kctsb_gsetlength(&c, sc);
          if (a_alias) a = c; 
          if (b_alias) b = c;
          *cc = c;
@@ -2792,7 +2792,7 @@ _ntl_gsub(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *cc)
       bdata = DATA(b);
       cdata = DATA(c);
 
-      carry = NTL_MPN(add)(cdata, adata, sa, bdata, sb);
+      carry = KCTSB_MPN(add)(cdata, adata, sa, bdata, sb);
       if (carry) 
          cdata[sc-1] = carry;
       else
@@ -2806,7 +2806,7 @@ _ntl_gsub(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *cc)
 
       sc = sa;
       if (MustAlloc(c, sc)) {
-         _ntl_gsetlength(&c, sc);
+         _kctsb_gsetlength(&c, sc);
          if (a_alias) a = c; 
          if (b_alias) b = c;
          *cc = c;
@@ -2819,7 +2819,7 @@ _ntl_gsub(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *cc)
       if (sa > sb) 
          cmp = 1;
       else
-         cmp = NTL_MPN(cmp)(adata, bdata, sa);
+         cmp = KCTSB_MPN(cmp)(adata, bdata, sa);
 
       if (cmp == 0) {
          SIZE(c) = 0;
@@ -2830,9 +2830,9 @@ _ntl_gsub(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *cc)
          /* abs(a) != abs(b) && (abs(a) > abs(b) <=> cmp) */
 
          if (cmp)
-            NTL_MPN(sub)(cdata, adata, sa, bdata, sb);
+            KCTSB_MPN(sub)(cdata, adata, sa, bdata, sb);
          else
-            NTL_MPN(sub)(cdata, bdata, sb, adata, sa); /* sa == sb */
+            KCTSB_MPN(sub)(cdata, bdata, sb, adata, sa); /* sa == sb */
 
          STRIP(sc, cdata);
          if ((aneg == cmp) ^ rev) sc = -sc;
@@ -2842,20 +2842,20 @@ _ntl_gsub(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *cc)
 }
 
 void
-_ntl_gsubpos(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *cc)
+_kctsb_gsubpos(_kctsb_gbigint a, _kctsb_gbigint b, _kctsb_gbigint *cc)
 {
    long sa, sb, sc;
-   _ntl_limb_t *adata, *bdata, *cdata;
-   _ntl_gbigint c;
+   _kctsb_limb_t *adata, *bdata, *cdata;
+   _kctsb_gbigint c;
    long a_alias, b_alias;
 
    if (ZEROP(a)) {
-      _ntl_gzero(cc);
+      _kctsb_gzero(cc);
       return;
    }
 
    if (ZEROP(b)) {
-      _ntl_gcopy(a, cc);
+      _kctsb_gcopy(a, cc);
       return;
    }
 
@@ -2868,7 +2868,7 @@ _ntl_gsubpos(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *cc)
 
    sc = sa;
    if (MustAlloc(c, sc)) {
-      _ntl_gsetlength(&c, sc);
+      _kctsb_gsetlength(&c, sc);
       if (a_alias) a = c; 
       if (b_alias) b = c;
       *cc = c;
@@ -2878,7 +2878,7 @@ _ntl_gsubpos(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *cc)
    bdata = DATA(b);
    cdata = DATA(c);
 
-   NTL_MPN(sub)(cdata, adata, sa, bdata, sb);
+   KCTSB_MPN(sub)(cdata, adata, sa, bdata, sb);
 
    STRIP(sc, cdata);
    SIZE(c) = sc;
@@ -2897,27 +2897,27 @@ _ntl_gsubpos(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *cc)
 //          1.4x 2 limb
 //          1.3x 3 limb
 
-static inline _ntl_limb_t
-base_mul (_ntl_limb_t* rp, const _ntl_limb_t* up, long un, const _ntl_limb_t* vp, long vn)
+static inline _kctsb_limb_t
+base_mul (_kctsb_limb_t* rp, const _kctsb_limb_t* up, long un, const _kctsb_limb_t* vp, long vn)
 {
-  rp[un] = NTL_MPN(mul_1) (rp, up, un, vp[0]);
+  rp[un] = KCTSB_MPN(mul_1) (rp, up, un, vp[0]);
 
   while (--vn >= 1)
     {
       rp += 1, vp += 1;
-      rp[un] = NTL_MPN(addmul_1) (rp, up, un, vp[0]);
+      rp[un] = KCTSB_MPN(addmul_1) (rp, up, un, vp[0]);
     }
   return rp[un];
 }
 
-void _ntl_gmul(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *cc)
+void _kctsb_gmul(_kctsb_gbigint a, _kctsb_gbigint b, _kctsb_gbigint *cc)
 {
    long sa, aneg, sb, bneg, alias, sc;
-   _ntl_limb_t *adata, *bdata, *cdata, msl;
-   _ntl_gbigint c;
+   _kctsb_limb_t *adata, *bdata, *cdata, msl;
+   _kctsb_gbigint c;
 
    if (ZEROP(a) || ZEROP(b)) {
-      _ntl_gzero(cc);
+      _kctsb_gzero(cc);
       return;
    }
 
@@ -2931,7 +2931,7 @@ void _ntl_gmul(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *cc)
 
       sc = sa + sb;
       if (MustAlloc(c, sc)) {
-	 _ntl_gsetlength(&c, sc);
+	 _kctsb_gsetlength(&c, sc);
          *cc = c;
       }
 
@@ -2940,7 +2940,7 @@ void _ntl_gmul(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *cc)
       cdata = DATA(c);
 
       if (adata == bdata) {
-#if (1 && defined(NTL_VIABLE_LL) && NTL_NAIL_BITS==0)
+#if (1 && defined(KCTSB_VIABLE_LL) && KCTSB_NAIL_BITS==0)
          if (sa == 1) {
             ll_type prod;
             ll_mul(prod, adata[0], adata[0]);
@@ -2949,14 +2949,14 @@ void _ntl_gmul(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *cc)
          } else
 #endif
          {
-            NTL_MPN(sqr)(cdata, adata, sa);
+            KCTSB_MPN(sqr)(cdata, adata, sa);
             msl = cdata[2*sa-1];
          }
       }
       else {
 #if 1
 	 if (sa >= sb) {
-#if (1 && defined(NTL_VIABLE_LL) && NTL_NAIL_BITS==0)
+#if (1 && defined(KCTSB_VIABLE_LL) && KCTSB_NAIL_BITS==0)
 	    if (sa == 1) {
 	       ll_type prod;
 	       ll_mul(prod, adata[0], bdata[0]);
@@ -2967,20 +2967,20 @@ void _ntl_gmul(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *cc)
 	    if (sa <= 4)
 	       msl = base_mul(cdata, adata, sa, bdata, sb);
 	    else
-	       msl = NTL_MPN(mul)(cdata, adata, sa, bdata, sb);
+	       msl = KCTSB_MPN(mul)(cdata, adata, sa, bdata, sb);
 	 }
 	 else {
 	    if (sb <= 4)
 	       msl = base_mul(cdata, bdata, sb, adata, sa);
 	    else
-	       msl = NTL_MPN(mul)(cdata, bdata, sb, adata, sa);
+	       msl = KCTSB_MPN(mul)(cdata, bdata, sb, adata, sa);
 	 }
 #else
 	 if (sa >= sb) {
-	    msl = NTL_MPN(mul)(cdata, adata, sa, bdata, sb);
+	    msl = KCTSB_MPN(mul)(cdata, adata, sa, bdata, sb);
 	 }
 	 else {
-	    msl = NTL_MPN(mul)(cdata, bdata, sb, adata, sa);
+	    msl = KCTSB_MPN(mul)(cdata, bdata, sb, adata, sa);
 	 }
 #endif
       }
@@ -2997,7 +2997,7 @@ void _ntl_gmul(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *cc)
 
       sc = sa + sb;
       if (MustAlloc(c, sc)) {
-	 _ntl_gsetlength(&c, sc);
+	 _kctsb_gsetlength(&c, sc);
          mem = c;
       }
 
@@ -3006,7 +3006,7 @@ void _ntl_gmul(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *cc)
       cdata = DATA(c);
 
       if (adata == bdata) {
-#if (1 && defined(NTL_VIABLE_LL) && NTL_NAIL_BITS==0)
+#if (1 && defined(KCTSB_VIABLE_LL) && KCTSB_NAIL_BITS==0)
          if (sa == 1) {
             ll_type prod;
             ll_mul(prod, adata[0], adata[0]);
@@ -3015,14 +3015,14 @@ void _ntl_gmul(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *cc)
          } else
 #endif
          {
-            NTL_MPN(sqr)(cdata, adata, sa);
+            KCTSB_MPN(sqr)(cdata, adata, sa);
             msl = cdata[2*sa-1];
          }
       }
       else {
 #if 1
 	 if (sa >= sb) {
-#if (1 && defined(NTL_VIABLE_LL) && NTL_NAIL_BITS==0)
+#if (1 && defined(KCTSB_VIABLE_LL) && KCTSB_NAIL_BITS==0)
 	    if (sa == 1) {
 	       ll_type prod;
 	       ll_mul(prod, adata[0], bdata[0]);
@@ -3033,20 +3033,20 @@ void _ntl_gmul(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *cc)
 	    if (sa <= 4)
 	       msl = base_mul(cdata, adata, sa, bdata, sb);
 	    else
-	       msl = NTL_MPN(mul)(cdata, adata, sa, bdata, sb);
+	       msl = KCTSB_MPN(mul)(cdata, adata, sa, bdata, sb);
 	 }
 	 else {
 	    if (sb <= 4)
 	       msl = base_mul(cdata, bdata, sb, adata, sa);
 	    else
-	       msl = NTL_MPN(mul)(cdata, bdata, sb, adata, sa);
+	       msl = KCTSB_MPN(mul)(cdata, bdata, sb, adata, sa);
 	 }
 #else
 	 if (sa >= sb) {
-	    msl = NTL_MPN(mul)(cdata, adata, sa, bdata, sb);
+	    msl = KCTSB_MPN(mul)(cdata, adata, sa, bdata, sb);
 	 }
 	 else {
-	    msl = NTL_MPN(mul)(cdata, bdata, sb, adata, sa);
+	    msl = KCTSB_MPN(mul)(cdata, bdata, sb, adata, sa);
 	 }
 #endif
       }
@@ -3055,22 +3055,22 @@ void _ntl_gmul(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *cc)
       if (aneg != bneg) sc = -sc;
       SIZE(c) = sc;
 
-      _ntl_gcopy(mem, cc);
+      _kctsb_gcopy(mem, cc);
    }
 
 }
 
 #else
-void _ntl_gmul(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *cc)
+void _kctsb_gmul(_kctsb_gbigint a, _kctsb_gbigint b, _kctsb_gbigint *cc)
 {
    GRegister(mem);
 
    long sa, aneg, sb, bneg, alias, sc;
-   _ntl_limb_t *adata, *bdata, *cdata, msl;
-   _ntl_gbigint c;
+   _kctsb_limb_t *adata, *bdata, *cdata, msl;
+   _kctsb_gbigint c;
 
    if (ZEROP(a) || ZEROP(b)) {
-      _ntl_gzero(cc);
+      _kctsb_gzero(cc);
       return;
    }
 
@@ -3088,7 +3088,7 @@ void _ntl_gmul(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *cc)
 
    sc = sa + sb;
    if (MustAlloc(c, sc))
-      _ntl_gsetlength(&c, sc);
+      _kctsb_gsetlength(&c, sc);
 
    if (alias)
       mem = c;
@@ -3100,26 +3100,26 @@ void _ntl_gmul(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *cc)
    cdata = DATA(c);
 
    if (sa >= sb)
-      msl = NTL_MPN(mul)(cdata, adata, sa, bdata, sb);
+      msl = KCTSB_MPN(mul)(cdata, adata, sa, bdata, sb);
    else
-      msl = NTL_MPN(mul)(cdata, bdata, sb, adata, sa);
+      msl = KCTSB_MPN(mul)(cdata, bdata, sb, adata, sa);
 
    if (!msl) sc--;
    if (aneg != bneg) sc = -sc;
    SIZE(c) = sc;
 
-   if (alias) _ntl_gcopy(mem, cc);
+   if (alias) _kctsb_gcopy(mem, cc);
 }
 #endif
 
-void _ntl_gsq(_ntl_gbigint a, _ntl_gbigint *cc)
+void _kctsb_gsq(_kctsb_gbigint a, _kctsb_gbigint *cc)
 {
    long sa, aneg, alias, sc;
-   _ntl_limb_t *adata, *cdata, msl;
-   _ntl_gbigint c;
+   _kctsb_limb_t *adata, *cdata, msl;
+   _kctsb_gbigint c;
 
    if (ZEROP(a)) {
-      _ntl_gzero(cc);
+      _kctsb_gzero(cc);
       return;
    }
 
@@ -3132,14 +3132,14 @@ void _ntl_gsq(_ntl_gbigint a, _ntl_gbigint *cc)
 
       sc = sa + sa;
       if (MustAlloc(c, sc)) {
-	 _ntl_gsetlength(&c, sc);
+	 _kctsb_gsetlength(&c, sc);
          *cc = c;
       }
 
       adata = DATA(a);
       cdata = DATA(c);
 
-#if (1 && defined(NTL_VIABLE_LL) && NTL_NAIL_BITS==0)
+#if (1 && defined(KCTSB_VIABLE_LL) && KCTSB_NAIL_BITS==0)
       if (sa == 1) {
 	 ll_type prod;
 	 ll_mul(prod, adata[0], adata[0]);
@@ -3148,7 +3148,7 @@ void _ntl_gsq(_ntl_gbigint a, _ntl_gbigint *cc)
       } else
 #endif
       {
-	 NTL_MPN(sqr)(cdata, adata, sa);
+	 KCTSB_MPN(sqr)(cdata, adata, sa);
 	 msl = cdata[2*sa-1];
       }
 
@@ -3163,14 +3163,14 @@ void _ntl_gsq(_ntl_gbigint a, _ntl_gbigint *cc)
 
       sc = sa + sa;
       if (MustAlloc(c, sc)) {
-	 _ntl_gsetlength(&c, sc);
+	 _kctsb_gsetlength(&c, sc);
          mem = c;
       }
 
       adata = DATA(a);
       cdata = DATA(c);
 
-#if (1 && defined(NTL_VIABLE_LL) && NTL_NAIL_BITS==0)
+#if (1 && defined(KCTSB_VIABLE_LL) && KCTSB_NAIL_BITS==0)
       if (sa == 1) {
 	 ll_type prod;
 	 ll_mul(prod, adata[0], adata[0]);
@@ -3179,14 +3179,14 @@ void _ntl_gsq(_ntl_gbigint a, _ntl_gbigint *cc)
       } else
 #endif
       {
-	 NTL_MPN(sqr)(cdata, adata, sa);
+	 KCTSB_MPN(sqr)(cdata, adata, sa);
 	 msl = cdata[2*sa-1];
       }
 
       if (!msl) sc--;
       SIZE(c) = sc;
 
-      _ntl_gcopy(mem, cc);
+      _kctsb_gcopy(mem, cc);
    }
 
 }
@@ -3194,17 +3194,17 @@ void _ntl_gsq(_ntl_gbigint a, _ntl_gbigint *cc)
 
 
 void
-_ntl_gsmul(_ntl_gbigint a, long d, _ntl_gbigint *bb)
+_kctsb_gsmul(_kctsb_gbigint a, long d, _kctsb_gbigint *bb)
 {
    long sa, sb;
    long anegative, bnegative;
-   _ntl_gbigint b;
-   _ntl_limb_t *adata, *bdata;
-   _ntl_limb_t dd, carry;
+   _kctsb_gbigint b;
+   _kctsb_limb_t *adata, *bdata;
+   _kctsb_limb_t dd, carry;
    long a_alias;
 
    if (ZEROP(a) || !d) {
-      _ntl_gzero(bb);
+      _kctsb_gzero(bb);
       return;
    }
 
@@ -3212,8 +3212,8 @@ _ntl_gsmul(_ntl_gbigint a, long d, _ntl_gbigint *bb)
 
    if (XCLIP(dd)) {
       GRegister(xd);
-      _ntl_gintoz(d,&xd);
-      _ntl_gmul(a, xd, bb);
+      _kctsb_gintoz(d,&xd);
+      _kctsb_gmul(a, xd, bb);
       return;
    }
 
@@ -3229,7 +3229,7 @@ _ntl_gsmul(_ntl_gbigint a, long d, _ntl_gbigint *bb)
    a_alias = (a == b);
 
    if (MustAlloc(b, sb)) {
-      _ntl_gsetlength(&b, sb);
+      _kctsb_gsetlength(&b, sb);
       if (a_alias) a = b;
       *bb = b;
    }
@@ -3238,9 +3238,9 @@ _ntl_gsmul(_ntl_gbigint a, long d, _ntl_gbigint *bb)
    bdata = DATA(b);
 
    if (dd == 2) 
-      carry = NTL_MPN(lshift)(bdata, adata, sa, 1);
+      carry = KCTSB_MPN(lshift)(bdata, adata, sa, 1);
    else
-      carry = NTL_MPN(mul_1)(bdata, adata, sa, dd);
+      carry = KCTSB_MPN(mul_1)(bdata, adata, sa, dd);
 
    if (carry) 
       bdata[sa] = carry;
@@ -3254,19 +3254,19 @@ _ntl_gsmul(_ntl_gbigint a, long d, _ntl_gbigint *bb)
 
 
 
-long _ntl_gsdiv(_ntl_gbigint a, long d, _ntl_gbigint *bb)
+long _kctsb_gsdiv(_kctsb_gbigint a, long d, _kctsb_gbigint *bb)
 {
    long sa, aneg, sb, dneg;
-   _ntl_gbigint b;
-   _ntl_limb_t dd, *adata, *bdata;
+   _kctsb_gbigint b;
+   _kctsb_limb_t dd, *adata, *bdata;
    long r;
 
    if (!d) {
-      ArithmeticError("division by zero in _ntl_gsdiv");
+      ArithmeticError("division by zero in _kctsb_gsdiv");
    }
 
    if (ZEROP(a)) {
-      _ntl_gzero(bb);
+      _kctsb_gzero(bb);
       return (0);
    }
 
@@ -3275,9 +3275,9 @@ long _ntl_gsdiv(_ntl_gbigint a, long d, _ntl_gbigint *bb)
    if (XCLIP(dd)) {
       GRegister(xd);
       GRegister(xr);
-      _ntl_gintoz(d,&xd);
-      _ntl_gdiv(a, xd, bb, &xr);
-      return _ntl_gtoint(xr);
+      _kctsb_gintoz(d,&xd);
+      _kctsb_gdiv(a, xd, bb, &xr);
+      return _kctsb_gtoint(xr);
    }
 
    // we may now assume that |d| fits in one limb
@@ -3290,7 +3290,7 @@ long _ntl_gsdiv(_ntl_gbigint a, long d, _ntl_gbigint *bb)
    b = *bb;
    if (MustAlloc(b, sb)) {
       /* if b aliases a, then b won't move */
-      _ntl_gsetlength(&b, sb);
+      _kctsb_gsetlength(&b, sb);
       *bb = b;
    }
 
@@ -3298,9 +3298,9 @@ long _ntl_gsdiv(_ntl_gbigint a, long d, _ntl_gbigint *bb)
    bdata = DATA(b);
 
    if (dd == 2) 
-      r = NTL_MPN(rshift)(bdata, adata, sa, 1) >> (NTL_ZZ_NBITS - 1);
+      r = KCTSB_MPN(rshift)(bdata, adata, sa, 1) >> (KCTSB_ZZ_NBITS - 1);
    else
-      r = NTL_MPN(divmod_1)(bdata, adata, sa, dd);
+      r = KCTSB_MPN(divmod_1)(bdata, adata, sa, dd);
 
    if (bdata[sb-1] == 0)
       sb--;
@@ -3313,7 +3313,7 @@ long _ntl_gsdiv(_ntl_gbigint a, long d, _ntl_gbigint *bb)
             SIZE(b) = -SIZE(b);
          }
          else {
-            _ntl_gsadd(b, 1, &b);
+            _kctsb_gsadd(b, 1, &b);
             SIZE(b) = -SIZE(b);
             if (dneg)
                r = r + d;
@@ -3329,14 +3329,14 @@ long _ntl_gsdiv(_ntl_gbigint a, long d, _ntl_gbigint *bb)
    return r;
 }
 
-long _ntl_gsmod(_ntl_gbigint a, long d)
+long _kctsb_gsmod(_kctsb_gbigint a, long d)
 {
    long sa, aneg, dneg;
-   _ntl_limb_t dd, *adata;
+   _kctsb_limb_t dd, *adata;
    long r;
 
    if (!d) {
-      ArithmeticError("division by zero in _ntl_gsmod");
+      ArithmeticError("division by zero in _kctsb_gsmod");
    }
 
    if (ZEROP(a)) {
@@ -3348,9 +3348,9 @@ long _ntl_gsmod(_ntl_gbigint a, long d)
    if (XCLIP(dd)) {
       GRegister(xd);
       GRegister(xr);
-      _ntl_gintoz(d,&xd);
-      _ntl_gmod(a, xd, &xr);
-      return _ntl_gtoint(xr);
+      _kctsb_gintoz(d,&xd);
+      _kctsb_gmod(a, xd, &xr);
+      return _kctsb_gtoint(xr);
    }
 
    // we may now assume that |d| fits in one limb
@@ -3364,7 +3364,7 @@ long _ntl_gsmod(_ntl_gbigint a, long d)
    if (dd == 2) 
       r = adata[0] & 1;
    else
-      r = NTL_MPN(mod_1)(adata, sa, dd);
+      r = KCTSB_MPN(mod_1)(adata, sa, dd);
 
    if (aneg || dneg) {
       if (aneg != dneg) {
@@ -3385,24 +3385,24 @@ long _ntl_gsmod(_ntl_gbigint a, long d)
 
 
 
-void _ntl_gdiv(_ntl_gbigint a, _ntl_gbigint d, 
-               _ntl_gbigint *bb, _ntl_gbigint *rr)
+void _kctsb_gdiv(_kctsb_gbigint a, _kctsb_gbigint d, 
+               _kctsb_gbigint *bb, _kctsb_gbigint *rr)
 {
    GRegister(b);
    GRegister(rmem);
 
-   _ntl_gbigint *rp;
+   _kctsb_gbigint *rp;
 
    long sa, aneg, sb, sd, dneg, sr, in_place;
-   _ntl_limb_t *adata, *ddata, *bdata, *rdata;
+   _kctsb_limb_t *adata, *ddata, *bdata, *rdata;
 
    if (ZEROP(d)) {
-      ArithmeticError("division by zero in _ntl_gdiv");
+      ArithmeticError("division by zero in _kctsb_gdiv");
    }
 
    if (ZEROP(a)) {
-      if (bb) _ntl_gzero(bb);
-      if (rr) _ntl_gzero(rr);
+      if (bb) _kctsb_gzero(bb);
+      if (rr) _kctsb_gzero(rr);
       return;
    }
 
@@ -3420,19 +3420,19 @@ void _ntl_gdiv(_ntl_gbigint a, _ntl_gbigint d,
 
 
    if (sa < sd) {
-      _ntl_gzero(&b);
-      _ntl_gcopy(a, rp);
+      _kctsb_gzero(&b);
+      _kctsb_gcopy(a, rp);
       if (aneg) SIZE(*rp) = -SIZE(*rp);
       goto done;
    }
 
    sb = sa-sd+1;
    if (MustAlloc(b, sb))
-      _ntl_gsetlength(&b, sb);
+      _kctsb_gsetlength(&b, sb);
 
    sr = sd;
    if (MustAlloc(*rp, sr))
-      _ntl_gsetlength(rp, sr);
+      _kctsb_gsetlength(rp, sr);
 
 
    adata = DATA(a);
@@ -3440,7 +3440,7 @@ void _ntl_gdiv(_ntl_gbigint a, _ntl_gbigint d,
    bdata = DATA(b);
    rdata = DATA(*rp);
 
-   NTL_MPN(tdiv_qr)(bdata, rdata, 0, adata, sa, ddata, sd);
+   KCTSB_MPN(tdiv_qr)(bdata, rdata, 0, adata, sa, ddata, sd);
 
    if (bdata[sb-1] == 0)
       sb--;
@@ -3458,14 +3458,14 @@ done:
          }
          else {
             if (bb) {
-               _ntl_gsadd(b, 1, &b);
+               _kctsb_gsadd(b, 1, &b);
                SIZE(b) = -SIZE(b);
             }
             if (rr) {
                if (dneg)
-                  _ntl_gadd(*rp, d, rp);
+                  _kctsb_gadd(*rp, d, rp);
                else
-                  _ntl_gsub(d, *rp, rp);
+                  _kctsb_gsub(d, *rp, rp);
             }
          }
       }
@@ -3473,10 +3473,10 @@ done:
          SIZE(*rp) = -SIZE(*rp);
    }
 
-   if (bb) _ntl_gcopy(b, bb);
+   if (bb) _kctsb_gcopy(b, bb);
 
    if (rr && !in_place)
-      _ntl_gcopy(*rp, rr);
+      _kctsb_gcopy(*rp, rr);
 }
 
 
@@ -3485,16 +3485,16 @@ done:
  * and that inputs do not alias output. */
 
 static
-void gmod_simple(_ntl_gbigint a, _ntl_gbigint d, _ntl_gbigint *rr)
+void gmod_simple(_kctsb_gbigint a, _kctsb_gbigint d, _kctsb_gbigint *rr)
 {
    GRegister(b);
 
    long sa, sb, sd, sr;
-   _ntl_limb_t *adata, *ddata, *bdata, *rdata;
-   _ntl_gbigint r;
+   _kctsb_limb_t *adata, *ddata, *bdata, *rdata;
+   _kctsb_gbigint r;
 
    if (ZEROP(a)) {
-      _ntl_gzero(rr);
+      _kctsb_gzero(rr);
       return;
    }
 
@@ -3502,13 +3502,13 @@ void gmod_simple(_ntl_gbigint a, _ntl_gbigint d, _ntl_gbigint *rr)
    sd = SIZE(d);
 
    if (sa < sd) {
-      _ntl_gcopy(a, rr);
+      _kctsb_gcopy(a, rr);
       return;
    }
 
    sb = sa-sd+1;
    if (MustAlloc(b, sb))
-      _ntl_gsetlength(&b, sb);
+      _kctsb_gsetlength(&b, sb);
 
    sr = sd;
    r = *rr;
@@ -3518,41 +3518,41 @@ void gmod_simple(_ntl_gbigint a, _ntl_gbigint d, _ntl_gbigint *rr)
    bdata = DATA(b);
    rdata = DATA(r);
 
-   NTL_MPN(tdiv_qr)(bdata, rdata, 0, adata, sa, ddata, sd);
+   KCTSB_MPN(tdiv_qr)(bdata, rdata, 0, adata, sa, ddata, sd);
 
    STRIP(sr, rdata);
    SIZE(r) = sr;
 }
 
 
-void _ntl_gmod(_ntl_gbigint a, _ntl_gbigint d, _ntl_gbigint *rr)
+void _kctsb_gmod(_kctsb_gbigint a, _kctsb_gbigint d, _kctsb_gbigint *rr)
 {
-   _ntl_gdiv(a, d, 0, rr);
+   _kctsb_gdiv(a, d, 0, rr);
 }
 
-void _ntl_gquickmod(_ntl_gbigint *rr, _ntl_gbigint d)
+void _kctsb_gquickmod(_kctsb_gbigint *rr, _kctsb_gbigint d)
 {
-   _ntl_gdiv(*rr, d, 0, rr);
+   _kctsb_gdiv(*rr, d, 0, rr);
 }
 
 
 
 
-#if (defined(NTL_GMP_LIP) && (NTL_ZZ_NBITS >= NTL_BITS_PER_LONG))
+#if (defined(KCTSB_GMP_LIP) && (KCTSB_ZZ_NBITS >= KCTSB_BITS_PER_LONG))
 
-long _ntl_gsqrts(long n)
+long _kctsb_gsqrts(long n)
 {
-   _ntl_limb_t ndata, rdata;
+   _kctsb_limb_t ndata, rdata;
 
    if (n == 0) {
       return 0;
    }
 
-   if (n < 0) ArithmeticError("negative argument to _ntl_sqrts");
+   if (n < 0) ArithmeticError("negative argument to _kctsb_sqrts");
 
    ndata = n;
 
-   NTL_MPN(sqrtrem)(&rdata, 0, &ndata, 1);
+   KCTSB_MPN(sqrtrem)(&rdata, 0, &ndata, 1);
 
    return rdata;
 }
@@ -3561,23 +3561,23 @@ long _ntl_gsqrts(long n)
 #else
 
 long 
-_ntl_gsqrts(long n)
+_kctsb_gsqrts(long n)
 {
 
    if (n < 0) 
-      ArithmeticError("_ntl_gsqrts: negative argument");
+      ArithmeticError("_kctsb_gsqrts: negative argument");
 
    if (n <= 0) return (0);
    if (n <= 3) return (1);
    if (n <= 8) return (2);
 
-   if (n >= NTL_WSP_BOUND)
+   if (n >= KCTSB_WSP_BOUND)
    {
       GRegister(xn);
       GRegister(xr);
-      _ntl_gintoz(n,&xn);
-      _ntl_gsqrt(xn,&xr);
-      return _ntl_gtoint(xr);
+      _kctsb_gintoz(n,&xn);
+      _kctsb_gsqrt(xn,&xr);
+      return _kctsb_gtoint(xr);
    }
 
    long a;
@@ -3585,12 +3585,12 @@ _ntl_gsqrts(long n)
    long newa;
 
 
-   newa = 3L << (2 * ((NTL_WSP_NBITS/2) - 1)); 
-   // DIRT: here we use the assumption that NTL_WSP_NBITS is
+   newa = 3L << (2 * ((KCTSB_WSP_NBITS/2) - 1)); 
+   // DIRT: here we use the assumption that KCTSB_WSP_NBITS is
    // even --- this logic comes from Lenstra's LIP, and I don't know
    // what happens if it is odd
 
-   a = 1L << (NTL_WSP_NBITS/2);
+   a = 1L << (KCTSB_WSP_NBITS/2);
    while (!(n & newa)) {
       newa >>= 2;
       a >>= 1;
@@ -3616,26 +3616,26 @@ _ntl_gsqrts(long n)
 
 
 
-#ifdef NTL_GMP_LIP 
+#ifdef KCTSB_GMP_LIP 
 
 
-void _ntl_gsqrt(_ntl_gbigint n, _ntl_gbigint *rr)
+void _kctsb_gsqrt(_kctsb_gbigint n, _kctsb_gbigint *rr)
 {
    GRegister(r);
 
    long sn, sr;
-   _ntl_limb_t *ndata, *rdata;
+   _kctsb_limb_t *ndata, *rdata;
 
    if (ZEROP(n)) {
-      _ntl_gzero(rr);
+      _kctsb_gzero(rr);
       return;
    }
 
    sn = SIZE(n);
-   if (sn < 0) ArithmeticError("negative argument to _ntl_gsqrt");
+   if (sn < 0) ArithmeticError("negative argument to _kctsb_gsqrt");
 
    sr = (sn+1)/2;
-   _ntl_gsetlength(&r, sr);
+   _kctsb_gsetlength(&r, sr);
 
    ndata = DATA(n);
    rdata = DATA(r);
@@ -3645,13 +3645,13 @@ void _ntl_gsqrt(_ntl_gbigint n, _ntl_gbigint *rr)
    STRIP(sr, rdata);
    SIZE(r) = sr;
 
-   _ntl_gcopy(r, rr);
+   _kctsb_gcopy(r, rr);
 }
 
 #else 
 
 
-void _ntl_gsqrt(_ntl_gbigint n, _ntl_gbigint *rr)
+void _kctsb_gsqrt(_kctsb_gbigint n, _kctsb_gbigint *rr)
 {
    GRegister(a);
    GRegister(ndiva);
@@ -3659,35 +3659,35 @@ void _ntl_gsqrt(_ntl_gbigint n, _ntl_gbigint *rr)
    GRegister(r);
 
    if (ZEROP(n)) {
-      _ntl_gzero(rr);
+      _kctsb_gzero(rr);
       return;
    }
 
    long sn = SIZE(n);
-   if (sn < 0) ArithmeticError("negative argument to _ntl_gsqrt");
+   if (sn < 0) ArithmeticError("negative argument to _kctsb_gsqrt");
 
-   _ntl_limb_t *ndata = DATA(n);
+   _kctsb_limb_t *ndata = DATA(n);
 
    if (sn == 1) {
-      _ntl_gintoz(_ntl_gsqrts(ndata[0]), rr);
+      _kctsb_gintoz(_kctsb_gsqrts(ndata[0]), rr);
       return;
    }
 
-   _ntl_gsetlength(&a, sn);
-   _ntl_gsetlength(&ndiva, sn);
-   _ntl_gsetlength(&diff, sn);
+   _kctsb_gsetlength(&a, sn);
+   _kctsb_gsetlength(&ndiva, sn);
+   _kctsb_gsetlength(&diff, sn);
 
    long sa = (sn+1)/2;
-   _ntl_limb_t *adata = DATA(a);
+   _kctsb_limb_t *adata = DATA(a);
    
-   adata[sa-1] = _ntl_gsqrts(ndata[sn-1]) + 1;
+   adata[sa-1] = _kctsb_gsqrts(ndata[sn-1]) + 1;
    if (!(sn & 1))
-      adata[sa-1] <<= (NTL_ZZ_NBITS/2);
-      // DIRT: here we use the assumption that NTL_ZZ_NBITS is
+      adata[sa-1] <<= (KCTSB_ZZ_NBITS/2);
+      // DIRT: here we use the assumption that KCTSB_ZZ_NBITS is
       // even --- this logic comes from Lenstra's LIP, and I don't know
       // what happens if it is odd
 
-   if (adata[sa-1] & NTL_ZZ_RADIX) {
+   if (adata[sa-1] & KCTSB_ZZ_RADIX) {
       sa++;
       adata[sa-1] = 1;
    }
@@ -3696,24 +3696,24 @@ void _ntl_gsqrt(_ntl_gbigint n, _ntl_gbigint *rr)
    SIZE(a) = sa;
 
    while (1) {
-      _ntl_gdiv(n, a, &ndiva, &r);
-      _ntl_gadd(a, ndiva, &r);
-      _ntl_grshift(r, 1, &r);
-      if (_ntl_gcompare(r, ndiva) <= 0) 
+      _kctsb_gdiv(n, a, &ndiva, &r);
+      _kctsb_gadd(a, ndiva, &r);
+      _kctsb_grshift(r, 1, &r);
+      if (_kctsb_gcompare(r, ndiva) <= 0) 
          goto done;
 
-      _ntl_gsubpos(r, ndiva, &diff);
+      _kctsb_gsubpos(r, ndiva, &diff);
       if (ZEROP(diff) || ONEP(diff)) {
-         _ntl_gsq(r, &diff);
-         if (_ntl_gcompare(diff, n) > 0)
-            _ntl_gcopy(ndiva, &r);
+         _kctsb_gsq(r, &diff);
+         if (_kctsb_gcompare(diff, n) > 0)
+            _kctsb_gcopy(ndiva, &r);
 
          goto done;
       }
-      _ntl_gcopy(r, &a);
+      _kctsb_gcopy(r, &a);
    }
 done:
-   _ntl_gcopy(r, rr);
+   _kctsb_gcopy(r, rr);
 }
 
 
@@ -3729,9 +3729,9 @@ done:
 
 
 
-#ifdef NTL_GMP_LIP
+#ifdef KCTSB_GMP_LIP
 
-void _ntl_ggcd(_ntl_gbigint m1, _ntl_gbigint m2, _ntl_gbigint *r)
+void _kctsb_ggcd(_kctsb_gbigint m1, _kctsb_gbigint m2, _kctsb_gbigint *r)
 {
    GRegister(s1);
    GRegister(s2);
@@ -3739,32 +3739,32 @@ void _ntl_ggcd(_ntl_gbigint m1, _ntl_gbigint m2, _ntl_gbigint *r)
 
    long k1, k2, k_min, l1, l2, ss1, ss2, sres;
 
-   _ntl_gcopy(m1, &s1);
-   _ntl_gabs(&s1);
+   _kctsb_gcopy(m1, &s1);
+   _kctsb_gabs(&s1);
 
-   _ntl_gcopy(m2, &s2);
-   _ntl_gabs(&s2);
+   _kctsb_gcopy(m2, &s2);
+   _kctsb_gabs(&s2);
 
    if (ZEROP(s1)) {
-      _ntl_gcopy(s2, r);
+      _kctsb_gcopy(s2, r);
       return;
    }
 
    if (ZEROP(s2)) {
-      _ntl_gcopy(s1, r);
+      _kctsb_gcopy(s1, r);
       return;
    }
 
-   k1 = _ntl_gmakeodd(&s1);
-   k2 = _ntl_gmakeodd(&s2);
+   k1 = _kctsb_gmakeodd(&s1);
+   k2 = _kctsb_gmakeodd(&s2);
 
    if (k1 <= k2)
       k_min = k1;
    else
       k_min = k2;
 
-   l1 = _ntl_g2log(s1);
-   l2 = _ntl_g2log(s2);
+   l1 = _kctsb_g2log(s1);
+   l2 = _kctsb_g2log(s2);
 
    ss1 = SIZE(s1);
    ss2 = SIZE(s2);
@@ -3776,7 +3776,7 @@ void _ntl_ggcd(_ntl_gbigint m1, _ntl_gbigint m2, _ntl_gbigint *r)
 
    /* set to max: gmp documentation is unclear on this point */
 
-   _ntl_gsetlength(&res, sres);
+   _kctsb_gsetlength(&res, sres);
    
    // NOTE: older versions of GMP require first operand has
    // at least as many bits as the second.
@@ -3788,15 +3788,15 @@ void _ntl_ggcd(_ntl_gbigint m1, _ntl_gbigint m2, _ntl_gbigint *r)
    else
       SIZE(res) = mpn_gcd(DATA(res), DATA(s2), ss2, DATA(s1), ss1);
 
-   _ntl_glshift(res, k_min, &res);
+   _kctsb_glshift(res, k_min, &res);
 
-   _ntl_gcopy(res, r);
+   _kctsb_gcopy(res, r);
 }
 
 void
-_ntl_ggcd_alt(_ntl_gbigint mm1, _ntl_gbigint mm2, _ntl_gbigint *rres)
+_kctsb_ggcd_alt(_kctsb_gbigint mm1, _kctsb_gbigint mm2, _kctsb_gbigint *rres)
 {
-   _ntl_ggcd(mm1, mm2, rres);
+   _kctsb_ggcd(mm1, mm2, rres);
 }
 
 
@@ -3809,9 +3809,9 @@ _ntl_ggcd_alt(_ntl_gbigint mm1, _ntl_gbigint mm2, _ntl_gbigint *rres)
 
 static void
 gxxeucl_basic(
-   _ntl_gbigint ain,
-   _ntl_gbigint nin,
-   _ntl_gbigint *uu
+   _kctsb_gbigint ain,
+   _kctsb_gbigint nin,
+   _kctsb_gbigint *uu
    )
 {
    GRegister(a);
@@ -3831,7 +3831,7 @@ gxxeucl_basic(
    long fast;
    long parity;
    long gotthem;
-   _ntl_limb_t *p;
+   _kctsb_limb_t *p;
    long try11;
    long try12;
    long try21;
@@ -3850,25 +3850,25 @@ gxxeucl_basic(
    double dirt;
 
    if (SIZE(ain) < SIZE(nin)) {
-      _ntl_swap(ain, nin);
+      _kctsb_swap(ain, nin);
    }
    e = SIZE(ain)+2;
 
-   _ntl_gsetlength(&a, e);
-   _ntl_gsetlength(&n, e);
-   _ntl_gsetlength(&q, e);
-   _ntl_gsetlength(&x, e);
-   _ntl_gsetlength(&y, e);
-   _ntl_gsetlength(&z, e);
+   _kctsb_gsetlength(&a, e);
+   _kctsb_gsetlength(&n, e);
+   _kctsb_gsetlength(&q, e);
+   _kctsb_gsetlength(&x, e);
+   _kctsb_gsetlength(&y, e);
+   _kctsb_gsetlength(&z, e);
 
-   fhi1 = double(1L) + double(32L)/NTL_FDOUBLE_PRECISION;
-   flo1 = double(1L) - double(32L)/NTL_FDOUBLE_PRECISION;
+   fhi1 = double(1L) + double(32L)/KCTSB_FDOUBLE_PRECISION;
+   flo1 = double(1L) - double(32L)/KCTSB_FDOUBLE_PRECISION;
 
-   fhi = double(1L) + double(8L)/NTL_FDOUBLE_PRECISION;
-   flo = double(1L) - double(8L)/NTL_FDOUBLE_PRECISION;
+   fhi = double(1L) + double(8L)/KCTSB_FDOUBLE_PRECISION;
+   flo = double(1L) - double(8L)/KCTSB_FDOUBLE_PRECISION;
 
-   _ntl_gcopy(ain, &a);
-   _ntl_gcopy(nin, &n);
+   _kctsb_gcopy(ain, &a);
+   _kctsb_gcopy(nin, &n);
 
 
    while (SIZE(n) > 0)
@@ -3881,19 +3881,19 @@ gxxeucl_basic(
       {
          sa = SIZE(a);
          p = DATA(a) + (sa-1);
-         num = DBL(*p) * NTL_ZZ_FRADIX;
+         num = DBL(*p) * KCTSB_ZZ_FRADIX;
          if (sa > 1)
             num += DBL(*(--p));
-         num *= NTL_ZZ_FRADIX;
+         num *= KCTSB_ZZ_FRADIX;
          if (sa > 2)
             num += DBL(*(p - 1));
 
          sn = SIZE(n);
          p = DATA(n) + (sn-1);
-         den = DBL(*p) * NTL_ZZ_FRADIX;
+         den = DBL(*p) * KCTSB_ZZ_FRADIX;
          if (sn > 1)
             den += DBL(*(--p));
-         den *= NTL_ZZ_FRADIX;
+         den *= KCTSB_ZZ_FRADIX;
          if (sn > 2)
             den += DBL(*(p - 1));
 
@@ -3901,8 +3901,8 @@ gxxeucl_basic(
          lo = flo1 * num / (den + double(1L));
          if (diff > 0)
          {
-            hi *= NTL_ZZ_FRADIX;
-            lo *= NTL_ZZ_FRADIX;
+            hi *= KCTSB_ZZ_FRADIX;
+            lo *= KCTSB_ZZ_FRADIX;
          }
          try11 = 1;
          try12 = 0;
@@ -3913,31 +3913,31 @@ gxxeucl_basic(
          while (fast > 0)
          {
             parity = 1 - parity;
-            if (hi >= NTL_NSP_BOUND)
+            if (hi >= KCTSB_NSP_BOUND)
                fast = 0;
             else
             {
                ilo = (long)lo;
                dirt = hi - double(ilo);
-               if (dirt < 1.0/NTL_FDOUBLE_PRECISION || !ilo || ilo < (long)hi)
+               if (dirt < 1.0/KCTSB_FDOUBLE_PRECISION || !ilo || ilo < (long)hi)
                   fast = 0;
                else
                {
                   dt = lo-double(ilo);
                   lo = flo / dirt;
-                  if (dt > 1.0/NTL_FDOUBLE_PRECISION)
+                  if (dt > 1.0/KCTSB_FDOUBLE_PRECISION)
                      hi = fhi / dt;
                   else
-                     hi = double(NTL_NSP_BOUND);
+                     hi = double(KCTSB_NSP_BOUND);
                   temp = try11;
                   try11 = try21;
-                  if ((NTL_WSP_BOUND - temp) / ilo < try21)
+                  if ((KCTSB_WSP_BOUND - temp) / ilo < try21)
                      fast = 0;
                   else
                      try21 = temp + ilo * try21;
                   temp = try12;
                   try12 = try22;
-                  if ((NTL_WSP_BOUND - temp) / ilo < try22)
+                  if ((KCTSB_WSP_BOUND - temp) / ilo < try22)
                      fast = 0;
                   else
                      try22 = temp + ilo * try22;
@@ -3955,35 +3955,35 @@ gxxeucl_basic(
       }
       if (gotthem)
       {
-         _ntl_gsmul(a, got11, &x);
-         _ntl_gsmul(n, got12, &y);
-         _ntl_gsmul(a, got21, &z);
-         _ntl_gsmul(n, got22, &n);
-         _ntl_gsub(x, y, &a);
-         _ntl_gsub(n, z, &n);
+         _kctsb_gsmul(a, got11, &x);
+         _kctsb_gsmul(n, got12, &y);
+         _kctsb_gsmul(a, got21, &z);
+         _kctsb_gsmul(n, got22, &n);
+         _kctsb_gsub(x, y, &a);
+         _kctsb_gsub(n, z, &n);
       }
       else
       {
-         _ntl_gdiv(a, n, &q, &a);
+         _kctsb_gdiv(a, n, &q, &a);
          if (!ZEROP(a))
          {
-            _ntl_gdiv(n, a, &q, &n);
+            _kctsb_gdiv(n, a, &q, &n);
          }
          else
          {
-            _ntl_gcopy(n, &a);
-            _ntl_gzero(&n);
+            _kctsb_gcopy(n, &a);
+            _kctsb_gzero(&n);
          }
       }
    }
 
-   _ntl_gcopy(a, uu);
+   _kctsb_gcopy(a, uu);
 
    return;
 }
 
 void
-_ntl_ggcd(_ntl_gbigint mm1, _ntl_gbigint mm2, _ntl_gbigint *rres)
+_kctsb_ggcd(_kctsb_gbigint mm1, _kctsb_gbigint mm2, _kctsb_gbigint *rres)
 {
    GRegister(a);
    GRegister(b);
@@ -3991,22 +3991,22 @@ _ntl_ggcd(_ntl_gbigint mm1, _ntl_gbigint mm2, _ntl_gbigint *rres)
 
    if (ZEROP(mm1))
    {
-      _ntl_gcopy(mm2, rres);
-      _ntl_gabs(rres);
+      _kctsb_gcopy(mm2, rres);
+      _kctsb_gabs(rres);
       return;
    }
 
    if (ZEROP(mm2))
    {
-      _ntl_gcopy(mm1, rres);
-      _ntl_gabs(rres);
+      _kctsb_gcopy(mm1, rres);
+      _kctsb_gabs(rres);
       return;
    }
 
-   _ntl_gcopy(mm1, &a);
-   _ntl_gabs(&a);
-   _ntl_gcopy(mm2, &b);
-   _ntl_gabs(&b);
+   _kctsb_gcopy(mm1, &a);
+   _kctsb_gabs(&a);
+   _kctsb_gcopy(mm2, &b);
+   _kctsb_gabs(&b);
    gxxeucl_basic(a, b, rres);
 }
 
@@ -4014,7 +4014,7 @@ _ntl_ggcd(_ntl_gbigint mm1, _ntl_gbigint mm2, _ntl_gbigint *rres)
 // This is the binary gcd algorithm
 
 void
-_ntl_ggcd_alt(_ntl_gbigint mm1, _ntl_gbigint mm2, _ntl_gbigint *rres)
+_kctsb_ggcd_alt(_kctsb_gbigint mm1, _kctsb_gbigint mm2, _kctsb_gbigint *rres)
 {
    GRegister(a);
    GRegister(b);
@@ -4025,22 +4025,22 @@ _ntl_ggcd_alt(_ntl_gbigint mm1, _ntl_gbigint mm2, _ntl_gbigint *rres)
 
    if (ZEROP(mm1))
    {
-      _ntl_gcopy(mm2, rres);
-      _ntl_gabs(rres);
+      _kctsb_gcopy(mm2, rres);
+      _kctsb_gabs(rres);
       return;
    }
 
    if (ZEROP(mm2))
    {
-      _ntl_gcopy(mm1, rres);
-      _ntl_gabs(rres);
+      _kctsb_gcopy(mm1, rres);
+      _kctsb_gabs(rres);
       return;
    }
 
    if (mm1 == mm2)
    {
-      _ntl_gcopy(mm1, rres);
-      _ntl_gabs(rres);
+      _kctsb_gcopy(mm1, rres);
+      _kctsb_gabs(rres);
       return;
    }
 
@@ -4052,78 +4052,78 @@ _ntl_ggcd_alt(_ntl_gbigint mm1, _ntl_gbigint mm2, _ntl_gbigint *rres)
 
    long maxs1s2 = max(s1, s2);
 
-   _ntl_gsetlength(&a, maxs1s2); 
-   _ntl_gsetlength(&b, maxs1s2);
-   _ntl_gsetlength(&c, maxs1s2);
+   _kctsb_gsetlength(&a, maxs1s2); 
+   _kctsb_gsetlength(&b, maxs1s2);
+   _kctsb_gsetlength(&c, maxs1s2);
 
    if (s1 != s2)
    {
       if (s1 > s2)
       {
-         _ntl_gcopy(mm2, &a);
-         _ntl_gabs(&a);
+         _kctsb_gcopy(mm2, &a);
+         _kctsb_gabs(&a);
 
-         _ntl_gcopy(mm1, &c);
-         _ntl_gabs(&c);
+         _kctsb_gcopy(mm1, &c);
+         _kctsb_gabs(&c);
 
-         _ntl_gmod(c, a, &b);
+         _kctsb_gmod(c, a, &b);
       }
       else
       {
-         _ntl_gcopy(mm1, &a);
-         _ntl_gabs(&a);
+         _kctsb_gcopy(mm1, &a);
+         _kctsb_gabs(&a);
 
-         _ntl_gcopy(mm2, &c);
-         _ntl_gabs(&c);
-         _ntl_gmod(c, a, &b);
+         _kctsb_gcopy(mm2, &c);
+         _kctsb_gabs(&c);
+         _kctsb_gmod(c, a, &b);
       }
       if (ZEROP(b)) goto done;
    }
    else
    {
-      _ntl_gcopy(mm1, &a);
-      _ntl_gabs(&a);
-      _ntl_gcopy(mm2, &b);
-      _ntl_gabs(&b);
+      _kctsb_gcopy(mm1, &a);
+      _kctsb_gabs(&a);
+      _kctsb_gcopy(mm2, &b);
+      _kctsb_gabs(&b);
    }
 
-   if ((agrb = _ntl_gmakeodd(&a)) < (shibl = _ntl_gmakeodd(&b))) shibl = agrb;
-   if (!(agrb = _ntl_gcompare(a, b))) goto endshift;
+   if ((agrb = _kctsb_gmakeodd(&a)) < (shibl = _kctsb_gmakeodd(&b))) shibl = agrb;
+   if (!(agrb = _kctsb_gcompare(a, b))) goto endshift;
 
    if (agrb < 0)
    {
-      _ntl_swap(a, b);
+      _kctsb_swap(a, b);
    }
 
-   _ntl_gsubpos(a, b, &c);
+   _kctsb_gsubpos(a, b, &c);
    do
    {
-      _ntl_gmakeodd(&c);
-      if (!(agrb = _ntl_gcompare(b, c)))
+      _kctsb_gmakeodd(&c);
+      if (!(agrb = _kctsb_gcompare(b, c)))
       {
-         _ntl_swap(a, b);
+         _kctsb_swap(a, b);
          goto endshift;
       }
 
       if (agrb > 0)
       {
          // (a, b, c) = (b, c, a)
-         _ntl_swap(a, b);
-         _ntl_swap(b, c);
+         _kctsb_swap(a, b);
+         _kctsb_swap(b, c);
       }
       else
       {
          // (a, b, c) = (c, b, a)
-         _ntl_swap(a, c);
+         _kctsb_swap(a, c);
       }
-      _ntl_gsubpos(a, b, &c);
+      _kctsb_gsubpos(a, b, &c);
    } while (!ZEROP(c));
 
 endshift:
-   _ntl_glshift(a, shibl, &a);
+   _kctsb_glshift(a, shibl, &a);
 
 done:
-   _ntl_gcopy(a, rres);
+   _kctsb_gcopy(a, rres);
 }
 
 #endif
@@ -4132,34 +4132,34 @@ done:
 
 
 
-#ifdef NTL_GMP_LIP
+#ifdef KCTSB_GMP_LIP
 
 
 
 void
-_ntl_gexteucl(
-	_ntl_gbigint ain,
-	_ntl_gbigint *xap,
-	_ntl_gbigint bin,
-	_ntl_gbigint *xbp,
-	_ntl_gbigint *dp
+_kctsb_gexteucl(
+	_kctsb_gbigint ain,
+	_kctsb_gbigint *xap,
+	_kctsb_gbigint bin,
+	_kctsb_gbigint *xbp,
+	_kctsb_gbigint *dp
 	)
 {
    if (ZEROP(bin)) {
-      long asign = _ntl_gsign(ain);
+      long asign = _kctsb_gsign(ain);
 
-      _ntl_gcopy(ain, dp);
-      _ntl_gabs(dp);
-      _ntl_gintoz( (asign >= 0 ? 1 : -1), xap);
-      _ntl_gzero(xbp);
+      _kctsb_gcopy(ain, dp);
+      _kctsb_gabs(dp);
+      _kctsb_gintoz( (asign >= 0 ? 1 : -1), xap);
+      _kctsb_gzero(xbp);
    }
    else if (ZEROP(ain)) {
-      long bsign = _ntl_gsign(bin);
+      long bsign = _kctsb_gsign(bin);
 
-      _ntl_gcopy(bin, dp);
-      _ntl_gabs(dp);
-      _ntl_gzero(xap);
-      _ntl_gintoz(bsign, xbp); 
+      _kctsb_gcopy(bin, dp);
+      _kctsb_gabs(dp);
+      _kctsb_gzero(xap);
+      _kctsb_gintoz(bsign, xbp); 
    }
    else {
       GRegister(a);
@@ -4170,23 +4170,23 @@ _ntl_gexteucl(
       GRegister(tmp);
 
       long sa, aneg, sb, bneg, rev;
-      _ntl_limb_t *adata, *bdata, *ddata, *xadata;
+      _kctsb_limb_t *adata, *bdata, *ddata, *xadata;
       mp_size_t sxa, sd;
 
       GET_SIZE_NEG(sa, aneg, ain);
       GET_SIZE_NEG(sb, bneg, bin);
 
-      _ntl_gsetlength(&a, sa+1); /* +1 because mpn_gcdext may need it */
-      _ntl_gcopy(ain, &a);
+      _kctsb_gsetlength(&a, sa+1); /* +1 because mpn_gcdext may need it */
+      _kctsb_gcopy(ain, &a);
 
-      _ntl_gsetlength(&b, sb+1); /* +1 because mpn_gcdext may need it */
-      _ntl_gcopy(bin, &b);
+      _kctsb_gsetlength(&b, sb+1); /* +1 because mpn_gcdext may need it */
+      _kctsb_gcopy(bin, &b);
 
 
       adata = DATA(a);
       bdata = DATA(b);
 
-      if (sa < sb || (sa == sb && NTL_MPN(cmp)(adata, bdata, sa) < 0)) {
+      if (sa < sb || (sa == sb && KCTSB_MPN(cmp)(adata, bdata, sa) < 0)) {
          SWAP_BIGINT(ain, bin);
          SWAP_LONG(sa, sb);
          SWAP_LONG(aneg, bneg);
@@ -4196,10 +4196,10 @@ _ntl_gexteucl(
       else 
          rev = 0;
 
-      _ntl_gsetlength(&d, sa+1); /* +1 because mpn_gcdext may need it...
+      _kctsb_gsetlength(&d, sa+1); /* +1 because mpn_gcdext may need it...
                                     documentation is unclear, but this is
                                     what is done in mpz_gcdext */
-      _ntl_gsetlength(&xa, sa+1); /* ditto */
+      _kctsb_gsetlength(&xa, sa+1); /* ditto */
 
       ddata = DATA(d);
       xadata = DATA(xa);
@@ -4223,36 +4223,36 @@ _ntl_gexteucl(
          regardless of what mpn_gcdext does */
 
       if (!ZEROP(xa)) {
-         _ntl_gcopy(bin, &b);
+         _kctsb_gcopy(bin, &b);
          SIZE(b) = sb;
          if (!ONEP(d)) {
-            _ntl_gdiv(b, d, &b, &tmp);
-            if (!ZEROP(tmp)) TerminalError("internal bug in _ntl_gexteucl");
+            _kctsb_gdiv(b, d, &b, &tmp);
+            if (!ZEROP(tmp)) TerminalError("internal bug in _kctsb_gexteucl");
          }
 
          if (SIZE(xa) > 0) { /* xa positive */
-            if (_ntl_gcompare(xa, b) > 0) { 
-               _ntl_gmod(xa, b, &xa);
+            if (_kctsb_gcompare(xa, b) > 0) { 
+               _kctsb_gmod(xa, b, &xa);
             }
-            _ntl_glshift(xa, 1, &tmp);
-            if (_ntl_gcompare(tmp, b) > 0) {
-               _ntl_gsub(xa, b, &xa);
+            _kctsb_glshift(xa, 1, &tmp);
+            if (_kctsb_gcompare(tmp, b) > 0) {
+               _kctsb_gsub(xa, b, &xa);
             }
          }
          else { /* xa negative */
             SIZE(xa) = -SIZE(xa);
-            if (_ntl_gcompare(xa, b) > 0) {
+            if (_kctsb_gcompare(xa, b) > 0) {
                SIZE(xa) = -SIZE(xa);
-               _ntl_gmod(xa, b, &xa);
-               _ntl_gsub(xa, b, &xa);
+               _kctsb_gmod(xa, b, &xa);
+               _kctsb_gsub(xa, b, &xa);
             }
             else {
                SIZE(xa) = -SIZE(xa);
             }
-            _ntl_glshift(xa, 1, &tmp);
+            _kctsb_glshift(xa, 1, &tmp);
             SIZE(tmp) = -SIZE(tmp);
-            if (_ntl_gcompare(tmp, b) >= 0) {
-               _ntl_gadd(xa, b, &xa);
+            if (_kctsb_gcompare(tmp, b) >= 0) {
+               _kctsb_gadd(xa, b, &xa);
             }
          }
       }
@@ -4261,24 +4261,24 @@ _ntl_gexteucl(
 #endif
     
 
-      if (aneg) _ntl_gnegate(&xa);
+      if (aneg) _kctsb_gnegate(&xa);
 
-      _ntl_gmul(ain, xa, &tmp);
-      _ntl_gsub(d, tmp, &tmp);
-      _ntl_gdiv(tmp, bin, &xb, &tmp);
+      _kctsb_gmul(ain, xa, &tmp);
+      _kctsb_gsub(d, tmp, &tmp);
+      _kctsb_gdiv(tmp, bin, &xb, &tmp);
 
-      if (!ZEROP(tmp)) TerminalError("internal bug in _ntl_gexteucl");
+      if (!ZEROP(tmp)) TerminalError("internal bug in _kctsb_gexteucl");
 
       if (rev) SWAP_BIGINT(xa, xb);
 
-      _ntl_gcopy(xa, xap);
-      _ntl_gcopy(xb, xbp);
-      _ntl_gcopy(d, dp); 
+      _kctsb_gcopy(xa, xap);
+      _kctsb_gcopy(xb, xbp);
+      _kctsb_gcopy(d, dp); 
    }
 }
 
 
-long _ntl_ginv(_ntl_gbigint ain, _ntl_gbigint nin, _ntl_gbigint *invv)
+long _kctsb_ginv(_kctsb_gbigint ain, _kctsb_gbigint nin, _kctsb_gbigint *invv)
 {
    GRegister(u);
    GRegister(d);
@@ -4289,36 +4289,36 @@ long _ntl_ginv(_ntl_gbigint ain, _ntl_gbigint nin, _ntl_gbigint *invv)
    long sd;
    mp_size_t su;
 
-   if (_ntl_gscompare(nin, 1) <= 0) {
+   if (_kctsb_gscompare(nin, 1) <= 0) {
       LogicError("InvMod: second input <= 1");
    }
 
-   if (_ntl_gsign(ain) < 0) {
+   if (_kctsb_gsign(ain) < 0) {
       LogicError("InvMod: first input negative");
    }
 
-   if (_ntl_gcompare(ain, nin) >= 0) {
+   if (_kctsb_gcompare(ain, nin) >= 0) {
       LogicError("InvMod: first input too big");
    }
 
    sz = SIZE(nin) + 2;
 
    if (MustAlloc(a, sz))
-      _ntl_gsetlength(&a, sz);
+      _kctsb_gsetlength(&a, sz);
 
 
    if (MustAlloc(n, sz))
-       _ntl_gsetlength(&n, sz);
+       _kctsb_gsetlength(&n, sz);
 
 
    if (MustAlloc(d, sz))
-       _ntl_gsetlength(&d, sz);
+       _kctsb_gsetlength(&d, sz);
 
    if (MustAlloc(u, sz))
-       _ntl_gsetlength(&u, sz);
+       _kctsb_gsetlength(&u, sz);
 
-   _ntl_gadd(ain, nin, &a);
-   _ntl_gcopy(nin, &n);
+   _kctsb_gadd(ain, nin, &a);
+   _kctsb_gcopy(nin, &n);
 
    /* We apply mpn_gcdext to (a, n) = (ain+nin, nin), because that function
     * only computes the co-factor of the larger input. This way, we avoid
@@ -4351,30 +4351,30 @@ long _ntl_ginv(_ntl_gbigint ain, _ntl_gbigint nin, _ntl_gbigint *invv)
       // since we're now requiring GMP version 5.0.0 or later,
       // these workarounds are no longer required
 
-      if (_ntl_gsign(u) < 0) {
-         _ntl_gadd(u, nin, &u);
-         if (_ntl_gsign(u) < 0) {
-            _ntl_gmod(u, nin, &u);
+      if (_kctsb_gsign(u) < 0) {
+         _kctsb_gadd(u, nin, &u);
+         if (_kctsb_gsign(u) < 0) {
+            _kctsb_gmod(u, nin, &u);
          }
       }
-      else if (_ntl_gcompare(u, nin) >= 0) {
-         _ntl_gsub(u, nin, &u);
-         if (_ntl_gcompare(u, nin) >= 0) {
-             _ntl_gmod(u, nin, &u);
+      else if (_kctsb_gcompare(u, nin) >= 0) {
+         _kctsb_gsub(u, nin, &u);
+         if (_kctsb_gcompare(u, nin) >= 0) {
+             _kctsb_gmod(u, nin, &u);
          }
       }
 #else
-      if (_ntl_gsign(u) < 0) {
-         _ntl_gadd(u, nin, &u);
+      if (_kctsb_gsign(u) < 0) {
+         _kctsb_gadd(u, nin, &u);
       }
 
 #endif
 
-      _ntl_gcopy(u, invv);
+      _kctsb_gcopy(u, invv);
       return 0;
    }
    else {
-      _ntl_gcopy(d, invv);
+      _kctsb_gcopy(d, invv);
       return 1;
    }
 }
@@ -4385,10 +4385,10 @@ long _ntl_ginv(_ntl_gbigint ain, _ntl_gbigint nin, _ntl_gbigint *invv)
 
 static long 
 gxxeucl(
-   _ntl_gbigint ain,
-   _ntl_gbigint nin,
-   _ntl_gbigint *invv,
-   _ntl_gbigint *uu
+   _kctsb_gbigint ain,
+   _kctsb_gbigint nin,
+   _kctsb_gbigint *invv,
+   _kctsb_gbigint *uu
    )
 {
    GRegister(a);
@@ -4410,7 +4410,7 @@ gxxeucl(
    long fast;
    long parity;
    long gotthem;
-   _ntl_limb_t *p;
+   _kctsb_limb_t *p;
    long try11;
    long try12;
    long try21;
@@ -4428,26 +4428,26 @@ gxxeucl(
    double den;
    double dirt;
 
-   _ntl_gsetlength(&a, (e = 2 + (SIZE(ain) > SIZE(nin) ? SIZE(ain) : SIZE(nin))));
-   _ntl_gsetlength(&n, e);
-   _ntl_gsetlength(&q, e);
-   _ntl_gsetlength(&w, e);
-   _ntl_gsetlength(&x, e);
-   _ntl_gsetlength(&y, e);
-   _ntl_gsetlength(&z, e);
-   _ntl_gsetlength(&inv, e);
+   _kctsb_gsetlength(&a, (e = 2 + (SIZE(ain) > SIZE(nin) ? SIZE(ain) : SIZE(nin))));
+   _kctsb_gsetlength(&n, e);
+   _kctsb_gsetlength(&q, e);
+   _kctsb_gsetlength(&w, e);
+   _kctsb_gsetlength(&x, e);
+   _kctsb_gsetlength(&y, e);
+   _kctsb_gsetlength(&z, e);
+   _kctsb_gsetlength(&inv, e);
 
-   fhi1 = double(1L) + double(32L)/NTL_FDOUBLE_PRECISION;
-   flo1 = double(1L) - double(32L)/NTL_FDOUBLE_PRECISION;
+   fhi1 = double(1L) + double(32L)/KCTSB_FDOUBLE_PRECISION;
+   flo1 = double(1L) - double(32L)/KCTSB_FDOUBLE_PRECISION;
 
-   fhi = double(1L) + double(8L)/NTL_FDOUBLE_PRECISION;
-   flo = double(1L) - double(8L)/NTL_FDOUBLE_PRECISION;
+   fhi = double(1L) + double(8L)/KCTSB_FDOUBLE_PRECISION;
+   flo = double(1L) - double(8L)/KCTSB_FDOUBLE_PRECISION;
 
-   _ntl_gcopy(ain, &a);
-   _ntl_gcopy(nin, &n);
+   _kctsb_gcopy(ain, &a);
+   _kctsb_gcopy(nin, &n);
 
-   _ntl_gone(&inv);
-   _ntl_gzero(&w);
+   _kctsb_gone(&inv);
+   _kctsb_gzero(&w);
 
    while (SIZE(n) > 0)
    {
@@ -4459,19 +4459,19 @@ gxxeucl(
       {
          sa = SIZE(a);
          p = DATA(a) + (sa-1);
-         num = DBL(*p) * NTL_ZZ_FRADIX;
+         num = DBL(*p) * KCTSB_ZZ_FRADIX;
          if (sa > 1)
             num += DBL(*(--p));
-         num *= NTL_ZZ_FRADIX;
+         num *= KCTSB_ZZ_FRADIX;
          if (sa > 2)
             num += DBL(*(p - 1));
 
          sn = SIZE(n);
          p = DATA(n) + (sn-1);
-         den = DBL(*p) * NTL_ZZ_FRADIX;
+         den = DBL(*p) * KCTSB_ZZ_FRADIX;
          if (sn > 1)
             den += DBL(*(--p));
-         den *= NTL_ZZ_FRADIX;
+         den *= KCTSB_ZZ_FRADIX;
          if (sn > 2)
             den += DBL(*(p - 1));
 
@@ -4479,8 +4479,8 @@ gxxeucl(
          lo = flo1 * num / (den + double(1L));
          if (diff > 0)
          {
-            hi *= NTL_ZZ_FRADIX;
-            lo *= NTL_ZZ_FRADIX;
+            hi *= KCTSB_ZZ_FRADIX;
+            lo *= KCTSB_ZZ_FRADIX;
          }
          try11 = 1;
          try12 = 0;
@@ -4491,31 +4491,31 @@ gxxeucl(
          while (fast > 0)
          {
             parity = 1 - parity;
-            if (hi >= NTL_NSP_BOUND)
+            if (hi >= KCTSB_NSP_BOUND)
                fast = 0;
             else
             {
                ilo = (long)lo;
                dirt = hi - double(ilo);
-               if (dirt < 1.0/NTL_FDOUBLE_PRECISION || !ilo || ilo < (long)hi)
+               if (dirt < 1.0/KCTSB_FDOUBLE_PRECISION || !ilo || ilo < (long)hi)
                   fast = 0;
                else
                {
                   dt = lo-double(ilo);
                   lo = flo / dirt;
-                  if (dt > 1.0/NTL_FDOUBLE_PRECISION)
+                  if (dt > 1.0/KCTSB_FDOUBLE_PRECISION)
                      hi = fhi / dt;
                   else
-                     hi = double(NTL_NSP_BOUND);
+                     hi = double(KCTSB_NSP_BOUND);
                   temp = try11;
                   try11 = try21;
-                  if ((NTL_WSP_BOUND - temp) / ilo < try21)
+                  if ((KCTSB_WSP_BOUND - temp) / ilo < try21)
                      fast = 0;
                   else
                      try21 = temp + ilo * try21;
                   temp = try12;
                   try12 = try22;
-                  if ((NTL_WSP_BOUND - temp) / ilo < try22)
+                  if ((KCTSB_WSP_BOUND - temp) / ilo < try22)
                      fast = 0;
                   else
                      try22 = temp + ilo * try22;
@@ -4533,58 +4533,58 @@ gxxeucl(
       }
       if (gotthem)
       {
-         _ntl_gsmul(inv, got11, &x);
-         _ntl_gsmul(w, got12, &y);
-         _ntl_gsmul(inv, got21, &z);
-         _ntl_gsmul(w, got22, &w);
-         _ntl_gadd(x, y, &inv);
-         _ntl_gadd(z, w, &w);
-         _ntl_gsmul(a, got11, &x);
-         _ntl_gsmul(n, got12, &y);
-         _ntl_gsmul(a, got21, &z);
-         _ntl_gsmul(n, got22, &n);
-         _ntl_gsub(x, y, &a);
-         _ntl_gsub(n, z, &n);
+         _kctsb_gsmul(inv, got11, &x);
+         _kctsb_gsmul(w, got12, &y);
+         _kctsb_gsmul(inv, got21, &z);
+         _kctsb_gsmul(w, got22, &w);
+         _kctsb_gadd(x, y, &inv);
+         _kctsb_gadd(z, w, &w);
+         _kctsb_gsmul(a, got11, &x);
+         _kctsb_gsmul(n, got12, &y);
+         _kctsb_gsmul(a, got21, &z);
+         _kctsb_gsmul(n, got22, &n);
+         _kctsb_gsub(x, y, &a);
+         _kctsb_gsub(n, z, &n);
       }
       else
       {
-         _ntl_gdiv(a, n, &q, &a);
-         _ntl_gmul(q, w, &x);
-         _ntl_gadd(inv, x, &inv);
+         _kctsb_gdiv(a, n, &q, &a);
+         _kctsb_gmul(q, w, &x);
+         _kctsb_gadd(inv, x, &inv);
          if (!ZEROP(a))
          {
-            _ntl_gdiv(n, a, &q, &n);
-            _ntl_gmul(q, inv, &x);
-            _ntl_gadd(w, x, &w);
+            _kctsb_gdiv(n, a, &q, &n);
+            _kctsb_gmul(q, inv, &x);
+            _kctsb_gadd(w, x, &w);
          }
          else
          {
-            _ntl_gcopy(n, &a);
-            _ntl_gzero(&n);
-            _ntl_gcopy(w, &inv);
-            _ntl_gnegate(&inv);
+            _kctsb_gcopy(n, &a);
+            _kctsb_gzero(&n);
+            _kctsb_gcopy(w, &inv);
+            _kctsb_gnegate(&inv);
          }
       }
    }
 
-   if (_ntl_gscompare(a, 1) == 0)
+   if (_kctsb_gscompare(a, 1) == 0)
       e = 0;
    else 
       e = 1;
 
-   _ntl_gcopy(a, uu);
-   _ntl_gcopy(inv, invv);
+   _kctsb_gcopy(a, uu);
+   _kctsb_gcopy(inv, invv);
 
    return (e);
 }
 
 void
-_ntl_gexteucl(
-	_ntl_gbigint aa,
-	_ntl_gbigint *xa,
-	_ntl_gbigint bb,
-	_ntl_gbigint *xb,
-	_ntl_gbigint *d
+_kctsb_gexteucl(
+	_kctsb_gbigint aa,
+	_kctsb_gbigint *xa,
+	_kctsb_gbigint bb,
+	_kctsb_gbigint *xb,
+	_kctsb_gbigint *d
 	)
 {
    GRegister(modcon);
@@ -4594,8 +4594,8 @@ _ntl_gexteucl(
    long anegative = 0;
    long bnegative = 0;
 
-   _ntl_gcopy(aa, &a);
-   _ntl_gcopy(bb, &b);
+   _kctsb_gcopy(aa, &a);
+   _kctsb_gcopy(bb, &b);
 
    if (a && SIZE(a) < 0) {
       anegative = 1;
@@ -4614,47 +4614,47 @@ _ntl_gexteucl(
 
    if (ZEROP(b))
    {
-      _ntl_gone(xa);
-      _ntl_gzero(xb);
-      _ntl_gcopy(a, d);
+      _kctsb_gone(xa);
+      _kctsb_gzero(xb);
+      _kctsb_gcopy(a, d);
       goto done;
    }
 
    if (ZEROP(a))
    {
-      _ntl_gzero(xa);
-      _ntl_gone(xb);
-      _ntl_gcopy(b, d);
+      _kctsb_gzero(xa);
+      _kctsb_gone(xb);
+      _kctsb_gcopy(b, d);
       goto done;
    }
 
    gxxeucl(a, b, xa, d);
-   _ntl_gmul(a, *xa, xb);
-   _ntl_gsub(*d, *xb, xb);
-   _ntl_gdiv(*xb, b, xb, &modcon);
+   _kctsb_gmul(a, *xa, xb);
+   _kctsb_gsub(*d, *xb, xb);
+   _kctsb_gdiv(*xb, b, xb, &modcon);
 
    if (!ZEROP(modcon))
    {
-      TerminalError("non-zero remainder in _ntl_gexteucl   BUG");
+      TerminalError("non-zero remainder in _kctsb_gexteucl   BUG");
    }
 
 
 done:
    if (anegative)
    {
-      _ntl_gnegate(xa);
+      _kctsb_gnegate(xa);
    }
    if (bnegative)
    {
-      _ntl_gnegate(xb);
+      _kctsb_gnegate(xb);
    }
 }
 
 long 
-_ntl_ginv(
-        _ntl_gbigint ain,
-        _ntl_gbigint nin,
-        _ntl_gbigint *invv
+_kctsb_ginv(
+        _kctsb_gbigint ain,
+        _kctsb_gbigint nin,
+        _kctsb_gbigint *invv
         )
 {
         GRegister(u);
@@ -4662,32 +4662,32 @@ _ntl_ginv(
         long sgn;
 
 
-        if (_ntl_gscompare(nin, 1) <= 0) {
+        if (_kctsb_gscompare(nin, 1) <= 0) {
                 LogicError("InvMod: second input <= 1");
         }
 
-        sgn = _ntl_gsign(ain);
+        sgn = _kctsb_gsign(ain);
         if (sgn < 0) {
                 LogicError("InvMod: first input negative");
         }
 
-        if (_ntl_gcompare(ain, nin) >= 0) {
+        if (_kctsb_gcompare(ain, nin) >= 0) {
                 LogicError("InvMod: first input too big");
         }
 
 
         if (sgn == 0) {
-                _ntl_gcopy(nin, invv);
+                _kctsb_gcopy(nin, invv);
                 return 1;
         }
 
         if (!(gxxeucl(ain, nin, &v, &u))) {
-                if (_ntl_gsign(v) < 0) _ntl_gadd(v, nin, &v);
-                _ntl_gcopy(v, invv);
+                if (_kctsb_gsign(v) < 0) _kctsb_gadd(v, nin, &v);
+                _kctsb_gcopy(v, invv);
                 return 0;
         }
 
-        _ntl_gcopy(u, invv);
+        _kctsb_gcopy(u, invv);
         return 1;
 }
 
@@ -4698,106 +4698,106 @@ _ntl_ginv(
 
 
 void
-_ntl_ginvmod(
-	_ntl_gbigint a,
-	_ntl_gbigint n,
-	_ntl_gbigint *c
+_kctsb_ginvmod(
+	_kctsb_gbigint a,
+	_kctsb_gbigint n,
+	_kctsb_gbigint *c
 	)
 {
-	if (_ntl_ginv(a, n, c))
-		ArithmeticError("undefined inverse in _ntl_ginvmod");
+	if (_kctsb_ginv(a, n, c))
+		ArithmeticError("undefined inverse in _kctsb_ginvmod");
 }
 
 void
-_ntl_gaddmod(
-	_ntl_gbigint a,
-	_ntl_gbigint b,
-	_ntl_gbigint n,
-	_ntl_gbigint *c
+_kctsb_gaddmod(
+	_kctsb_gbigint a,
+	_kctsb_gbigint b,
+	_kctsb_gbigint n,
+	_kctsb_gbigint *c
 	)
 {
 	if (*c != n) {
-		_ntl_gadd(a, b, c);
-		if (_ntl_gcompare(*c, n) >= 0)
-			_ntl_gsubpos(*c, n, c);
+		_kctsb_gadd(a, b, c);
+		if (_kctsb_gcompare(*c, n) >= 0)
+			_kctsb_gsubpos(*c, n, c);
 	}
 	else {
                 GRegister(mem);
 
-		_ntl_gadd(a, b, &mem);
-		if (_ntl_gcompare(mem, n) >= 0)
-			_ntl_gsubpos(mem, n, c);
+		_kctsb_gadd(a, b, &mem);
+		if (_kctsb_gcompare(mem, n) >= 0)
+			_kctsb_gsubpos(mem, n, c);
 		else
-			_ntl_gcopy(mem, c);
+			_kctsb_gcopy(mem, c);
 	}
 }
 
 
 void
-_ntl_gsubmod(
-	_ntl_gbigint a,
-	_ntl_gbigint b,
-	_ntl_gbigint n,
-	_ntl_gbigint *c
+_kctsb_gsubmod(
+	_kctsb_gbigint a,
+	_kctsb_gbigint b,
+	_kctsb_gbigint n,
+	_kctsb_gbigint *c
 	)
 {
         GRegister(mem);
 	long cmp;
 
-	if ((cmp=_ntl_gcompare(a, b)) < 0) {
-		_ntl_gadd(n, a, &mem);
-		_ntl_gsubpos(mem, b, c);
+	if ((cmp=_kctsb_gcompare(a, b)) < 0) {
+		_kctsb_gadd(n, a, &mem);
+		_kctsb_gsubpos(mem, b, c);
 	} else if (!cmp) 
-		_ntl_gzero(c);
+		_kctsb_gzero(c);
 	else 
-		_ntl_gsubpos(a, b, c);
+		_kctsb_gsubpos(a, b, c);
 }
 
 void
-_ntl_gsmulmod(
-	_ntl_gbigint a,
+_kctsb_gsmulmod(
+	_kctsb_gbigint a,
 	long d,
-	_ntl_gbigint n,
-	_ntl_gbigint *c
+	_kctsb_gbigint n,
+	_kctsb_gbigint *c
 	)
 {
         GRegister(mem);
 
-	_ntl_gsmul(a, d, &mem);
-	_ntl_gmod(mem, n, c);
+	_kctsb_gsmul(a, d, &mem);
+	_kctsb_gmod(mem, n, c);
 }
 
 
 
 void
-_ntl_gmulmod(
-	_ntl_gbigint a,
-	_ntl_gbigint b,
-	_ntl_gbigint n,
-	_ntl_gbigint *c
+_kctsb_gmulmod(
+	_kctsb_gbigint a,
+	_kctsb_gbigint b,
+	_kctsb_gbigint n,
+	_kctsb_gbigint *c
 	)
 {
         GRegister(mem);
 
-	_ntl_gmul(a, b, &mem);
-	_ntl_gmod(mem, n, c);
+	_kctsb_gmul(a, b, &mem);
+	_kctsb_gmod(mem, n, c);
 }
 
 void
-_ntl_gsqmod(
-	_ntl_gbigint a,
-	_ntl_gbigint n,
-	_ntl_gbigint *c
+_kctsb_gsqmod(
+	_kctsb_gbigint a,
+	_kctsb_gbigint n,
+	_kctsb_gbigint *c
 	)
 {
-	_ntl_gmulmod(a, a, n, c);
+	_kctsb_gmulmod(a, a, n, c);
 }
 
 
-double _ntl_gdoub_aux(_ntl_gbigint n)
+double _kctsb_gdoub_aux(_kctsb_gbigint n)
 {
    double res;
-   _ntl_limb_t *ndata;
+   _kctsb_limb_t *ndata;
    long i, sn, nneg;
 
    if (!n)
@@ -4809,22 +4809,22 @@ double _ntl_gdoub_aux(_ntl_gbigint n)
 
    res = 0;
    for (i = sn-1; i >= 0; i--)
-      res = res * NTL_ZZ_FRADIX + DBL(ndata[i]);
+      res = res * KCTSB_ZZ_FRADIX + DBL(ndata[i]);
 
    if (nneg) res = -res;
 
    return res;
 }
 
-long _ntl_ground_correction(_ntl_gbigint a, long k, long residual)
+long _kctsb_ground_correction(_kctsb_gbigint a, long k, long residual)
 {
    long direction;
    long p;
    long sgn;
    long bl;
-   _ntl_limb_t wh;
+   _kctsb_limb_t wh;
    long i;
-   _ntl_limb_t *adata;
+   _kctsb_limb_t *adata;
 
    if (SIZE(a) > 0)
       sgn = 1;
@@ -4834,14 +4834,14 @@ long _ntl_ground_correction(_ntl_gbigint a, long k, long residual)
    adata = DATA(a);
 
    p = k - 1;
-   bl = (p/NTL_ZZ_NBITS);
-   wh = ((_ntl_limb_t) 1) << (p - NTL_ZZ_NBITS*bl);
+   bl = (p/KCTSB_ZZ_NBITS);
+   wh = ((_kctsb_limb_t) 1) << (p - KCTSB_ZZ_NBITS*bl);
 
    if (adata[bl] & wh) {
       /* bit is 1...we have to see if lower bits are all 0
          in order to implement "round to even" */
 
-      if (adata[bl] & (wh - ((_ntl_limb_t) 1))) 
+      if (adata[bl] & (wh - ((_kctsb_limb_t) 1))) 
          direction = 1;
       else {
          i = bl - 1;
@@ -4889,7 +4889,7 @@ long _ntl_ground_correction(_ntl_gbigint a, long k, long residual)
 
 
 
-double _ntl_gdoub(_ntl_gbigint n)
+double _kctsb_gdoub(_kctsb_gbigint n)
 {
    GRegister(tmp);
 
@@ -4898,27 +4898,27 @@ double _ntl_gdoub(_ntl_gbigint n)
    long correction;
    double x;
 
-   s = _ntl_g2log(n);
-   shamt = s - NTL_DOUBLE_PRECISION;
+   s = _kctsb_g2log(n);
+   shamt = s - KCTSB_DOUBLE_PRECISION;
 
    if (shamt <= 0)
-      return _ntl_gdoub_aux(n);
+      return _kctsb_gdoub_aux(n);
 
-   _ntl_grshift(n, shamt, &tmp);
+   _kctsb_grshift(n, shamt, &tmp);
 
-   correction = _ntl_ground_correction(n, shamt, 0);
+   correction = _kctsb_ground_correction(n, shamt, 0);
 
-   if (correction) _ntl_gsadd(tmp, correction, &tmp);
+   if (correction) _kctsb_gsadd(tmp, correction, &tmp);
 
-   x = _ntl_gdoub_aux(tmp);
+   x = _kctsb_gdoub_aux(tmp);
 
-   x = _ntl_ldexp(x, shamt);
+   x = _kctsb_ldexp(x, shamt);
 
    return x;
 }
 
 
-double _ntl_glog(_ntl_gbigint n)
+double _kctsb_glog(_kctsb_gbigint n)
 {
    GRegister(tmp);
 
@@ -4929,29 +4929,29 @@ double _ntl_glog(_ntl_gbigint n)
    long correction;
    double x;
 
-   if (_ntl_gsign(n) <= 0)
+   if (_kctsb_gsign(n) <= 0)
       ArithmeticError("log argument <= 0");
 
-   s = _ntl_g2log(n);
-   shamt = s - NTL_DOUBLE_PRECISION;
+   s = _kctsb_g2log(n);
+   shamt = s - KCTSB_DOUBLE_PRECISION;
 
    if (shamt <= 0)
-      return log(_ntl_gdoub_aux(n));
+      return log(_kctsb_gdoub_aux(n));
 
-   _ntl_grshift(n, shamt, &tmp);
+   _kctsb_grshift(n, shamt, &tmp);
 
-   correction = _ntl_ground_correction(n, shamt, 0);
+   correction = _kctsb_ground_correction(n, shamt, 0);
 
-   if (correction) _ntl_gsadd(tmp, correction, &tmp);
+   if (correction) _kctsb_gsadd(tmp, correction, &tmp);
 
-   x = _ntl_gdoub_aux(tmp);
+   x = _kctsb_gdoub_aux(tmp);
 
    return log(x) + shamt*log_2;
 }
 
 
 
-void _ntl_gdoubtoz(double a, _ntl_gbigint *xx)
+void _kctsb_gdoubtoz(double a, _kctsb_gbigint *xx)
 {
    GRegister(x);
 
@@ -4960,7 +4960,7 @@ void _ntl_gdoubtoz(double a, _ntl_gbigint *xx)
    a = floor(a);
 
    if (!IsFinite(&a))
-      ArithmeticError("_ntl_gdoubtoz: attempt to convert non-finite value");
+      ArithmeticError("_kctsb_gdoubtoz: attempt to convert non-finite value");
 
    if (a < 0) {
       a = -a;
@@ -4970,38 +4970,38 @@ void _ntl_gdoubtoz(double a, _ntl_gbigint *xx)
       neg = 0;
 
    if (a == 0) {
-      _ntl_gzero(xx);
+      _kctsb_gzero(xx);
       return;
    }
 
    sz = 0;
    while (a >= 1) {
-      a = a*(1.0/double(NTL_NSP_BOUND));
+      a = a*(1.0/double(KCTSB_NSP_BOUND));
       sz++;
    }
 
    i = 0;
-   _ntl_gzero(&x);
+   _kctsb_gzero(&x);
 
    while (a != 0) {
       i++;
-      a = a*double(NTL_NSP_BOUND);
+      a = a*double(KCTSB_NSP_BOUND);
       t = (long) a;
       a = a - t; // NOTE: this subtraction should be exact
 
       if (i == 1) {
-         _ntl_gintoz(t, &x);
+         _kctsb_gintoz(t, &x);
       }
       else {
-         _ntl_glshift(x, NTL_NSP_NBITS, &x);
-         _ntl_gsadd(x, t, &x);
+         _kctsb_glshift(x, KCTSB_NSP_NBITS, &x);
+         _kctsb_gsadd(x, t, &x);
       }
    }
 
-   if (i > sz) TerminalError("bug in _ntl_gdoubtoz");
+   if (i > sz) TerminalError("bug in _kctsb_gdoubtoz");
 
-   _ntl_glshift(x, (sz-i)*NTL_NSP_NBITS, xx);
-   if (neg) _ntl_gnegate(xx);
+   _kctsb_glshift(x, (sz-i)*KCTSB_NSP_NBITS, xx);
+   if (neg) _kctsb_gnegate(xx);
 }
 
 
@@ -5012,13 +5012,13 @@ void _ntl_gdoubtoz(double a, _ntl_gbigint *xx)
 
 
 long 
-_ntl_gxxratrecon(
-   _ntl_gbigint ain,
-   _ntl_gbigint nin,
-   _ntl_gbigint num_bound,
-   _ntl_gbigint den_bound,
-   _ntl_gbigint *num_out,
-   _ntl_gbigint *den_out
+_kctsb_gxxratrecon(
+   _kctsb_gbigint ain,
+   _kctsb_gbigint nin,
+   _kctsb_gbigint num_bound,
+   _kctsb_gbigint den_bound,
+   _kctsb_gbigint *num_out,
+   _kctsb_gbigint *den_out
    )
 {
    GRegister(a);
@@ -5035,7 +5035,7 @@ _ntl_gxxratrecon(
    GRegister(inv_bak);
    GRegister(w_bak);
 
-   _ntl_limb_t *p;
+   _kctsb_limb_t *p;
 
    long diff;
    long ilo;
@@ -5066,7 +5066,7 @@ _ntl_gxxratrecon(
    double den;
    double dirt;
 
-   if (_ntl_gsign(num_bound) < 0)
+   if (_kctsb_gsign(num_bound) < 0)
       LogicError("rational reconstruction: bad numerator bound");
 
    if (!num_bound)
@@ -5074,55 +5074,55 @@ _ntl_gxxratrecon(
    else
       snum = SIZE(num_bound);
 
-   if (_ntl_gsign(den_bound) <= 0)
+   if (_kctsb_gsign(den_bound) <= 0)
       LogicError("rational reconstruction: bad denominator bound");
 
    sden = SIZE(den_bound);
 
-   if (_ntl_gsign(nin) <= 0)
+   if (_kctsb_gsign(nin) <= 0)
       LogicError("rational reconstruction: bad modulus");
 
-   if (_ntl_gsign(ain) < 0 || _ntl_gcompare(ain, nin) >= 0)
+   if (_kctsb_gsign(ain) < 0 || _kctsb_gcompare(ain, nin) >= 0)
       LogicError("rational reconstruction: bad residue");
 
       
    e = 2+SIZE(nin);
 
-   _ntl_gsetlength(&a, e);
-   _ntl_gsetlength(&n, e);
-   _ntl_gsetlength(&q, e);
-   _ntl_gsetlength(&w, e);
-   _ntl_gsetlength(&x, e);
-   _ntl_gsetlength(&y, e);
-   _ntl_gsetlength(&z, e);
-   _ntl_gsetlength(&inv, e);
-   _ntl_gsetlength(&u, e);
-   _ntl_gsetlength(&a_bak, e);
-   _ntl_gsetlength(&n_bak, e);
-   _ntl_gsetlength(&inv_bak, e);
-   _ntl_gsetlength(&w_bak, e);
+   _kctsb_gsetlength(&a, e);
+   _kctsb_gsetlength(&n, e);
+   _kctsb_gsetlength(&q, e);
+   _kctsb_gsetlength(&w, e);
+   _kctsb_gsetlength(&x, e);
+   _kctsb_gsetlength(&y, e);
+   _kctsb_gsetlength(&z, e);
+   _kctsb_gsetlength(&inv, e);
+   _kctsb_gsetlength(&u, e);
+   _kctsb_gsetlength(&a_bak, e);
+   _kctsb_gsetlength(&n_bak, e);
+   _kctsb_gsetlength(&inv_bak, e);
+   _kctsb_gsetlength(&w_bak, e);
 
-   fhi1 = double(1L) + double(32L)/NTL_FDOUBLE_PRECISION;
-   flo1 = double(1L) - double(32L)/NTL_FDOUBLE_PRECISION;
+   fhi1 = double(1L) + double(32L)/KCTSB_FDOUBLE_PRECISION;
+   flo1 = double(1L) - double(32L)/KCTSB_FDOUBLE_PRECISION;
 
-   fhi = double(1L) + double(8L)/NTL_FDOUBLE_PRECISION;
-   flo = double(1L) - double(8L)/NTL_FDOUBLE_PRECISION;
+   fhi = double(1L) + double(8L)/KCTSB_FDOUBLE_PRECISION;
+   flo = double(1L) - double(8L)/KCTSB_FDOUBLE_PRECISION;
 
-   _ntl_gcopy(ain, &a);
-   _ntl_gcopy(nin, &n);
+   _kctsb_gcopy(ain, &a);
+   _kctsb_gcopy(nin, &n);
 
-   _ntl_gone(&inv);
-   _ntl_gzero(&w);
+   _kctsb_gone(&inv);
+   _kctsb_gzero(&w);
 
    while (1)
    {
-      if (SIZE(w) >= sden && _ntl_gcompare(w, den_bound) > 0) break;
-      if (SIZE(n) <= snum && _ntl_gcompare(n, num_bound) <= 0) break;
+      if (SIZE(w) >= sden && _kctsb_gcompare(w, den_bound) > 0) break;
+      if (SIZE(n) <= snum && _kctsb_gcompare(n, num_bound) <= 0) break;
 
-      _ntl_gcopy(a, &a_bak);
-      _ntl_gcopy(n, &n_bak);
-      _ntl_gcopy(w, &w_bak);
-      _ntl_gcopy(inv, &inv_bak);
+      _kctsb_gcopy(a, &a_bak);
+      _kctsb_gcopy(n, &n_bak);
+      _kctsb_gcopy(w, &w_bak);
+      _kctsb_gcopy(inv, &inv_bak);
 
       gotthem = 0;
       sa = SIZE(a);
@@ -5132,19 +5132,19 @@ _ntl_gxxratrecon(
       {
          sa = SIZE(a);
          p = DATA(a) + (sa-1);
-         num = DBL(*p) * NTL_ZZ_FRADIX;
+         num = DBL(*p) * KCTSB_ZZ_FRADIX;
          if (sa > 1)
             num += DBL(*(--p));
-         num *= NTL_ZZ_FRADIX;
+         num *= KCTSB_ZZ_FRADIX;
          if (sa > 2)
             num += DBL(*(p - 1));
 
          sn = SIZE(n);
          p = DATA(n) + (sn-1);
-         den = DBL(*p) * NTL_ZZ_FRADIX;
+         den = DBL(*p) * KCTSB_ZZ_FRADIX;
          if (sn > 1)
             den += DBL(*(--p));
-         den *= NTL_ZZ_FRADIX;
+         den *= KCTSB_ZZ_FRADIX;
          if (sn > 2)
             den += DBL(*(p - 1));
 
@@ -5152,8 +5152,8 @@ _ntl_gxxratrecon(
          lo = flo1 * num / (den + double(1L));
          if (diff > 0)
          {
-            hi *= NTL_ZZ_FRADIX;
-            lo *= NTL_ZZ_FRADIX;
+            hi *= KCTSB_ZZ_FRADIX;
+            lo *= KCTSB_ZZ_FRADIX;
          }
 
          try11 = 1;
@@ -5165,31 +5165,31 @@ _ntl_gxxratrecon(
          while (fast > 0)
          {
             parity = 1 - parity;
-            if (hi >= NTL_NSP_BOUND)
+            if (hi >= KCTSB_NSP_BOUND)
                fast = 0;
             else
             {
                ilo = (long)lo;
                dirt = hi - double(ilo);
-               if (dirt < 1.0/NTL_FDOUBLE_PRECISION || !ilo || ilo < (long)hi)
+               if (dirt < 1.0/KCTSB_FDOUBLE_PRECISION || !ilo || ilo < (long)hi)
                   fast = 0;
                else
                {
                   dt = lo-double(ilo);
                   lo = flo / dirt;
-                  if (dt > 1.0/NTL_FDOUBLE_PRECISION)
+                  if (dt > 1.0/KCTSB_FDOUBLE_PRECISION)
                      hi = fhi / dt;
                   else
-                     hi = double(NTL_NSP_BOUND);
+                     hi = double(KCTSB_NSP_BOUND);
                   temp = try11;
                   try11 = try21;
-                  if ((NTL_WSP_BOUND - temp) / ilo < try21)
+                  if ((KCTSB_WSP_BOUND - temp) / ilo < try21)
                      fast = 0;
                   else
                      try21 = temp + ilo * try21;
                   temp = try12;
                   try12 = try22;
-                  if ((NTL_WSP_BOUND - temp) / ilo < try22)
+                  if ((KCTSB_WSP_BOUND - temp) / ilo < try22)
                      fast = 0;
                   else
                      try22 = temp + ilo * try22;
@@ -5207,29 +5207,29 @@ _ntl_gxxratrecon(
       }
       if (gotthem)
       {
-         _ntl_gsmul(inv, got11, &x);
-         _ntl_gsmul(w, got12, &y);
-         _ntl_gsmul(inv, got21, &z);
-         _ntl_gsmul(w, got22, &w);
-         _ntl_gadd(x, y, &inv);
-         _ntl_gadd(z, w, &w);
-         _ntl_gsmul(a, got11, &x);
-         _ntl_gsmul(n, got12, &y);
-         _ntl_gsmul(a, got21, &z);
-         _ntl_gsmul(n, got22, &n);
-         _ntl_gsub(x, y, &a);
-         _ntl_gsub(n, z, &n);
+         _kctsb_gsmul(inv, got11, &x);
+         _kctsb_gsmul(w, got12, &y);
+         _kctsb_gsmul(inv, got21, &z);
+         _kctsb_gsmul(w, got22, &w);
+         _kctsb_gadd(x, y, &inv);
+         _kctsb_gadd(z, w, &w);
+         _kctsb_gsmul(a, got11, &x);
+         _kctsb_gsmul(n, got12, &y);
+         _kctsb_gsmul(a, got21, &z);
+         _kctsb_gsmul(n, got22, &n);
+         _kctsb_gsub(x, y, &a);
+         _kctsb_gsub(n, z, &n);
       }
       else
       {
-         _ntl_gdiv(a, n, &q, &a);
-         _ntl_gmul(q, w, &x);
-         _ntl_gadd(inv, x, &inv);
+         _kctsb_gdiv(a, n, &q, &a);
+         _kctsb_gmul(q, w, &x);
+         _kctsb_gadd(inv, x, &inv);
          if (!ZEROP(a))
          {
-            _ntl_gdiv(n, a, &q, &n);
-            _ntl_gmul(q, inv, &x);
-            _ntl_gadd(w, x, &w);
+            _kctsb_gdiv(n, a, &q, &n);
+            _kctsb_gmul(q, inv, &x);
+            _kctsb_gadd(w, x, &w);
          }
          else
          {
@@ -5238,21 +5238,21 @@ _ntl_gxxratrecon(
       }
    }
 
-   _ntl_gcopy(a_bak, &a);
-   _ntl_gcopy(n_bak, &n);
-   _ntl_gcopy(w_bak, &w);
-   _ntl_gcopy(inv_bak, &inv);
+   _kctsb_gcopy(a_bak, &a);
+   _kctsb_gcopy(n_bak, &n);
+   _kctsb_gcopy(w_bak, &w);
+   _kctsb_gcopy(inv_bak, &inv);
 
-   _ntl_gnegate(&w);
+   _kctsb_gnegate(&w);
 
    while (1)
    {
       sa = SIZE(w);
       if (sa < 0) SIZE(w) = -sa;
-      if (SIZE(w) >= sden && _ntl_gcompare(w, den_bound) > 0) return 0;
+      if (SIZE(w) >= sden && _kctsb_gcompare(w, den_bound) > 0) return 0;
       SIZE(w) = sa;
 
-      if (SIZE(n) <= snum && _ntl_gcompare(n, num_bound) <= 0) break;
+      if (SIZE(n) <= snum && _kctsb_gcompare(n, num_bound) <= 0) break;
       
       fast = 0;
       sa = SIZE(a);
@@ -5262,19 +5262,19 @@ _ntl_gxxratrecon(
       {
          sa = SIZE(a);
          p = DATA(a) + (sa-1);
-         num = DBL(*p) * NTL_ZZ_FRADIX;
+         num = DBL(*p) * KCTSB_ZZ_FRADIX;
          if (sa > 1)
             num += DBL(*(--p));
-         num *= NTL_ZZ_FRADIX;
+         num *= KCTSB_ZZ_FRADIX;
          if (sa > 2)
             num += DBL(*(p - 1));
 
          sn = SIZE(n);
          p = DATA(n) + (sn-1);
-         den = DBL(*p) * NTL_ZZ_FRADIX;
+         den = DBL(*p) * KCTSB_ZZ_FRADIX;
          if (sn > 1)
             den += DBL(*(--p));
-         den *= NTL_ZZ_FRADIX;
+         den *= KCTSB_ZZ_FRADIX;
          if (sn > 2)
             den += DBL(*(p - 1));
 
@@ -5282,11 +5282,11 @@ _ntl_gxxratrecon(
          lo = flo1 * num / (den + double(1L));
          if (diff > 0)
          {
-            hi *= NTL_ZZ_FRADIX;
-            lo *= NTL_ZZ_FRADIX;
+            hi *= KCTSB_ZZ_FRADIX;
+            lo *= KCTSB_ZZ_FRADIX;
          }
 
-         if (hi < NTL_NSP_BOUND)
+         if (hi < KCTSB_NSP_BOUND)
          {
             ilo = (long)lo;
             if (ilo == (long)hi)
@@ -5298,44 +5298,44 @@ _ntl_gxxratrecon(
       {
          if (ilo != 0) {
             if (ilo == 1) {
-               _ntl_gsub(inv, w, &inv);
-               _ntl_gsubpos(a, n, &a);
+               _kctsb_gsub(inv, w, &inv);
+               _kctsb_gsubpos(a, n, &a);
             }
             else {
-               _ntl_gsmul(w, ilo, &x);
-               _ntl_gsub(inv, x, &inv);
-               _ntl_gsmul(n, ilo, &x);
-               _ntl_gsubpos(a, x, &a);
+               _kctsb_gsmul(w, ilo, &x);
+               _kctsb_gsub(inv, x, &inv);
+               _kctsb_gsmul(n, ilo, &x);
+               _kctsb_gsubpos(a, x, &a);
             }
          }
       }
       else {
-         _ntl_gdiv(a, n, &q, &a);
-         _ntl_gmul(q, w, &x);
-         _ntl_gsub(inv, x, &inv);
+         _kctsb_gdiv(a, n, &q, &a);
+         _kctsb_gmul(q, w, &x);
+         _kctsb_gsub(inv, x, &inv);
       }
 
-      _ntl_gswap(&a, &n);
-      _ntl_gswap(&inv, &w);
+      _kctsb_gswap(&a, &n);
+      _kctsb_gswap(&inv, &w);
    }
 
-   if (_ntl_gsign(w) < 0) {
-      _ntl_gnegate(&w);
-      _ntl_gnegate(&n);
+   if (_kctsb_gsign(w) < 0) {
+      _kctsb_gnegate(&w);
+      _kctsb_gnegate(&n);
    }
 
-   _ntl_gcopy(n, num_out);
-   _ntl_gcopy(w, den_out);
+   _kctsb_gcopy(n, num_out);
+   _kctsb_gcopy(w, den_out);
 
    return 1;
 }
 
 
 void
-_ntl_gexp(
-	_ntl_gbigint a,
+_kctsb_gexp(
+	_kctsb_gbigint a,
 	long e,
-	_ntl_gbigint *bb
+	_kctsb_gbigint *bb
 	)
 {
 	long k;
@@ -5344,43 +5344,43 @@ _ntl_gexp(
 
 	if (!e)
 	{
-		_ntl_gone(bb);
+		_kctsb_gone(bb);
 		return;
 	}
 
 	if (e < 0)
-		ArithmeticError("negative exponent in _ntl_gexp");
+		ArithmeticError("negative exponent in _kctsb_gexp");
 
 	if (ZEROP(a))
 	{
-		_ntl_gzero(bb);
+		_kctsb_gzero(bb);
 		return;
 	}
 
-	len_a = _ntl_g2log(a);
-	if (len_a > (NTL_MAX_LONG-(NTL_ZZ_NBITS-1))/e)
-		ResourceError("overflow in _ntl_gexp");
+	len_a = _kctsb_g2log(a);
+	if (len_a > (KCTSB_MAX_LONG-(KCTSB_ZZ_NBITS-1))/e)
+		ResourceError("overflow in _kctsb_gexp");
 
-	_ntl_gsetlength(&res, (len_a*e+NTL_ZZ_NBITS-1)/NTL_ZZ_NBITS);
+	_kctsb_gsetlength(&res, (len_a*e+KCTSB_ZZ_NBITS-1)/KCTSB_ZZ_NBITS);
 
-	_ntl_gcopy(a, &res);
+	_kctsb_gcopy(a, &res);
 	k = 1;
 	while ((k << 1) <= e)
 		k <<= 1;
 	while (k >>= 1) {
-		_ntl_gsq(res, &res);
+		_kctsb_gsq(res, &res);
 		if (e & k)
-			_ntl_gmul(a, res, &res);
+			_kctsb_gmul(a, res, &res);
 	}
 
-	_ntl_gcopy(res, bb);
+	_kctsb_gcopy(res, bb);
 }
 
 void
-_ntl_gexps(
+_kctsb_gexps(
 	long a,
 	long e,
-	_ntl_gbigint *bb
+	_kctsb_gbigint *bb
 	)
 {
 	long k;
@@ -5389,36 +5389,36 @@ _ntl_gexps(
 
 	if (!e)
 	{
-		_ntl_gone(bb);
+		_kctsb_gone(bb);
 		return;
 	}
 
 	if (e < 0)
-		ArithmeticError("negative exponent in _ntl_zexps");
+		ArithmeticError("negative exponent in _kctsb_zexps");
 
 	if (!a)
 	{
-		_ntl_gzero(bb);
+		_kctsb_gzero(bb);
 		return;
 	}
 
-	len_a = _ntl_g2logs(a);
-	if (len_a > (NTL_MAX_LONG-(NTL_ZZ_NBITS-1))/e)
-		ResourceError("overflow in _ntl_gexps");
+	len_a = _kctsb_g2logs(a);
+	if (len_a > (KCTSB_MAX_LONG-(KCTSB_ZZ_NBITS-1))/e)
+		ResourceError("overflow in _kctsb_gexps");
 
-	_ntl_gsetlength(&res, (len_a*e+NTL_ZZ_NBITS-1)/NTL_ZZ_NBITS);
+	_kctsb_gsetlength(&res, (len_a*e+KCTSB_ZZ_NBITS-1)/KCTSB_ZZ_NBITS);
 
-	_ntl_gintoz(a, &res);
+	_kctsb_gintoz(a, &res);
 	k = 1;
 	while ((k << 1) <= e)
 		k <<= 1;
 	while (k >>= 1) {
-		_ntl_gsq(res, &res);
+		_kctsb_gsq(res, &res);
 		if (e & k)
-			_ntl_gsmul(res, a, &res);
+			_kctsb_gsmul(res, a, &res);
 	}
 
-	_ntl_gcopy(res, bb);
+	_kctsb_gcopy(res, bb);
 }
 
 
@@ -5447,14 +5447,14 @@ long OptWinSize(long n)
 
 
 static
-_ntl_limb_t neg_inv_mod_limb(_ntl_limb_t m0)
+_kctsb_limb_t neg_inv_mod_limb(_kctsb_limb_t m0)
 {
-   _ntl_limb_t x; 
+   _kctsb_limb_t x; 
    long k;
 
    x = 1; 
    k = 1; 
-   while (k < NTL_ZZ_NBITS) {
+   while (k < KCTSB_ZZ_NBITS) {
       x += x * (1UL - x * m0); 
       k <<= 1;
    }
@@ -5464,7 +5464,7 @@ _ntl_limb_t neg_inv_mod_limb(_ntl_limb_t m0)
 
 
 /* Montgomery reduction:
- * This computes res = T/b^m mod N, where b = 2^{NTL_ZZ_NBITS}.
+ * This computes res = T/b^m mod N, where b = 2^{KCTSB_ZZ_NBITS}.
  * It is assumed that N has n limbs, and that T has at most n + m limbs.
  * Also, inv should be set to -N^{-1} mod b.
  * Finally, it is assumed that T has space allocated for n + m limbs,
@@ -5476,11 +5476,11 @@ _ntl_limb_t neg_inv_mod_limb(_ntl_limb_t m0)
 
 
 static
-void redc(_ntl_gbigint T, _ntl_gbigint N, long m, _ntl_limb_t inv, 
-          _ntl_gbigint res) 
+void redc(_kctsb_gbigint T, _kctsb_gbigint N, long m, _kctsb_limb_t inv, 
+          _kctsb_gbigint res) 
 {
    long n, sT, i;
-   _ntl_limb_t *Ndata, *Tdata, *resdata, q, d, t, c;
+   _kctsb_limb_t *Ndata, *Tdata, *resdata, q, d, t, c;
 
    n = SIZE(N);
    Ndata = DATA(N);
@@ -5494,7 +5494,7 @@ void redc(_ntl_gbigint T, _ntl_gbigint N, long m, _ntl_limb_t inv,
    c = 0;
    for (i = 0; i < m; i++) {
       q = CLIP(Tdata[i]*inv);
-      d = NTL_MPN(addmul_1)(Tdata+i, Ndata, n, q);
+      d = KCTSB_MPN(addmul_1)(Tdata+i, Ndata, n, q);
 
       // (c, Tdata[i+n]) = c + d + Tdata[i+n]
       t = CLIP(Tdata[i+n] + d);
@@ -5506,7 +5506,7 @@ void redc(_ntl_gbigint T, _ntl_gbigint N, long m, _ntl_limb_t inv,
    }
 
    if (c) {
-      NTL_MPN(sub_n)(resdata, Tdata + m, Ndata, n);
+      KCTSB_MPN(sub_n)(resdata, Tdata + m, Ndata, n);
    }
    else {
       for (i = 0; i < n; i++)
@@ -5526,31 +5526,31 @@ void redc(_ntl_gbigint T, _ntl_gbigint N, long m, _ntl_limb_t inv,
 // for ZZ_pX arithmetic.  It gives a nontrivial speedup
 // for smallish p (up to a few hundred bits)
 
-class _ntl_reduce_struct_montgomery : public _ntl_reduce_struct {
+class _kctsb_reduce_struct_montgomery : public _kctsb_reduce_struct {
 public:
    long m;
-   _ntl_limb_t inv;
-   _ntl_gbigint_wrapped N;
+   _kctsb_limb_t inv;
+   _kctsb_gbigint_wrapped N;
 
-   void eval(_ntl_gbigint *rres, _ntl_gbigint *TT);
-   void adjust(_ntl_gbigint *x);
+   void eval(_kctsb_gbigint *rres, _kctsb_gbigint *TT);
+   void adjust(_kctsb_gbigint *x);
 };
 
 
 
 
-void _ntl_reduce_struct_montgomery::eval(_ntl_gbigint *rres, _ntl_gbigint *TT)
+void _kctsb_reduce_struct_montgomery::eval(_kctsb_gbigint *rres, _kctsb_gbigint *TT)
 {
    long n, sT, i;
-   _ntl_limb_t *Ndata, *Tdata, *resdata, q, d, t, c;
-   _ntl_gbigint res, T;
+   _kctsb_limb_t *Ndata, *Tdata, *resdata, q, d, t, c;
+   _kctsb_gbigint res, T;
 
 
    T = *TT;
 
    // quick zero test, in case of sparse polynomials
    if (ZEROP(T)) {
-      _ntl_gzero(rres);
+      _kctsb_gzero(rres);
       return;
    }
 
@@ -5558,13 +5558,13 @@ void _ntl_reduce_struct_montgomery::eval(_ntl_gbigint *rres, _ntl_gbigint *TT)
    Ndata = DATA(N);
 
    if (MustAlloc(T, m+n)) {
-      _ntl_gsetlength(&T, m+n);
+      _kctsb_gsetlength(&T, m+n);
       *TT = T;
    }
 
    res = *rres;
    if (MustAlloc(res, n)) {
-      _ntl_gsetlength(&res, n);
+      _kctsb_gsetlength(&res, n);
       *rres = res;
    }
 
@@ -5578,7 +5578,7 @@ void _ntl_reduce_struct_montgomery::eval(_ntl_gbigint *rres, _ntl_gbigint *TT)
    c = 0;
    for (i = 0; i < m; i++) {
       q = CLIP(Tdata[i]*inv);
-      d = NTL_MPN(addmul_1)(Tdata+i, Ndata, n, q);
+      d = KCTSB_MPN(addmul_1)(Tdata+i, Ndata, n, q);
 
       // (c, Tdata[i+n]) = c + d + Tdata[i+n]
       t = CLIP(Tdata[i+n] + d);
@@ -5589,8 +5589,8 @@ void _ntl_reduce_struct_montgomery::eval(_ntl_gbigint *rres, _ntl_gbigint *TT)
          c = 0;
    }
 
-   if (c || NTL_MPN(cmp)(Tdata + m, Ndata, n) >= 0) {
-      NTL_MPN(sub_n)(resdata, Tdata + m, Ndata, n);
+   if (c || KCTSB_MPN(cmp)(Tdata + m, Ndata, n) >= 0) {
+      KCTSB_MPN(sub_n)(resdata, Tdata + m, Ndata, n);
    }
    else {
       for (i = 0; i < n; i++)
@@ -5607,56 +5607,56 @@ void _ntl_reduce_struct_montgomery::eval(_ntl_gbigint *rres, _ntl_gbigint *TT)
 // this will adjust the given number by multiplying by the
 // montgomery scaling factor
 
-void _ntl_reduce_struct_montgomery::adjust(_ntl_gbigint *x)
+void _kctsb_reduce_struct_montgomery::adjust(_kctsb_gbigint *x)
 {
    GRegister(tmp);
-   _ntl_glshift(*x, m*NTL_ZZ_NBITS, &tmp); 
-   _ntl_gmod(tmp, N, x);
+   _kctsb_glshift(*x, m*KCTSB_ZZ_NBITS, &tmp); 
+   _kctsb_gmod(tmp, N, x);
 }
 
 
 
 
-class _ntl_reduce_struct_plain : public _ntl_reduce_struct {
+class _kctsb_reduce_struct_plain : public _kctsb_reduce_struct {
 public:
-   _ntl_gbigint_wrapped N;
+   _kctsb_gbigint_wrapped N;
 
-   void eval(_ntl_gbigint *rres, _ntl_gbigint *TT)
+   void eval(_kctsb_gbigint *rres, _kctsb_gbigint *TT)
    {
-      _ntl_gmod(*TT, N, rres);
+      _kctsb_gmod(*TT, N, rres);
    }
 
-   void adjust(_ntl_gbigint *x) { }
+   void adjust(_kctsb_gbigint *x) { }
 };
 
 // assumption: all values passed to eval for montgomery reduction
 // are in [0, modulus*excess]
 
-_ntl_reduce_struct *
-_ntl_reduce_struct_build(_ntl_gbigint modulus, _ntl_gbigint excess)
+_kctsb_reduce_struct *
+_kctsb_reduce_struct_build(_kctsb_gbigint modulus, _kctsb_gbigint excess)
 {
-   if (_ntl_godd(modulus)) {
-      UniquePtr<_ntl_reduce_struct_montgomery> C;
+   if (_kctsb_godd(modulus)) {
+      UniquePtr<_kctsb_reduce_struct_montgomery> C;
       C.make();
 
-      C->m = _ntl_gsize(excess);
+      C->m = _kctsb_gsize(excess);
       C->inv = neg_inv_mod_limb(DATA(modulus)[0]);
-      _ntl_gcopy(modulus, &C->N);
+      _kctsb_gcopy(modulus, &C->N);
 
       return C.release();
    }
    else {
-      UniquePtr<_ntl_reduce_struct_plain> C;
+      UniquePtr<_kctsb_reduce_struct_plain> C;
       C.make();
 
-      _ntl_gcopy(modulus, &C->N);
+      _kctsb_gcopy(modulus, &C->N);
 
       return C.release();
    }
 }
 
 
-#if (defined(NTL_GMP_LIP) && NTL_NAIL_BITS == 0)
+#if (defined(KCTSB_GMP_LIP) && KCTSB_NAIL_BITS == 0)
 // DIRT: only works with empty nails
 // Assumes: F > 1,   0 < g < F,   e > 0
 
@@ -5668,8 +5668,8 @@ struct wrapped_mpz {
 };
 
 static
-void _ntl_gmp_powermod(_ntl_gbigint g, _ntl_gbigint e, _ntl_gbigint F,
-                       _ntl_gbigint *h)
+void _kctsb_gmp_powermod(_kctsb_gbigint g, _kctsb_gbigint e, _kctsb_gbigint F,
+                       _kctsb_gbigint *h)
 {
    wrapped_mpz gg;
    wrapped_mpz ee;
@@ -5683,14 +5683,14 @@ void _ntl_gmp_powermod(_ntl_gbigint g, _ntl_gbigint e, _ntl_gbigint F,
    mpz_powm(res.body, gg.body, ee.body, FF.body);
 
    if (mpz_sgn(res.body) == 0) {
-      _ntl_gzero(h);
+      _kctsb_gzero(h);
       return;
    }
 
    long sz = mpz_size(res.body);
 
-   _ntl_gsetlength(h, sz);
-   _ntl_limb_t *hdata = DATA(*h);
+   _kctsb_gsetlength(h, sz);
+   _kctsb_limb_t *hdata = DATA(*h);
    SIZE(*h) = sz;
 
    mpz_export(hdata, 0, -1, sizeof(mp_limb_t), 0, 0, res.body);
@@ -5702,13 +5702,13 @@ void _ntl_gmp_powermod(_ntl_gbigint g, _ntl_gbigint e, _ntl_gbigint F,
 // On 2-limb numbers, it is about 10% faster.
 
 static
-void _ntl_gmp_powermod_alt(_ntl_gbigint g, _ntl_gbigint e, _ntl_gbigint F,
-                           _ntl_gbigint *h)
+void _kctsb_gmp_powermod_alt(_kctsb_gbigint g, _kctsb_gbigint e, _kctsb_gbigint F,
+                           _kctsb_gbigint *h)
 {
-   NTL_TLS_LOCAL(wrapped_mpz, gg);
-   NTL_TLS_LOCAL(wrapped_mpz, ee);
-   NTL_TLS_LOCAL(wrapped_mpz, FF);
-   NTL_TLS_LOCAL(wrapped_mpz, res);
+   KCTSB_TLS_LOCAL(wrapped_mpz, gg);
+   KCTSB_TLS_LOCAL(wrapped_mpz, ee);
+   KCTSB_TLS_LOCAL(wrapped_mpz, FF);
+   KCTSB_TLS_LOCAL(wrapped_mpz, res);
 
    mpz_import(gg.body, SIZE(g), -1, sizeof(mp_limb_t), 0, 0, DATA(g));
    mpz_import(ee.body, SIZE(e), -1, sizeof(mp_limb_t), 0, 0, DATA(e));
@@ -5717,14 +5717,14 @@ void _ntl_gmp_powermod_alt(_ntl_gbigint g, _ntl_gbigint e, _ntl_gbigint F,
    mpz_powm(res.body, gg.body, ee.body, FF.body);
 
    if (mpz_sgn(res.body) == 0) {
-      _ntl_gzero(h);
+      _kctsb_gzero(h);
       return;
    }
 
    long sz = mpz_size(res.body);
 
-   _ntl_gsetlength(h, sz);
-   _ntl_limb_t *hdata = DATA(*h);
+   _kctsb_gsetlength(h, sz);
+   _kctsb_limb_t *hdata = DATA(*h);
    SIZE(*h) = sz;
 
    mpz_export(hdata, 0, -1, sizeof(mp_limb_t), 0, 0, res.body);
@@ -5736,8 +5736,8 @@ void _ntl_gmp_powermod_alt(_ntl_gbigint g, _ntl_gbigint e, _ntl_gbigint F,
 
 #define REDC_CROSS (32)
 
-void _ntl_gpowermod(_ntl_gbigint g, _ntl_gbigint e, _ntl_gbigint F,
-                    _ntl_gbigint *h)
+void _kctsb_gpowermod(_kctsb_gbigint g, _kctsb_gbigint e, _kctsb_gbigint F,
+                    _kctsb_gbigint *h)
 
 /* h = g^e mod f using "sliding window" algorithm
 
@@ -5748,59 +5748,59 @@ void _ntl_gpowermod(_ntl_gbigint g, _ntl_gbigint e, _ntl_gbigint F,
 {
  
    
-   if (_ntl_gsign(e) < 0 || _ntl_gsign(g) < 0 || _ntl_gcompare(g, F) >= 0 || 
-       _ntl_gscompare(F, 1) <= 0) {
+   if (_kctsb_gsign(e) < 0 || _kctsb_gsign(g) < 0 || _kctsb_gcompare(g, F) >= 0 || 
+       _kctsb_gscompare(F, 1) <= 0) {
       LogicError("PowerMod: bad args");
    }
 
    if (ZEROP(e)) {
-      _ntl_gone(h);
+      _kctsb_gone(h);
       return;
    }
 
    if (ONEP(e)) {
-      _ntl_gcopy(g, h);
+      _kctsb_gcopy(g, h);
       return;
    }
 
-   if (_ntl_gscompare(e, 2) == 0) {
-      _ntl_gsqmod(g, F, h);
+   if (_kctsb_gscompare(e, 2) == 0) {
+      _kctsb_gsqmod(g, F, h);
       return;
    }
 
    if (ZEROP(g)) {
-      _ntl_gzero(h);
+      _kctsb_gzero(h);
       return;
    }
 
-   long n = _ntl_g2log(e);
+   long n = _kctsb_g2log(e);
 
-#if (1 && defined(NTL_GMP_LIP) && NTL_NAIL_BITS == 0)
+#if (1 && defined(KCTSB_GMP_LIP) && KCTSB_NAIL_BITS == 0)
    if (n > 10) {
       if (SIZE(F) < 6 && SIZE(e) < 10) 
-         _ntl_gmp_powermod_alt(g, e, F, h); 
+         _kctsb_gmp_powermod_alt(g, e, F, h); 
       else
-         _ntl_gmp_powermod(g, e, F, h);
+         _kctsb_gmp_powermod(g, e, F, h);
       return;
    }
 #endif
 
-   _ntl_gbigint_wrapped res, gg, t;
-   UniqueArray<_ntl_gbigint_wrapped> v;
+   _kctsb_gbigint_wrapped res, gg, t;
+   UniqueArray<_kctsb_gbigint_wrapped> v;
 
    long i, k, val, cnt, m;
    long use_redc, sF;
-   _ntl_limb_t inv;
+   _kctsb_limb_t inv;
 
    sF = SIZE(F);
 
    res = 0;
-   _ntl_gsetlength(&res, sF*2);
+   _kctsb_gsetlength(&res, sF*2);
 
    t = 0;
-   _ntl_gsetlength(&t, sF*2);
+   _kctsb_gsetlength(&t, sF*2);
 
-#ifdef NTL_GMP_LIP
+#ifdef KCTSB_GMP_LIP
    // NOTE: GMP has a fast division routine for larger 
    // numbers, so we only use Montgomery for smallish moduli
    use_redc = (DATA(F)[0] & 1) && sF < REDC_CROSS;
@@ -5811,59 +5811,59 @@ void _ntl_gpowermod(_ntl_gbigint g, _ntl_gbigint e, _ntl_gbigint F,
    gg = 0;
 
    if (use_redc) {
-      _ntl_glshift(g, sF*NTL_ZZ_NBITS, &res);
-      _ntl_gmod(res, F, &gg);
+      _kctsb_glshift(g, sF*KCTSB_ZZ_NBITS, &res);
+      _kctsb_gmod(res, F, &gg);
 
       inv = neg_inv_mod_limb(DATA(F)[0]);
    }
    else
-      _ntl_gcopy(g, &gg);
+      _kctsb_gcopy(g, &gg);
 
 
-   if (_ntl_gscompare(g, 2) == 0) {
+   if (_kctsb_gscompare(g, 2) == 0) {
       /* plain square-and-multiply algorithm, optimized for g == 2 */
 
-      _ntl_gbigint_wrapped F1;
+      _kctsb_gbigint_wrapped F1;
 
       if (use_redc) {
          long shamt;
 
          shamt = COUNT_BITS(DATA(F)[sF-1]);
-         shamt = NTL_ZZ_NBITS - shamt;
-         _ntl_glshift(F, shamt, &F1);
+         shamt = KCTSB_ZZ_NBITS - shamt;
+         _kctsb_glshift(F, shamt, &F1);
       }
 
-      _ntl_gcopy(gg, &res);
+      _kctsb_gcopy(gg, &res);
 
       for (i = n - 2; i >= 0; i--) {
-         _ntl_gsq(res, &t);
-         if (use_redc) redc(t, F, sF, inv, res); else _ntl_gmod(t, F, &res);
+         _kctsb_gsq(res, &t);
+         if (use_redc) redc(t, F, sF, inv, res); else _kctsb_gmod(t, F, &res);
 
-         if (_ntl_gbit(e, i)) {
-            _ntl_gadd(res, res, &res);
+         if (_kctsb_gbit(e, i)) {
+            _kctsb_gadd(res, res, &res);
 
             if (use_redc) {
                while (SIZE(res) > sF) {
-                  _ntl_gsubpos(res, F1, &res);
+                  _kctsb_gsubpos(res, F1, &res);
                }
             }
             else {
-               if (_ntl_gcompare(res, F) >= 0)
-                  _ntl_gsubpos(res, F, &res);
+               if (_kctsb_gcompare(res, F) >= 0)
+                  _kctsb_gsubpos(res, F, &res);
             }
          }
       }
 
 
       if (use_redc) {
-         _ntl_gcopy(res, &t);
+         _kctsb_gcopy(res, &t);
          redc(t, F, sF, inv, res);
-         if (_ntl_gcompare(res, F) >= 0) {
-            _ntl_gsub(res, F, &res);
+         if (_kctsb_gcompare(res, F) >= 0) {
+            _kctsb_gsub(res, F, &res);
          }
       }
 
-      _ntl_gcopy(res, h);
+      _kctsb_gcopy(res, h);
       return;
    }
 
@@ -5871,28 +5871,28 @@ void _ntl_gpowermod(_ntl_gbigint g, _ntl_gbigint e, _ntl_gbigint F,
    if (n < 16) { 
       /* plain square-and-multiply algorithm */
 
-      _ntl_gcopy(gg, &res);
+      _kctsb_gcopy(gg, &res);
 
       for (i = n - 2; i >= 0; i--) {
-         _ntl_gsq(res, &t);
-         if (use_redc) redc(t, F, sF, inv, res); else _ntl_gmod(t, F, &res);
+         _kctsb_gsq(res, &t);
+         if (use_redc) redc(t, F, sF, inv, res); else _kctsb_gmod(t, F, &res);
 
-         if (_ntl_gbit(e, i)) {
-            _ntl_gmul(res, gg, &t);
-            if (use_redc) redc(t, F, sF, inv, res); else _ntl_gmod(t, F, &res);
+         if (_kctsb_gbit(e, i)) {
+            _kctsb_gmul(res, gg, &t);
+            if (use_redc) redc(t, F, sF, inv, res); else _kctsb_gmod(t, F, &res);
          }
       }
 
 
       if (use_redc) {
-         _ntl_gcopy(res, &t);
+         _kctsb_gcopy(res, &t);
          redc(t, F, sF, inv, res);
-         if (_ntl_gcompare(res, F) >= 0) {
-            _ntl_gsub(res, F, &res);
+         if (_kctsb_gcompare(res, F) >= 0) {
+            _kctsb_gsub(res, F, &res);
          }
       }
 
-      _ntl_gcopy(res, h);
+      _kctsb_gcopy(res, h);
       return;
    }
 
@@ -5903,29 +5903,29 @@ void _ntl_gpowermod(_ntl_gbigint g, _ntl_gbigint e, _ntl_gbigint F,
    v.SetLength(1L << (k-1));
    for (i = 0; i < (1L << (k-1)); i++) {
       v[i] = 0; 
-      _ntl_gsetlength(&v[i], sF);
+      _kctsb_gsetlength(&v[i], sF);
    }
 
-   _ntl_gcopy(gg, &v[0]);
+   _kctsb_gcopy(gg, &v[0]);
  
    if (k > 1) {
-      _ntl_gsq(gg, &t);
-      if (use_redc) redc(t, F, sF, inv, res); else _ntl_gmod(t, F, &res);
+      _kctsb_gsq(gg, &t);
+      if (use_redc) redc(t, F, sF, inv, res); else _kctsb_gmod(t, F, &res);
 
       for (i = 1; i < (1L << (k-1)); i++) {
-         _ntl_gmul(v[i-1], res, &t);
-         if (use_redc) redc(t, F, sF, inv, v[i]); else _ntl_gmod(t, F, &v[i]);
+         _kctsb_gmul(v[i-1], res, &t);
+         if (use_redc) redc(t, F, sF, inv, v[i]); else _kctsb_gmod(t, F, &v[i]);
       }
    }
 
-   _ntl_gcopy(gg, &res);
+   _kctsb_gcopy(gg, &res);
 
    val = 0;
    for (i = n-2; i >= 0; i--) {
-      val = (val << 1) | _ntl_gbit(e, i); 
+      val = (val << 1) | _kctsb_gbit(e, i); 
       if (val == 0) {
-         _ntl_gsq(res, &t);
-         if (use_redc) redc(t, F, sF, inv, res); else _ntl_gmod(t, F, &res);
+         _kctsb_gsq(res, &t);
+         if (use_redc) redc(t, F, sF, inv, res); else _kctsb_gmod(t, F, &res);
       }
       else if (val >= (1L << (k-1)) || i == 0) {
          cnt = 0;
@@ -5936,17 +5936,17 @@ void _ntl_gpowermod(_ntl_gbigint g, _ntl_gbigint e, _ntl_gbigint F,
 
          m = val;
          while (m > 0) {
-            _ntl_gsq(res, &t);
-            if (use_redc) redc(t, F, sF, inv, res); else _ntl_gmod(t, F, &res);
+            _kctsb_gsq(res, &t);
+            if (use_redc) redc(t, F, sF, inv, res); else _kctsb_gmod(t, F, &res);
             m = m >> 1;
          }
 
-         _ntl_gmul(res, v[val >> 1], &t);
-         if (use_redc) redc(t, F, sF, inv, res); else _ntl_gmod(t, F, &res);
+         _kctsb_gmul(res, v[val >> 1], &t);
+         if (use_redc) redc(t, F, sF, inv, res); else _kctsb_gmod(t, F, &res);
 
          while (cnt > 0) {
-            _ntl_gsq(res, &t);
-            if (use_redc) redc(t, F, sF, inv, res); else _ntl_gmod(t, F, &res);
+            _kctsb_gsq(res, &t);
+            if (use_redc) redc(t, F, sF, inv, res); else _kctsb_gmod(t, F, &res);
             cnt--;
          }
 
@@ -5955,43 +5955,43 @@ void _ntl_gpowermod(_ntl_gbigint g, _ntl_gbigint e, _ntl_gbigint F,
    }
 
    if (use_redc) {
-      _ntl_gcopy(res, &t);
+      _kctsb_gcopy(res, &t);
       redc(t, F, sF, inv, res);
-      if (_ntl_gcompare(res, F) >= 0) {
-         _ntl_gsub(res, F, &res);
+      if (_kctsb_gcompare(res, F) >= 0) {
+         _kctsb_gsub(res, F, &res);
       }
    }
 
-   _ntl_gcopy(res, h);
+   _kctsb_gcopy(res, h);
 }
 
 
-long _ntl_gisone(_ntl_gbigint rep)
+long _kctsb_gisone(_kctsb_gbigint rep)
 {
    return ONEP(rep); 
 }
 
-long _ntl_gsptest(_ntl_gbigint rep)
+long _kctsb_gsptest(_kctsb_gbigint rep)
 {
    return !rep || SIZE(rep) == 0 ||
           ((SIZE(rep) == 1 || SIZE(rep) == -1) && 
-           DATA(rep)[0] < ((_ntl_limb_t) NTL_SP_BOUND));
+           DATA(rep)[0] < ((_kctsb_limb_t) KCTSB_SP_BOUND));
 }
 
-long _ntl_gwsptest(_ntl_gbigint rep)
+long _kctsb_gwsptest(_kctsb_gbigint rep)
 {
    return !rep || SIZE(rep) == 0 ||
           ((SIZE(rep) == 1 || SIZE(rep) == -1) && 
-           DATA(rep)[0] < ((_ntl_limb_t) NTL_WSP_BOUND));
+           DATA(rep)[0] < ((_kctsb_limb_t) KCTSB_WSP_BOUND));
 }
 
 
 
-long _ntl_gcrtinrange(_ntl_gbigint g, _ntl_gbigint a)
+long _kctsb_gcrtinrange(_kctsb_gbigint g, _kctsb_gbigint a)
 {
    long sa, sg, i; 
-   _ntl_limb_t carry, u, v;
-   _ntl_limb_t *adata, *gdata;
+   _kctsb_limb_t carry, u, v;
+   _kctsb_limb_t *adata, *gdata;
 
    if (!a || SIZE(a) <= 0) return 0;
 
@@ -6015,7 +6015,7 @@ long _ntl_gcrtinrange(_ntl_gbigint g, _ntl_gbigint a)
    carry=0;
 
    if (sa-sg == 1) {
-      if (adata[sa-1] > ((_ntl_limb_t) 1)) return 1;
+      if (adata[sa-1] > ((_kctsb_limb_t) 1)) return 1;
       carry = 1;
    }
 
@@ -6023,7 +6023,7 @@ long _ntl_gcrtinrange(_ntl_gbigint g, _ntl_gbigint a)
    u = 0;
    v = 0;
    while (i >= 0 && u == v) {
-      u = (carry << (NTL_ZZ_NBITS-1)) + (adata[i] >> 1);
+      u = (carry << (KCTSB_ZZ_NBITS-1)) + (adata[i] >> 1);
       v = gdata[i];
       carry = (adata[i] & 1);
       i--;
@@ -6041,27 +6041,27 @@ long _ntl_gcrtinrange(_ntl_gbigint g, _ntl_gbigint a)
 
 
 
-#if (NTL_NAIL_BITS == 0)
+#if (KCTSB_NAIL_BITS == 0)
 
 /* DIRT: this routine will not work with non-empty "nails" */
-/* and assumes NTL_ZZ_NBITS is a multiple of 8 */
+/* and assumes KCTSB_ZZ_NBITS is a multiple of 8 */
 
-#if (NTL_ZZ_NBITS % 8 != 0)
-#error "assumption that NTL_ZZ_NBITS % 8 != 0"
+#if (KCTSB_ZZ_NBITS % 8 != 0)
+#error "assumption that KCTSB_ZZ_NBITS % 8 != 0"
 #endif
 
-void _ntl_gfrombytes(_ntl_gbigint *x, const unsigned char *p, long n)
+void _kctsb_gfrombytes(_kctsb_gbigint *x, const unsigned char *p, long n)
 {
    long lw, r, i, j;
-   _ntl_limb_t *xp, t;
+   _kctsb_limb_t *xp, t;
 
    while (n > 0 && p[n-1] == 0) n--;
    if (n <= 0) {
-      _ntl_gzero(x);
+      _kctsb_gzero(x);
       return;
    }
 
-   const long BytesPerLimb = NTL_ZZ_NBITS/8;
+   const long BytesPerLimb = KCTSB_ZZ_NBITS/8;
 
 
    lw = n/BytesPerLimb;
@@ -6072,14 +6072,14 @@ void _ntl_gfrombytes(_ntl_gbigint *x, const unsigned char *p, long n)
    else
       r = BytesPerLimb;
 
-   _ntl_gsetlength(x, lw); 
+   _kctsb_gsetlength(x, lw); 
    xp = DATA(*x);
 
    for (i = 0; i < lw-1; i++) {
       t = 0;
       for (j = 0; j < BytesPerLimb; j++) {
          t >>= 8;
-         t += (((_ntl_limb_t)(*p)) & ((_ntl_limb_t) 255)) << ((BytesPerLimb-1)*8);
+         t += (((_kctsb_limb_t)(*p)) & ((_kctsb_limb_t) 255)) << ((BytesPerLimb-1)*8);
          p++;
       }
       xp[i] = t;
@@ -6088,7 +6088,7 @@ void _ntl_gfrombytes(_ntl_gbigint *x, const unsigned char *p, long n)
    t = 0;
    for (j = 0; j < r; j++) {
       t >>= 8;
-      t += (((_ntl_limb_t)(*p)) & ((_ntl_limb_t) 255)) << ((BytesPerLimb-1)*8);
+      t += (((_kctsb_limb_t)(*p)) & ((_kctsb_limb_t) 255)) << ((BytesPerLimb-1)*8);
       p++;
    }
 
@@ -6100,17 +6100,17 @@ void _ntl_gfrombytes(_ntl_gbigint *x, const unsigned char *p, long n)
    SIZE(*x) = lw; 
 }
 
-void _ntl_gbytesfromz(unsigned char *p, _ntl_gbigint a, long n)
+void _kctsb_gbytesfromz(unsigned char *p, _kctsb_gbigint a, long n)
 {
    long lbits, lbytes, min_bytes, min_words, r;
    long i, j;
-   _ntl_limb_t *ap, t;
+   _kctsb_limb_t *ap, t;
 
    if (n < 0) n = 0;
 
-   const long BytesPerLimb = NTL_ZZ_NBITS/8;
+   const long BytesPerLimb = KCTSB_ZZ_NBITS/8;
 
-   lbits = _ntl_g2log(a);
+   lbits = _kctsb_g2log(a);
    lbytes = (lbits+7)/8;
 
    min_bytes = (lbytes < n) ? lbytes : n;
@@ -6132,7 +6132,7 @@ void _ntl_gbytesfromz(unsigned char *p, _ntl_gbigint a, long n)
    for (i = 0; i < min_words-1; i++) {
       t = ap[i];
       for (j = 0; j < BytesPerLimb; j++) {
-         *p = t & ((_ntl_limb_t) 255);
+         *p = t & ((_kctsb_limb_t) 255);
          t >>= 8;
          p++;
       }
@@ -6141,7 +6141,7 @@ void _ntl_gbytesfromz(unsigned char *p, _ntl_gbigint a, long n)
    if (min_words > 0) {
       t = ap[min_words-1];
       for (j = 0; j < r; j++) {
-         *p = t & ((_ntl_limb_t) 255);
+         *p = t & ((_kctsb_limb_t) 255);
          t >>= 8;
          p++;
       }
@@ -6157,23 +6157,23 @@ void _ntl_gbytesfromz(unsigned char *p, _ntl_gbigint a, long n)
 
 #else
 
-void _ntl_gfrombytes(_ntl_gbigint *x, const unsigned char *p, long n)
+void _kctsb_gfrombytes(_kctsb_gbigint *x, const unsigned char *p, long n)
 {
    long sz;
    long i;
-   _ntl_limb_t *xdata;
-   _ntl_limb_t carry, tmp;
+   _kctsb_limb_t *xdata;
+   _kctsb_limb_t carry, tmp;
 
    long bitpos, wordpos, bitoffset, diff;
    long nbits;
 
    while (n > 0 && p[n-1] == 0) n--;
    if (n <= 0) {
-      _ntl_gzero(x);
+      _kctsb_gzero(x);
       return;
    }
 
-   if (n > (NTL_MAX_LONG-(NTL_ZZ_NBITS-1))/8)
+   if (n > (KCTSB_MAX_LONG-(KCTSB_ZZ_NBITS-1))/8)
       ResourceError("ZZFromBytes: excessive length");
 
    nbits = 0;
@@ -6183,9 +6183,9 @@ void _ntl_gfrombytes(_ntl_gbigint *x, const unsigned char *p, long n)
       nbits++;
    }
 
-   sz = ((n-1)*8 + nbits + NTL_ZZ_NBITS-1)/NTL_ZZ_NBITS;
+   sz = ((n-1)*8 + nbits + KCTSB_ZZ_NBITS-1)/KCTSB_ZZ_NBITS;
 
-   _ntl_gsetlength(x, sz);
+   _kctsb_gsetlength(x, sz);
 
    xdata = DATA(*x);
 
@@ -6195,11 +6195,11 @@ void _ntl_gfrombytes(_ntl_gbigint *x, const unsigned char *p, long n)
    carry = 0;
    for (i = 0; i < n; i++) {
       bitpos = i*8;
-      wordpos = bitpos/NTL_ZZ_NBITS;
-      bitoffset = bitpos - wordpos*NTL_ZZ_NBITS;
-      diff = NTL_ZZ_NBITS-bitoffset;
+      wordpos = bitpos/KCTSB_ZZ_NBITS;
+      bitoffset = bitpos - wordpos*KCTSB_ZZ_NBITS;
+      diff = KCTSB_ZZ_NBITS-bitoffset;
 
-      tmp = _ntl_limb_t(p[i]) & _ntl_limb_t(255); 
+      tmp = _kctsb_limb_t(p[i]) & _kctsb_limb_t(255); 
 
       xdata[wordpos] |= carry | CLIP(tmp << bitoffset);
       carry = tmp >> diff;
@@ -6212,13 +6212,13 @@ void _ntl_gfrombytes(_ntl_gbigint *x, const unsigned char *p, long n)
 
 
 
-void _ntl_gbytesfromz(unsigned char *p, _ntl_gbigint a, long nn)
+void _kctsb_gbytesfromz(unsigned char *p, _kctsb_gbigint a, long nn)
 {
-   long k = _ntl_g2log(a);
+   long k = _kctsb_g2log(a);
    long n = (k+7)/8;
-   long sz = _ntl_gsize(a);
+   long sz = _kctsb_gsize(a);
    long min_n = min(n, nn); 
-   _ntl_limb_t *ap;
+   _kctsb_limb_t *ap;
    long i;
 
 
@@ -6230,16 +6230,16 @@ void _ntl_gbytesfromz(unsigned char *p, _ntl_gbigint a, long nn)
 
    for (i = 0; i < min_n; i++) {
       long bitpos = i*8;
-      long wordpos = bitpos/NTL_ZZ_NBITS;
-      long bitoffset = bitpos - wordpos*NTL_ZZ_NBITS;
+      long wordpos = bitpos/KCTSB_ZZ_NBITS;
+      long bitoffset = bitpos - wordpos*KCTSB_ZZ_NBITS;
       long diff;
 
-      p[i] = (ap[wordpos] >> bitoffset) & _ntl_limb_t(255);
+      p[i] = (ap[wordpos] >> bitoffset) & _kctsb_limb_t(255);
 
-      diff = NTL_ZZ_NBITS - bitoffset;
+      diff = KCTSB_ZZ_NBITS - bitoffset;
 
       if (diff < 8 && wordpos < sz-1) {
-         _ntl_limb_t msk = (_ntl_limb_t(1) << (8-diff))-_ntl_limb_t(1);
+         _kctsb_limb_t msk = (_kctsb_limb_t(1) << (8-diff))-_kctsb_limb_t(1);
          p[i] |= ((ap[wordpos+1] & msk) << diff);
       }
    }
@@ -6255,11 +6255,11 @@ void _ntl_gbytesfromz(unsigned char *p, _ntl_gbigint a, long nn)
 
 
 
-long _ntl_gblock_construct_alloc(_ntl_gbigint *x, long d, long n)
+long _kctsb_gblock_construct_alloc(_kctsb_gbigint *x, long d, long n)
 {
    long d1, sz, AllocAmt, m, j, alloc;
    char *p;
-   _ntl_gbigint t;
+   _kctsb_gbigint t;
 
 
    /* check n value */
@@ -6274,14 +6274,14 @@ long _ntl_gblock_construct_alloc(_ntl_gbigint *x, long d, long n)
    if (d <= 0)
       LogicError("block construct: d must be positive");
 
-   if (NTL_OVERFLOW(d, NTL_ZZ_NBITS, NTL_ZZ_NBITS))
+   if (KCTSB_OVERFLOW(d, KCTSB_ZZ_NBITS, KCTSB_ZZ_NBITS))
       ResourceError("block construct: d too large");
 
    d1 = d + 1;
 
-#ifdef NTL_SMALL_MP_SIZE_T
+#ifdef KCTSB_SMALL_MP_SIZE_T
    /* this makes sure that numbers don't get too big for GMP */
-   if (d1 >= (1L << (NTL_BITS_PER_INT-4)))
+   if (d1 >= (1L << (KCTSB_BITS_PER_INT-4)))
       ResourceError("size too big for GMP");
 #endif
 
@@ -6293,7 +6293,7 @@ long _ntl_gblock_construct_alloc(_ntl_gbigint *x, long d, long n)
 
    sz = STORAGE(d1);
 
-   AllocAmt = NTL_MAX_ALLOC_BLOCK/sz;
+   AllocAmt = KCTSB_MAX_ALLOC_BLOCK/sz;
    if (AllocAmt == 0) AllocAmt = 1;
 
    if (AllocAmt < n)
@@ -6301,13 +6301,13 @@ long _ntl_gblock_construct_alloc(_ntl_gbigint *x, long d, long n)
    else
       m = n;
 
-   p = (char *) NTL_SNS_MALLOC(m, sz, 0);
+   p = (char *) KCTSB_SNS_MALLOC(m, sz, 0);
    if (!p) MemoryError();
 
-   *x = (_ntl_gbigint) p;
+   *x = (_kctsb_gbigint) p;
 
    for (j = 0; j < m; j++) {
-      t = (_ntl_gbigint) p;
+      t = (_kctsb_gbigint) p;
       alloc = (d1 << 2) | 1;
       if (j < m-1) alloc |= 2;
       ALLOC(t) = alloc;
@@ -6319,7 +6319,7 @@ long _ntl_gblock_construct_alloc(_ntl_gbigint *x, long d, long n)
 }
 
 
-void _ntl_gblock_construct_set(_ntl_gbigint x, _ntl_gbigint *y, long i)
+void _kctsb_gblock_construct_set(_kctsb_gbigint x, _kctsb_gbigint *y, long i)
 {
    long d1, sz;
 
@@ -6327,15 +6327,15 @@ void _ntl_gblock_construct_set(_ntl_gbigint x, _ntl_gbigint *y, long i)
    d1 = ALLOC(x) >> 2;
    sz = STORAGE(d1);
 
-   *y = (_ntl_gbigint) (((char *) x) + i*sz);
+   *y = (_kctsb_gbigint) (((char *) x) + i*sz);
 }
 
 
-long _ntl_gblock_destroy(_ntl_gbigint x)
+long _kctsb_gblock_destroy(_kctsb_gbigint x)
 {
    long d1, sz, alloc, m;
    char *p;
-   _ntl_gbigint t;
+   _kctsb_gbigint t;
 
    
    d1 = ALLOC(x) >> 2;
@@ -6346,12 +6346,12 @@ long _ntl_gblock_destroy(_ntl_gbigint x)
    m = 1;
 
    for (;;) {
-      t = (_ntl_gbigint) p;
+      t = (_kctsb_gbigint) p;
       alloc = ALLOC(t);
 
       // NOTE: this must not throw 
       if ((alloc & 1) == 0) 
-         TerminalError("corrupted memory detected in _ntl_gblock_destroy");
+         TerminalError("corrupted memory detected in _kctsb_gblock_destroy");
 
       if ((alloc & 2) == 0) break;
       m++;
@@ -6363,12 +6363,12 @@ long _ntl_gblock_destroy(_ntl_gbigint x)
 }
 
 
-long _ntl_gblock_storage(long d)
+long _kctsb_gblock_storage(long d)
 {
    long d1, sz; 
 
    d1 = d + 1;
-   sz = STORAGE(d1) + sizeof(_ntl_gbigint);
+   sz = STORAGE(d1) + sizeof(_kctsb_gbigint);
 
    return sz;
 }
@@ -6381,7 +6381,7 @@ long SpecialPower(long e, long p)
    long a;
    long x, y;
 
-   a = (long) ((((_ntl_limb_t) 1) << (NTL_ZZ_NBITS-2)) % ((_ntl_limb_t) p));
+   a = (long) ((((_kctsb_limb_t) 1) << (KCTSB_ZZ_NBITS-2)) % ((_kctsb_limb_t) p));
    a = MulMod(a, 2, p);
    a = MulMod(a, 2, p);
 
@@ -6405,13 +6405,13 @@ void sp_ext_eucl(long *dd, long *ss, long *tt, long a, long b)
    long aneg = 0, bneg = 0;
 
    if (a < 0) {
-      if (a < -NTL_MAX_LONG) ResourceError("integer overflow");
+      if (a < -KCTSB_MAX_LONG) ResourceError("integer overflow");
       a = -a;
       aneg = 1;
    }
 
    if (b < 0) {
-      if (b < -NTL_MAX_LONG) ResourceError("integer overflow");
+      if (b < -KCTSB_MAX_LONG) ResourceError("integer overflow");
       b = -b;
       bneg = 1;
    }
@@ -6460,42 +6460,42 @@ long sp_inv_mod(long a, long n)
 
 
 
-class _ntl_tmp_vec_crt_fast : public  _ntl_tmp_vec {
+class _kctsb_tmp_vec_crt_fast : public  _kctsb_tmp_vec {
 public:
-   UniqueArray<_ntl_gbigint_wrapped> rem_vec;
-   UniqueArray<_ntl_gbigint_wrapped> temps;
+   UniqueArray<_kctsb_gbigint_wrapped> rem_vec;
+   UniqueArray<_kctsb_gbigint_wrapped> temps;
    UniqueArray<long> val_vec;
 
 };
 
 
-class _ntl_crt_struct_basic : public _ntl_crt_struct {
+class _kctsb_crt_struct_basic : public _kctsb_crt_struct {
 public:
-   UniqueArray<_ntl_gbigint_wrapped> v;
+   UniqueArray<_kctsb_gbigint_wrapped> v;
    long sbuf;
    long n;
 
    bool special();
-   void insert(long i, _ntl_gbigint m);
-   _ntl_tmp_vec *extract();
-   _ntl_tmp_vec *fetch();
-   void eval(_ntl_gbigint *x, const long *b, _ntl_tmp_vec *tmp_vec);
+   void insert(long i, _kctsb_gbigint m);
+   _kctsb_tmp_vec *extract();
+   _kctsb_tmp_vec *fetch();
+   void eval(_kctsb_gbigint *x, const long *b, _kctsb_tmp_vec *tmp_vec);
 };
 
 
-#if (defined(NTL_TBL_CRT))
+#if (defined(KCTSB_TBL_CRT))
 
-class _ntl_crt_struct_tbl : public _ntl_crt_struct {
+class _kctsb_crt_struct_tbl : public _kctsb_crt_struct {
 public:
-   Unique2DArray<_ntl_limb_t> v;
+   Unique2DArray<_kctsb_limb_t> v;
    long n;
    long sz;
 
    bool special();
-   void insert(long i, _ntl_gbigint m);
-   _ntl_tmp_vec *extract();
-   _ntl_tmp_vec *fetch();
-   void eval(_ntl_gbigint *x, const long *b, _ntl_tmp_vec *tmp_vec);
+   void insert(long i, _kctsb_gbigint m);
+   _kctsb_tmp_vec *extract();
+   _kctsb_tmp_vec *fetch();
+   void eval(_kctsb_gbigint *x, const long *b, _kctsb_tmp_vec *tmp_vec);
 
 };
 
@@ -6504,23 +6504,23 @@ public:
 
 
 
-class _ntl_crt_struct_fast : public _ntl_crt_struct {
+class _kctsb_crt_struct_fast : public _kctsb_crt_struct {
 public:
    long n;
    long levels;
    UniqueArray<long> primes;
    UniqueArray<long> inv_vec;
    UniqueArray<long> index_vec;
-   UniqueArray<_ntl_gbigint_wrapped> prod_vec;
-   UniqueArray<_ntl_gbigint_wrapped> coeff_vec;
-   _ntl_gbigint_wrapped modulus;
-   UniquePtr<_ntl_tmp_vec_crt_fast> stored_tmp_vec;
+   UniqueArray<_kctsb_gbigint_wrapped> prod_vec;
+   UniqueArray<_kctsb_gbigint_wrapped> coeff_vec;
+   _kctsb_gbigint_wrapped modulus;
+   UniquePtr<_kctsb_tmp_vec_crt_fast> stored_tmp_vec;
 
    bool special();
-   void insert(long i, _ntl_gbigint m);
-   _ntl_tmp_vec *extract();
-   _ntl_tmp_vec *fetch();
-   void eval(_ntl_gbigint *x, const long *b, _ntl_tmp_vec *tmp_vec);
+   void insert(long i, _kctsb_gbigint m);
+   _kctsb_tmp_vec *extract();
+   _kctsb_tmp_vec *fetch();
+   void eval(_kctsb_gbigint *x, const long *b, _kctsb_tmp_vec *tmp_vec);
 };
 
 
@@ -6531,10 +6531,10 @@ public:
 #define GCRT_TMPS (2)
 
 
-_ntl_crt_struct * 
-_ntl_crt_struct_build(long n, _ntl_gbigint p, long (*primes)(long))
+_kctsb_crt_struct * 
+_kctsb_crt_struct_build(long n, _kctsb_gbigint p, long (*primes)(long))
 {
-#ifdef NTL_GMP_LIP
+#ifdef KCTSB_GMP_LIP
    if (n > 800)
 #else
    if (0)
@@ -6544,8 +6544,8 @@ _ntl_crt_struct_build(long n, _ntl_gbigint p, long (*primes)(long))
       UniqueArray<long> q;
       UniqueArray<long> inv_vec;
       UniqueArray<long> index_vec;
-      UniqueArray<_ntl_gbigint_wrapped> prod_vec, rem_vec, coeff_vec;
-      UniqueArray<_ntl_gbigint_wrapped> temps;
+      UniqueArray<_kctsb_gbigint_wrapped> prod_vec, rem_vec, coeff_vec;
+      UniqueArray<_kctsb_gbigint_wrapped> temps;
 
       long i, j;
       long levels, vec_len;
@@ -6586,45 +6586,45 @@ _ntl_crt_struct_build(long n, _ntl_gbigint p, long (*primes)(long))
           * prod_vec[i]
           */
 
-         _ntl_gone(&prod_vec[i]);
+         _kctsb_gone(&prod_vec[i]);
          for (j = index_vec[i]; j < index_vec[i+1]; j++)
-            _ntl_gsmul(prod_vec[i], q[j], &prod_vec[i]);
+            _kctsb_gsmul(prod_vec[i], q[j], &prod_vec[i]);
       }
 
       for (i = (1L << (levels-1)) - 1; i < vec_len; i++) {
          for (j = index_vec[i]; j < index_vec[i+1]; j++)
-            _ntl_gsdiv(prod_vec[i], q[j], &coeff_vec[j]);
+            _kctsb_gsdiv(prod_vec[i], q[j], &coeff_vec[j]);
       }
 
       for (i = (1L << (levels-1)) - 2; i >= 0; i--)
-         _ntl_gmul(prod_vec[2*i+1], prod_vec[2*i+2], &prod_vec[i]);
+         _kctsb_gmul(prod_vec[2*i+1], prod_vec[2*i+2], &prod_vec[i]);
 
      /*** new asymptotically fast code to compute inv_vec ***/
 
-      _ntl_gone(&rem_vec[0]);
+      _kctsb_gone(&rem_vec[0]);
       for (i = 0; i < (1L << (levels-1)) - 1; i++) {
-         _ntl_gmod(rem_vec[i], prod_vec[2*i+1], &temps[0]);
-         _ntl_gmul(temps[0], prod_vec[2*i+2], &temps[1]);
-         _ntl_gmod(temps[1], prod_vec[2*i+1], &rem_vec[2*i+1]);
+         _kctsb_gmod(rem_vec[i], prod_vec[2*i+1], &temps[0]);
+         _kctsb_gmul(temps[0], prod_vec[2*i+2], &temps[1]);
+         _kctsb_gmod(temps[1], prod_vec[2*i+1], &rem_vec[2*i+1]);
 
-         _ntl_gmod(rem_vec[i], prod_vec[2*i+2], &temps[0]);
-         _ntl_gmul(temps[0], prod_vec[2*i+1], &temps[1]);
-         _ntl_gmod(temps[1], prod_vec[2*i+2], &rem_vec[2*i+2]);
+         _kctsb_gmod(rem_vec[i], prod_vec[2*i+2], &temps[0]);
+         _kctsb_gmul(temps[0], prod_vec[2*i+1], &temps[1]);
+         _kctsb_gmod(temps[1], prod_vec[2*i+2], &rem_vec[2*i+2]);
       }
 
       for (i = (1L << (levels-1)) - 1; i < vec_len; i++) {
          for (j = index_vec[i]; j < index_vec[i+1]; j++) {
             long tt, tt1, tt2;
-            _ntl_gsdiv(prod_vec[i], q[j], &temps[0]);
-            tt = _ntl_gsmod(temps[0], q[j]);
-            tt1 = _ntl_gsmod(rem_vec[i], q[j]);
+            _kctsb_gsdiv(prod_vec[i], q[j], &temps[0]);
+            tt = _kctsb_gsmod(temps[0], q[j]);
+            tt1 = _kctsb_gsmod(rem_vec[i], q[j]);
             tt2 = MulMod(tt, tt1, q[j]);
             inv_vec[j] = sp_inv_mod(tt2, q[j]);
          }
       }
 
 
-      UniquePtr<_ntl_crt_struct_fast> C;
+      UniquePtr<_kctsb_crt_struct_fast> C;
       C.make();
 
       C->n = n;
@@ -6635,7 +6635,7 @@ _ntl_crt_struct_build(long n, _ntl_gbigint p, long (*primes)(long))
       C->prod_vec.move(prod_vec);
       C->coeff_vec.move(coeff_vec);
 
-      _ntl_gcopy(p, &C->modulus);
+      _kctsb_gcopy(p, &C->modulus);
 
       C->stored_tmp_vec.make();
       C->stored_tmp_vec->rem_vec.move(rem_vec);
@@ -6646,17 +6646,17 @@ _ntl_crt_struct_build(long n, _ntl_gbigint p, long (*primes)(long))
    }
 
 
-#if (defined(NTL_TBL_CRT))
+#if (defined(KCTSB_TBL_CRT))
 
-// assert: defined(NTL_CRT_ALTCODE) ||  defined(NTL_CRT_ALTCODE_SMALL)
+// assert: defined(KCTSB_CRT_ALTCODE) ||  defined(KCTSB_CRT_ALTCODE_SMALL)
 // we use the alternative CRT code, either unconditionally,
 // or only for small moduli.
 
-#if (!defined(NTL_CRT_ALTCODE)) 
+#if (!defined(KCTSB_CRT_ALTCODE)) 
    if (n <= 16)
 #endif
    {
-      UniquePtr<_ntl_crt_struct_tbl> C;
+      UniquePtr<_kctsb_crt_struct_tbl> C;
       C.make();
       C->n = n;
       C->sz = SIZE(p);
@@ -6669,7 +6669,7 @@ _ntl_crt_struct_build(long n, _ntl_gbigint p, long (*primes)(long))
 // as a fallback, we use the basic CRT code
 
    {
-      UniquePtr<_ntl_crt_struct_basic> C;
+      UniquePtr<_kctsb_crt_struct_basic> C;
       C.make();
 
 
@@ -6684,19 +6684,19 @@ _ntl_crt_struct_build(long n, _ntl_gbigint p, long (*primes)(long))
 
 /* extracts existing tmp_vec, if possible -- read/write operation */
 
-_ntl_tmp_vec *_ntl_crt_struct_basic::extract()
+_kctsb_tmp_vec *_kctsb_crt_struct_basic::extract()
 {
    return 0;
 }
 
-#if (defined(NTL_TBL_CRT))
-_ntl_tmp_vec *_ntl_crt_struct_tbl::extract()
+#if (defined(KCTSB_TBL_CRT))
+_kctsb_tmp_vec *_kctsb_crt_struct_tbl::extract()
 {
    return 0;
 }
 #endif
 
-_ntl_tmp_vec *_ntl_crt_struct_fast::extract()
+_kctsb_tmp_vec *_kctsb_crt_struct_fast::extract()
 {
    if (stored_tmp_vec) 
       return stored_tmp_vec.release();
@@ -6707,23 +6707,23 @@ _ntl_tmp_vec *_ntl_crt_struct_fast::extract()
 
 /* read only operation */
 
-_ntl_tmp_vec *_ntl_crt_struct_basic::fetch()
+_kctsb_tmp_vec *_kctsb_crt_struct_basic::fetch()
 {
    return 0;
 }
 
-#if (defined(NTL_TBL_CRT))
-_ntl_tmp_vec *_ntl_crt_struct_tbl::fetch()
+#if (defined(KCTSB_TBL_CRT))
+_kctsb_tmp_vec *_kctsb_crt_struct_tbl::fetch()
 {
    return 0;
 }
 #endif
 
-_ntl_tmp_vec *_ntl_crt_struct_fast::fetch()
+_kctsb_tmp_vec *_kctsb_crt_struct_fast::fetch()
 {
    long vec_len = (1L << levels) - 1;
 
-   UniquePtr<_ntl_tmp_vec_crt_fast> res;
+   UniquePtr<_kctsb_tmp_vec_crt_fast> res;
    res.make();
    res->temps.SetLength(GCRT_TMPS);
    res->rem_vec.SetLength(vec_len);
@@ -6733,13 +6733,13 @@ _ntl_tmp_vec *_ntl_crt_struct_fast::fetch()
 }
 
 
-void _ntl_crt_struct_basic::insert(long i, _ntl_gbigint m)
+void _kctsb_crt_struct_basic::insert(long i, _kctsb_gbigint m)
 {
-   _ntl_gcopy(m, &v[i]);
+   _kctsb_gcopy(m, &v[i]);
 }
 
-#if (defined(NTL_TBL_CRT))
-void _ntl_crt_struct_tbl::insert(long i, _ntl_gbigint m)
+#if (defined(KCTSB_TBL_CRT))
+void _kctsb_crt_struct_tbl::insert(long i, _kctsb_gbigint m)
 {
    if (i < 0 || i >= n) LogicError("insert: bad args");
 
@@ -6748,7 +6748,7 @@ void _ntl_crt_struct_tbl::insert(long i, _ntl_gbigint m)
    else {
       long sm = SIZE(m);
       if (sm < 0 || sm > sz) LogicError("insert: bad args");
-      const _ntl_limb_t *mdata = DATA(m);
+      const _kctsb_limb_t *mdata = DATA(m);
       for (long j = 0; j < sm; j++) 
          v[j][i] = mdata[j];
       for (long j = sm; j < sz; j++)
@@ -6757,22 +6757,22 @@ void _ntl_crt_struct_tbl::insert(long i, _ntl_gbigint m)
 }
 #endif
 
-void _ntl_crt_struct_fast::insert(long i, _ntl_gbigint m)
+void _kctsb_crt_struct_fast::insert(long i, _kctsb_gbigint m)
 {
    LogicError("insert called improperly");
 }
 
 
-void _ntl_crt_struct_basic::eval(_ntl_gbigint *x, const long *b, _ntl_tmp_vec *generic_tmp_vec)
+void _kctsb_crt_struct_basic::eval(_kctsb_gbigint *x, const long *b, _kctsb_tmp_vec *generic_tmp_vec)
 {
-   _ntl_limb_t *xx, *yy; 
-   _ntl_gbigint x1;
+   _kctsb_limb_t *xx, *yy; 
+   _kctsb_gbigint x1;
    long i, sx;
    long sy;
-   _ntl_limb_t carry;
+   _kctsb_limb_t carry;
 
    sx = sbuf;
-   _ntl_gsetlength(x, sx);
+   _kctsb_gsetlength(x, sx);
    x1 = *x;
    xx = DATA(x1);
 
@@ -6787,7 +6787,7 @@ void _ntl_crt_struct_basic::eval(_ntl_gbigint *x, const long *b, _ntl_tmp_vec *g
 
       if (!sy || !b[i]) continue;
 
-      carry = NTL_MPN(addmul_1)(xx, yy, sy, b[i]);
+      carry = KCTSB_MPN(addmul_1)(xx, yy, sy, b[i]);
       yy = xx + sy;
       *yy = CLIP(*yy + carry);
 
@@ -6804,14 +6804,14 @@ void _ntl_crt_struct_basic::eval(_ntl_gbigint *x, const long *b, _ntl_tmp_vec *g
 }
 
 
-#if (defined(NTL_TBL_CRT))
+#if (defined(KCTSB_TBL_CRT))
 
 #define CRT_ALTCODE_UNROLL (1)
 
-void _ntl_crt_struct_tbl::eval(_ntl_gbigint *x, const long *b, _ntl_tmp_vec *generic_tmp_vec)
+void _kctsb_crt_struct_tbl::eval(_kctsb_gbigint *x, const long *b, _kctsb_tmp_vec *generic_tmp_vec)
 {
    long sx;
-   _ntl_gbigint x1;
+   _kctsb_gbigint x1;
    long i, j;
 
    // quick test for zero vector
@@ -6822,29 +6822,29 @@ void _ntl_crt_struct_tbl::eval(_ntl_gbigint *x, const long *b, _ntl_tmp_vec *gen
       i = 1;
       while (i < n && !b[i]) i++;
       if (i >= n) {
-         _ntl_gzero(x);
+         _kctsb_gzero(x);
          return;
       }
    }
 
    sx = sz + 2;
-   _ntl_gsetlength(x, sx);
+   _kctsb_gsetlength(x, sx);
    x1 = *x;
-   _ntl_limb_t * NTL_RESTRICT xx = DATA(x1);
+   _kctsb_limb_t * KCTSB_RESTRICT xx = DATA(x1);
 
 
-   const long Bnd = 1L << (NTL_BITS_PER_LONG-NTL_SP_NBITS);
+   const long Bnd = 1L << (KCTSB_BITS_PER_LONG-KCTSB_SP_NBITS);
 
    if (n <= Bnd) {
-      _ntl_limb_t carry=0;
+      _kctsb_limb_t carry=0;
 
       for (i = 0; i < sz; i++) {
-         const _ntl_limb_t *row = v[i];
+         const _kctsb_limb_t *row = v[i];
 
          ll_type acc;
          ll_mul(acc, row[0], b[0]);
 
-#if (CRT_ALTCODE_UNROLL && NTL_BITS_PER_LONG-NTL_SP_NBITS == 4)
+#if (CRT_ALTCODE_UNROLL && KCTSB_BITS_PER_LONG-KCTSB_SP_NBITS == 4)
          switch (n) {
          case 16: ll_mul_add(acc, row[16-1], b[16-1]);
          case 15: ll_mul_add(acc, row[15-1], b[15-1]);
@@ -6918,16 +6918,16 @@ void _ntl_crt_struct_tbl::eval(_ntl_gbigint *x, const long *b, _ntl_tmp_vec *gen
       ll_init(carry, 0);
 
       for (i = 0; i < sz; i++) {
-         const _ntl_limb_t *row = v[i];
+         const _kctsb_limb_t *row = v[i];
 
          ll_type acc21;
-         _ntl_limb_t acc0;
+         _kctsb_limb_t acc0;
 
          {
             ll_type sum;
             ll_mul(sum, row[0], b[0]);
 
-#if (CRT_ALTCODE_UNROLL && NTL_BITS_PER_LONG-NTL_SP_NBITS == 4)
+#if (CRT_ALTCODE_UNROLL && KCTSB_BITS_PER_LONG-KCTSB_SP_NBITS == 4)
             ll_mul_add(sum, row[1], b[1]);
             ll_mul_add(sum, row[2], b[2]);
             ll_mul_add(sum, row[3], b[3]);
@@ -6943,7 +6943,7 @@ void _ntl_crt_struct_tbl::eval(_ntl_gbigint *x, const long *b, _ntl_tmp_vec *gen
             ll_mul_add(sum, row[13], b[13]);
             ll_mul_add(sum, row[14], b[14]);
             ll_mul_add(sum, row[15], b[15]);
-#elif (CRT_ALTCODE_UNROLL && NTL_BITS_PER_LONG-NTL_SP_NBITS == 2)
+#elif (CRT_ALTCODE_UNROLL && KCTSB_BITS_PER_LONG-KCTSB_SP_NBITS == 2)
             ll_mul_add(sum, row[1], b[1]);
             ll_mul_add(sum, row[2], b[2]);
             ll_mul_add(sum, row[3], b[3]);
@@ -6957,10 +6957,10 @@ void _ntl_crt_struct_tbl::eval(_ntl_gbigint *x, const long *b, _ntl_tmp_vec *gen
             acc0 = ll_get_lo(sum);
          }
 
-         const _ntl_limb_t *ap = row;
+         const _kctsb_limb_t *ap = row;
          const long *tp = b;
 
-#if (CRT_ALTCODE_UNROLL && NTL_BITS_PER_LONG-NTL_SP_NBITS == 2)
+#if (CRT_ALTCODE_UNROLL && KCTSB_BITS_PER_LONG-KCTSB_SP_NBITS == 2)
          long m = n - 4;
          ap += 4;
          tp += 4;
@@ -7010,7 +7010,7 @@ void _ntl_crt_struct_tbl::eval(_ntl_gbigint *x, const long *b, _ntl_tmp_vec *gen
 	    ll_type sum;
 	    ll_mul(sum, ap[0], tp[0]);
 
-#if (CRT_ALTCODE_UNROLL && NTL_BITS_PER_LONG-NTL_SP_NBITS == 4)
+#if (CRT_ALTCODE_UNROLL && KCTSB_BITS_PER_LONG-KCTSB_SP_NBITS == 4)
             ll_mul_add(sum, ap[1], tp[1]);
             ll_mul_add(sum, ap[2], tp[2]);
             ll_mul_add(sum, ap[3], tp[3]);
@@ -7041,7 +7041,7 @@ void _ntl_crt_struct_tbl::eval(_ntl_gbigint *x, const long *b, _ntl_tmp_vec *gen
 	    ll_type sum;
 	    ll_mul(sum, ap[0], tp[0]);
 
-#if (CRT_ALTCODE_UNROLL && NTL_BITS_PER_LONG-NTL_SP_NBITS == 4)
+#if (CRT_ALTCODE_UNROLL && KCTSB_BITS_PER_LONG-KCTSB_SP_NBITS == 4)
             switch (m) {
             case 15:  ll_mul_add(sum, ap[15-1], tp[15-1]);
             case 14:  ll_mul_add(sum, ap[14-1], tp[14-1]);
@@ -7085,18 +7085,18 @@ void _ntl_crt_struct_tbl::eval(_ntl_gbigint *x, const long *b, _ntl_tmp_vec *gen
 #endif
 
 static
-void gadd_mul_many(_ntl_gbigint *res, _ntl_gbigint *a, long *b, 
+void gadd_mul_many(_kctsb_gbigint *res, _kctsb_gbigint *a, long *b, 
                       long n, long sz)
 
 {
-   _ntl_limb_t *xx, *yy; 
+   _kctsb_limb_t *xx, *yy; 
    long i, sx;
    long sy;
-   _ntl_limb_t carry;
+   _kctsb_limb_t carry;
 
    sx = sz + 2;
    if (MustAlloc(*res, sx))
-      _ntl_gsetlength(res, sx);
+      _kctsb_gsetlength(res, sx);
 
    xx = DATA(*res);
 
@@ -7111,7 +7111,7 @@ void gadd_mul_many(_ntl_gbigint *res, _ntl_gbigint *a, long *b,
 
       if (!sy || !b[i]) continue;
 
-      carry = NTL_MPN(addmul_1)(xx, yy, sy, b[i]);
+      carry = KCTSB_MPN(addmul_1)(xx, yy, sy, b[i]);
       yy = xx + sy;
       *yy = CLIP(*yy + carry);
 
@@ -7127,13 +7127,13 @@ void gadd_mul_many(_ntl_gbigint *res, _ntl_gbigint *a, long *b,
    SIZE(*res) = sx;
 }
 
-void _ntl_crt_struct_fast::eval(_ntl_gbigint *x, const long *b, _ntl_tmp_vec *generic_tmp_vec)
+void _kctsb_crt_struct_fast::eval(_kctsb_gbigint *x, const long *b, _kctsb_tmp_vec *generic_tmp_vec)
 {
-   _ntl_tmp_vec_crt_fast *tmp_vec = static_cast<_ntl_tmp_vec_crt_fast*> (generic_tmp_vec);
+   _kctsb_tmp_vec_crt_fast *tmp_vec = static_cast<_kctsb_tmp_vec_crt_fast*> (generic_tmp_vec);
 
    long *val_vec = tmp_vec->val_vec.get();
-   _ntl_gbigint_wrapped *temps = tmp_vec->temps.get();
-   _ntl_gbigint_wrapped *rem_vec = tmp_vec->rem_vec.get();
+   _kctsb_gbigint_wrapped *temps = tmp_vec->temps.get();
+   _kctsb_gbigint_wrapped *rem_vec = tmp_vec->rem_vec.get();
 
    long vec_len = (1L << levels) - 1;
 
@@ -7151,56 +7151,56 @@ void _ntl_crt_struct_fast::eval(_ntl_gbigint *x, const long *b, _ntl_tmp_vec *ge
    }
 
    for (i = (1L << (levels-1)) - 2; i >= 0; i--) {
-      _ntl_gmul(prod_vec[2*i+1], rem_vec[2*i+2], &temps[0]);
-      _ntl_gmul(rem_vec[2*i+1], prod_vec[2*i+2], &temps[1]);
-      _ntl_gadd(temps[0], temps[1], &rem_vec[i]);
+      _kctsb_gmul(prod_vec[2*i+1], rem_vec[2*i+2], &temps[0]);
+      _kctsb_gmul(rem_vec[2*i+1], prod_vec[2*i+2], &temps[1]);
+      _kctsb_gadd(temps[0], temps[1], &rem_vec[i]);
    }
 
    /* temps[0] = rem_vec[0] mod prod_vec[0] (least absolute residue) */
-   _ntl_gmod(rem_vec[0], prod_vec[0], &temps[0]);
-   _ntl_gsub(temps[0], prod_vec[0], &temps[1]);
-   _ntl_gnegate(&temps[1]);
-   if (_ntl_gcompare(temps[0], temps[1]) > 0) {
-      _ntl_gnegate(&temps[1]);
-      _ntl_gcopy(temps[1], &temps[0]);
+   _kctsb_gmod(rem_vec[0], prod_vec[0], &temps[0]);
+   _kctsb_gsub(temps[0], prod_vec[0], &temps[1]);
+   _kctsb_gnegate(&temps[1]);
+   if (_kctsb_gcompare(temps[0], temps[1]) > 0) {
+      _kctsb_gnegate(&temps[1]);
+      _kctsb_gcopy(temps[1], &temps[0]);
    }
 
-   _ntl_gmod(temps[0], modulus, &temps[1]);
-   _ntl_gcopy(temps[1], x);
+   _kctsb_gmod(temps[0], modulus, &temps[1]);
+   _kctsb_gcopy(temps[1], x);
 }
 
 
-bool _ntl_crt_struct_basic::special()  { return false; }
+bool _kctsb_crt_struct_basic::special()  { return false; }
 
-#if (defined(NTL_TBL_CRT))
-bool _ntl_crt_struct_tbl::special()  { return false; }
+#if (defined(KCTSB_TBL_CRT))
+bool _kctsb_crt_struct_tbl::special()  { return false; }
 #endif
 
 
-bool _ntl_crt_struct_fast::special()   { return true; }
+bool _kctsb_crt_struct_fast::special()   { return true; }
 
 
 
 // ************** rem code
 
 
-#ifdef NTL_HAVE_LL_TYPE
+#ifdef KCTSB_HAVE_LL_TYPE
 
 // This is the same logic as in sp_arith.h, but assumes 
-// NumBits(d) == NTL_SP_NBITS
+// NumBits(d) == KCTSB_SP_NBITS
 
 
 static inline
 unsigned long tbl_red_inv(long d)
 {
-   return (unsigned long) ( ((_ntl_ulonglong(1) << (NTL_SP_NBITS+NTL_BITS_PER_LONG))-1UL) / _ntl_ulonglong(d) );
+   return (unsigned long) ( ((_kctsb_ulonglong(1) << (KCTSB_SP_NBITS+KCTSB_BITS_PER_LONG))-1UL) / _kctsb_ulonglong(d) );
 }
 
 // assumes hi < d
 static inline 
 long tbl_red_21(unsigned long hi, unsigned long lo, long d, unsigned long dinv)
 {
-   unsigned long H = (hi << (NTL_BITS_PER_LONG-NTL_SP_NBITS)) | (lo >> NTL_SP_NBITS);
+   unsigned long H = (hi << (KCTSB_BITS_PER_LONG-KCTSB_SP_NBITS)) | (lo >> KCTSB_SP_NBITS);
    unsigned long Q = ll_mul_hi(H, dinv) + H;
    unsigned long rr = lo - Q*cast_unsigned(d); // rr in [0..4*d)
    long r = sp_CorrectExcess(rr, 2*d); // r in [0..2*d)
@@ -7221,9 +7221,9 @@ unsigned long tbl_red_31(unsigned long x2, unsigned long x1, unsigned long x0,
 #endif
 
 
-class _ntl_tmp_vec_rem_impl : public  _ntl_tmp_vec {
+class _kctsb_tmp_vec_rem_impl : public  _kctsb_tmp_vec {
 public:
-   UniqueArray<_ntl_gbigint_wrapped> rem_vec;
+   UniqueArray<_kctsb_gbigint_wrapped> rem_vec;
 };
 
 
@@ -7231,71 +7231,71 @@ public:
 
 
 
-class _ntl_rem_struct_basic : public _ntl_rem_struct {
+class _kctsb_rem_struct_basic : public _kctsb_rem_struct {
 public:
    long n;
    UniqueArray<long> primes;
 
-   void eval(long *x, _ntl_gbigint a, _ntl_tmp_vec *tmp_vec);
-   _ntl_tmp_vec *fetch();
+   void eval(long *x, _kctsb_gbigint a, _kctsb_tmp_vec *tmp_vec);
+   _kctsb_tmp_vec *fetch();
 };
 
 
-class _ntl_rem_struct_fast : public _ntl_rem_struct {
+class _kctsb_rem_struct_fast : public _kctsb_rem_struct {
 public:
    long n;
    long levels;
    UniqueArray<long> primes;
    UniqueArray<long> index_vec;
-   UniqueArray<_ntl_gbigint_wrapped> prod_vec;
+   UniqueArray<_kctsb_gbigint_wrapped> prod_vec;
    long modulus_size;
 
-   void eval(long *x, _ntl_gbigint a, _ntl_tmp_vec *tmp_vec);
-   _ntl_tmp_vec *fetch();
+   void eval(long *x, _kctsb_gbigint a, _kctsb_tmp_vec *tmp_vec);
+   _kctsb_tmp_vec *fetch();
 };
 
 
-class _ntl_rem_struct_medium : public _ntl_rem_struct {
+class _kctsb_rem_struct_medium : public _kctsb_rem_struct {
 public:
    long n;
    long levels;
    UniqueArray<long> primes;
    UniqueArray<long> index_vec;
    UniqueArray<long> len_vec;
-   UniqueArray<_ntl_limb_t> inv_vec;
+   UniqueArray<_kctsb_limb_t> inv_vec;
    UniqueArray<long> corr_vec;
    UniqueArray<mulmod_precon_t> corraux_vec;
-   UniqueArray<_ntl_gbigint_wrapped> prod_vec;
+   UniqueArray<_kctsb_gbigint_wrapped> prod_vec;
 
-   void eval(long *x, _ntl_gbigint a, _ntl_tmp_vec *tmp_vec);
-   _ntl_tmp_vec *fetch();
+   void eval(long *x, _kctsb_gbigint a, _kctsb_tmp_vec *tmp_vec);
+   _kctsb_tmp_vec *fetch();
 };
 
 
 
-#ifdef NTL_TBL_REM
+#ifdef KCTSB_TBL_REM
 
 
-#define NTL_GAP_BITS (2*NTL_BITS_PER_LONG-NTL_SP_NBITS-NTL_ZZ_NBITS)
+#define KCTSB_GAP_BITS (2*KCTSB_BITS_PER_LONG-KCTSB_SP_NBITS-KCTSB_ZZ_NBITS)
 
-// NOTE: do not allow NTL_GAP_BITS to exceed 28.
+// NOTE: do not allow KCTSB_GAP_BITS to exceed 28.
 // This is largely academic, but it avoids some potential
 // integer overflow issues.
-#if (NTL_GAP_BITS > 28)
-#undef NTL_GAP_BITS
-#define NTL_GAP_BITS (28)
+#if (KCTSB_GAP_BITS > 28)
+#undef KCTSB_GAP_BITS
+#define KCTSB_GAP_BITS (28)
 #endif
 
 
-class _ntl_rem_struct_tbl : public _ntl_rem_struct {
+class _kctsb_rem_struct_tbl : public _kctsb_rem_struct {
 public:
    long n;
    UniqueArray<long> primes;
-   UniqueArray<_ntl_limb_t> inv_primes;
-   Unique2DArray<_ntl_limb_t> tbl;
+   UniqueArray<_kctsb_limb_t> inv_primes;
+   Unique2DArray<_kctsb_limb_t> tbl;
 
-   void eval(long *x, _ntl_gbigint a, _ntl_tmp_vec *tmp_vec);
-   _ntl_tmp_vec *fetch();
+   void eval(long *x, _kctsb_gbigint a, _kctsb_tmp_vec *tmp_vec);
+   _kctsb_tmp_vec *fetch();
 
 };
 
@@ -7303,15 +7303,15 @@ public:
 
 
 
-_ntl_rem_struct *_ntl_rem_struct_build(long n, _ntl_gbigint modulus, long (*p)(long))
+_kctsb_rem_struct *_kctsb_rem_struct_build(long n, _kctsb_gbigint modulus, long (*p)(long))
 {
 
-#ifdef NTL_TBL_REM
+#ifdef KCTSB_TBL_REM
 
-// FIXME: I should incorporate the logic from _ntl_general_rem_one_struct_apply
+// FIXME: I should incorporate the logic from _kctsb_general_rem_one_struct_apply
 // to keep the table sizes smaller
 
-#ifdef NTL_GMP_LIP
+#ifdef KCTSB_GMP_LIP
    if (n <= 800) 
 #else
    if (1) 
@@ -7319,8 +7319,8 @@ _ntl_rem_struct *_ntl_rem_struct_build(long n, _ntl_gbigint modulus, long (*p)(l
 #endif
    {
       UniqueArray<long> q;
-      UniqueArray<_ntl_limb_t> inv_primes;
-      Unique2DArray<_ntl_limb_t> tbl;
+      UniqueArray<_kctsb_limb_t> inv_primes;
+      Unique2DArray<_kctsb_limb_t> tbl;
       long i, j;
       long qq, t, t1;
       long sz = SIZE(modulus);
@@ -7338,7 +7338,7 @@ _ntl_rem_struct *_ntl_rem_struct_build(long n, _ntl_gbigint modulus, long (*p)(l
       for (i = 0; i < n; i++) {
          qq = q[i];
          t = 1;
-         for (j = 0; j < NTL_ZZ_NBITS; j++) {
+         for (j = 0; j < KCTSB_ZZ_NBITS; j++) {
             t += t;
             if (t >= qq) t -= qq;
          }
@@ -7350,7 +7350,7 @@ _ntl_rem_struct *_ntl_rem_struct_build(long n, _ntl_gbigint modulus, long (*p)(l
          }
       }
 
-      UniquePtr<_ntl_rem_struct_tbl> R;
+      UniquePtr<_kctsb_rem_struct_tbl> R;
       R.make();
  
       R->n = n;
@@ -7362,7 +7362,7 @@ _ntl_rem_struct *_ntl_rem_struct_build(long n, _ntl_gbigint modulus, long (*p)(l
    }
 #endif
 
-#ifdef NTL_GMP_LIP
+#ifdef KCTSB_GMP_LIP
    if (0)
    // NOTE: this does not seem useful with GMP
 #else
@@ -7378,8 +7378,8 @@ _ntl_rem_struct *_ntl_rem_struct_build(long n, _ntl_gbigint modulus, long (*p)(l
       UniqueArray<long> index_vec;
       UniqueArray<long> len_vec, corr_vec;
       UniqueArray<mulmod_precon_t> corraux_vec;
-      UniqueArray<_ntl_limb_t> inv_vec;
-      UniqueArray<_ntl_gbigint_wrapped> prod_vec;
+      UniqueArray<_kctsb_limb_t> inv_vec;
+      UniqueArray<_kctsb_gbigint_wrapped> prod_vec;
 
    
       q.SetLength(n);
@@ -7418,24 +7418,24 @@ _ntl_rem_struct *_ntl_rem_struct_build(long n, _ntl_gbigint modulus, long (*p)(l
           * prod_vec[i]
           */
 
-         _ntl_gone(&prod_vec[i]);
+         _kctsb_gone(&prod_vec[i]);
          for (j = index_vec[i]; j < index_vec[i+1]; j++)
-            _ntl_gsmul(prod_vec[i], q[j], &prod_vec[i]); 
+            _kctsb_gsmul(prod_vec[i], q[j], &prod_vec[i]); 
       }
 
       for (i = (1L << (levels-1)) - 2; i >= 3; i--)
-         _ntl_gmul(prod_vec[2*i+1], prod_vec[2*i+2], &prod_vec[i]);
+         _kctsb_gmul(prod_vec[2*i+1], prod_vec[2*i+2], &prod_vec[i]);
 
       
       for (i = 3; i < vec_len; i++)
-         len_vec[i] = _ntl_gsize(prod_vec[i]);
+         len_vec[i] = _kctsb_gsize(prod_vec[i]);
 
       /* Set len_vec[1] = len_vec[2] = 
-       *    max(_ntl_gsize(modulus), len_vec[3..6]).
+       *    max(_kctsb_gsize(modulus), len_vec[3..6]).
        * This is a bit paranoid, but it makes the code
        * more robust. */
 
-      j = _ntl_gsize(modulus);
+      j = _kctsb_gsize(modulus);
       for (i = 3; i <= 6; i++)
          if (len_vec[i] > j) j = len_vec[i];
 
@@ -7454,7 +7454,7 @@ _ntl_rem_struct *_ntl_rem_struct_build(long n, _ntl_gbigint modulus, long (*p)(l
 
 
 
-      UniquePtr<_ntl_rem_struct_medium> R;
+      UniquePtr<_kctsb_rem_struct_medium> R;
       R.make();
 
       R->n = n;
@@ -7477,7 +7477,7 @@ _ntl_rem_struct *_ntl_rem_struct_build(long n, _ntl_gbigint modulus, long (*p)(l
       long i, j;
       long levels, vec_len;
       UniqueArray<long> index_vec;
-      UniqueArray<_ntl_gbigint_wrapped> prod_vec;
+      UniqueArray<_kctsb_gbigint_wrapped> prod_vec;
    
       q.SetLength(n);
       for (i = 0; i < n; i++)
@@ -7509,17 +7509,17 @@ _ntl_rem_struct *_ntl_rem_struct_build(long n, _ntl_gbigint modulus, long (*p)(l
           * prod_vec[i]
           */
 
-         _ntl_gone(&prod_vec[i]);
+         _kctsb_gone(&prod_vec[i]);
          for (j = index_vec[i]; j < index_vec[i+1]; j++)
-            _ntl_gsmul(prod_vec[i], q[j], &prod_vec[i]); 
+            _kctsb_gsmul(prod_vec[i], q[j], &prod_vec[i]); 
       }
 
       for (i = (1L << (levels-1)) - 2; i >= 3; i--)
-         _ntl_gmul(prod_vec[2*i+1], prod_vec[2*i+2], &prod_vec[i]);
+         _kctsb_gmul(prod_vec[2*i+1], prod_vec[2*i+2], &prod_vec[i]);
 
 
       
-      UniquePtr<_ntl_rem_struct_fast> R;
+      UniquePtr<_kctsb_rem_struct_fast> R;
       R.make();
 
       R->n = n;
@@ -7527,7 +7527,7 @@ _ntl_rem_struct *_ntl_rem_struct_build(long n, _ntl_gbigint modulus, long (*p)(l
       R->primes.move(q);
       R->index_vec.move(index_vec);
       R->prod_vec.move(prod_vec);
-      R->modulus_size = _ntl_gsize(modulus);
+      R->modulus_size = _kctsb_gsize(modulus);
 
       return R.release();
    }
@@ -7538,7 +7538,7 @@ _ntl_rem_struct *_ntl_rem_struct_build(long n, _ntl_gbigint modulus, long (*p)(l
       UniqueArray<long> q;
       long i;
 
-      UniquePtr<_ntl_rem_struct_basic> R;
+      UniquePtr<_kctsb_rem_struct_basic> R;
       R.make();
 
       R->n = n;
@@ -7550,60 +7550,60 @@ _ntl_rem_struct *_ntl_rem_struct_build(long n, _ntl_gbigint modulus, long (*p)(l
    }
 }
 
-_ntl_tmp_vec *_ntl_rem_struct_basic::fetch()
+_kctsb_tmp_vec *_kctsb_rem_struct_basic::fetch()
 {
    return 0;
 }
 
 
-#ifdef NTL_TBL_REM
+#ifdef KCTSB_TBL_REM
 
-_ntl_tmp_vec *_ntl_rem_struct_tbl::fetch()
+_kctsb_tmp_vec *_kctsb_rem_struct_tbl::fetch()
 {
    return 0;
 }
 
 #endif
 
-_ntl_tmp_vec *_ntl_rem_struct_fast::fetch()
+_kctsb_tmp_vec *_kctsb_rem_struct_fast::fetch()
 {
    long vec_len = (1L << levels) - 1;
-   UniquePtr<_ntl_tmp_vec_rem_impl> res;
+   UniquePtr<_kctsb_tmp_vec_rem_impl> res;
    res.make();
    res->rem_vec.SetLength(vec_len);
-   _ntl_gbigint_wrapped *rem_vec = res->rem_vec.get();
+   _kctsb_gbigint_wrapped *rem_vec = res->rem_vec.get();
 
    long i;
 
    /* allocate length in advance to streamline eval code */
 
-   _ntl_gsetlength(&rem_vec[1], modulus_size);
-   _ntl_gsetlength(&rem_vec[2], modulus_size);
+   _kctsb_gsetlength(&rem_vec[1], modulus_size);
+   _kctsb_gsetlength(&rem_vec[2], modulus_size);
 
    for (i = 1; i < (1L << (levels-1)) - 1; i++) {
-      _ntl_gsetlength(&rem_vec[2*i+1], _ntl_gsize(prod_vec[2*i+1]));
-      _ntl_gsetlength(&rem_vec[2*i+2], _ntl_gsize(prod_vec[2*i+2]));
+      _kctsb_gsetlength(&rem_vec[2*i+1], _kctsb_gsize(prod_vec[2*i+1]));
+      _kctsb_gsetlength(&rem_vec[2*i+2], _kctsb_gsize(prod_vec[2*i+2]));
    }
 
    return res.release();
 }
 
-_ntl_tmp_vec *_ntl_rem_struct_medium::fetch()
+_kctsb_tmp_vec *_kctsb_rem_struct_medium::fetch()
 {
    long vec_len = (1L << levels) - 1;
-   UniquePtr<_ntl_tmp_vec_rem_impl> res;
+   UniquePtr<_kctsb_tmp_vec_rem_impl> res;
    res.make();
    res->rem_vec.SetLength(vec_len);
-   _ntl_gbigint_wrapped *rem_vec = res->rem_vec.get();
+   _kctsb_gbigint_wrapped *rem_vec = res->rem_vec.get();
 
    long i;
 
    /* allocate length in advance to streamline eval code */
 
-   _ntl_gsetlength(&rem_vec[0], len_vec[1]); /* a special temp */
+   _kctsb_gsetlength(&rem_vec[0], len_vec[1]); /* a special temp */
 
    for (i = 1; i < vec_len; i++)
-      _ntl_gsetlength(&rem_vec[i], len_vec[i]);
+      _kctsb_gsetlength(&rem_vec[i], len_vec[i]);
 
    return res.release();
 }
@@ -7612,16 +7612,16 @@ _ntl_tmp_vec *_ntl_rem_struct_medium::fetch()
 
 
 
-#ifdef NTL_TBL_REM
+#ifdef KCTSB_TBL_REM
 
 
-#if (NTL_GAP_BITS == 2)
+#if (KCTSB_GAP_BITS == 2)
 
 // special case, some loop unrolling: slightly faster
 
 
-void _ntl_rem_struct_tbl::eval(long *x, _ntl_gbigint a, 
-                                 _ntl_tmp_vec *generic_tmp_vec)
+void _kctsb_rem_struct_tbl::eval(long *x, _kctsb_gbigint a, 
+                                 _kctsb_tmp_vec *generic_tmp_vec)
 {
    if (ZEROP(a)) {
       long i;
@@ -7630,30 +7630,30 @@ void _ntl_rem_struct_tbl::eval(long *x, _ntl_gbigint a,
    }
 
    long sa = SIZE(a);
-   _ntl_limb_t *adata = DATA(a);
+   _kctsb_limb_t *adata = DATA(a);
 
    if (sa <= 4) {
       long i;
       for (i = 0; i < n; i++) {
-         _ntl_limb_t *tp = tbl[i]; 
+         _kctsb_limb_t *tp = tbl[i]; 
          ll_type acc;
          ll_init(acc, adata[0]);
          long j;
          for (j = 1; j < sa; j++)
             ll_mul_add(acc, adata[j], tp[j]);
 
-         _ntl_limb_t accvec[2];
+         _kctsb_limb_t accvec[2];
          x[i] = tbl_red_31(0, ll_get_hi(acc), ll_get_lo(acc), primes[i], inv_primes[i]);
       }
    }
    else {
       long i;
       for (i = 0; i < n; i++) {
-         _ntl_limb_t *ap = adata;
-         _ntl_limb_t *tp = tbl[i]; 
+         _kctsb_limb_t *ap = adata;
+         _kctsb_limb_t *tp = tbl[i]; 
 
          ll_type acc21;
-         _ntl_limb_t acc0;
+         _kctsb_limb_t acc0;
 
          {
             ll_type sum;
@@ -7735,8 +7735,8 @@ void _ntl_rem_struct_tbl::eval(long *x, _ntl_gbigint a,
 
 #define TBL_UNROLL (1)
 
-void _ntl_rem_struct_tbl::eval(long *x, _ntl_gbigint a, 
-                                 _ntl_tmp_vec *generic_tmp_vec)
+void _kctsb_rem_struct_tbl::eval(long *x, _kctsb_gbigint a, 
+                                 _kctsb_tmp_vec *generic_tmp_vec)
 {
    if (ZEROP(a)) {
       long i;
@@ -7745,20 +7745,20 @@ void _ntl_rem_struct_tbl::eval(long *x, _ntl_gbigint a,
    }
 
    long sa = SIZE(a);
-   _ntl_limb_t *adata = DATA(a);
+   _kctsb_limb_t *adata = DATA(a);
 
-   const long Bnd =  1L << NTL_GAP_BITS;
+   const long Bnd =  1L << KCTSB_GAP_BITS;
 
    if (sa <= Bnd) {
       long i;
       for (i = 0; i < n; i++) {
-         _ntl_limb_t *tp = tbl[i]; 
+         _kctsb_limb_t *tp = tbl[i]; 
 
 
          ll_type acc;
          ll_init(acc, adata[0]);
 
-#if (TBL_UNROLL && NTL_GAP_BITS == 4)
+#if (TBL_UNROLL && KCTSB_GAP_BITS == 4)
          switch (sa) {
          case 16:  ll_mul_add(acc, adata[16-1], tp[16-1]);
          case 15:  ll_mul_add(acc, adata[15-1], tp[15-1]);
@@ -7827,17 +7827,17 @@ void _ntl_rem_struct_tbl::eval(long *x, _ntl_gbigint a,
    else {
       long i;
       for (i = 0; i < n; i++) {
-         _ntl_limb_t *ap = adata;
-         _ntl_limb_t *tp = tbl[i]; 
+         _kctsb_limb_t *ap = adata;
+         _kctsb_limb_t *tp = tbl[i]; 
 
          ll_type acc21;
-         _ntl_limb_t acc0;
+         _kctsb_limb_t acc0;
 
          {
             ll_type sum;
             ll_init(sum, ap[0]);
 
-#if (TBL_UNROLL && NTL_GAP_BITS == 4)
+#if (TBL_UNROLL && KCTSB_GAP_BITS == 4)
             ll_mul_add(sum, ap[1], tp[1]);
             ll_mul_add(sum, ap[2], tp[2]);
             ll_mul_add(sum, ap[3], tp[3]);
@@ -7868,7 +7868,7 @@ void _ntl_rem_struct_tbl::eval(long *x, _ntl_gbigint a,
             ll_type sum;
             ll_mul(sum, ap[0], tp[0]);
 
-#if (TBL_UNROLL && NTL_GAP_BITS == 4)
+#if (TBL_UNROLL && KCTSB_GAP_BITS == 4)
             ll_mul_add(sum, ap[1], tp[1]);
             ll_mul_add(sum, ap[2], tp[2]);
             ll_mul_add(sum, ap[3], tp[3]);
@@ -7897,7 +7897,7 @@ void _ntl_rem_struct_tbl::eval(long *x, _ntl_gbigint a,
             ll_type sum;
             ll_mul(sum, ap[0], tp[0]);
 
-#if (TBL_UNROLL && NTL_GAP_BITS == 4)
+#if (TBL_UNROLL && KCTSB_GAP_BITS == 4)
             switch (m) {
             case 15:  ll_mul_add(sum, ap[15-1], tp[15-1]);
             case 14:  ll_mul_add(sum, ap[14-1], tp[14-1]);
@@ -7935,13 +7935,13 @@ void _ntl_rem_struct_tbl::eval(long *x, _ntl_gbigint a,
 #endif
 
 
-void _ntl_rem_struct_basic::eval(long *x, _ntl_gbigint a, 
-                                 _ntl_tmp_vec *generic_tmp_vec)
+void _kctsb_rem_struct_basic::eval(long *x, _kctsb_gbigint a, 
+                                 _kctsb_tmp_vec *generic_tmp_vec)
 {
    long *q = primes.get();
 
    long j;
-   _ntl_limb_t *adata;
+   _kctsb_limb_t *adata;
    long sa;
 
    if (!a) 
@@ -7959,16 +7959,16 @@ void _ntl_rem_struct_basic::eval(long *x, _ntl_gbigint a,
    adata = DATA(a);
 
    for (j = 0; j < n; j++)
-      x[j] = NTL_MPN(mod_1)(adata, sa, q[j]);
+      x[j] = KCTSB_MPN(mod_1)(adata, sa, q[j]);
 
 }
 
-void _ntl_rem_struct_fast::eval(long *x, _ntl_gbigint a, 
-                                _ntl_tmp_vec *generic_tmp_vec)
+void _kctsb_rem_struct_fast::eval(long *x, _kctsb_gbigint a, 
+                                _kctsb_tmp_vec *generic_tmp_vec)
 {
    long *q = primes.get();
-   _ntl_gbigint_wrapped *rem_vec = 
-      (static_cast<_ntl_tmp_vec_rem_impl *> (generic_tmp_vec))->rem_vec.get();
+   _kctsb_gbigint_wrapped *rem_vec = 
+      (static_cast<_kctsb_tmp_vec_rem_impl *> (generic_tmp_vec))->rem_vec.get();
    long vec_len = (1L << levels) - 1;
 
    long i, j;
@@ -7980,8 +7980,8 @@ void _ntl_rem_struct_fast::eval(long *x, _ntl_gbigint a,
       return;
    }
 
-   _ntl_gcopy(a, &rem_vec[1]);
-   _ntl_gcopy(a, &rem_vec[2]);
+   _kctsb_gcopy(a, &rem_vec[1]);
+   _kctsb_gcopy(a, &rem_vec[2]);
 
    for (i = 1; i < (1L << (levels-1)) - 1; i++) {
       gmod_simple(rem_vec[i], prod_vec[2*i+1], &rem_vec[2*i+1]);
@@ -7991,7 +7991,7 @@ void _ntl_rem_struct_fast::eval(long *x, _ntl_gbigint a,
    for (i = (1L << (levels-1)) - 1; i < vec_len; i++) {
       long lo = index_vec[i];
       long hi = index_vec[i+1];
-      _ntl_limb_t *s1p = DATA(rem_vec[i]);
+      _kctsb_limb_t *s1p = DATA(rem_vec[i]);
       long s1size = SIZE(rem_vec[i]);
       if (s1size == 0) {
          for (j = lo; j <hi; j++)
@@ -7999,17 +7999,17 @@ void _ntl_rem_struct_fast::eval(long *x, _ntl_gbigint a,
       }
       else {
          for (j = lo; j < hi; j++)
-            x[j] = NTL_MPN(mod_1)(s1p, s1size, q[j]);
+            x[j] = KCTSB_MPN(mod_1)(s1p, s1size, q[j]);
       }
    }
 }
 
-void _ntl_rem_struct_medium::eval(long *x, _ntl_gbigint a, 
-                                  _ntl_tmp_vec *generic_tmp_vec)
+void _kctsb_rem_struct_medium::eval(long *x, _kctsb_gbigint a, 
+                                  _kctsb_tmp_vec *generic_tmp_vec)
 {
    long *q = primes.get();
-   _ntl_gbigint_wrapped *rem_vec = 
-      (static_cast<_ntl_tmp_vec_rem_impl *> (generic_tmp_vec))->rem_vec.get();
+   _kctsb_gbigint_wrapped *rem_vec = 
+      (static_cast<_kctsb_tmp_vec_rem_impl *> (generic_tmp_vec))->rem_vec.get();
    long vec_len = (1L << levels) - 1;
 
    long i, j;
@@ -8021,11 +8021,11 @@ void _ntl_rem_struct_medium::eval(long *x, _ntl_gbigint a,
       return;
    }
 
-   _ntl_gcopy(a, &rem_vec[1]);
-   _ntl_gcopy(a, &rem_vec[2]);
+   _kctsb_gcopy(a, &rem_vec[1]);
+   _kctsb_gcopy(a, &rem_vec[2]);
 
    for (i = 1; i < (1L << (levels-1)) - 1; i++) {
-      _ntl_gcopy(rem_vec[i], &rem_vec[0]);
+      _kctsb_gcopy(rem_vec[i], &rem_vec[0]);
       redc(rem_vec[0], prod_vec[2*i+1], len_vec[i]-len_vec[2*i+1],
            inv_vec[2*i+1], rem_vec[2*i+1]);
       redc(rem_vec[i], prod_vec[2*i+2], len_vec[i]-len_vec[2*i+2],
@@ -8035,7 +8035,7 @@ void _ntl_rem_struct_medium::eval(long *x, _ntl_gbigint a,
    for (i = (1L << (levels-1)) - 1; i < vec_len; i++) {
       long lo = index_vec[i];
       long hi = index_vec[i+1];
-      _ntl_limb_t *s1p = DATA(rem_vec[i]);
+      _kctsb_limb_t *s1p = DATA(rem_vec[i]);
       long s1size = SIZE(rem_vec[i]);
       if (s1size == 0) {
          for (j = lo; j < hi; j++)
@@ -8043,7 +8043,7 @@ void _ntl_rem_struct_medium::eval(long *x, _ntl_gbigint a,
       }
       else {
          for (j = lo; j < hi; j++) {
-            long t = NTL_MPN(mod_1)(s1p, s1size, q[j]);
+            long t = KCTSB_MPN(mod_1)(s1p, s1size, q[j]);
             x[j] = MulModPrecon(t, corr_vec[j], q[j], corraux_vec[j]);
          }
       }
@@ -8057,28 +8057,28 @@ void _ntl_rem_struct_medium::eval(long *x, _ntl_gbigint a,
    
 
 void
-_ntl_gaorsmul(_ntl_gbigint x, _ntl_gbigint y, long sub,  _ntl_gbigint *ww)
+_kctsb_gaorsmul(_kctsb_gbigint x, _kctsb_gbigint y, long sub,  _kctsb_gbigint *ww)
 {
    GRegister(tmp);
 
-   _ntl_gmul(x, y, &tmp);
+   _kctsb_gmul(x, y, &tmp);
    if (sub)
-      _ntl_gsub(*ww, tmp, ww);
+      _kctsb_gsub(*ww, tmp, ww);
    else
-      _ntl_gadd(*ww, tmp, ww);
+      _kctsb_gadd(*ww, tmp, ww);
 }
 
 
 void
-_ntl_gaddmul(_ntl_gbigint x, _ntl_gbigint y,  _ntl_gbigint *ww)
+_kctsb_gaddmul(_kctsb_gbigint x, _kctsb_gbigint y,  _kctsb_gbigint *ww)
 {
-  _ntl_gaorsmul(x, y, 0, ww);
+  _kctsb_gaorsmul(x, y, 0, ww);
 }
 
 void
-_ntl_gsubmul(_ntl_gbigint x, _ntl_gbigint y,  _ntl_gbigint *ww)
+_kctsb_gsubmul(_kctsb_gbigint x, _kctsb_gbigint y,  _kctsb_gbigint *ww)
 {
-  _ntl_gaorsmul(x, y, 1, ww);
+  _kctsb_gaorsmul(x, y, 1, ww);
 }
 
 
@@ -8087,7 +8087,7 @@ _ntl_gsubmul(_ntl_gbigint x, _ntl_gbigint y,  _ntl_gbigint *ww)
 
 
 static inline 
-void _ntl_mpn_com_n(_ntl_limb_t *d, _ntl_limb_t *s, long n) 
+void _kctsb_mpn_com_n(_kctsb_limb_t *d, _kctsb_limb_t *s, long n) 
 {
   do {
     *d++ = CLIP(~ *s++); 
@@ -8095,10 +8095,10 @@ void _ntl_mpn_com_n(_ntl_limb_t *d, _ntl_limb_t *s, long n)
 }
 
 #if 0
-#define _ntl_mpn_com_n(d,s,n) \
+#define _kctsb_mpn_com_n(d,s,n) \
   do { \
-    _ntl_limb_t *  __d = (d); \
-    _ntl_limb_t *  __s = (s); \
+    _kctsb_limb_t *  __d = (d); \
+    _kctsb_limb_t *  __s = (s); \
     long  __n = (n); \
     do \
       *__d++ = CLIP(~ *__s++); \
@@ -8109,23 +8109,23 @@ void _ntl_mpn_com_n(_ntl_limb_t *d, _ntl_limb_t *s, long n)
 
 
 static inline 
-void _ntl_MPN_MUL_1C(_ntl_limb_t& cout, _ntl_limb_t *dst, 
-                     _ntl_limb_t *src, long size, _ntl_limb_t n, 
-                     _ntl_limb_t cin) 
+void _kctsb_MPN_MUL_1C(_kctsb_limb_t& cout, _kctsb_limb_t *dst, 
+                     _kctsb_limb_t *src, long size, _kctsb_limb_t n, 
+                     _kctsb_limb_t cin) 
 {
-    _ntl_limb_t cy; 
-    cy = NTL_MPN(mul_1) (dst, src, size, n); 
-    cout = CLIP(cy + NTL_MPN(add_1) (dst, dst, size, cin)); 
+    _kctsb_limb_t cy; 
+    cy = KCTSB_MPN(mul_1) (dst, src, size, n); 
+    cout = CLIP(cy + KCTSB_MPN(add_1) (dst, dst, size, cin)); 
 }
 
 
 
 #if 0
-#define _ntl_MPN_MUL_1C(cout, dst, src, size, n, cin) \
+#define _kctsb_MPN_MUL_1C(cout, dst, src, size, n, cin) \
   do { \
-    _ntl_limb_t __cy; \
-    __cy = NTL_MPN(mul_1) (dst, src, size, n); \
-    (cout) = CLIP(__cy + NTL_MPN(add_1) (dst, dst, size, cin)); \
+    _kctsb_limb_t __cy; \
+    __cy = KCTSB_MPN(mul_1) (dst, src, size, n); \
+    (cout) = CLIP(__cy + KCTSB_MPN(add_1) (dst, dst, size, cin)); \
   } while (0)
 #endif
 
@@ -8133,7 +8133,7 @@ void _ntl_MPN_MUL_1C(_ntl_limb_t& cout, _ntl_limb_t *dst,
 
 
 static inline
-void _ntl_g_inc(_ntl_limb_t *p, long n)
+void _kctsb_g_inc(_kctsb_limb_t *p, long n)
 {
     while (n > 0) {  
        *p = CLIP(*p + 1); 
@@ -8144,9 +8144,9 @@ void _ntl_g_inc(_ntl_limb_t *p, long n)
 }
 
 #if 0
-#define _ntl_g_inc(p, n)   \
+#define _kctsb_g_inc(p, n)   \
   do {   \
-    _ntl_limb_t * __p = (p);  \
+    _kctsb_limb_t * __p = (p);  \
     long __n = (n);  \
     while (__n > 0) {  \
        *__p = CLIP(*__p + 1); \
@@ -8158,7 +8158,7 @@ void _ntl_g_inc(_ntl_limb_t *p, long n)
 #endif
 
 static inline
-void _ntl_g_inc_carry(_ntl_limb_t& c, _ntl_limb_t *p, long n)   
+void _kctsb_g_inc_carry(_kctsb_limb_t& c, _kctsb_limb_t *p, long n)   
 {
    long addc = 1; 
    while (n > 0) {  
@@ -8171,9 +8171,9 @@ void _ntl_g_inc_carry(_ntl_limb_t& c, _ntl_limb_t *p, long n)
 }
 
 #if 0
-#define _ntl_g_inc_carry(c, p, n)   \
+#define _kctsb_g_inc_carry(c, p, n)   \
   do {   \
-    _ntl_limb_t * __p = (p);  \
+    _kctsb_limb_t * __p = (p);  \
     long __n = (n);  \
     long __addc = 1; \
     while (__n > 0) {  \
@@ -8188,9 +8188,9 @@ void _ntl_g_inc_carry(_ntl_limb_t& c, _ntl_limb_t *p, long n)
 
 
 static inline
-void _ntl_g_dec(_ntl_limb_t *p, long n)   
+void _kctsb_g_dec(_kctsb_limb_t *p, long n)   
 {
-   _ntl_limb_t tmp; 
+   _kctsb_limb_t tmp; 
    while (n > 0) {  
       tmp = *p; 
       *p = CLIP(*p - 1); 
@@ -8202,10 +8202,10 @@ void _ntl_g_dec(_ntl_limb_t *p, long n)
 
 
 #if 0
-#define _ntl_g_dec(p, n)   \
+#define _kctsb_g_dec(p, n)   \
   do {   \
-    _ntl_limb_t * __p = (p);  \
-    _ntl_limb_t __tmp; \
+    _kctsb_limb_t * __p = (p);  \
+    _kctsb_limb_t __tmp; \
     long __n = (n);  \
     while (__n > 0) {  \
        __tmp = *__p; \
@@ -8221,55 +8221,55 @@ void _ntl_g_dec(_ntl_limb_t *p, long n)
 
 /* sub==0 means an addmul w += x*y, sub==1 means a submul w -= x*y. */
 void
-_ntl_gaorsmul_1(_ntl_gbigint x, long yy, long sub, _ntl_gbigint *ww)
+_kctsb_gaorsmul_1(_kctsb_gbigint x, long yy, long sub, _kctsb_gbigint *ww)
 {
   long  xsize, xneg, wsize, wneg, new_wsize, min_size, dsize;
-  _ntl_gbigint w;
-  _ntl_limb_t *xp;
-  _ntl_limb_t *wp;
-  _ntl_limb_t  cy;
-  _ntl_limb_t  y;
+  _kctsb_gbigint w;
+  _kctsb_limb_t *xp;
+  _kctsb_limb_t *wp;
+  _kctsb_limb_t  cy;
+  _kctsb_limb_t  y;
 
   if (ZEROP(x) || yy == 0)
     return;
 
   if (ZEROP(*ww)) {
-    _ntl_gsmul(x, yy, ww);
+    _kctsb_gsmul(x, yy, ww);
     if (sub) SIZE(*ww) = -SIZE(*ww);
     return;
   }
 
   if (yy == 1) {
     if (sub)
-      _ntl_gsub(*ww, x, ww);
+      _kctsb_gsub(*ww, x, ww);
     else
-      _ntl_gadd(*ww, x, ww);
+      _kctsb_gadd(*ww, x, ww);
     return;
   }
 
   if (yy == -1) {
     if (sub)
-      _ntl_gadd(*ww, x, ww);
+      _kctsb_gadd(*ww, x, ww);
     else
-      _ntl_gsub(*ww, x, ww);
+      _kctsb_gsub(*ww, x, ww);
     return;
   }
 
   if (*ww == x) {
     GRegister(tmp);
-    _ntl_gsmul(x, yy, &tmp);
+    _kctsb_gsmul(x, yy, &tmp);
     if (sub)
-       _ntl_gsub(*ww, tmp, ww);
+       _kctsb_gsub(*ww, tmp, ww);
     else
-       _ntl_gadd(*ww, tmp, ww);
+       _kctsb_gadd(*ww, tmp, ww);
     return;
   }
 
   y = ABS(yy);
   if (XCLIP(y)) {
     GRegister(xyy);
-    _ntl_gintoz(yy, &xyy);
-    _ntl_gaorsmul(x, xyy, sub, ww);
+    _kctsb_gintoz(yy, &xyy);
+    _kctsb_gaorsmul(x, xyy, sub, ww);
     return;
   }
 
@@ -8286,7 +8286,7 @@ _ntl_gaorsmul_1(_ntl_gbigint x, long yy, long sub, _ntl_gbigint *ww)
   min_size = min(wsize, xsize);
 
   if (MustAlloc(w, new_wsize+1)) {
-    _ntl_gsetlength(&w, new_wsize+1);
+    _kctsb_gsetlength(&w, new_wsize+1);
     *ww = w;
   }
 
@@ -8297,22 +8297,22 @@ _ntl_gaorsmul_1(_ntl_gbigint x, long yy, long sub, _ntl_gbigint *ww)
     {
       /* addmul of absolute values */
 
-      cy = NTL_MPN(addmul_1) (wp, xp, min_size, y);
+      cy = KCTSB_MPN(addmul_1) (wp, xp, min_size, y);
       wp += min_size;
       xp += min_size;
 
       dsize = xsize - wsize;
       if (dsize != 0)
         {
-          _ntl_limb_t  cy2;
+          _kctsb_limb_t  cy2;
           if (dsize > 0) {
-            cy2 = NTL_MPN(mul_1) (wp, xp, dsize, y);
+            cy2 = KCTSB_MPN(mul_1) (wp, xp, dsize, y);
           }
           else {
             dsize = -dsize;
             cy2 = 0;
           }
-          cy = CLIP(cy2 + NTL_MPN(add_1) (wp, wp, dsize, cy));
+          cy = CLIP(cy2 + KCTSB_MPN(add_1) (wp, wp, dsize, cy));
         }
 
       wp[dsize] = cy;
@@ -8322,12 +8322,12 @@ _ntl_gaorsmul_1(_ntl_gbigint x, long yy, long sub, _ntl_gbigint *ww)
     {
       /* submul of absolute values */
 
-      cy = NTL_MPN(submul_1) (wp, xp, min_size, y);
+      cy = KCTSB_MPN(submul_1) (wp, xp, min_size, y);
       if (wsize >= xsize)
         {
           /* if w bigger than x, then propagate borrow through it */
           if (wsize != xsize) {
-            cy = NTL_MPN(sub_1) (wp+xsize, wp+xsize, wsize-xsize, cy);
+            cy = KCTSB_MPN(sub_1) (wp+xsize, wp+xsize, wsize-xsize, cy);
           }
 
           if (cy != 0)
@@ -8335,9 +8335,9 @@ _ntl_gaorsmul_1(_ntl_gbigint x, long yy, long sub, _ntl_gbigint *ww)
               /* Borrow out of w, take twos complement negative to get
                  absolute value, flip sign of w.  */
               wp[new_wsize] = CLIP(~-cy);  /* extra limb is 0-cy */
-              _ntl_mpn_com_n (wp, wp, new_wsize);
+              _kctsb_mpn_com_n (wp, wp, new_wsize);
               new_wsize++;
-              _ntl_g_inc(wp, new_wsize);
+              _kctsb_g_inc(wp, new_wsize);
               wneg = XOR(wneg, 1); 
             }
         }
@@ -8346,25 +8346,25 @@ _ntl_gaorsmul_1(_ntl_gbigint x, long yy, long sub, _ntl_gbigint *ww)
           /* x bigger than w, so want x*y-w.  Submul has given w-x*y, so
              take twos complement and use an mpn_mul_1 for the rest.  */
 
-          _ntl_limb_t  cy2;
+          _kctsb_limb_t  cy2;
 
           /* -(-cy*b^n + w-x*y) = (cy-1)*b^n + ~(w-x*y) + 1 */
-          _ntl_mpn_com_n (wp, wp, wsize);
-          _ntl_g_inc_carry(cy, wp, wsize);
+          _kctsb_mpn_com_n (wp, wp, wsize);
+          _kctsb_g_inc_carry(cy, wp, wsize);
           cy = CLIP(cy-1);
 
           /* If cy-1 == -1 then hold that -1 for latter.  mpn_submul_1 never
              returns cy==MP_LIMB_T_MAX so that value always indicates a -1. */
-          cy2 = (cy == CLIP(_ntl_limb_t(-1)));
+          cy2 = (cy == CLIP(_kctsb_limb_t(-1)));
           cy = CLIP(cy + cy2);
-          _ntl_MPN_MUL_1C (cy, wp+wsize, xp+wsize, xsize-wsize, y, cy);
+          _kctsb_MPN_MUL_1C (cy, wp+wsize, xp+wsize, xsize-wsize, y, cy);
           wp[new_wsize] = cy;
           new_wsize += (cy != 0);
 
           /* Apply any -1 from above.  The value at wp+wsize is non-zero
              because y!=0 and the high limb of x will be non-zero.  */
           if (cy2) {
-            _ntl_g_dec(wp+wsize, new_wsize-wsize);
+            _kctsb_g_dec(wp+wsize, new_wsize-wsize);
           }
 
           wneg = XOR(wneg, 1);
@@ -8381,15 +8381,15 @@ _ntl_gaorsmul_1(_ntl_gbigint x, long yy, long sub, _ntl_gbigint *ww)
 
 
 void
-_ntl_gsaddmul(_ntl_gbigint x, long yy,  _ntl_gbigint *ww)
+_kctsb_gsaddmul(_kctsb_gbigint x, long yy,  _kctsb_gbigint *ww)
 {
-  _ntl_gaorsmul_1(x, yy, 0, ww);
+  _kctsb_gaorsmul_1(x, yy, 0, ww);
 }
 
 void
-_ntl_gssubmul(_ntl_gbigint x, long yy,  _ntl_gbigint *ww)
+_kctsb_gssubmul(_kctsb_gbigint x, long yy,  _kctsb_gbigint *ww)
 {
-  _ntl_gaorsmul_1(x, yy, 1, ww);
+  _kctsb_gaorsmul_1(x, yy, 1, ww);
 }
 
 
@@ -8399,25 +8399,25 @@ _ntl_gssubmul(_ntl_gbigint x, long yy,  _ntl_gbigint *ww)
 
 
 
-#ifndef NTL_VIABLE_LL
+#ifndef KCTSB_VIABLE_LL
 
 
-struct _ntl_general_rem_one_struct  { };
+struct _kctsb_general_rem_one_struct  { };
 
-_ntl_general_rem_one_struct *
-_ntl_general_rem_one_struct_build(long p)
+_kctsb_general_rem_one_struct *
+_kctsb_general_rem_one_struct_build(long p)
 {
    return 0;
 }
 
 long 
-_ntl_general_rem_one_struct_apply(_ntl_gbigint a, long p, _ntl_general_rem_one_struct *pinfo)
+_kctsb_general_rem_one_struct_apply(_kctsb_gbigint a, long p, _kctsb_general_rem_one_struct *pinfo)
 {
-   return _ntl_gsmod(a, p);
+   return _kctsb_gsmod(a, p);
 }
 
 void
-_ntl_general_rem_one_struct_delete(_ntl_general_rem_one_struct *pinfo) 
+_kctsb_general_rem_one_struct_delete(_kctsb_general_rem_one_struct *pinfo) 
 {
 }
 
@@ -8427,27 +8427,27 @@ _ntl_general_rem_one_struct_delete(_ntl_general_rem_one_struct *pinfo)
 
 #define REM_ONE_SZ (128)
 
-struct _ntl_general_rem_one_struct  {
+struct _kctsb_general_rem_one_struct  {
    sp_ll_reduce_struct red_struct;
    long Bnd;
-   UniqueArray<_ntl_limb_t> tbl;
+   UniqueArray<_kctsb_limb_t> tbl;
 };
 
 
 
-_ntl_general_rem_one_struct *
-_ntl_general_rem_one_struct_build(long p)
+_kctsb_general_rem_one_struct *
+_kctsb_general_rem_one_struct_build(long p)
 {
-   if (p < 2 || p >= NTL_SP_BOUND)
-      LogicError("_ntl_general_rem_one_struct_build: bad args (p)");
+   if (p < 2 || p >= KCTSB_SP_BOUND)
+      LogicError("_kctsb_general_rem_one_struct_build: bad args (p)");
 
-   UniquePtr<_ntl_general_rem_one_struct> pinfo;
+   UniquePtr<_kctsb_general_rem_one_struct> pinfo;
    pinfo.make();
 
    pinfo->red_struct = make_sp_ll_reduce_struct(p);
 
-   long pbits = _ntl_g2logs(p);
-   long gapbits = min(28, 2*NTL_BITS_PER_LONG - pbits - NTL_ZZ_NBITS);
+   long pbits = _kctsb_g2logs(p);
+   long gapbits = min(28, 2*KCTSB_BITS_PER_LONG - pbits - KCTSB_ZZ_NBITS);
    // hold gapbits to a max of 28 to avoid some potential overflow
    // issues
 
@@ -8456,13 +8456,13 @@ _ntl_general_rem_one_struct_build(long p)
    pinfo->tbl.SetLength(REM_ONE_SZ+3);
 
    long t = 1;
-   for (long j = 0; j < NTL_ZZ_NBITS; j++) {
+   for (long j = 0; j < KCTSB_ZZ_NBITS; j++) {
       t += t;
       if (t >= p) t -= p;
    }
 
    long t2 = t;
-   for (long j = NTL_ZZ_NBITS; j < NTL_BITS_PER_LONG; j++) {
+   for (long j = KCTSB_ZZ_NBITS; j < KCTSB_BITS_PER_LONG; j++) {
       t2 += t2;
       if (t2 >= p) t2 -= p;
    }
@@ -8487,12 +8487,12 @@ _ntl_general_rem_one_struct_build(long p)
 
 
 long 
-_ntl_general_rem_one_struct_apply1(_ntl_limb_t *a_data, long a_sz, long a_neg, long p, 
-                                   _ntl_general_rem_one_struct *pinfo)
+_kctsb_general_rem_one_struct_apply1(_kctsb_limb_t *a_data, long a_sz, long a_neg, long p, 
+                                   _kctsb_general_rem_one_struct *pinfo)
 {
    sp_ll_reduce_struct red_struct = pinfo->red_struct;
    long Bnd = pinfo->Bnd;
-   _ntl_limb_t *tbl = pinfo->tbl.elts();
+   _kctsb_limb_t *tbl = pinfo->tbl.elts();
 
    long idx = ((cast_unsigned(a_sz+REM_ONE_SZ-1)/REM_ONE_SZ)-1)*REM_ONE_SZ;
    ll_type leftover;
@@ -8550,7 +8550,7 @@ _ntl_general_rem_one_struct_apply1(_ntl_limb_t *a_data, long a_sz, long a_neg, l
          }
          else {
 	    ll_type acc21;
-	    _ntl_limb_t acc0;
+	    _kctsb_limb_t acc0;
 
 	    ll_add(leftover, ll_get_lo(acc));
 	    acc0 = ll_get_lo(leftover);
@@ -8572,7 +8572,7 @@ _ntl_general_rem_one_struct_apply1(_ntl_limb_t *a_data, long a_sz, long a_neg, l
       else {
 	 ll_type acc21;
 	 ll_init(acc21, 0);
-	 _ntl_limb_t acc0 = 0;
+	 _kctsb_limb_t acc0 = 0;
 
 	 if (Bnd > 16) {
 	    long jj = 0;
@@ -8764,25 +8764,25 @@ _ntl_general_rem_one_struct_apply1(_ntl_limb_t *a_data, long a_sz, long a_neg, l
 
 
 long 
-_ntl_general_rem_one_struct_apply(_ntl_gbigint a, long p, _ntl_general_rem_one_struct *pinfo)
+_kctsb_general_rem_one_struct_apply(_kctsb_gbigint a, long p, _kctsb_general_rem_one_struct *pinfo)
 {
    if (ZEROP(a)) return 0;
 
    if (!pinfo) {
-      return _ntl_gsmod(a, p);
+      return _kctsb_gsmod(a, p);
    }
 
    sp_ll_reduce_struct red_struct = pinfo->red_struct;
    long Bnd = pinfo->Bnd;
-   _ntl_limb_t *tbl = pinfo->tbl.elts();
+   _kctsb_limb_t *tbl = pinfo->tbl.elts();
 
    long a_sz, a_neg;
-   _ntl_limb_t *a_data;
+   _kctsb_limb_t *a_data;
    GET_SIZE_NEG(a_sz, a_neg, a);
    a_data = DATA(a);
 
    if (a_sz > REM_ONE_SZ) {
-      return _ntl_general_rem_one_struct_apply1(a_data, a_sz, a_neg, p, pinfo);
+      return _kctsb_general_rem_one_struct_apply1(a_data, a_sz, a_neg, p, pinfo);
    }
 
    if (a_sz <= Bnd) {
@@ -8830,7 +8830,7 @@ _ntl_general_rem_one_struct_apply(_ntl_gbigint a, long p, _ntl_general_rem_one_s
    else if (Bnd > 16) {
       ll_type acc21;
       ll_init(acc21, 0);
-      _ntl_limb_t acc0 = 0;
+      _kctsb_limb_t acc0 = 0;
 
       long jj = 0;
       for (; jj <= a_sz-Bnd; jj += Bnd) {
@@ -8889,7 +8889,7 @@ _ntl_general_rem_one_struct_apply(_ntl_gbigint a, long p, _ntl_general_rem_one_s
    else if (Bnd == 16) {
       ll_type acc21;
       ll_init(acc21, 0);
-      _ntl_limb_t acc0 = 0;
+      _kctsb_limb_t acc0 = 0;
 
       long jj = 0;
       for (; jj <= a_sz-16; jj += 16) {
@@ -8939,7 +8939,7 @@ _ntl_general_rem_one_struct_apply(_ntl_gbigint a, long p, _ntl_general_rem_one_s
          ll_add(acc21, ll_get_hi(acc));
       }
 
-#if (NTL_NAIL_BITS == 0 && NTL_BITS_PER_LONG-NTL_SP_NBITS==4)
+#if (KCTSB_NAIL_BITS == 0 && KCTSB_BITS_PER_LONG-KCTSB_SP_NBITS==4)
 // DIRT: only works if no nails
 // NOTE: this is a very minor optimization
       long res = sp_ll_red_31_normalized(ll_get_hi(acc21), ll_get_lo(acc21), acc0, p, red_struct);
@@ -8952,7 +8952,7 @@ _ntl_general_rem_one_struct_apply(_ntl_gbigint a, long p, _ntl_general_rem_one_s
    else if (Bnd == 8)  {
       ll_type acc21;
       ll_init(acc21, 0);
-      _ntl_limb_t acc0 = 0;
+      _kctsb_limb_t acc0 = 0;
 
       long jj = 0;
       for (; jj <= a_sz-8; jj += 8) {
@@ -8994,7 +8994,7 @@ _ntl_general_rem_one_struct_apply(_ntl_gbigint a, long p, _ntl_general_rem_one_s
    else /* Bnd == 4 */  {
       ll_type acc21;
       ll_init(acc21, 0);
-      _ntl_limb_t acc0 = 0;
+      _kctsb_limb_t acc0 = 0;
 
       long jj = 0;
       for (; jj <= a_sz-4; jj += 4) {
@@ -9027,7 +9027,7 @@ _ntl_general_rem_one_struct_apply(_ntl_gbigint a, long p, _ntl_general_rem_one_s
          ll_add(acc21, ll_get_hi(acc));
       }
 
-#if (NTL_NAIL_BITS == 0 && NTL_BITS_PER_LONG-NTL_SP_NBITS==2)
+#if (KCTSB_NAIL_BITS == 0 && KCTSB_BITS_PER_LONG-KCTSB_SP_NBITS==2)
 // DIRT: only works if no nails
 // NOTE: this is a very minor optimization
       long res = sp_ll_red_31_normalized(ll_get_hi(acc21), ll_get_lo(acc21), acc0, p, red_struct);
@@ -9040,7 +9040,7 @@ _ntl_general_rem_one_struct_apply(_ntl_gbigint a, long p, _ntl_general_rem_one_s
 }
 
 void
-_ntl_general_rem_one_struct_delete(_ntl_general_rem_one_struct *pinfo) 
+_kctsb_general_rem_one_struct_delete(_kctsb_general_rem_one_struct *pinfo) 
 {
    delete pinfo;
 }
@@ -9050,32 +9050,32 @@ _ntl_general_rem_one_struct_delete(_ntl_general_rem_one_struct *pinfo)
 
 
 void
-_ntl_quick_accum_begin(_ntl_gbigint *xp, long sz)
+_kctsb_quick_accum_begin(_kctsb_gbigint *xp, long sz)
 {
    long sbuf = sz+2;
-   _ntl_gbigint x = *xp;
+   _kctsb_gbigint x = *xp;
    if (MustAlloc(x, sbuf)) {
-      _ntl_gsetlength(&x, sbuf);
+      _kctsb_gsetlength(&x, sbuf);
       *xp = x;
    }
 
-   _ntl_limb_t *xx = DATA(x);
+   _kctsb_limb_t *xx = DATA(x);
    for (long i = 0; i < sbuf; i++) xx[i] = 0;
    SIZE(x) = sbuf;
 }
 
 void 
-_ntl_quick_accum_muladd(_ntl_gbigint x, _ntl_gbigint y, long b)
+_kctsb_quick_accum_muladd(_kctsb_gbigint x, _kctsb_gbigint y, long b)
 {
    if (!y) return;
 
-   _ntl_limb_t *yy = DATA(y);
+   _kctsb_limb_t *yy = DATA(y);
    long sy = SIZE(y);
    if (!sy || !b) return;
 
-   _ntl_limb_t *xx = DATA(x);
+   _kctsb_limb_t *xx = DATA(x);
 
-   _ntl_limb_t carry = NTL_MPN(addmul_1)(xx, yy, sy, b);
+   _kctsb_limb_t carry = KCTSB_MPN(addmul_1)(xx, yy, sy, b);
    yy = xx + sy;
    *yy = CLIP(*yy + carry);
 
@@ -9088,54 +9088,54 @@ _ntl_quick_accum_muladd(_ntl_gbigint x, _ntl_gbigint y, long b)
 }
 
 void
-_ntl_quick_accum_end(_ntl_gbigint x)
+_kctsb_quick_accum_end(_kctsb_gbigint x)
 {
-   _ntl_limb_t *xx = DATA(x);
+   _kctsb_limb_t *xx = DATA(x);
    long sx = SIZE(x);
    STRIP(sx, xx);
    SIZE(x) = sx;
 }
 
 
-#ifdef NTL_PROVIDES_SS_LIP_IMPL
+#ifdef KCTSB_PROVIDES_SS_LIP_IMPL
 
 void
-_ntl_leftrotate(_ntl_gbigint *a, const _ntl_gbigint *b, long e,
-                _ntl_gbigint p, long n, _ntl_gbigint *scratch)
+_kctsb_leftrotate(_kctsb_gbigint *a, const _kctsb_gbigint *b, long e,
+                _kctsb_gbigint p, long n, _kctsb_gbigint *scratch)
 {
    if (e == 0 || ZEROP(*b)) {
-      _ntl_gcopy(*b, a);
+      _kctsb_gcopy(*b, a);
       return;
    }
 
    long sb, nwords;
 
-   if (a == b || ((unsigned long) n) % NTL_ZZ_NBITS != 0 ||
-       (sb = SIZE(*b)) == 1 + (nwords = ((unsigned long) n) / NTL_ZZ_NBITS)) {
+   if (a == b || ((unsigned long) n) % KCTSB_ZZ_NBITS != 0 ||
+       (sb = SIZE(*b)) == 1 + (nwords = ((unsigned long) n) / KCTSB_ZZ_NBITS)) {
 
-      _ntl_grshift(*b, n-e, scratch);
-      _ntl_glowbits(*b, n-e, a);
-      _ntl_glshift(*a, e, a);
+      _kctsb_grshift(*b, n-e, scratch);
+      _kctsb_glowbits(*b, n-e, a);
+      _kctsb_glshift(*a, e, a);
 
-      if (_ntl_gcompare(*a, *scratch) < 0) {
-         _ntl_gswitchbit(a, n);
-         _ntl_gsadd(*a, 1, a);
-         _ntl_gsubpos(*a, *scratch, a);
+      if (_kctsb_gcompare(*a, *scratch) < 0) {
+         _kctsb_gswitchbit(a, n);
+         _kctsb_gsadd(*a, 1, a);
+         _kctsb_gsubpos(*a, *scratch, a);
       }
       else {
-         _ntl_gsubpos(*a, *scratch, a);
+         _kctsb_gsubpos(*a, *scratch, a);
       }
 
       return;
    }
 
-   long ewords = ((unsigned long) e) / NTL_ZZ_NBITS;
-   long ebits  = ((unsigned long) e) % NTL_ZZ_NBITS;
+   long ewords = ((unsigned long) e) / KCTSB_ZZ_NBITS;
+   long ebits  = ((unsigned long) e) % KCTSB_ZZ_NBITS;
 
-   if (MustAlloc(*a, nwords+1)) _ntl_gsetlength(a, nwords+1);
+   if (MustAlloc(*a, nwords+1)) _kctsb_gsetlength(a, nwords+1);
 
-   _ntl_limb_t *adata = DATA(*a);
-   _ntl_limb_t *bdata = DATA(*b);
+   _kctsb_limb_t *adata = DATA(*a);
+   _kctsb_limb_t *bdata = DATA(*b);
 
 
    long special_carry = 0;
@@ -9145,12 +9145,12 @@ _ntl_leftrotate(_ntl_gbigint *a, const _ntl_gbigint *b, long e,
       long hiwords = sb - (nwords-ewords);
       if (hiwords > 0) {
 
-         _ntl_limb_t borrow = NTL_MPN(neg)(adata, bdata + (nwords-ewords),
+         _kctsb_limb_t borrow = KCTSB_MPN(neg)(adata, bdata + (nwords-ewords),
                                            hiwords); 
          if (hiwords < ewords) {
             if (borrow) {
                for (long i = hiwords; i < ewords; i++) 
-                  adata[i] = _ntl_limb_t(-1); 
+                  adata[i] = _kctsb_limb_t(-1); 
             }
             else {
                for (long i = hiwords; i < ewords; i++) 
@@ -9159,9 +9159,9 @@ _ntl_leftrotate(_ntl_gbigint *a, const _ntl_gbigint *b, long e,
          }
 
          if (borrow) {
-            borrow = NTL_MPN(sub_1)(adata + ewords, bdata, nwords-ewords, 1);
+            borrow = KCTSB_MPN(sub_1)(adata + ewords, bdata, nwords-ewords, 1);
             if (borrow) {
-               special_carry = NTL_MPN(add_1)(adata, adata, nwords, 1);
+               special_carry = KCTSB_MPN(add_1)(adata, adata, nwords, 1);
                // special case: result so far is 2^n
             }
          }
@@ -9187,14 +9187,14 @@ _ntl_leftrotate(_ntl_gbigint *a, const _ntl_gbigint *b, long e,
 
    if (ebits) {
       if (special_carry) {
-         NTL_MPN(sub_1)(adata, adata, nwords, (1L << ebits) - 1L);
+         KCTSB_MPN(sub_1)(adata, adata, nwords, (1L << ebits) - 1L);
       }
       else if (sa == nwords) {
-         _ntl_limb_t shout = NTL_MPN(lshift)(adata, adata, sa, ebits);
+         _kctsb_limb_t shout = KCTSB_MPN(lshift)(adata, adata, sa, ebits);
          if (shout) {
-            _ntl_limb_t borrow = NTL_MPN(sub_1)(adata, adata, sa, shout);
+            _kctsb_limb_t borrow = KCTSB_MPN(sub_1)(adata, adata, sa, shout);
             if (borrow) {
-               _ntl_limb_t carry = NTL_MPN(add_1)(adata, adata, sa, 1);
+               _kctsb_limb_t carry = KCTSB_MPN(add_1)(adata, adata, sa, 1);
                if (carry) {
                   adata[sa] = 1;
                   sa++;
@@ -9203,7 +9203,7 @@ _ntl_leftrotate(_ntl_gbigint *a, const _ntl_gbigint *b, long e,
          }
       }
       else { // sa < nwords
-         _ntl_limb_t shout = NTL_MPN(lshift)(adata, adata, sa, ebits);
+         _kctsb_limb_t shout = KCTSB_MPN(lshift)(adata, adata, sa, ebits);
          if (shout) {
             adata[sa] = shout;
             sa++;
@@ -9223,26 +9223,26 @@ _ntl_leftrotate(_ntl_gbigint *a, const _ntl_gbigint *b, long e,
 }
 
 void 
-_ntl_ss_addmod(_ntl_gbigint *x, const _ntl_gbigint *a,
-               const _ntl_gbigint *b, _ntl_gbigint p, long n)
+_kctsb_ss_addmod(_kctsb_gbigint *x, const _kctsb_gbigint *a,
+               const _kctsb_gbigint *b, _kctsb_gbigint p, long n)
 {
-   if (((unsigned long) n) % NTL_ZZ_NBITS != 0) { 
-      _ntl_gadd(*a, *b, x);
-      if (_ntl_gcompare(*x, p) >= 0) {
-         _ntl_gsadd(*x, -1, x);
-         _ntl_gswitchbit(x, n);
+   if (((unsigned long) n) % KCTSB_ZZ_NBITS != 0) { 
+      _kctsb_gadd(*a, *b, x);
+      if (_kctsb_gcompare(*x, p) >= 0) {
+         _kctsb_gsadd(*x, -1, x);
+         _kctsb_gswitchbit(x, n);
       }
    }
    else {
-      _ntl_gadd(*a, *b, x);
+      _kctsb_gadd(*a, *b, x);
       long sx, nwords;
       if (!*x ||
-          (sx = SIZE(*x)) <= (nwords = ((unsigned long) n) / NTL_ZZ_NBITS))
+          (sx = SIZE(*x)) <= (nwords = ((unsigned long) n) / KCTSB_ZZ_NBITS))
          return;
 
-      _ntl_limb_t *xdata = DATA(*x);
+      _kctsb_limb_t *xdata = DATA(*x);
       if (xdata[nwords] == 2) {
-         for (long i = 0; i < nwords; i++) xdata[i] = _ntl_limb_t(-1);
+         for (long i = 0; i < nwords; i++) xdata[i] = _kctsb_limb_t(-1);
          SIZE(*x) = nwords;
          return;
       }
@@ -9251,7 +9251,7 @@ _ntl_ss_addmod(_ntl_gbigint *x, const _ntl_gbigint *a,
       while (i >= 0 && xdata[i] == 0) i--;
       if (i < 0) return;
 
-      NTL_MPN(sub_1)(xdata, xdata, nwords, 1);
+      KCTSB_MPN(sub_1)(xdata, xdata, nwords, 1);
       sx = nwords;
       STRIP(sx, xdata);
       SIZE(*x) = sx;
@@ -9260,26 +9260,26 @@ _ntl_ss_addmod(_ntl_gbigint *x, const _ntl_gbigint *a,
 
 
 void 
-_ntl_ss_submod(_ntl_gbigint *x, const _ntl_gbigint *a,
-               const _ntl_gbigint *b, _ntl_gbigint p, long n)
+_kctsb_ss_submod(_kctsb_gbigint *x, const _kctsb_gbigint *a,
+               const _kctsb_gbigint *b, _kctsb_gbigint p, long n)
 {
-   if (((unsigned long) n) % NTL_ZZ_NBITS != 0) {
-      if (_ntl_gcompare(*a, *b) < 0) {
-         _ntl_gadd(*a, p, x);
-         _ntl_gsubpos(*x, *b, x);
+   if (((unsigned long) n) % KCTSB_ZZ_NBITS != 0) {
+      if (_kctsb_gcompare(*a, *b) < 0) {
+         _kctsb_gadd(*a, p, x);
+         _kctsb_gsubpos(*x, *b, x);
       }
       else {
-         _ntl_gsubpos(*a, *b, x);
+         _kctsb_gsubpos(*a, *b, x);
       }
    }
    else {
       if (ZEROP(*b)) {
-         _ntl_gcopy(*a, x);
+         _kctsb_gcopy(*a, x);
          return;
       }
 
       long sb = SIZE(*b);
-      _ntl_limb_t *bdata = DATA(*b);
+      _kctsb_limb_t *bdata = DATA(*b);
 
       long sa;
 
@@ -9288,16 +9288,16 @@ _ntl_ss_submod(_ntl_gbigint *x, const _ntl_gbigint *a,
       else
          sa = SIZE(*a);
 
-      long nwords = ((unsigned long) n) / NTL_ZZ_NBITS;
-      if (MustAlloc(*x, nwords+1)) _ntl_gsetlength(x, nwords+1);
-      _ntl_limb_t *xdata = DATA(*x);
+      long nwords = ((unsigned long) n) / KCTSB_ZZ_NBITS;
+      if (MustAlloc(*x, nwords+1)) _kctsb_gsetlength(x, nwords+1);
+      _kctsb_limb_t *xdata = DATA(*x);
 
       if (sa >= sb) {
-         _ntl_limb_t *adata = DATA(*a);
-         _ntl_limb_t borrow = NTL_MPN(sub)(xdata, adata, sa, bdata, sb);
+         _kctsb_limb_t *adata = DATA(*a);
+         _kctsb_limb_t borrow = KCTSB_MPN(sub)(xdata, adata, sa, bdata, sb);
          if (borrow) {
-            for (long i = sa; i < nwords; i++) xdata[i] = _ntl_limb_t(-1);
-            _ntl_limb_t carry = NTL_MPN(add_1)(xdata, xdata, nwords, 1);
+            for (long i = sa; i < nwords; i++) xdata[i] = _kctsb_limb_t(-1);
+            _kctsb_limb_t carry = KCTSB_MPN(add_1)(xdata, xdata, nwords, 1);
             if (carry) {
                xdata[nwords] = 1;
                SIZE(*x) = nwords+1;
@@ -9319,14 +9319,14 @@ _ntl_ss_submod(_ntl_gbigint *x, const _ntl_gbigint *a,
             xdata[0] = 1;
          }
          else {
-            _ntl_limb_t *adata = DATA(*a); 
-            xdata[sa] = NTL_MPN(add_1)(xdata, adata, sa, 1);
+            _kctsb_limb_t *adata = DATA(*a); 
+            xdata[sa] = KCTSB_MPN(add_1)(xdata, adata, sa, 1);
          }
          for (long i = sa+1; i <= nwords; i++) xdata[i] = 0;
          xdata[nwords]++;
-         _ntl_limb_t borrow = NTL_MPN(sub_n)(xdata, xdata, bdata, sb);
+         _kctsb_limb_t borrow = KCTSB_MPN(sub_n)(xdata, xdata, bdata, sb);
          if (borrow) {
-            NTL_MPN(sub_1)(xdata+sb, xdata+sb, nwords+1-sb, 1);
+            KCTSB_MPN(sub_1)(xdata+sb, xdata+sb, nwords+1-sb, 1);
          }
          long sx = nwords+1;
          STRIP(sx, xdata);

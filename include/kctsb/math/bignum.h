@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file bignum.h
  * @brief High-precision arithmetic module for kctsb
  *
@@ -31,6 +31,6 @@
 #ifndef KCTSB_MATH_BIGNUM_MODULE_H
 #define KCTSB_MATH_BIGNUM_MODULE_H
 
-#include "bignum/ntl.h"
+#include "bignum/bignum.h"
 
 #endif // KCTSB_MATH_BIGNUM_MODULE_H

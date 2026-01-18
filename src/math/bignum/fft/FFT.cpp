@@ -1,10 +1,10 @@
+﻿
+#include <kctsb/math/bignum/FFT.h>
+#include <kctsb/math/bignum/FFT_impl.h>
 
-#include <NTL/FFT.h>
-#include <NTL/FFT_impl.h>
-
-#ifdef NTL_ENABLE_AVX_FFT
-#include <NTL/SmartPtr.h>
-#include <NTL/pd_FFT.h>
+#ifdef KCTSB_ENABLE_AVX_FFT
+#include <kctsb/math/bignum/SmartPtr.h>
+#include <kctsb/math/bignum/pd_FFT.h>
 #endif
 
 
@@ -16,7 +16,7 @@ ZZ_pX and zz_pX arithmetic, and impacts many other applications as well
 
 The algorithm is a Truncated FFT based on code originally developed by David
 Harvey.  David's code built on the single-precision modular multiplication
-technique introduced in NTL many years ago, but also uses a "lazy
+technique introduced in bignum many years ago, but also uses a "lazy
 multiplication" technique, which reduces the number of "correction" steps that
 need to be performed in each butterfly (see below for more details).  It also
 implements a version of the Truncated FFT algorithm introduced by Joris van der
@@ -25,7 +25,7 @@ Theoretical Computer Science Volume 410, Issues 27-29, 28 June 2009, Pages
 2649-2658.
 
 I have almost completely re-written David's original code to make it fit into
-NTL's software framework; however, all of the key logic is still based on
+bignum's software framework; however, all of the key logic is still based on
 David's code.  David's original code also implemented a 2D transformation which
 is more cache friendly for *very* large transforms.  However, my experimens
 indicated this was only beneficial for transforms of size at least 2^20, and so
@@ -70,10 +70,10 @@ SINGLE-PRECISION MODULAR ARITHMETIC
 
 The implementation of arithmetic modulo n, where n is a "word sized" integer is
 critical to the performance of the FFT.  Such word-sized modular arithmetic is
-used throughout many other parts of NTL, and is a part of the external,
+used throughout many other parts of bignum, and is a part of the external,
 documented interface.
 
-As NTL was initially built on top of Arjen Lenstra's LIP software, I stole a
+As bignum was initially built on top of Arjen Lenstra's LIP software, I stole a
 lot of ideas from LIP.  One very nice ideas was LIP's way of handling
 single-precision modular arithmetic.  Back in those days (the early 1990's), I
 was targeting 32-machines, mainly SPARC stations.  LIP's stratgey was to
@@ -95,10 +95,10 @@ necessary.  To be more portable, some of these computations should really be
 done using unsigned arithmetic, but that is not so important here.  Also, the
 adjustment steps can be replaced by simple non-branching instrictions sequences
 involving SHIFT, AND, and ADD/SUB instructions.  On some modern machines, this
-is usually faster and NTL uses this non-branching strategy.  However, on other
+is usually faster and bignum uses this non-branching strategy.  However, on other
 machines (modern x86's are  an example of this), conditional move instructions
 can be used in place of branching, and this code can be faster than the
-non-branching code.  NTL's performance-tuning script will figure out the best
+non-branching code.  bignum's performance-tuning script will figure out the best
 way to do this.
 
 
@@ -123,7 +123,7 @@ the most important target.  As it happens, later in the 2000's, as the x86
 platforms started to use SSE instructions in lieu of the old x87 FPU
 instructions, this speed differential again became less of a problem.
 Nevertheless, I introduced some new techniques that speed things up across a
-variety of platforms.  I introduced this new technique in NTL 5.4 back in 2005.
+variety of platforms.  I introduced this new technique in bignum 5.4 back in 2005.
 I never claimed it was particularly new, and I never really documented many
 details about it, but since then, it has come to be known as "Shoup
 multiplcation" in a few papers, so I'll accept that. :-)  The paper "Faster
@@ -202,22 +202,22 @@ preconditioner for a (i.e., q1), then the multiplication q1*b in Step 3 should
 not really be necessary (assuming that computing both high and low words of a
 doube-wprd product is no more expensive than just computing the low word).
 However, none of the compilers I've used have been able to perform that
-optimization (in NTL v11.1, I added code that hand-codes this optimization).
+optimization (in bignum v11.1, I added code that hand-codes this optimization).
 
 
 64-BIT MACHINES
 
-Current versions of NTL use (by default) 60-bit moduli based
+Current versions of bignum use (by default) 60-bit moduli based
 on all-integer arithemtic.
 
 
-Prior to v9.0 of NTL, on 64 bits, the modulus n was restricted to 50 bits, in
+Prior to v9.0 of bignum, on 64 bits, the modulus n was restricted to 50 bits, in
 order to allow the use of double-precision techniques, as double's have 53 bits
-of precision.  However, NTL now supports 60-bit moduli.  Actually, 62 bits can
-be supported by setting the NTL_MAXIMIZE_SP_NBITS configuraton flag, but other
+of precision.  However, bignum now supports 60-bit moduli.  Actually, 62 bits can
+be supported by setting the KCTSB_MAXIMIZE_SP_NBITS configuraton flag, but other
 things (namely, the TBL_REM implementation in lip.cpp) start to slow down if 62
 bits are used, so 60 seems like a good compromise.  Currently,  60-bit moduli
-are available only when compiling NTL with GMP, and when some kind of extended
+are available only when compiling bignum with GMP, and when some kind of extended
 integer of floating point arithmetic is available. 
 
 
@@ -243,33 +243,33 @@ For larger FFT's (say, k=17), I see a speedup of 3-10%.
 
 
 
-#define NTL_FFT_BIGTAB_LIMIT (180)
-#define NTL_FFT_BIGTAB_MAXROOT (17)
-#define NTL_FFT_BIGTAB_MINROOT (7)
+#define KCTSB_FFT_BIGTAB_LIMIT (180)
+#define KCTSB_FFT_BIGTAB_MAXROOT (17)
+#define KCTSB_FFT_BIGTAB_MINROOT (7)
 
 // table sizes are bounded by 2^bound, where 
-// bound = NTL_FFT_BIGTAB_MAXROOT-index/NTL_FFT_BIGTAB_LIMIT.
+// bound = KCTSB_FFT_BIGTAB_MAXROOT-index/KCTSB_FFT_BIGTAB_LIMIT.
 // Here, index is the index of an FFT prime, or 0 for a user FFT prime.
-// If bound <= NTL_FFT_BIGTAB_MINROOT, then big tables are not used,
+// If bound <= KCTSB_FFT_BIGTAB_MINROOT, then big tables are not used,
 // so only the first 
-//    (NTL_FFT_BIGTAB_MAXROOT-NTL_FFT_BIGTAB_MINROOT)*NTL_FFT_BIGTAB_LIMIT
+//    (KCTSB_FFT_BIGTAB_MAXROOT-KCTSB_FFT_BIGTAB_MINROOT)*KCTSB_FFT_BIGTAB_LIMIT
 // FFT primes will have big tables.
 
-// NOTE: in newer versions of NTL (v9.1 and later), the BIGTAB
+// NOTE: in newer versions of bignum (v9.1 and later), the BIGTAB
 // code is only about 5-15% faster than the non-BIGTAB code, so
 // this is not a great time/space trade-off.
 // However, some futher optimizations may only be implemented 
 // if big tables are used.
 
-// NOTE: NTL_FFT_BIGTAB_MAXROOT is set independently of the parameter
-// NTL_FFTMaxRoot defined in FFT.h (and which is typically 25).
+// NOTE: KCTSB_FFT_BIGTAB_MAXROOT is set independently of the parameter
+// KCTSB_FFTMaxRoot defined in FFT.h (and which is typically 25).
 // The space for the LazyTable FFTMultipliers could be reduced a bit
-// by using min(NTL_FFT_BIGTAB_MAXROOT, NTL_FFTMaxRoot) + 1 for the
+// by using min(KCTSB_FFT_BIGTAB_MAXROOT, KCTSB_FFTMaxRoot) + 1 for the
 // size of these tables.
 
 
 
-NTL_START_IMPL
+KCTSB_START_IMPL
 
 
 
@@ -279,17 +279,17 @@ public:
    Vec<mulmod_precon_t> wqinvtab_precomp;
 };
 
-typedef LazyTable<FFTVectorPair, NTL_FFTMaxRoot+1> FFTMultipliers;
+typedef LazyTable<FFTVectorPair, KCTSB_FFTMaxRoot+1> FFTMultipliers;
 
 
-#ifdef NTL_ENABLE_AVX_FFT
+#ifdef KCTSB_ENABLE_AVX_FFT
 class pd_FFTVectorPair {
 public:
    AlignedArray<double> wtab_precomp;
    AlignedArray<double> wqinvtab_precomp;
 };
 
-typedef LazyTable<pd_FFTVectorPair, NTL_FFTMaxRoot+1> pd_FFTMultipliers;
+typedef LazyTable<pd_FFTVectorPair, KCTSB_FFTMaxRoot+1> pd_FFTMultipliers;
 #endif
 
 
@@ -297,7 +297,7 @@ typedef LazyTable<pd_FFTVectorPair, NTL_FFTMaxRoot+1> pd_FFTMultipliers;
 class FFTMulTabs {
 public:
 
-#ifndef NTL_ENABLE_AVX_FFT
+#ifndef KCTSB_ENABLE_AVX_FFT
    long bound;
    FFTMultipliers MulTab;
 #else
@@ -321,7 +321,7 @@ long IsFFTPrime(long n, long& w)
    long j, k;
 
 
-   if (n <= 1 || n >= NTL_SP_BOUND) return 0;
+   if (n <= 1 || n >= KCTSB_SP_BOUND) return 0;
 
    if (n % 2 == 0) return 0;
 
@@ -382,7 +382,7 @@ long IsFFTPrime(long n, long& w)
    /* n is an FFT prime */
 
 
-   for (j = NTL_FFTMaxRoot; j < k; j++) {
+   for (j = KCTSB_FFTMaxRoot; j < k; j++) {
       x = MulMod(x, x, n);
    }
 
@@ -395,7 +395,7 @@ long IsFFTPrime(long n, long& w)
 static
 void NextFFTPrime(long& q, long& w, long index)
 {
-   static long m = NTL_FFTMaxRootBnd + 1;
+   static long m = KCTSB_FFTMaxRootBnd + 1;
    static long k = 0;
    // m and k are truly GLOBAL variables, shared among
    // all threads.  Access is protected by a critical section
@@ -426,12 +426,12 @@ void NextFFTPrime(long& q, long& w, long index)
       if (k == 0) {
          m--;
          if (m < 5) ResourceError("ran out of FFT primes");
-         k = 1L << (NTL_SP_NBITS-m-2);
+         k = 1L << (KCTSB_SP_NBITS-m-2);
       }
 
       k--;
 
-      cand = (1L << (NTL_SP_NBITS-1)) + (k << (m+1)) + (1L << m) + 1;
+      cand = (1L << (KCTSB_SP_NBITS-1)) + (k << (m+1)) + (1L << m) + 1;
 
       if (!IsFFTPrime(cand, t)) continue;
       q = cand;
@@ -450,8 +450,8 @@ long CalcMaxRoot(long p)
       k++;
    }
 
-   if (k > NTL_FFTMaxRoot)
-      return NTL_FFTMaxRoot;
+   if (k > KCTSB_FFTMaxRoot)
+      return KCTSB_FFTMaxRoot;
    else
       return k; 
 }
@@ -459,7 +459,7 @@ long CalcMaxRoot(long p)
 
 
 
-#ifndef NTL_WIZARD_HACK
+#ifndef KCTSB_WIZARD_HACK
 SmartPtr<zz_pInfoT> Build_zz_pInfo(FFTPrimeInfo *info);
 #else
 SmartPtr<zz_pInfoT> Build_zz_pInfo(FFTPrimeInfo *info) { return 0; }
@@ -468,9 +468,9 @@ SmartPtr<zz_pInfoT> Build_zz_pInfo(FFTPrimeInfo *info) { return 0; }
 void UseFFTPrime(long index)
 {
    if (index < 0) LogicError("invalud FFT prime index");
-   if (index >= NTL_MAX_FFTPRIMES) ResourceError("FFT prime index too large");
+   if (index >= KCTSB_MAX_FFTPRIMES) ResourceError("FFT prime index too large");
 
-   if (index+1 >= NTL_NSP_BOUND) ResourceError("FFT prime index too large");
+   if (index+1 >= KCTSB_NSP_BOUND) ResourceError("FFT prime index too large");
    // largely acacedemic, but it is a convenient assumption
 
    do {  // NOTE: thread safe lazy init
@@ -491,7 +491,7 @@ void UseFFTPrime(long index)
 
          long bigtab_index = -1;
 
-#ifdef NTL_FFT_BIGTAB
+#ifdef KCTSB_FFT_BIGTAB
          bigtab_index = i;
 #endif
 
@@ -504,16 +504,16 @@ void UseFFTPrime(long index)
 }
 
 
-#ifdef NTL_FFT_LAZYMUL 
+#ifdef KCTSB_FFT_LAZYMUL 
 // we only honor the FFT_LAZYMUL flag if either the SPMM_ULL_VIABLE or LONGLONG_SP_MULMOD 
 // flags are set
 
-#if (!defined(NTL_SPMM_ULL_VIABLE) && !defined(NTL_LONGLONG_SP_MULMOD))
-#undef NTL_FFT_LAZYMUL
+#if (!defined(KCTSB_SPMM_ULL_VIABLE) && !defined(KCTSB_LONGLONG_SP_MULMOD))
+#undef KCTSB_FFT_LAZYMUL
 
 // raise an error if running the wizard
-#if (defined(NTL_WIZARD_HACK))
-#error "cannot honor NTL_FFT_LAZYMUL"
+#if (defined(KCTSB_WIZARD_HACK))
+#error "cannot honor KCTSB_FFT_LAZYMUL"
 #endif
 
 #endif
@@ -523,11 +523,11 @@ void UseFFTPrime(long index)
 
 
 
-#ifdef NTL_FFT_LAZYMUL
+#ifdef KCTSB_FFT_LAZYMUL
 // FFT with  lazy multiplication
 
-#ifdef NTL_CLEAN_INT
-#define NTL_FFT_USEBUF
+#ifdef KCTSB_CLEAN_INT
+#define KCTSB_FFT_USEBUF
 #endif
 // DIRT: with the lazy multiplication strategy, we have to work
 // with unisgned long's rather than long's.  To avoid unnecessary
@@ -559,17 +559,17 @@ void UseFFTPrime(long index)
 
 
 
-#if (defined(NTL_LONGLONG_SP_MULMOD))
+#if (defined(KCTSB_LONGLONG_SP_MULMOD))
 
 
-#if (NTL_BITS_PER_LONG >= NTL_SP_NBITS+4) 
+#if (KCTSB_BITS_PER_LONG >= KCTSB_SP_NBITS+4) 
 
 static inline unsigned long 
 sp_NormalizedLazyPrepMulModPreconWithRem(unsigned long& rres, long b, long n, unsigned long ninv)
 {
    unsigned long H = cast_unsigned(b);
    unsigned long Q = ll_mul_hi(H << 4, ninv);
-   unsigned long L = cast_unsigned(b) << (NTL_SP_NBITS+2);
+   unsigned long L = cast_unsigned(b) << (KCTSB_SP_NBITS+2);
    long r = L - Q*cast_unsigned(n);  // r in [0..2*n)
 
    r = sp_CorrectExcessQuo(Q, r, n);
@@ -582,7 +582,7 @@ sp_NormalizedLazyPrepMulModPrecon(long b, long n, unsigned long ninv)
 {
    unsigned long H = cast_unsigned(b);
    unsigned long Q = ll_mul_hi(H << 4, ninv);
-   unsigned long L = cast_unsigned(b) << (NTL_SP_NBITS+2);
+   unsigned long L = cast_unsigned(b) << (KCTSB_SP_NBITS+2);
    long r = L - Q*cast_unsigned(n);  // r in [0..2*n)
 
    Q += 1L + sp_SignMask(r-n);
@@ -592,7 +592,7 @@ sp_NormalizedLazyPrepMulModPrecon(long b, long n, unsigned long ninv)
 
 #else
 
-// NTL_BITS_PER_LONG == NTL_SP_NBITS+2
+// KCTSB_BITS_PER_LONG == KCTSB_SP_NBITS+2
 static inline unsigned long 
 sp_NormalizedLazyPrepMulModPreconWithRem(unsigned long& rres, long b, long n, unsigned long ninv)
 {
@@ -623,7 +623,7 @@ sp_NormalizedLazyPrepMulModPrecon(long b, long n, unsigned long ninv)
 static inline unsigned long
 LazyPrepMulModPrecon(long b, long n, sp_inverse ninv)
 {
-   return sp_NormalizedLazyPrepMulModPrecon(b << ninv.shamt, n << ninv.shamt, ninv.inv) << (NTL_BITS_PER_LONG-NTL_SP_NBITS-2);
+   return sp_NormalizedLazyPrepMulModPrecon(b << ninv.shamt, n << ninv.shamt, ninv.inv) << (KCTSB_BITS_PER_LONG-KCTSB_SP_NBITS-2);
 }
 
 
@@ -633,7 +633,7 @@ LazyPrepMulModPreconWithRem(unsigned long& rres, long b, long n, sp_inverse ninv
    unsigned long qq, rr;
    qq = sp_NormalizedLazyPrepMulModPreconWithRem(rr, b << ninv.shamt, n << ninv.shamt, ninv.inv); 
    rres = rr >> ninv.shamt;
-   return qq << (NTL_BITS_PER_LONG-NTL_SP_NBITS-2);
+   return qq << (KCTSB_BITS_PER_LONG-KCTSB_SP_NBITS-2);
 }
 
 
@@ -643,45 +643,45 @@ LazyPrepMulModPreconWithRem(unsigned long& rres, long b, long n, sp_inverse ninv
 
 
 
-#elif (NTL_BITS_PER_LONG - NTL_SP_NBITS >= 4 && NTL_WIDE_DOUBLE_PRECISION - NTL_SP_NBITS >= 4)
+#elif (KCTSB_BITS_PER_LONG - KCTSB_SP_NBITS >= 4 && KCTSB_WIDE_DOUBLE_PRECISION - KCTSB_SP_NBITS >= 4)
 
 
 // slightly faster functions, which should kick in on x86-64, where 
-//    NTL_BITS_PER_LONG == 64
-//    NTL_SP_NBITS == 60 (another reason for holding this back to 60 bits)
-//    NTL_WIDE_DOUBLE_PRECISION == 64
+//    KCTSB_BITS_PER_LONG == 64
+//    KCTSB_SP_NBITS == 60 (another reason for holding this back to 60 bits)
+//    KCTSB_WIDE_DOUBLE_PRECISION == 64
 
 // DIRT: if the relative error in floating point calcuations (muls and reciprocals)
 //   is <= epsilon, the relative error in the calculations is <= 3*epsilon +
 //   O(epsilon^2), and we require that this relative error is at most
-//   2^{-(NTL_SP_NBITS+2)}, so it should be pretty safe as long as
-//   epsilon is at most, or not much geater than, 2^{-NTL_WIDE_DOUBLE_PRECISION}.
+//   2^{-(KCTSB_SP_NBITS+2)}, so it should be pretty safe as long as
+//   epsilon is at most, or not much geater than, 2^{-KCTSB_WIDE_DOUBLE_PRECISION}.
 
 static inline 
 unsigned long LazyPrepMulModPrecon(long b, long n, wide_double ninv)
 {
-   long q = (long) ( (((wide_double) b) * wide_double(4*NTL_SP_BOUND)) * ninv ); 
+   long q = (long) ( (((wide_double) b) * wide_double(4*KCTSB_SP_BOUND)) * ninv ); 
 
-   unsigned long rr = (cast_unsigned(b) << (NTL_SP_NBITS+2)) 
+   unsigned long rr = (cast_unsigned(b) << (KCTSB_SP_NBITS+2)) 
                        - cast_unsigned(q)*cast_unsigned(n);
 
    q += sp_SignMask(rr) + sp_SignMask(rr-n) + 1L;
 
-   return cast_unsigned(q) << (NTL_BITS_PER_LONG - NTL_SP_NBITS - 2);
+   return cast_unsigned(q) << (KCTSB_BITS_PER_LONG - KCTSB_SP_NBITS - 2);
 }
 
 static inline 
 unsigned long LazyPrepMulModPreconWithRem(unsigned long& rres, long b, long n, wide_double ninv)
 {
-   long q = (long) ( (((wide_double) b) * wide_double(4*NTL_SP_BOUND)) * ninv ); 
+   long q = (long) ( (((wide_double) b) * wide_double(4*KCTSB_SP_BOUND)) * ninv ); 
 
-   unsigned long rr = (cast_unsigned(b) << (NTL_SP_NBITS+2)) 
+   unsigned long rr = (cast_unsigned(b) << (KCTSB_SP_NBITS+2)) 
                        - cast_unsigned(q)*cast_unsigned(n);
 
    long r = sp_CorrectDeficitQuo(q, rr, n);
    r = sp_CorrectExcessQuo(q, r, n);
 
-   unsigned long qres = cast_unsigned(q) << (NTL_BITS_PER_LONG - NTL_SP_NBITS - 2);
+   unsigned long qres = cast_unsigned(q) << (KCTSB_BITS_PER_LONG - KCTSB_SP_NBITS - 2);
    rres = r;
    return qres;
 }
@@ -692,9 +692,9 @@ unsigned long LazyPrepMulModPreconWithRem(unsigned long& rres, long b, long n, w
 static inline 
 unsigned long LazyPrepMulModPrecon(long b, long n, wide_double ninv)
 {
-   long q = (long) ( (((wide_double) b) * wide_double(NTL_SP_BOUND)) * ninv ); 
+   long q = (long) ( (((wide_double) b) * wide_double(KCTSB_SP_BOUND)) * ninv ); 
 
-   unsigned long rr = (cast_unsigned(b) << (NTL_SP_NBITS)) 
+   unsigned long rr = (cast_unsigned(b) << (KCTSB_SP_NBITS)) 
                        - cast_unsigned(q)*cast_unsigned(n);
 
    long r = sp_CorrectDeficitQuo(q, rr, n);
@@ -710,7 +710,7 @@ unsigned long LazyPrepMulModPrecon(long b, long n, wide_double ninv)
    r = 2*r;
    qq += sp_SignMask(r-n) + 1L;
 
-   return qq << (NTL_BITS_PER_LONG - NTL_SP_NBITS - 2);
+   return qq << (KCTSB_BITS_PER_LONG - KCTSB_SP_NBITS - 2);
 }
 
 
@@ -720,9 +720,9 @@ unsigned long LazyPrepMulModPrecon(long b, long n, wide_double ninv)
 static inline 
 unsigned long LazyPrepMulModPreconWithRem(unsigned long& rres, long b, long n, wide_double ninv)
 {
-   long q = (long) ( (((wide_double) b) * wide_double(NTL_SP_BOUND)) * ninv ); 
+   long q = (long) ( (((wide_double) b) * wide_double(KCTSB_SP_BOUND)) * ninv ); 
 
-   unsigned long rr = (cast_unsigned(b) << (NTL_SP_NBITS)) 
+   unsigned long rr = (cast_unsigned(b) << (KCTSB_SP_NBITS)) 
                        - cast_unsigned(q)*cast_unsigned(n);
 
    long r = sp_CorrectDeficitQuo(q, rr, n);
@@ -739,7 +739,7 @@ unsigned long LazyPrepMulModPreconWithRem(unsigned long& rres, long b, long n, w
    r = sp_CorrectExcessQuo(qq, r, n);
 
    rres = r;
-   return qq << (NTL_BITS_PER_LONG - NTL_SP_NBITS - 2);
+   return qq << (KCTSB_BITS_PER_LONG - KCTSB_SP_NBITS - 2);
 }
 
 #endif
@@ -753,7 +753,7 @@ unsigned long LazyMulModPreconQuo(unsigned long a, unsigned long b,
    unsigned long q = ll_mul_hi(a, bninv);
    unsigned long r = a*b - q*n;
    q += sp_SignMask(r-n) + 1L;
-   return q << (NTL_BITS_PER_LONG - NTL_SP_NBITS - 2);
+   return q << (KCTSB_BITS_PER_LONG - KCTSB_SP_NBITS - 2);
 }
 
 
@@ -815,7 +815,7 @@ umint_t LazySubMod2(umint_t a, umint_t b, mint_t n)
    return sp_CorrectDeficit(r, 2*n);
 }
 
-#ifdef NTL_AVOID_BRANCHING
+#ifdef KCTSB_AVOID_BRANCHING
 
 // x, y in [0, 4*m)
 // returns x + y mod 4*m, in [0, 4*m)
@@ -900,10 +900,10 @@ void ComputeMultipliers(Vec<FFTVectorPair>& v, long k, mint_t q, mulmod_t qinv, 
       long m = 1L << s;
       long m_half = 1L << (s-1);
       long m_fourth = 1L << (s-2);
-      mint_t* NTL_RESTRICT wtab = v[s].wtab_precomp.elts();
-      mint_t* NTL_RESTRICT wtab1 = v[s-1].wtab_precomp.elts();
-      mulmod_precon_t* NTL_RESTRICT wqinvtab = v[s].wqinvtab_precomp.elts();
-      mulmod_precon_t* NTL_RESTRICT wqinvtab1 = v[s-1].wqinvtab_precomp.elts();
+      mint_t* KCTSB_RESTRICT wtab = v[s].wtab_precomp.elts();
+      mint_t* KCTSB_RESTRICT wtab1 = v[s-1].wtab_precomp.elts();
+      mulmod_precon_t* KCTSB_RESTRICT wqinvtab = v[s].wqinvtab_precomp.elts();
+      mulmod_precon_t* KCTSB_RESTRICT wqinvtab1 = v[s-1].wqinvtab_precomp.elts();
 
       mint_t w = root[s];
       umint_t wqinv_rem;
@@ -1010,10 +1010,10 @@ void ComputeMultipliers(Vec<FFTVectorPair>& v, long k, mint_t q, mulmod_t qinv, 
       long m = 1L << s;
       long m_half = 1L << (s-1);
       long m_fourth = 1L << (s-2);
-      mint_t* NTL_RESTRICT wtab = v[s].wtab_precomp.elts();
-      mint_t* NTL_RESTRICT wtab1 = v[s-1].wtab_precomp.elts();
-      mulmod_precon_t* NTL_RESTRICT wqinvtab = v[s].wqinvtab_precomp.elts();
-      mulmod_precon_t* NTL_RESTRICT wqinvtab1 = v[s-1].wqinvtab_precomp.elts();
+      mint_t* KCTSB_RESTRICT wtab = v[s].wtab_precomp.elts();
+      mint_t* KCTSB_RESTRICT wtab1 = v[s-1].wtab_precomp.elts();
+      mulmod_precon_t* KCTSB_RESTRICT wqinvtab = v[s].wqinvtab_precomp.elts();
+      mulmod_precon_t* KCTSB_RESTRICT wqinvtab1 = v[s-1].wqinvtab_precomp.elts();
 
       mint_t w = root[s];
       mulmod_precon_t wqinv = PrepMulModPrecon(w, q, qinv);
@@ -1292,7 +1292,7 @@ do   \
 while (0)
 
 
-#define NTL_NEW_FFT_THRESH (11)
+#define KCTSB_NEW_FFT_THRESH (11)
 
 struct new_mod_t {
    mint_t q;
@@ -1307,16 +1307,16 @@ struct new_mod_t {
 // requires size divisible by 8
 static void
 new_fft_layer(umint_t* xp, long blocks, long size,
-              const mint_t* NTL_RESTRICT wtab, 
-              const mulmod_precon_t* NTL_RESTRICT wqinvtab, 
+              const mint_t* KCTSB_RESTRICT wtab, 
+              const mulmod_precon_t* KCTSB_RESTRICT wqinvtab, 
               mint_t q)
 {
   size /= 2;
 
   do
     {
-      umint_t* NTL_RESTRICT xp0 = xp;
-      umint_t* NTL_RESTRICT xp1 = xp + size;
+      umint_t* KCTSB_RESTRICT xp0 = xp;
+      umint_t* KCTSB_RESTRICT xp1 = xp + size;
 
       // first 4 butterflies
       fwd_butterfly0(xp0[0+0], xp1[0+0], q);
@@ -1412,7 +1412,7 @@ void new_fft_short(umint_t* xp, long yn, long xn, long lgN,
 
   if (yn == N)
     {
-      if (xn == N && lgN <= NTL_NEW_FFT_THRESH)
+      if (xn == N && lgN <= KCTSB_NEW_FFT_THRESH)
 	{
 	  // no truncation
 	  new_fft_base(xp, lgN, mod);
@@ -1446,10 +1446,10 @@ void new_fft_short(umint_t* xp, long yn, long xn, long lgN,
     {
       yn -= half;
       
-      umint_t* NTL_RESTRICT xp0 = xp;
-      umint_t* NTL_RESTRICT xp1 = xp + half;
-      const mint_t* NTL_RESTRICT wtab = mod.wtab[lgN];
-      const mulmod_precon_t* NTL_RESTRICT wqinvtab = mod.wqinvtab[lgN];
+      umint_t* KCTSB_RESTRICT xp0 = xp;
+      umint_t* KCTSB_RESTRICT xp1 = xp + half;
+      const mint_t* KCTSB_RESTRICT wtab = mod.wtab[lgN];
+      const mulmod_precon_t* KCTSB_RESTRICT wqinvtab = mod.wqinvtab[lgN];
 
       if (xn <= half)
 	{
@@ -1522,10 +1522,10 @@ void new_fft_short_notab(umint_t* xp, long yn, long xn, long lgN,
     {
       yn -= half;
       
-      umint_t* NTL_RESTRICT xp0 = xp;
-      umint_t* NTL_RESTRICT xp1 = xp + half;
-      const mint_t* NTL_RESTRICT wtab = mod.wtab[lgN-1];
-      const mulmod_precon_t* NTL_RESTRICT wqinvtab = mod.wqinvtab[lgN-1];
+      umint_t* KCTSB_RESTRICT xp0 = xp;
+      umint_t* KCTSB_RESTRICT xp1 = xp + half;
+      const mint_t* KCTSB_RESTRICT wtab = mod.wtab[lgN-1];
+      const mulmod_precon_t* KCTSB_RESTRICT wqinvtab = mod.wqinvtab[lgN-1];
 
       if (xn <= half)
 	{
@@ -1586,13 +1586,13 @@ new_fft_layer_flipped(umint_t* xp, long blocks, long size,
 {
   size /= 2;
 
-  const mint_t* NTL_RESTRICT wtab1 = wtab + size;
-  const mulmod_precon_t* NTL_RESTRICT wqinvtab1 = wqinvtab + size;
+  const mint_t* KCTSB_RESTRICT wtab1 = wtab + size;
+  const mulmod_precon_t* KCTSB_RESTRICT wqinvtab1 = wqinvtab + size;
 
   do
     {
-      umint_t* NTL_RESTRICT xp0 = xp;
-      umint_t* NTL_RESTRICT xp1 = xp + size;
+      umint_t* KCTSB_RESTRICT xp0 = xp;
+      umint_t* KCTSB_RESTRICT xp1 = xp + size;
 
       // first 4 butterflies
       fwd_butterfly0(xp0[0+0], xp1[0+0], q);
@@ -1682,7 +1682,7 @@ void new_fft_short_flipped(umint_t* xp, long lgN, const new_mod_t& mod)
 {
   long N = 1L << lgN;
 
-  if (lgN <= NTL_NEW_FFT_THRESH)
+  if (lgN <= KCTSB_NEW_FFT_THRESH)
     {
       new_fft_base_flipped(xp, lgN, mod);
       return;
@@ -1693,10 +1693,10 @@ void new_fft_short_flipped(umint_t* xp, long lgN, const new_mod_t& mod)
   long half = N >> 1;
   mint_t q = mod.q;
 
-  umint_t* NTL_RESTRICT xp0 = xp;
-  umint_t* NTL_RESTRICT xp1 = xp + half;
-  const mint_t* NTL_RESTRICT wtab = mod.wtab[lgN] + half;
-  const mulmod_precon_t* NTL_RESTRICT wqinvtab = mod.wqinvtab[lgN] + half;
+  umint_t* KCTSB_RESTRICT xp0 = xp;
+  umint_t* KCTSB_RESTRICT xp1 = xp + half;
+  const mint_t* KCTSB_RESTRICT wtab = mod.wtab[lgN] + half;
+  const mulmod_precon_t* KCTSB_RESTRICT wqinvtab = mod.wqinvtab[lgN] + half;
 
   // (X, Y) -> (X + Y, w*(X - Y))
 
@@ -1774,14 +1774,14 @@ new_ifft_layer(umint_t* xp, long blocks, long size,
 {
 
   size /= 2;
-  const mint_t* NTL_RESTRICT wtab1 = wtab + size;
-  const mulmod_precon_t* NTL_RESTRICT wqinvtab1 = wqinvtab + size;
+  const mint_t* KCTSB_RESTRICT wtab1 = wtab + size;
+  const mulmod_precon_t* KCTSB_RESTRICT wqinvtab1 = wqinvtab + size;
 
   do
     {
 
-      umint_t* NTL_RESTRICT xp0 = xp;
-      umint_t* NTL_RESTRICT xp1 = xp + size;
+      umint_t* KCTSB_RESTRICT xp0 = xp;
+      umint_t* KCTSB_RESTRICT xp1 = xp + size;
 
 
       // first 4 butterflies
@@ -1875,7 +1875,7 @@ void new_ifft_short1(umint_t* xp, long yn, long lgN, const new_mod_t& mod)
 {
   long N = 1L << lgN;
 
-  if (yn == N && lgN <= NTL_NEW_FFT_THRESH)
+  if (yn == N && lgN <= KCTSB_NEW_FFT_THRESH)
     {
       // no truncation
       new_ifft_base(xp, lgN, mod);
@@ -1897,10 +1897,10 @@ void new_ifft_short1(umint_t* xp, long yn, long lgN, const new_mod_t& mod)
     }
   else
     {
-      umint_t* NTL_RESTRICT xp0 = xp;
-      umint_t* NTL_RESTRICT xp1 = xp + half;
-      const mint_t* NTL_RESTRICT wtab = mod.wtab[lgN];
-      const mulmod_precon_t* NTL_RESTRICT wqinvtab = mod.wqinvtab[lgN];
+      umint_t* KCTSB_RESTRICT xp0 = xp;
+      umint_t* KCTSB_RESTRICT xp1 = xp + half;
+      const mint_t* KCTSB_RESTRICT wtab = mod.wtab[lgN];
+      const mulmod_precon_t* KCTSB_RESTRICT wqinvtab = mod.wqinvtab[lgN];
 
       new_ifft_short1(xp0, half, lgN - 1, mod);
 
@@ -1918,8 +1918,8 @@ void new_ifft_short1(umint_t* xp, long yn, long lgN, const new_mod_t& mod)
 
       // (X, Y) -> (X + Y/w, X - Y/w)
       {
-	const mint_t* NTL_RESTRICT wtab1 = wtab + half;
-	const mulmod_precon_t* NTL_RESTRICT wqinvtab1 =  wqinvtab + half;
+	const mint_t* KCTSB_RESTRICT wtab1 = wtab + half;
+	const mulmod_precon_t* KCTSB_RESTRICT wqinvtab1 =  wqinvtab + half;
 
 	// DIRT: assumes yn is a multiple of 4
 	inv_butterfly0(xp0[0], xp1[0], q);
@@ -1962,10 +1962,10 @@ void new_ifft_short1_notab(umint_t* xp, long yn, long lgN, const new_mod_t& mod,
     }
   else
     {
-      umint_t* NTL_RESTRICT xp0 = xp;
-      umint_t* NTL_RESTRICT xp1 = xp + half;
-      const mint_t* NTL_RESTRICT wtab = mod.wtab[lgN-1];
-      const mulmod_precon_t* NTL_RESTRICT wqinvtab = mod.wqinvtab[lgN-1];
+      umint_t* KCTSB_RESTRICT xp0 = xp;
+      umint_t* KCTSB_RESTRICT xp1 = xp + half;
+      const mint_t* KCTSB_RESTRICT wtab = mod.wtab[lgN-1];
+      const mulmod_precon_t* KCTSB_RESTRICT wqinvtab = mod.wqinvtab[lgN-1];
 
       new_ifft_short1(xp0, half, lgN - 1, mod);
 
@@ -1990,8 +1990,8 @@ void new_ifft_short1_notab(umint_t* xp, long yn, long lgN, const new_mod_t& mod,
 
       // (X, Y) -> (X + Y/w, X - Y/w)
       {
-	const mint_t* NTL_RESTRICT wtab1 = wtab + half/2;
-	const mulmod_precon_t* NTL_RESTRICT wqinvtab1 =  wqinvtab + half/2;
+	const mint_t* KCTSB_RESTRICT wtab1 = wtab + half/2;
+	const mulmod_precon_t* KCTSB_RESTRICT wqinvtab1 =  wqinvtab + half/2;
 
 	inv_butterfly0(xp0[0], xp1[0], q);
 	inv_butterfly(xp0[1], xp1[1], iw, q, iwqinv);
@@ -2011,8 +2011,8 @@ void new_ifft_short1_notab(umint_t* xp, long yn, long lgN, const new_mod_t& mod,
 // requires size divisible by 8
 static void
 new_ifft_layer_flipped(umint_t* xp, long blocks, long size,
-		 const mint_t* NTL_RESTRICT wtab, 
-                 const mulmod_precon_t* NTL_RESTRICT wqinvtab, mint_t q)
+		 const mint_t* KCTSB_RESTRICT wtab, 
+                 const mulmod_precon_t* KCTSB_RESTRICT wqinvtab, mint_t q)
 {
 
   size /= 2;
@@ -2020,8 +2020,8 @@ new_ifft_layer_flipped(umint_t* xp, long blocks, long size,
   do
     {
 
-      umint_t* NTL_RESTRICT xp0 = xp;
-      umint_t* NTL_RESTRICT xp1 = xp + size;
+      umint_t* KCTSB_RESTRICT xp0 = xp;
+      umint_t* KCTSB_RESTRICT xp1 = xp + size;
 
 
       // first 4 butterflies
@@ -2111,7 +2111,7 @@ void new_ifft_short1_flipped(umint_t* xp, long lgN, const new_mod_t& mod)
 {
   long N = 1L << lgN;
 
-  if (lgN <= NTL_NEW_FFT_THRESH)
+  if (lgN <= KCTSB_NEW_FFT_THRESH)
     {
       new_ifft_base_flipped(xp, lgN, mod);
       return;
@@ -2122,10 +2122,10 @@ void new_ifft_short1_flipped(umint_t* xp, long lgN, const new_mod_t& mod)
   long half = N >> 1;
   mint_t q = mod.q;
 
-  umint_t* NTL_RESTRICT xp0 = xp;
-  umint_t* NTL_RESTRICT xp1 = xp + half;
-  const mint_t* NTL_RESTRICT wtab = mod.wtab[lgN];
-  const mulmod_precon_t* NTL_RESTRICT wqinvtab = mod.wqinvtab[lgN];
+  umint_t* KCTSB_RESTRICT xp0 = xp;
+  umint_t* KCTSB_RESTRICT xp1 = xp + half;
+  const mint_t* KCTSB_RESTRICT wtab = mod.wtab[lgN];
+  const mulmod_precon_t* KCTSB_RESTRICT wqinvtab = mod.wqinvtab[lgN];
 
   new_ifft_short1_flipped(xp0, lgN - 1, mod);
   new_ifft_short1_flipped(xp1, lgN - 1, mod);
@@ -2157,7 +2157,7 @@ void new_ifft_short2(umint_t* xp, long yn, long lgN, const new_mod_t& mod)
 {
   long N = 1L << lgN;
 
-  if (yn == N && lgN <= NTL_NEW_FFT_THRESH)
+  if (yn == N && lgN <= KCTSB_NEW_FFT_THRESH)
     {
       // no truncation
       new_ifft_base(xp, lgN, mod);
@@ -2186,10 +2186,10 @@ void new_ifft_short2(umint_t* xp, long yn, long lgN, const new_mod_t& mod)
     }
   else
     {
-      umint_t* NTL_RESTRICT xp0 = xp;
-      umint_t* NTL_RESTRICT xp1 = xp + half;
-      const mint_t* NTL_RESTRICT wtab = mod.wtab[lgN];
-      const mulmod_precon_t* NTL_RESTRICT wqinvtab = mod.wqinvtab[lgN];
+      umint_t* KCTSB_RESTRICT xp0 = xp;
+      umint_t* KCTSB_RESTRICT xp1 = xp + half;
+      const mint_t* KCTSB_RESTRICT wtab = mod.wtab[lgN];
+      const mulmod_precon_t* KCTSB_RESTRICT wqinvtab = mod.wqinvtab[lgN];
 
       new_ifft_short1(xp0, half, lgN - 1, mod);
 
@@ -2210,8 +2210,8 @@ void new_ifft_short2(umint_t* xp, long yn, long lgN, const new_mod_t& mod)
 
       // (X, Y) -> (X + Y/w, X - Y/w)
       {
-	const mint_t* NTL_RESTRICT wtab1 = wtab + half;
-	const mulmod_precon_t* NTL_RESTRICT wqinvtab1 =  wqinvtab + half;
+	const mint_t* KCTSB_RESTRICT wtab1 = wtab + half;
+	const mulmod_precon_t* KCTSB_RESTRICT wqinvtab1 =  wqinvtab + half;
 
 	// DIRT: assumes yn is a multiple of 4
 	inv_butterfly0(xp0[0], xp1[0], q);
@@ -2236,9 +2236,9 @@ void new_ifft_short2(umint_t* xp, long yn, long lgN, const new_mod_t& mod)
 //=========== FFT without tables ===========
 
 
-NTL_TLS_GLOBAL_DECL(Vec<umint_t>, AA_store)
+KCTSB_TLS_GLOBAL_DECL(Vec<umint_t>, AA_store)
 
-NTL_TLS_GLOBAL_DECL(Vec<FFTVectorPair>, mul_vec)
+KCTSB_TLS_GLOBAL_DECL(Vec<FFTVectorPair>, mul_vec)
 
 void new_fft_notab(mint_t* A, const mint_t* a, long k, const FFTPrimeInfo& info,
              long yn, long xn)
@@ -2270,15 +2270,15 @@ void new_fft_notab(mint_t* A, const mint_t* a, long k, const FFTPrimeInfo& info,
    const mint_t *root = info.RootTable[0].elts();
    mulmod_t qinv = info.qinv;
 
-   NTL_TLS_GLOBAL_ACCESS(mul_vec);
+   KCTSB_TLS_GLOBAL_ACCESS(mul_vec);
    ComputeMultipliers(mul_vec, k-1, q, qinv, root);
 
    long n = 1L << k;
 
-   const mint_t *wtab[NTL_FFTMaxRoot+1];
+   const mint_t *wtab[KCTSB_FFTMaxRoot+1];
    for (long s = 1; s <= k-1; s++) wtab[s] = mul_vec[s].wtab_precomp.elts();
 
-   const mulmod_precon_t *wqinvtab[NTL_FFTMaxRoot+1];
+   const mulmod_precon_t *wqinvtab[KCTSB_FFTMaxRoot+1];
    for (long s = 1; s <= k-1; s++) wqinvtab[s] = mul_vec[s].wqinvtab_precomp.elts();
 
    new_mod_t mod;
@@ -2289,8 +2289,8 @@ void new_fft_notab(mint_t* A, const mint_t* a, long k, const FFTPrimeInfo& info,
    mint_t w = info.RootTable[0][k];
    mulmod_precon_t wqinv = LazyPrepMulModPrecon(w, q, info.qinv);
 
-#ifdef NTL_FFT_USEBUF
-   NTL_TLS_GLOBAL_ACCESS(AA_store);
+#ifdef KCTSB_FFT_USEBUF
+   KCTSB_TLS_GLOBAL_ACCESS(AA_store);
    AA_store.SetLength(1L << k);
    umint_t *AA = AA_store.elts();
 
@@ -2347,15 +2347,15 @@ void new_fft_flipped_notab(mint_t* A, const mint_t* a, long k,
    const mint_t *root = info.RootTable[1].elts();
    mulmod_t qinv = info.qinv;
 
-   NTL_TLS_GLOBAL_ACCESS(mul_vec);
+   KCTSB_TLS_GLOBAL_ACCESS(mul_vec);
    ComputeMultipliers(mul_vec, k-1, q, qinv, root);
 
    long n = 1L << k;
 
-   const mint_t *wtab[NTL_FFTMaxRoot+1];
+   const mint_t *wtab[KCTSB_FFTMaxRoot+1];
    for (long s = 1; s <= k-1; s++) wtab[s] = mul_vec[s].wtab_precomp.elts();
 
-   const mulmod_precon_t *wqinvtab[NTL_FFTMaxRoot+1];
+   const mulmod_precon_t *wqinvtab[KCTSB_FFTMaxRoot+1];
    for (long s = 1; s <= k-1; s++) wqinvtab[s] = mul_vec[s].wqinvtab_precomp.elts();
 
    new_mod_t mod;
@@ -2369,8 +2369,8 @@ void new_fft_flipped_notab(mint_t* A, const mint_t* a, long k,
    mint_t two_inv = info.TwoInvTable[k];
    mulmod_precon_t two_inv_aux = info.TwoInvPreconTable[k];
 
-#ifdef NTL_FFT_USEBUF
-   NTL_TLS_GLOBAL_ACCESS(AA_store);
+#ifdef KCTSB_FFT_USEBUF
+   KCTSB_TLS_GLOBAL_ACCESS(AA_store);
    AA_store.SetLength(1L << k);
    umint_t *AA = AA_store.elts();
 
@@ -2432,15 +2432,15 @@ void new_ifft_notab(mint_t* A, const mint_t* a, long k, const FFTPrimeInfo& info
    const mint_t *root = info.RootTable[0].elts();
    mulmod_t qinv = info.qinv;
 
-   NTL_TLS_GLOBAL_ACCESS(mul_vec);
+   KCTSB_TLS_GLOBAL_ACCESS(mul_vec);
    ComputeMultipliers(mul_vec, k-1, q, qinv, root);
 
    long n = 1L << k;
 
-   const mint_t *wtab[NTL_FFTMaxRoot+1];
+   const mint_t *wtab[KCTSB_FFTMaxRoot+1];
    for (long s = 1; s <= k-1; s++) wtab[s] = mul_vec[s].wtab_precomp.elts();
 
-   const mulmod_precon_t *wqinvtab[NTL_FFTMaxRoot+1];
+   const mulmod_precon_t *wqinvtab[KCTSB_FFTMaxRoot+1];
    for (long s = 1; s <= k-1; s++) wqinvtab[s] = mul_vec[s].wqinvtab_precomp.elts();
 
    new_mod_t mod;
@@ -2458,8 +2458,8 @@ void new_ifft_notab(mint_t* A, const mint_t* a, long k, const FFTPrimeInfo& info
    mint_t two_inv = info.TwoInvTable[k];
    mulmod_precon_t two_inv_aux = info.TwoInvPreconTable[k];
 
-#ifdef NTL_FFT_USEBUF
-   NTL_TLS_GLOBAL_ACCESS(AA_store);
+#ifdef KCTSB_FFT_USEBUF
+   KCTSB_TLS_GLOBAL_ACCESS(AA_store);
    AA_store.SetLength(1L << k);
    umint_t *AA = AA_store.elts();
 
@@ -2517,15 +2517,15 @@ void new_ifft_flipped_notab(mint_t* A, const mint_t* a, long k,
    const mint_t *root = info.RootTable[1].elts();
    mulmod_t qinv = info.qinv;
 
-   NTL_TLS_GLOBAL_ACCESS(mul_vec);
+   KCTSB_TLS_GLOBAL_ACCESS(mul_vec);
    ComputeMultipliers(mul_vec, k-1, q, qinv, root);
 
    long n = 1L << k;
 
-   const mint_t *wtab[NTL_FFTMaxRoot+1];
+   const mint_t *wtab[KCTSB_FFTMaxRoot+1];
    for (long s = 1; s <= k-1; s++) wtab[s] = mul_vec[s].wtab_precomp.elts();
 
-   const mulmod_precon_t *wqinvtab[NTL_FFTMaxRoot+1];
+   const mulmod_precon_t *wqinvtab[KCTSB_FFTMaxRoot+1];
    for (long s = 1; s <= k-1; s++) wqinvtab[s] = mul_vec[s].wqinvtab_precomp.elts();
 
    new_mod_t mod;
@@ -2539,8 +2539,8 @@ void new_ifft_flipped_notab(mint_t* A, const mint_t* a, long k,
    mint_t iw = info.RootTable[0][k];
    mulmod_precon_t iwqinv = LazyPrepMulModPrecon(iw, q, info.qinv);
 
-#ifdef NTL_FFT_USEBUF
-   NTL_TLS_GLOBAL_ACCESS(AA_store);
+#ifdef KCTSB_FFT_USEBUF
+   KCTSB_TLS_GLOBAL_ACCESS(AA_store);
    AA_store.SetLength(1L << k);
    umint_t *AA = AA_store.elts();
 
@@ -2567,7 +2567,7 @@ void new_ifft_flipped_notab(mint_t* A, const mint_t* a, long k,
 }
 
 
-#ifndef NTL_ENABLE_AVX_FFT
+#ifndef KCTSB_ENABLE_AVX_FFT
 
 //================ FFT with tables ==============
 
@@ -2613,10 +2613,10 @@ void new_fft(mint_t* A, const mint_t* a, long k, const FFTPrimeInfo& info,
    long n = 1L << k;
 
 
-   const mint_t *wtab[NTL_FFTMaxRoot+1];
+   const mint_t *wtab[KCTSB_FFTMaxRoot+1];
    for (long s = 1; s <= k; s++) wtab[s] = tab[s]->wtab_precomp.elts();
 
-   const mulmod_precon_t *wqinvtab[NTL_FFTMaxRoot+1];
+   const mulmod_precon_t *wqinvtab[KCTSB_FFTMaxRoot+1];
    for (long s = 1; s <= k; s++) wqinvtab[s] = tab[s]->wqinvtab_precomp.elts();
 
    new_mod_t mod;
@@ -2626,8 +2626,8 @@ void new_fft(mint_t* A, const mint_t* a, long k, const FFTPrimeInfo& info,
 
 
 
-#ifdef NTL_FFT_USEBUF
-   NTL_TLS_GLOBAL_ACCESS(AA_store);
+#ifdef KCTSB_FFT_USEBUF
+   KCTSB_TLS_GLOBAL_ACCESS(AA_store);
    AA_store.SetLength(1L << k);
    umint_t *AA = AA_store.elts();
 
@@ -2694,10 +2694,10 @@ void new_fft_flipped(mint_t* A, const mint_t* a, long k, const FFTPrimeInfo& inf
    long n = 1L << k;
 
 
-   const mint_t *wtab[NTL_FFTMaxRoot+1];
+   const mint_t *wtab[KCTSB_FFTMaxRoot+1];
    for (long s = 1; s <= k; s++) wtab[s] = tab[s]->wtab_precomp.elts();
 
-   const mulmod_precon_t *wqinvtab[NTL_FFTMaxRoot+1];
+   const mulmod_precon_t *wqinvtab[KCTSB_FFTMaxRoot+1];
    for (long s = 1; s <= k; s++) wqinvtab[s] = tab[s]->wqinvtab_precomp.elts();
 
    new_mod_t mod;
@@ -2709,8 +2709,8 @@ void new_fft_flipped(mint_t* A, const mint_t* a, long k, const FFTPrimeInfo& inf
    mulmod_precon_t two_inv_aux = info.TwoInvPreconTable[k];
 
 
-#ifdef NTL_FFT_USEBUF
-   NTL_TLS_GLOBAL_ACCESS(AA_store);
+#ifdef KCTSB_FFT_USEBUF
+   KCTSB_TLS_GLOBAL_ACCESS(AA_store);
    AA_store.SetLength(1L << k);
    umint_t *AA = AA_store.elts();
 
@@ -2782,10 +2782,10 @@ void new_ifft(mint_t* A, const mint_t* a, long k, const FFTPrimeInfo& info,
    long n = 1L << k;
 
 
-   const mint_t *wtab[NTL_FFTMaxRoot+1];
+   const mint_t *wtab[KCTSB_FFTMaxRoot+1];
    for (long s = 1; s <= k; s++) wtab[s] = tab[s]->wtab_precomp.elts();
 
-   const mulmod_precon_t *wqinvtab[NTL_FFTMaxRoot+1];
+   const mulmod_precon_t *wqinvtab[KCTSB_FFTMaxRoot+1];
    for (long s = 1; s <= k; s++) wqinvtab[s] = tab[s]->wqinvtab_precomp.elts();
 
    new_mod_t mod;
@@ -2796,8 +2796,8 @@ void new_ifft(mint_t* A, const mint_t* a, long k, const FFTPrimeInfo& info,
    mint_t two_inv = info.TwoInvTable[k];
    mulmod_precon_t two_inv_aux = info.TwoInvPreconTable[k];
 
-#ifdef NTL_FFT_USEBUF
-   NTL_TLS_GLOBAL_ACCESS(AA_store);
+#ifdef KCTSB_FFT_USEBUF
+   KCTSB_TLS_GLOBAL_ACCESS(AA_store);
    AA_store.SetLength(1L << k);
    umint_t *AA = AA_store.elts();
 
@@ -2866,10 +2866,10 @@ void new_ifft_flipped(mint_t* A, const mint_t* a, long k, const FFTPrimeInfo& in
    long n = 1L << k;
 
 
-   const mint_t *wtab[NTL_FFTMaxRoot+1];
+   const mint_t *wtab[KCTSB_FFTMaxRoot+1];
    for (long s = 1; s <= k; s++) wtab[s] = tab[s]->wtab_precomp.elts();
 
-   const mulmod_precon_t *wqinvtab[NTL_FFTMaxRoot+1];
+   const mulmod_precon_t *wqinvtab[KCTSB_FFTMaxRoot+1];
    for (long s = 1; s <= k; s++) wqinvtab[s] = tab[s]->wqinvtab_precomp.elts();
 
    new_mod_t mod;
@@ -2878,8 +2878,8 @@ void new_ifft_flipped(mint_t* A, const mint_t* a, long k, const FFTPrimeInfo& in
    mod.wqinvtab = &wqinvtab[0];
 
 
-#ifdef NTL_FFT_USEBUF
-   NTL_TLS_GLOBAL_ACCESS(AA_store);
+#ifdef KCTSB_FFT_USEBUF
+   KCTSB_TLS_GLOBAL_ACCESS(AA_store);
    AA_store.SetLength(1L << k);
    umint_t *AA = AA_store.elts();
 
@@ -2949,10 +2949,10 @@ void InitFFTPrimeInfo(FFTPrimeInfo& info, long q, long w, long bigtab_index)
    for (j = 0; j <= mr; j++)
       tipt[j] = LazyPrepMulModPrecon(tit[j], q, qinv);
 
-#ifndef NTL_ENABLE_AVX_FFT
+#ifndef KCTSB_ENABLE_AVX_FFT
    if (bigtab_index != -1) {
-      long bound = NTL_FFT_BIGTAB_MAXROOT-bigtab_index/NTL_FFT_BIGTAB_LIMIT;
-      if (bound > NTL_FFT_BIGTAB_MINROOT) {
+      long bound = KCTSB_FFT_BIGTAB_MAXROOT-bigtab_index/KCTSB_FFT_BIGTAB_LIMIT;
+      if (bound > KCTSB_FFT_BIGTAB_MINROOT) {
          info.bigtab.make();
          info.bigtab->bound = bound;
       }
@@ -2966,7 +2966,7 @@ void InitFFTPrimeInfo(FFTPrimeInfo& info, long q, long w, long bigtab_index)
 
 //===================================================================
 
-#ifdef NTL_ENABLE_AVX_FFT
+#ifdef KCTSB_ENABLE_AVX_FFT
 
 static void
 pd_LazyPrepMulModPrecon(double *bninv, const double *b, double n, long len)
@@ -3023,11 +3023,11 @@ void LazyPrecompFFTMultipliers(long k, mint_t q, mulmod_t qinv, const mint_t *ro
    } while (0);
 }
 
-NTL_TLS_GLOBAL_DECL(AlignedArray<double>, pd_AA_store)
-static NTL_CHEAP_THREAD_LOCAL long pd_AA_store_len = 0;
+KCTSB_TLS_GLOBAL_DECL(AlignedArray<double>, pd_AA_store)
+static KCTSB_CHEAP_THREAD_LOCAL long pd_AA_store_len = 0;
 
 
-#define PD_MIN_K (NTL_LG2_PDSZ+3)
+#define PD_MIN_K (KCTSB_LG2_PDSZ+3)
 // k must be at least PD_MIN_K
 
 void new_fft(mint_t* A, const mint_t* a, long k, const FFTPrimeInfo& info,
@@ -3047,10 +3047,10 @@ void new_fft(mint_t* A, const mint_t* a, long k, const FFTPrimeInfo& info,
 
    if (k >= tab.length()) LazyPrecompFFTMultipliers(k, q, qinv, root, tab);
 
-   const double *wtab[NTL_FFTMaxRoot+1];
+   const double *wtab[KCTSB_FFTMaxRoot+1];
    for (long s = 1; s <= k; s++) wtab[s] = tab[s]->wtab_precomp.elts();
 
-   const double *wqinvtab[NTL_FFTMaxRoot+1];
+   const double *wqinvtab[KCTSB_FFTMaxRoot+1];
    for (long s = 1; s <= k; s++) wqinvtab[s] = tab[s]->wqinvtab_precomp.elts();
 
    pd_mod_t mod;
@@ -3060,7 +3060,7 @@ void new_fft(mint_t* A, const mint_t* a, long k, const FFTPrimeInfo& info,
 
    long n = 1L << k;
 
-   NTL_TLS_GLOBAL_ACCESS(pd_AA_store);
+   KCTSB_TLS_GLOBAL_ACCESS(pd_AA_store);
    if (pd_AA_store_len < n) pd_AA_store.SetLength(n);
    double *AA = pd_AA_store.elts();
 
@@ -3086,10 +3086,10 @@ void new_fft_flipped(mint_t* A, const mint_t* a, long k, const FFTPrimeInfo& inf
 
    if (k >= tab.length()) LazyPrecompFFTMultipliers(k, q, qinv, root, tab);
 
-   const double *wtab[NTL_FFTMaxRoot+1];
+   const double *wtab[KCTSB_FFTMaxRoot+1];
    for (long s = 1; s <= k; s++) wtab[s] = tab[s]->wtab_precomp.elts();
 
-   const double *wqinvtab[NTL_FFTMaxRoot+1];
+   const double *wqinvtab[KCTSB_FFTMaxRoot+1];
    for (long s = 1; s <= k; s++) wqinvtab[s] = tab[s]->wqinvtab_precomp.elts();
 
    pd_mod_t mod;
@@ -3099,7 +3099,7 @@ void new_fft_flipped(mint_t* A, const mint_t* a, long k, const FFTPrimeInfo& inf
 
    long n = 1L << k;
 
-   NTL_TLS_GLOBAL_ACCESS(pd_AA_store);
+   KCTSB_TLS_GLOBAL_ACCESS(pd_AA_store);
    if (pd_AA_store_len < n) pd_AA_store.SetLength(n);
    double *AA = pd_AA_store.elts();
 
@@ -3128,16 +3128,16 @@ void new_ifft(mint_t* A, const mint_t* a, long k, const FFTPrimeInfo& info,
    if (k >= tab.length()) LazyPrecompFFTMultipliers(k, q, qinv, root, tab);
    if (k >= tab1.length()) LazyPrecompFFTMultipliers(k, q, qinv, root1, tab1);
 
-   const double *wtab[NTL_FFTMaxRoot+1];
+   const double *wtab[KCTSB_FFTMaxRoot+1];
    for (long s = 1; s <= k; s++) wtab[s] = tab[s]->wtab_precomp.elts();
 
-   const double *wqinvtab[NTL_FFTMaxRoot+1];
+   const double *wqinvtab[KCTSB_FFTMaxRoot+1];
    for (long s = 1; s <= k; s++) wqinvtab[s] = tab[s]->wqinvtab_precomp.elts();
 
-   const double *wtab1[NTL_FFTMaxRoot+1];
+   const double *wtab1[KCTSB_FFTMaxRoot+1];
    for (long s = 1; s <= k; s++) wtab1[s] = tab1[s]->wtab_precomp.elts();
 
-   const double *wqinvtab1[NTL_FFTMaxRoot+1];
+   const double *wqinvtab1[KCTSB_FFTMaxRoot+1];
    for (long s = 1; s <= k; s++) wqinvtab1[s] = tab1[s]->wqinvtab_precomp.elts();
 
    pd_mod_t mod;
@@ -3149,7 +3149,7 @@ void new_ifft(mint_t* A, const mint_t* a, long k, const FFTPrimeInfo& info,
 
    long n = 1L << k;
 
-   NTL_TLS_GLOBAL_ACCESS(pd_AA_store);
+   KCTSB_TLS_GLOBAL_ACCESS(pd_AA_store);
    if (pd_AA_store_len < n) pd_AA_store.SetLength(n);
    double *AA = pd_AA_store.elts();
 
@@ -3177,16 +3177,16 @@ void new_ifft_flipped(mint_t* A, const mint_t* a, long k, const FFTPrimeInfo& in
    if (k >= tab.length()) LazyPrecompFFTMultipliers(k, q, qinv, root, tab);
    if (k >= tab1.length()) LazyPrecompFFTMultipliers(k, q, qinv, root1, tab1);
 
-   const double *wtab[NTL_FFTMaxRoot+1];
+   const double *wtab[KCTSB_FFTMaxRoot+1];
    for (long s = 1; s <= k; s++) wtab[s] = tab[s]->wtab_precomp.elts();
 
-   const double *wqinvtab[NTL_FFTMaxRoot+1];
+   const double *wqinvtab[KCTSB_FFTMaxRoot+1];
    for (long s = 1; s <= k; s++) wqinvtab[s] = tab[s]->wqinvtab_precomp.elts();
 
-   const double *wtab1[NTL_FFTMaxRoot+1];
+   const double *wtab1[KCTSB_FFTMaxRoot+1];
    for (long s = 1; s <= k; s++) wtab1[s] = tab1[s]->wtab_precomp.elts();
 
-   const double *wqinvtab1[NTL_FFTMaxRoot+1];
+   const double *wqinvtab1[KCTSB_FFTMaxRoot+1];
    for (long s = 1; s <= k; s++) wqinvtab1[s] = tab1[s]->wqinvtab_precomp.elts();
 
    pd_mod_t mod;
@@ -3198,7 +3198,7 @@ void new_ifft_flipped(mint_t* A, const mint_t* a, long k, const FFTPrimeInfo& in
 
    long n = 1L << k;
 
-   NTL_TLS_GLOBAL_ACCESS(pd_AA_store);
+   KCTSB_TLS_GLOBAL_ACCESS(pd_AA_store);
    if (pd_AA_store_len < n) pd_AA_store.SetLength(n);
    double *AA = pd_AA_store.elts();
 
@@ -3209,4 +3209,4 @@ void new_ifft_flipped(mint_t* A, const mint_t* a, long k, const FFTPrimeInfo& in
 #endif
 
 
-NTL_END_IMPL
+KCTSB_END_IMPL

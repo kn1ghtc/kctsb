@@ -1,6 +1,6 @@
-/**
+﻿/**
  * @file ecdh.cpp
- * @brief ECDH Key Exchange Implementation - NTL Backend
+ * @brief ECDH Key Exchange Implementation - Bignum Backend
  * 
  * Complete ECDH implementation following:
  * - SEC 1 v2.0 (Elliptic Curve Cryptography)
@@ -23,7 +23,7 @@
 #include <algorithm>
 #include <vector>
 
-// Bignum namespace is now kctsb (was NTL)
+// Bignum namespace is now kctsb (was bignum)
 using namespace kctsb;
 
 namespace kctsb {
@@ -49,7 +49,7 @@ std::vector<uint8_t> ECDHKeyPair::export_public_key(const ECCurve& curve) const 
 }
 
 std::vector<uint8_t> ECDHKeyPair::export_private_key(size_t field_size) const {
-    // NTL BytesFromZZ outputs little-endian, SEC 1 requires big-endian
+    // bignum BytesFromZZ outputs little-endian, SEC 1 requires big-endian
     std::vector<uint8_t> le_bytes(field_size);
     BytesFromZZ(le_bytes.data(), private_key, static_cast<long>(field_size));
     
@@ -127,7 +127,7 @@ JacobianPoint ECDH::import_public_key(const uint8_t* data, size_t len) const {
 }
 
 ECDHKeyPair ECDH::import_private_key(const uint8_t* data, size_t len) const {
-    // SEC 1 input is big-endian, convert to little-endian for NTL
+    // SEC 1 input is big-endian, convert to little-endian for bignum
     std::vector<uint8_t> le_bytes(len);
     for (size_t i = 0; i < len; i++) {
         le_bytes[i] = data[len - 1 - i];
@@ -158,7 +158,7 @@ std::vector<uint8_t> ECDH::compute_shared_secret(
     
     size_t field_size = get_field_size();
     
-    // NTL BytesFromZZ outputs little-endian, SEC 1 requires big-endian
+    // bignum BytesFromZZ outputs little-endian, SEC 1 requires big-endian
     ZZ x_int = conv<ZZ>(rep(S_aff.x));
     std::vector<uint8_t> le_bytes(field_size);
     BytesFromZZ(le_bytes.data(), x_int, static_cast<long>(field_size));
@@ -181,7 +181,7 @@ std::vector<uint8_t> ECDH::compute_shared_secret(
     const uint8_t* private_key_bytes, size_t private_key_len,
     const uint8_t* peer_public_bytes, size_t peer_public_len) const {
     
-    // SEC 1 input is big-endian, convert to little-endian for NTL
+    // SEC 1 input is big-endian, convert to little-endian for bignum
     std::vector<uint8_t> le_bytes(private_key_len);
     for (size_t i = 0; i < private_key_len; i++) {
         le_bytes[i] = private_key_bytes[private_key_len - 1 - i];

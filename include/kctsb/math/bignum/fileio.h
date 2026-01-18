@@ -1,14 +1,14 @@
+﻿
+#ifndef KCTSB_fileio__H
+#define KCTSB_fileio__H
 
-#ifndef NTL_fileio__H
-#define NTL_fileio__H
-
-#include <NTL/tools.h>
-#include <NTL/vector.h>
+#include <kctsb/math/bignum/tools.h>
+#include <kctsb/math/bignum/vector.h>
 #include <fstream>                                                              
 #include <string>
 
 
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 
 class FileList {
@@ -30,16 +30,16 @@ public:
 
 
 
-void OpenWrite(NTL_SNS ofstream& s, const char *name);
+void OpenWrite(KCTSB_SNS ofstream& s, const char *name);
 // opens file for writing...aborts if fails
 
-void OpenWrite(NTL_SNS ofstream& s, const char *name, FileList& flist);
+void OpenWrite(KCTSB_SNS ofstream& s, const char *name, FileList& flist);
 // opens file for writing and adds name to flist
 
-void OpenRead(NTL_SNS ifstream& s, const char *name);
+void OpenRead(KCTSB_SNS ifstream& s, const char *name);
 // opens file for reading
 
-void CloseWrite(NTL_SNS ofstream& s);
+void CloseWrite(KCTSB_SNS ofstream& s);
 // closes s, checks for failure
 
 
@@ -47,12 +47,12 @@ void CloseWrite(NTL_SNS ofstream& s);
 const char *FileName(const char* stem, long d);
 // builds the name from stem-DDDDD, returns pointer to buffer
 
-const NTL_SNS string& UniqueID();
+const KCTSB_SNS string& UniqueID();
 // ideally, a unique ID (across all processes and threads),
 // but it may not be perfect (useful for generating unique 
 // file names and seeding PRG).
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 #endif
 

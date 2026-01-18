@@ -1,12 +1,12 @@
+﻿
+#ifndef KCTSB_LazyTable__H
+#define KCTSB_LazyTable__H
 
-#ifndef NTL_LazyTable__H
-#define NTL_LazyTable__H
+#include <kctsb/math/bignum/tools.h>
+#include <kctsb/math/bignum/SmartPtr.h>
+#include <kctsb/math/bignum/thread.h>
 
-#include <NTL/tools.h>
-#include <NTL/SmartPtr.h>
-#include <NTL/thread.h>
-
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 
 /***************************************************************************
@@ -76,7 +76,7 @@ private:
 // NOTE: For more on double-checked locking, see
 // http://preshing.com/20130930/double-checked-locking-is-fixed-in-cpp11/
 
-// NOTE: when compiled with the NTL_THREADS option, the LazyTable
+// NOTE: when compiled with the KCTSB_THREADS option, the LazyTable
 // class may contain data members from the standard library
 // that may not satisfy the requirements of the Vec class
 // (i.e., relocatability).  One can wrap it in a pointer 
@@ -153,6 +153,6 @@ public:
 // NOTE: LazyTable's are non-relocatable
 
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 #endif

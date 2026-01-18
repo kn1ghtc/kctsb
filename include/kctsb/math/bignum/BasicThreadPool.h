@@ -1,14 +1,14 @@
+﻿
+#ifndef KCTSB_BasicThreadPool__H
+#define KCTSB_BasicThreadPool__H
 
-#ifndef NTL_BasicThreadPool__H
-#define NTL_BasicThreadPool__H
-
-#include <NTL/tools.h>
-#include <NTL/vector.h>
-#include <NTL/SmartPtr.h>
-#include <NTL/thread.h>
+#include <kctsb/math/bignum/tools.h>
+#include <kctsb/math/bignum/vector.h>
+#include <kctsb/math/bignum/SmartPtr.h>
+#include <kctsb/math/bignum/thread.h>
 
 
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 
 inline long AvailableThreads();
@@ -32,7 +32,7 @@ struct PartitionInfo {
       if (nt <= 0) LogicError("PartitionInfo: bad args");
 
       // NOTE: this overflow check probably unnecessary
-      if (NTL_OVERFLOW(sz, 1, 0) || NTL_OVERFLOW(nt, 1, 0))
+      if (KCTSB_OVERFLOW(sz, 1, 0) || KCTSB_OVERFLOW(nt, 1, 0))
          ResourceError("PartitionInfo: arg too big");
 
       if (sz < nt) {
@@ -78,7 +78,7 @@ struct PartitionInfo {
       // this is the same logic, but branch-free (and portable)
       // ...probably unnecessary optimization
       // Use 64-bit shift width for sign extraction (works on all platforms)
-      // Note: we use KCTSB_BITS_PER_WORD instead of NTL_BITS_PER_LONG for LLP64 compat
+      // Note: we use KCTSB_BITS_PER_WORD instead of KCTSB_BITS_PER_LONG for LLP64 compat
       long mask = -long(cast_unsigned(i-nsintervals) >> (sizeof(long)*8-1));
       // mask == -1 if i < nsintervals, 0 o/w
  
@@ -97,11 +97,11 @@ struct PartitionInfo {
 
 
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 
 
-#ifdef NTL_THREADS
+#ifdef KCTSB_THREADS
 
 
 #include <thread>
@@ -109,7 +109,7 @@ NTL_CLOSE_NNS
 #include <exception>
 
 
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 /*************************************************************
 
@@ -424,7 +424,7 @@ public:
     if (nthreads <= 0) LogicError("BasicThreadPool::BasicThreadPool: bad args");
     if (nthreads == 1) return;
 
-    if (NTL_OVERFLOW(nthreads, 1, 0)) 
+    if (KCTSB_OVERFLOW(nthreads, 1, 0)) 
       ResourceError("BasicThreadPool::BasicThreadPool: arg too big");
 
 
@@ -447,7 +447,7 @@ public:
   {
     if (active()) LogicError("BasicThreadPool: illegal operation while active");
     if (n <= 0) LogicError("BasicThreadPool::add: bad args");
-    if (NTL_OVERFLOW(n, 1, 0)) 
+    if (KCTSB_OVERFLOW(n, 1, 0)) 
       ResourceError("BasicThreadPool::add: arg too big");
 
     Vec< UniquePtr<AutomaticThread> > newThreads;
@@ -617,7 +617,7 @@ SmartPtr<RecursiveThreadPool> StartRecursion(BasicThreadPool *base_pool)
 // the object itself will stay alive until the end of the
 // largest enclosing expression, and then be destroyed.
 // I could have also used a UniquePtr, and relied on the move
-// constructor to be called.  However, NTL still has a DISABLE_MOVE
+// constructor to be called.  However, bignum still has a DISABLE_MOVE
 // option that would break that.  I could also have used 
 // std::unique_ptr; however, I'm generally avoiding those parts
 // of the standard library. A SmartPtr has some additional
@@ -670,28 +670,28 @@ struct RecursiveThreadPoolHelper {
 
 
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 
 #endif
 
 
 
-#ifdef NTL_THREAD_BOOST
+#ifdef KCTSB_THREAD_BOOST
 
-#ifndef NTL_THREADS
-#error "NTL_THREAD_BOOST requires NTL_THREADS"
+#ifndef KCTSB_THREADS
+#error "KCTSB_THREAD_BOOST requires KCTSB_THREADS"
 #endif
 
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 extern
-NTL_CHEAP_THREAD_LOCAL BasicThreadPool *NTLThreadPool_ptr;
+KCTSB_CHEAP_THREAD_LOCAL BasicThreadPool *KctsbThreadPool_ptr;
 
 inline
 BasicThreadPool *GetThreadPool()
 {
-   return NTLThreadPool_ptr;
+   return KctsbThreadPool_ptr;
 }
 
 void ResetThreadPool(BasicThreadPool *pool = 0);
@@ -713,38 +713,38 @@ inline long AvailableThreads()
 }
 
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 
-#define NTL_EXEC_RANGE(n, first, last)  \
+#define KCTSB_EXEC_RANGE(n, first, last)  \
 {  \
-   NTL_NNS BasicThreadPool::relaxed_exec_range(NTL_NNS GetThreadPool(), (n), \
+   KCTSB_NNS BasicThreadPool::relaxed_exec_range(KCTSB_NNS GetThreadPool(), (n), \
      [&](long first, long last) {  \
 
 
-#define NTL_EXEC_RANGE_END  \
+#define KCTSB_EXEC_RANGE_END  \
    } ); \
 }  \
 
 
-#define NTL_GEXEC_RANGE(seq, n, first, last)  \
+#define KCTSB_GEXEC_RANGE(seq, n, first, last)  \
 {  \
-   NTL_NNS BasicThreadPool::relaxed_exec_range((seq) ? 0 : NTL_NNS GetThreadPool(), (n), \
+   KCTSB_NNS BasicThreadPool::relaxed_exec_range((seq) ? 0 : KCTSB_NNS GetThreadPool(), (n), \
      [&](long first, long last) {  \
 
 
-#define NTL_GEXEC_RANGE_END  \
+#define KCTSB_GEXEC_RANGE_END  \
    } ); \
 }  \
 
 
-#define NTL_EXEC_INDEX(n, index)  \
+#define KCTSB_EXEC_INDEX(n, index)  \
 {  \
-   NTL_NNS BasicThreadPool::relaxed_exec_index(NTL_NNS GetThreadPool(), (n), \
+   KCTSB_NNS BasicThreadPool::relaxed_exec_index(KCTSB_NNS GetThreadPool(), (n), \
      [&](long index) {  \
 
 
-#define NTL_EXEC_INDEX_END  \
+#define KCTSB_EXEC_INDEX_END  \
    } ); \
 }  \
 
@@ -754,17 +754,17 @@ NTL_CLOSE_NNS
 // if it is true, jump directly (more or less) to the body
 
 
-#define NTL_TBDECL(x) static void basic_ ## x
-#define NTL_TBDECL_static(x) static void basic_ ## x
+#define KCTSB_TBDECL(x) static void basic_ ## x
+#define KCTSB_TBDECL_static(x) static void basic_ ## x
 
-#define NTL_IMPORT(x) auto _ntl_hidden_variable_IMPORT__ ## x = x; auto x = _ntl_hidden_variable_IMPORT__ ##x;
+#define KCTSB_IMPORT(x) auto _kctsb_hidden_variable_IMPORT__ ## x = x; auto x = _kctsb_hidden_variable_IMPORT__ ##x;
 
 
-#define NTL_INIT_DIVIDE StartRecursion(GetThreadPool()).get()
+#define KCTSB_INIT_DIVIDE StartRecursion(GetThreadPool()).get()
 
-#define NTL_EXEC_DIVIDE(seq, pool, helper, load0, F0, F1) \
+#define KCTSB_EXEC_DIVIDE(seq, pool, helper, load0, F0, F1) \
 { \
-  NTL::RecursiveThreadPoolHelper helper(pool, seq, load0); \
+  kctsb::RecursiveThreadPoolHelper helper(pool, seq, load0); \
   if (!helper.mid) { \
     { F0; } \
     { F1; } \
@@ -782,7 +782,7 @@ NTL_CLOSE_NNS
 
 #else
 
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 
 inline void SetNumThreads(long n) { }
@@ -797,56 +797,56 @@ struct RecursiveThreadPoolDummyHelper {
 };
 
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
-#define NTL_EXEC_RANGE(n, first, last)  \
+#define KCTSB_EXEC_RANGE(n, first, last)  \
 {  \
-   long _ntl_par_exec_n = (n);  \
-   if (_ntl_par_exec_n > 0) {  \
+   long _kctsb_par_exec_n = (n);  \
+   if (_kctsb_par_exec_n > 0) {  \
       long first = 0;  \
-      long last = _ntl_par_exec_n;  \
+      long last = _kctsb_par_exec_n;  \
       {  \
    
 
-#define NTL_EXEC_RANGE_END  }}}
+#define KCTSB_EXEC_RANGE_END  }}}
 
-#define NTL_GEXEC_RANGE(seq, n, first, last)  \
+#define KCTSB_GEXEC_RANGE(seq, n, first, last)  \
 {  \
-   long _ntl_par_exec_n = (n);  \
-   if (_ntl_par_exec_n > 0) {  \
+   long _kctsb_par_exec_n = (n);  \
+   if (_kctsb_par_exec_n > 0) {  \
       long first = 0;  \
-      long last = _ntl_par_exec_n;  \
+      long last = _kctsb_par_exec_n;  \
       {  \
    
 
-#define NTL_GEXEC_RANGE_END  }}}
+#define KCTSB_GEXEC_RANGE_END  }}}
 
 
 
 
-#define NTL_EXEC_INDEX(n, index)  \
+#define KCTSB_EXEC_INDEX(n, index)  \
 {  \
-   long _ntl_par_exec_n = (n);  \
-   if (_ntl_par_exec_n > 0) {  \
-      if (_ntl_par_exec_n > 1) NTL_NNS LogicError("NTL_EXEC_INDEX: not enough threads"); \
+   long _kctsb_par_exec_n = (n);  \
+   if (_kctsb_par_exec_n > 0) {  \
+      if (_kctsb_par_exec_n > 1) KCTSB_NNS LogicError("KCTSB_EXEC_INDEX: not enough threads"); \
       long index = 0;  \
       {  \
 
    
-#define NTL_EXEC_INDEX_END  }}}
+#define KCTSB_EXEC_INDEX_END  }}}
 
 
 
-#define NTL_TBDECL(x) void x
-#define NTL_TBDECL_static(x) static void x
+#define KCTSB_TBDECL(x) void x
+#define KCTSB_TBDECL_static(x) static void x
 
-#define NTL_IMPORT(x)
+#define KCTSB_IMPORT(x)
 
-#define NTL_INIT_DIVIDE ((RecursiveThreadPool*) 0)
+#define KCTSB_INIT_DIVIDE ((RecursiveThreadPool*) 0)
 
-#define NTL_EXEC_DIVIDE(seq, pool, helper, load0, F0, F1) \
+#define KCTSB_EXEC_DIVIDE(seq, pool, helper, load0, F0, F1) \
 { \
-  NTL::RecursiveThreadPoolDummyHelper helper; \
+  kctsb::RecursiveThreadPoolDummyHelper helper; \
   { F0; } \
   { F1; } \
 }

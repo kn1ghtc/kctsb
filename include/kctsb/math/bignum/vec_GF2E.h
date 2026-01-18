@@ -1,10 +1,10 @@
+﻿
+#ifndef KCTSB_vec_GF2E__H
+#define KCTSB_vec_GF2E__H
 
-#ifndef NTL_vec_GF2E__H
-#define NTL_vec_GF2E__H
+#include <kctsb/math/bignum/GF2E.h>
 
-#include <NTL/GF2E.h>
-
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 typedef Vec<GF2E> vec_GF2E;
 
@@ -49,22 +49,22 @@ vec_GF2E operator-(const vec_GF2E& a);
 GF2E operator*(const vec_GF2E& a, const vec_GF2E& b);
 
 inline vec_GF2E operator*(const vec_GF2E& a, const GF2E& b)
-   { vec_GF2E x; mul(x, a, b); NTL_OPT_RETURN(vec_GF2E, x); }
+   { vec_GF2E x; mul(x, a, b); KCTSB_OPT_RETURN(vec_GF2E, x); }
 
 inline vec_GF2E operator*(const vec_GF2E& a, GF2 b)
-   { vec_GF2E x; mul(x, a, b); NTL_OPT_RETURN(vec_GF2E, x); }
+   { vec_GF2E x; mul(x, a, b); KCTSB_OPT_RETURN(vec_GF2E, x); }
 
 inline vec_GF2E operator*(const vec_GF2E& a, long b)
-   { vec_GF2E x; mul(x, a, b); NTL_OPT_RETURN(vec_GF2E, x); }
+   { vec_GF2E x; mul(x, a, b); KCTSB_OPT_RETURN(vec_GF2E, x); }
 
 inline vec_GF2E operator*(const GF2E& a, const vec_GF2E& b)
-   { vec_GF2E x; mul(x, a, b); NTL_OPT_RETURN(vec_GF2E, x); }
+   { vec_GF2E x; mul(x, a, b); KCTSB_OPT_RETURN(vec_GF2E, x); }
 
 inline vec_GF2E operator*(GF2 a, const vec_GF2E& b)
-   { vec_GF2E x; mul(x, a, b); NTL_OPT_RETURN(vec_GF2E, x); }
+   { vec_GF2E x; mul(x, a, b); KCTSB_OPT_RETURN(vec_GF2E, x); }
 
 inline vec_GF2E operator*(long a, const vec_GF2E& b)
-   { vec_GF2E x; mul(x, a, b); NTL_OPT_RETURN(vec_GF2E, x); }
+   { vec_GF2E x; mul(x, a, b); KCTSB_OPT_RETURN(vec_GF2E, x); }
 
 
 
@@ -102,13 +102,13 @@ inline vec_GF2E& operator*=(vec_GF2E& x, long a)
 
 void VectorCopy(vec_GF2E& x, const vec_GF2E& a, long n);
 inline vec_GF2E VectorCopy(const vec_GF2E& a, long n)
-   { vec_GF2E x; VectorCopy(x, a, n); NTL_OPT_RETURN(vec_GF2E, x); }
+   { vec_GF2E x; VectorCopy(x, a, n); KCTSB_OPT_RETURN(vec_GF2E, x); }
 
 
 void random(vec_GF2E& x, long n);
 inline vec_GF2E random_vec_GF2E(long n)
-   { vec_GF2E x; random(x, n); NTL_OPT_RETURN(vec_GF2E, x); }
+   { vec_GF2E x; random(x, n); KCTSB_OPT_RETURN(vec_GF2E, x); }
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 #endif

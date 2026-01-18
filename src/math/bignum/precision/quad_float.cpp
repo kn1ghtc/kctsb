@@ -1,4 +1,4 @@
-
+﻿
 // The quad_float module is derived from the doubledouble
 // library originally developed by Keith Briggs:
 //    http://keithbriggs.info/doubledouble.html
@@ -27,45 +27,45 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
 // The configure script tries to prevent this, but we
 // double check here.  Note that while it is strongly 
-// discouraged, other parts of NTL probably work even with 
+// discouraged, other parts of bignum probably work even with 
 // "fast math"; however, quad_float will definitely break.
 
 #if (defined(__GNUC__) && __FAST_MATH__)
 #error "do not compile quad_float.cpp with -ffast-math!!"
 #endif
 
-// The configure script should define NTL_FP_CONTRACT_OFF
+// The configure script should define KCTSB_FP_CONTRACT_OFF
 // for icc via the NOCONTRACT variable
-#ifdef NTL_FP_CONTRACT_OFF
+#ifdef KCTSB_FP_CONTRACT_OFF
 #pragma fp_contract(off)
 #endif
 
 #if 0
-// The configure script should ensure that all NTL files
+// The configure script should ensure that all bignum files
 // are compiled with --fp-model precise on icc.
 #ifdef __INTEL_COMPILER
 #pragma float_control(precise,on)
 #endif
 #endif
 
-#include <NTL/quad_float.h>
+#include <kctsb/math/bignum/quad_float.h>
 #include <cfloat>
 
 
-NTL_START_IMPL
+KCTSB_START_IMPL
 
-#if (NTL_EXT_DOUBLE && defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__)))
+#if (KCTSB_EXT_DOUBLE && defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__)))
 
-#if (!defined(NTL_X86_FIX) && !defined(NTL_NO_X86_FIX))
+#if (!defined(KCTSB_X86_FIX) && !defined(KCTSB_NO_X86_FIX))
 
-#define NTL_X86_FIX
-
-#endif
+#define KCTSB_X86_FIX
 
 #endif
 
+#endif
 
-#if (NTL_EXT_DOUBLE && !defined(NTL_X86_FIX))
+
+#if (KCTSB_EXT_DOUBLE && !defined(KCTSB_X86_FIX))
 
 #define DOUBLE volatile double
 
@@ -76,7 +76,7 @@ NTL_START_IMPL
 #endif
 
 
-#ifdef NTL_X86_FIX
+#ifdef KCTSB_X86_FIX
 
 
 #define START_FIX \
@@ -98,7 +98,7 @@ NTL_START_IMPL
 // on gcc, clang, and icc.  The noinline attribute and the volatile
 // asm together should ensure that the function gets called
 // and doesn't get inlined during LTO.
-// That said, I wouln't really recommend applying LTO to NTL...
+// That said, I wouln't really recommend applying LTO to bignum...
 // and especially to quad_float.cpp.
 
 
@@ -235,7 +235,7 @@ END_FIX
 
 
 
-#if (NTL_FMA_DETECTED && !defined(NTL_CONTRACTION_FIXED))
+#if (KCTSB_FMA_DETECTED && !defined(KCTSB_CONTRACTION_FIXED))
 
 
 // The configure script should ensure that no FMA's are issued
@@ -264,9 +264,9 @@ START_FIX
   DOUBLE hx, tx, hy, ty, C, c;
   DOUBLE t1, t2;
 
-  C = Protect(NTL_QUAD_FLOAT_SPLIT*x.hi);
+  C = Protect(KCTSB_QUAD_FLOAT_SPLIT*x.hi);
   hx = C-x.hi;
-  c = Protect(NTL_QUAD_FLOAT_SPLIT*y.hi);
+  c = Protect(KCTSB_QUAD_FLOAT_SPLIT*y.hi);
   hx = C-hx;
   tx = x.hi-hx;
   hy = c-y.hi;
@@ -306,9 +306,9 @@ START_FIX
   DOUBLE t1;
 
   C = x.hi/y.hi;
-  c = Protect(NTL_QUAD_FLOAT_SPLIT*C);
+  c = Protect(KCTSB_QUAD_FLOAT_SPLIT*C);
   hc = c-C;
-  u = Protect(NTL_QUAD_FLOAT_SPLIT*y.hi);
+  u = Protect(KCTSB_QUAD_FLOAT_SPLIT*y.hi);
   hc = c-hc;
   tc = C-hc;
   hy = u-y.hi;
@@ -352,7 +352,7 @@ START_FIX
   DOUBLE p,q,hx,tx,u,uu,cc;
   DOUBLE t1;
 
-  p = Protect(NTL_QUAD_FLOAT_SPLIT*c); 
+  p = Protect(KCTSB_QUAD_FLOAT_SPLIT*c); 
   hx = (c-p); 
   hx = hx+p; 
   tx = c-hx;
@@ -404,12 +404,12 @@ START_FIX
       fudge = l1 + epsilon;
    } while (fudge > l1 && fudge < oldfudge);
 
-   res = (k == NTL_DOUBLE_PRECISION);
+   res = (k == KCTSB_DOUBLE_PRECISION);
 END_FIX
 }
 
 
 
 
-NTL_END_IMPL
+KCTSB_END_IMPL
 

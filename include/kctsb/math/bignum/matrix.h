@@ -1,13 +1,13 @@
-#ifndef NTL_matrix__H
-#define NTL_matrix__H
+﻿#ifndef KCTSB_matrix__H
+#define KCTSB_matrix__H
 
-#include <NTL/tools.h>
-#include <NTL/vector.h>
+#include <kctsb/math/bignum/tools.h>
+#include <kctsb/math/bignum/vector.h>
 
 
 // matrix templates
 
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 
 template<class T> 
@@ -79,7 +79,7 @@ public:
    void swap(Mat& other)
    {
       _mat__rep.swap(other._mat__rep);
-      _ntl_swap(_mat__numcols, other._mat__numcols);
+      _kctsb_swap(_mat__numcols, other._mat__numcols);
    }
 
    void move(Mat& other) 
@@ -90,14 +90,14 @@ public:
    }
 
 
-#if (NTL_CXX_STANDARD >= 2011 && !defined(NTL_DISABLE_MOVE))
+#if (KCTSB_CXX_STANDARD >= 2011 && !defined(KCTSB_DISABLE_MOVE))
 
    Mat(Mat&& other) noexcept : Mat() 
    {
       this->move(other);
    }
 
-#ifndef NTL_DISABLE_MOVE_ASSIGN
+#ifndef KCTSB_DISABLE_MOVE_ASSIGN
    Mat& operator=(Mat&& other) noexcept
    {
       this->move(other);
@@ -111,7 +111,7 @@ public:
 };  
 
 
-template<class T> NTL_DECLARE_RELOCATABLE((Mat<T>*))
+template<class T> KCTSB_DECLARE_RELOCATABLE((Mat<T>*))
  
 template<class T> 
 inline const Vec< Vec<T> >& rep(const Mat<T>& a)  
@@ -272,17 +272,17 @@ long operator!=(const Mat<T>& a, const Mat<T>& b)
 
 
 template<class T>
-NTL_SNS istream& operator>>(NTL_SNS istream& s, Mat<T>& x)  
+KCTSB_SNS istream& operator>>(KCTSB_SNS istream& s, Mat<T>& x)  
 {  
    Vec< Vec<T> > buf;  
-   NTL_INPUT_CHECK_RET(s, s >> buf);  
+   KCTSB_INPUT_CHECK_RET(s, s >> buf);  
    if (MakeMatrixStatus(x, buf)) 
-      NTL_INPUT_ERROR(s, "non-rectangular matrix detected on input");
+      KCTSB_INPUT_ERROR(s, "non-rectangular matrix detected on input");
    return s;  
 }  
   
 template<class T>
-NTL_SNS ostream& operator<<(NTL_SNS ostream& s, const Mat<T>& a)  
+KCTSB_SNS ostream& operator<<(KCTSB_SNS ostream& s, const Mat<T>& a)  
 {  
    long n = a.NumRows();  
    long i;  
@@ -307,7 +307,7 @@ void conv(Mat<T>& x, const Mat<S>& a)
 
 
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 
 #endif

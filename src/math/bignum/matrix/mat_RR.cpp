@@ -1,8 +1,8 @@
+﻿
+#include <kctsb/math/bignum/mat_RR.h>
 
-#include <NTL/mat_RR.h>
 
-
-NTL_START_IMPL
+KCTSB_START_IMPL
 
   
 void add(mat_RR& X, const mat_RR& A, const mat_RR& B)  
@@ -245,7 +245,7 @@ void determinant(RR& d, const mat_RR& M_in)
 }
 
 RR determinant(const mat_RR& a)
-   { RR x; determinant(x, a); NTL_OPT_RETURN(RR, x); }
+   { RR x; determinant(x, a); KCTSB_OPT_RETURN(RR, x); }
 
 
 long IsIdent(const mat_RR& A, long n)
@@ -599,21 +599,21 @@ mat_RR operator+(const mat_RR& a, const mat_RR& b)
 {
    mat_RR res;
    add(res, a, b);
-   NTL_OPT_RETURN(mat_RR, res);
+   KCTSB_OPT_RETURN(mat_RR, res);
 }
 
 mat_RR operator*(const mat_RR& a, const mat_RR& b)
 {
    mat_RR res;
    mul_aux(res, a, b);
-   NTL_OPT_RETURN(mat_RR, res);
+   KCTSB_OPT_RETURN(mat_RR, res);
 }
 
 mat_RR operator-(const mat_RR& a, const mat_RR& b)
 {
    mat_RR res;
    sub(res, a, b);
-   NTL_OPT_RETURN(mat_RR, res);
+   KCTSB_OPT_RETURN(mat_RR, res);
 }
 
 
@@ -621,7 +621,7 @@ mat_RR operator-(const mat_RR& a)
 {
    mat_RR res;
    negate(res, a);
-   NTL_OPT_RETURN(mat_RR, res);
+   KCTSB_OPT_RETURN(mat_RR, res);
 }
 
 
@@ -629,14 +629,14 @@ vec_RR operator*(const mat_RR& a, const vec_RR& b)
 {
    vec_RR res;
    mul_aux(res, a, b);
-   NTL_OPT_RETURN(vec_RR, res);
+   KCTSB_OPT_RETURN(vec_RR, res);
 }
 
 vec_RR operator*(const vec_RR& a, const mat_RR& b)
 {
    vec_RR res;
    mul_aux(res, a, b);
-   NTL_OPT_RETURN(vec_RR, res);
+   KCTSB_OPT_RETURN(vec_RR, res);
 }
 
 
@@ -676,4 +676,4 @@ void power(mat_RR& X, const mat_RR& A, const ZZ& e)
       X = T1;
 }
 
-NTL_END_IMPL
+KCTSB_END_IMPL

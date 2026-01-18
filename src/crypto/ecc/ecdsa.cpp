@@ -1,6 +1,6 @@
-/**
+﻿/**
  * @file ecdsa.cpp
- * @brief ECDSA Implementation - NTL Backend with RFC 6979
+ * @brief ECDSA Implementation - Bignum Backend with RFC 6979
  *
  * Complete ECDSA implementation following:
  * - FIPS 186-4 (ECDSA specification)
@@ -25,7 +25,7 @@
 #include <random>
 #include <algorithm>
 
-// Bignum namespace is now kctsb (was NTL)
+// Bignum namespace is now kctsb (was bignum)
 using namespace kctsb;
 
 namespace kctsb {
@@ -151,7 +151,7 @@ ECDSASignature ECDSASignature::from_der(const uint8_t* data, size_t len) {
 }
 
 void ECDSASignature::to_fixed(uint8_t* out, size_t field_size) const {
-    // NTL BytesFromZZ outputs little-endian, SEC 1 requires big-endian
+    // bignum BytesFromZZ outputs little-endian, SEC 1 requires big-endian
     std::vector<uint8_t> r_le(field_size), s_le(field_size);
     BytesFromZZ(r_le.data(), r, static_cast<long>(field_size));
     BytesFromZZ(s_le.data(), s, static_cast<long>(field_size));
@@ -164,7 +164,7 @@ void ECDSASignature::to_fixed(uint8_t* out, size_t field_size) const {
 }
 
 ECDSASignature ECDSASignature::from_fixed(const uint8_t* data, size_t field_size) {
-    // SEC 1 input is big-endian, convert to little-endian for NTL
+    // SEC 1 input is big-endian, convert to little-endian for bignum
     std::vector<uint8_t> r_le(field_size), s_le(field_size);
     for (size_t i = 0; i < field_size; i++) {
         r_le[i] = data[field_size - 1 - i];
@@ -216,7 +216,7 @@ std::vector<uint8_t> ECDSAKeyPair::export_public_key(const ECCurve& curve) const
 }
 
 std::vector<uint8_t> ECDSAKeyPair::export_private_key(size_t field_size) const {
-    // NTL BytesFromZZ outputs little-endian, SEC 1 requires big-endian
+    // bignum BytesFromZZ outputs little-endian, SEC 1 requires big-endian
     std::vector<uint8_t> le_bytes(field_size);
     BytesFromZZ(le_bytes.data(), private_key, static_cast<long>(field_size));
     
@@ -436,7 +436,7 @@ ZZ ECDSA::generate_k_rfc6979(const ZZ& e, const ZZ& private_key) const {
     size_t hlen = 32;  // SHA-256 output length
 
     // Convert inputs to byte arrays (RFC 6979 uses big-endian)
-    // NTL BytesFromZZ outputs little-endian, convert to big-endian
+    // bignum BytesFromZZ outputs little-endian, convert to big-endian
     std::vector<uint8_t> x_le(qlen);
     BytesFromZZ(x_le.data(), private_key, static_cast<long>(qlen));
     std::vector<uint8_t> x(qlen);

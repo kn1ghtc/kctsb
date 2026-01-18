@@ -1,6 +1,6 @@
-#include <NTL/ZZ_pX.h>
-#include <NTL/BasicThreadPool.h>
-#include <NTL/FFT_impl.h>
+﻿#include <kctsb/math/bignum/ZZ_pX.h>
+#include <kctsb/math/bignum/BasicThreadPool.h>
+#include <kctsb/math/bignum/FFT_impl.h>
 
 
 // The mul & sqr routines use routines from ZZX, 
@@ -8,16 +8,16 @@
 // Define this macro to revert to old strategy.
 
 
-#ifndef NTL_WIZARD_HACK
+#ifndef KCTSB_WIZARD_HACK
 
-#include <NTL/ZZX.h>
+#include <kctsb/math/bignum/ZZX.h>
 
 #endif
 
-NTL_START_IMPL
+KCTSB_START_IMPL
 
 
-#if (defined(NTL_GMP_LIP))
+#if (defined(KCTSB_GMP_LIP))
 #define KARX 200
 #else
 #define KARX 80
@@ -63,7 +63,7 @@ ZZ_pX& ZZ_pX::operator=(const ZZ_p& a)
 
 istream& operator>>(istream& s, ZZ_pX& x)
 {
-   NTL_INPUT_CHECK_RET(s, s >> x.rep);
+   KCTSB_INPUT_CHECK_RET(s, s >> x.rep);
    x.normalize();
    return s;
 }
@@ -115,7 +115,7 @@ void SetCoeff(ZZ_pX& x, long i, const ZZ_p& a)
    if (i < 0) 
       LogicError("SetCoeff: negative index");
 
-   if (NTL_OVERFLOW(i, 1, 0))
+   if (KCTSB_OVERFLOW(i, 1, 0))
       ResourceError("overflow in SetCoeff");
 
    m = deg(x);
@@ -128,7 +128,7 @@ void SetCoeff(ZZ_pX& x, long i, const ZZ_p& a)
       long alloc = x.rep.allocated();
 
       if (alloc > 0 && i >= alloc) {
-         NTL_ZZ_pRegister(aa);
+         KCTSB_ZZ_pRegister(aa);
          aa = a;
          x.rep.SetLength(i+1);
          x.rep[i] = aa;
@@ -152,7 +152,7 @@ void SetCoeff(ZZ_pX& x, long i, long a)
    if (a == 1) 
       SetCoeff(x, i);
    else {
-      NTL_ZZ_pRegister(T);
+      KCTSB_ZZ_pRegister(T);
       conv(T, a);
       SetCoeff(x, i, T);
    }
@@ -165,7 +165,7 @@ void SetCoeff(ZZ_pX& x, long i)
    if (i < 0) 
       LogicError("coefficient index out of range");
 
-   if (NTL_OVERFLOW(i, 1, 0))
+   if (KCTSB_OVERFLOW(i, 1, 0))
       ResourceError("overflow in SetCoeff");
 
    m = deg(x);
@@ -242,7 +242,7 @@ void conv(ZZ_pX& x, long a)
    else if (a == 1)
       set(x);
    else {
-      NTL_ZZ_pRegister(T);
+      KCTSB_ZZ_pRegister(T);
       conv(T, a);
       conv(x, T);
    }
@@ -253,7 +253,7 @@ void conv(ZZ_pX& x, const ZZ& a)
    if (IsZero(a))
       clear(x);
    else {
-      NTL_ZZ_pRegister(T);
+      KCTSB_ZZ_pRegister(T);
       conv(T, a);
       conv(x, T);
    }
@@ -414,7 +414,7 @@ void sub(ZZ_pX& x, const ZZ_pX& a, long b)
 
 void sub(ZZ_pX& x, const ZZ_p& a, const ZZ_pX& b)
 {
-   NTL_ZZ_pRegister(T);
+   KCTSB_ZZ_pRegister(T);
    T = a;
 
    negate(x, b);
@@ -423,7 +423,7 @@ void sub(ZZ_pX& x, const ZZ_p& a, const ZZ_pX& b)
 
 void sub(ZZ_pX& x, long a, const ZZ_pX& b)
 {
-   NTL_ZZ_pRegister(T);
+   KCTSB_ZZ_pRegister(T);
    T = a;
 
    negate(x, b);
@@ -445,7 +445,7 @@ void negate(ZZ_pX& x, const ZZ_pX& a)
 }
 
 
-#if (!defined(NTL_WIZARD_HACK) && defined(NTL_GMP_LIP))
+#if (!defined(KCTSB_WIZARD_HACK) && defined(KCTSB_GMP_LIP))
 // This only seems to help if we have GMP
 
 
@@ -550,7 +550,7 @@ void mul(ZZ_pX& x, const ZZ_pX& a, const ZZ_pX& b)
       return;
    }
 
-   if (deg(a) > NTL_ZZ_pX_FFT_CROSSOVER && deg(b) > NTL_ZZ_pX_FFT_CROSSOVER)
+   if (deg(a) > KCTSB_ZZ_pX_FFT_CROSSOVER && deg(b) > KCTSB_ZZ_pX_FFT_CROSSOVER)
       FFTMul(x, a, b);
    else
       PlainMul(x, a, b);
@@ -558,7 +558,7 @@ void mul(ZZ_pX& x, const ZZ_pX& a, const ZZ_pX& b)
 
 void sqr(ZZ_pX& x, const ZZ_pX& a)
 {
-   if (deg(a) > NTL_ZZ_pX_FFT_CROSSOVER)
+   if (deg(a) > KCTSB_ZZ_pX_FFT_CROSSOVER)
       FFTSqr(x, a);
    else
       PlainSqr(x, a);
@@ -616,8 +616,8 @@ void PlainMul(ZZ_pX& x, const ZZ_pX& a, const ZZ_pX& b)
    xp = x.rep.elts();
 
    long i, j, jmin, jmax;
-   NTL_ZZRegister(t);
-   NTL_ZZRegister(accum);
+   KCTSB_ZZRegister(t);
+   KCTSB_ZZRegister(accum);
 
    for (i = 0; i <= d; i++) {
       jmin = max(0, i-db);
@@ -662,8 +662,8 @@ void PlainSqr(ZZ_pX& x, const ZZ_pX& a)
 
    long i, j, jmin, jmax;
    long m, m2;
-   NTL_ZZRegister(t);
-   NTL_ZZRegister(accum);
+   KCTSB_ZZRegister(t);
+   KCTSB_ZZRegister(accum);
 
    for (i = 0; i <= d; i++) {
       jmin = max(0, i-da);
@@ -697,7 +697,7 @@ void PlainDivRem(ZZ_pX& q, ZZ_pX& r, const ZZ_pX& a, const ZZ_pX& b)
 
 
    ZZ_p LCInv, t;
-   NTL_ZZRegister(s);
+   KCTSB_ZZRegister(s);
 
    da = deg(a);
    db = deg(b);
@@ -765,7 +765,7 @@ void PlainRem(ZZ_pX& r, const ZZ_pX& a, const ZZ_pX& b, ZZVec& x)
 
 
    ZZ_p LCInv, t;
-   NTL_ZZRegister(s);
+   KCTSB_ZZRegister(s);
 
    da = deg(a);
    db = deg(b);
@@ -821,7 +821,7 @@ void PlainDivRem(ZZ_pX& q, ZZ_pX& r, const ZZ_pX& a, const ZZ_pX& b, ZZVec& x)
 
 
    ZZ_p LCInv, t;
-   NTL_ZZRegister(s);
+   KCTSB_ZZRegister(s);
 
    da = deg(a);
    db = deg(b);
@@ -888,7 +888,7 @@ void PlainDiv(ZZ_pX& q, const ZZ_pX& a, const ZZ_pX& b)
 
 
    ZZ_p LCInv, t;
-   NTL_ZZRegister(s);
+   KCTSB_ZZRegister(s);
 
    da = deg(a);
    db = deg(b);
@@ -951,7 +951,7 @@ void PlainRem(ZZ_pX& r, const ZZ_pX& a, const ZZ_pX& b)
 
 
    ZZ_p LCInv, t;
-   NTL_ZZRegister(s);
+   KCTSB_ZZRegister(s);
 
    da = deg(a);
    db = deg(b);
@@ -1001,13 +1001,13 @@ void PlainRem(ZZ_pX& r, const ZZ_pX& a, const ZZ_pX& b)
 
 
 
-NTL_TBDECL_static(MulAux)(ZZ_p* xp, const ZZ_p* ap, const ZZ_p& t, long n)
+KCTSB_TBDECL_static(MulAux)(ZZ_p* xp, const ZZ_p* ap, const ZZ_p& t, long n)
 {
    for (long i = 0; i < n; i++) 
       mul(xp[i], ap[i], t);
 }
 
-#ifdef NTL_THREAD_BOOST
+#ifdef KCTSB_THREAD_BOOST
 static void MulAux(ZZ_p* xp, const ZZ_p* ap, const ZZ_p& t, long n)
 {
    BasicThreadPool *pool = GetThreadPool();
@@ -1043,7 +1043,7 @@ void mul(ZZ_pX& x, const ZZ_pX& a, const ZZ_p& b)
       return;
    }
 
-   NTL_ZZ_pRegister(t);
+   KCTSB_ZZ_pRegister(t);
 
    long da;
 
@@ -1064,7 +1064,7 @@ void mul(ZZ_pX& x, const ZZ_pX& a, const ZZ_p& b)
 
 void mul(ZZ_pX& x, const ZZ_pX& a, long b)
 {
-   NTL_ZZ_pRegister(T);
+   KCTSB_ZZ_pRegister(T);
    conv(T, b);
    mul(x, a, T);
 }
@@ -1213,9 +1213,9 @@ long InvModStatus(ZZ_pX& x, const ZZ_pX& a, const ZZ_pX& f)
 }
 
 
-NTL_TBDECL_static(MulByXModAux1)(long n, ZZ_p *hh, const ZZ_p* aa, const ZZ_p *ff, const ZZ_p& z)
+KCTSB_TBDECL_static(MulByXModAux1)(long n, ZZ_p *hh, const ZZ_p* aa, const ZZ_p *ff, const ZZ_p& z)
 {
-   NTL_ZZ_pRegister(t);
+   KCTSB_ZZ_pRegister(t);
 
    for (long i = n-1; i >= 1; i--) {
       // hh[i] = aa[i-1] + z*ff[i] 
@@ -1224,7 +1224,7 @@ NTL_TBDECL_static(MulByXModAux1)(long n, ZZ_p *hh, const ZZ_p* aa, const ZZ_p *f
    }
 }
 
-#ifdef NTL_THREAD_BOOST
+#ifdef KCTSB_THREAD_BOOST
 
 static void MulByXModAux1(long n, ZZ_p *hh, const ZZ_p* aa, const ZZ_p *ff, const ZZ_p& z)
 {
@@ -1244,7 +1244,7 @@ static void MulByXModAux1(long n, ZZ_p *hh, const ZZ_p* aa, const ZZ_p *ff, cons
    [n, hh, aa, ff, &z, &local_context]
    (long first, long last) {
       local_context.restore();
-      NTL_ZZ_pRegister(t);
+      KCTSB_ZZ_pRegister(t);
 
       for (long idx = first; idx < last; idx++) {
          long i = n-1-idx;
@@ -1266,7 +1266,7 @@ void MulByXModAux(ZZ_pX& h, const ZZ_pX& a, const ZZ_pX& f)
    ZZ_p* hh;
    const ZZ_p *aa, *ff;
 
-   NTL_ZZ_pRegister(z);
+   KCTSB_ZZ_pRegister(z);
 
    n = deg(f);
    m = deg(a);
@@ -1334,7 +1334,7 @@ void FFTRep::DoSetSize(long NewK, long NewNumPrimes)
 
    if (NewK < -1) LogicError("bad arg to FFTRep::SetSize()");
    
-   if (NewK >= NTL_BITS_PER_LONG-1)
+   if (NewK >= KCTSB_BITS_PER_LONG-1)
       ResourceError("bad arg to FFTRep::SetSize()");
 
    if (NewK == -1) {
@@ -1418,7 +1418,7 @@ void ZZ_pXModRep::SetSize(long NewN)
 static inline
 vec_long& ModularRepBuf()
 {
-   NTL_TLS_LOCAL(vec_long, t);
+   KCTSB_TLS_LOCAL(vec_long, t);
    return t;
 }
 
@@ -1435,8 +1435,8 @@ void FromModularRep(ZZ_p& x, vec_long& avec, const ZZ_pFFTInfoT *FFTInfo,
 // NOTE: a gets destroyed
 
 {
-   NTL_ZZRegister(t);
-   long * NTL_RESTRICT a = avec.elts();
+   KCTSB_ZZRegister(t);
+   long * KCTSB_RESTRICT a = avec.elts();
 
    if (FFTInfo->crt_struct.special()) {
        FFTInfo->crt_struct.eval(t, a, TmpSpace->crt_tmp_vec);
@@ -1476,7 +1476,7 @@ void FromModularRep(ZZ_p& x, vec_long& avec, const ZZ_pFFTInfoT *FFTInfo,
 
 
 
-NTL_TBDECL(ToFFTRep_trunc)(FFTRep& y, const ZZ_pX& x, long k, long len, long lo, long hi)
+KCTSB_TBDECL(ToFFTRep_trunc)(FFTRep& y, const ZZ_pX& x, long k, long len, long lo, long hi)
 // computes an n = 2^k point convolution.
 // if deg(x) >= 2^k, then x is first reduced modulo X^n-1.
 {
@@ -1527,7 +1527,7 @@ NTL_TBDECL(ToFFTRep_trunc)(FFTRep& y, const ZZ_pX& x, long k, long len, long lo,
       }
    }
    else {
-      NTL_ZZ_pRegister(accum);
+      KCTSB_ZZ_pRegister(accum);
       for (j = 0; j < n; j++) {
          accum = xx[j+lo];
          for (j1 = j + n; j1 < m; j1 += n)
@@ -1550,7 +1550,7 @@ NTL_TBDECL(ToFFTRep_trunc)(FFTRep& y, const ZZ_pX& x, long k, long len, long lo,
 }
 
 
-#ifdef NTL_THREAD_BOOST
+#ifdef KCTSB_THREAD_BOOST
 
 void ToFFTRep_trunc(FFTRep& y, const ZZ_pX& x, long k, long len, long lo, long hi)
 // computes an n = 2^k point convolution.
@@ -1625,7 +1625,7 @@ void ToFFTRep_trunc(FFTRep& y, const ZZ_pX& x, long k, long len, long lo, long h
          vec_long& t = ModularRepBuf();
          t.SetLength(nprimes);
    
-         NTL_ZZ_pRegister(accum);
+         KCTSB_ZZ_pRegister(accum);
          for (long j = first; j < last; j++) {
             accum = xx[j+lo];
             for (long j1 = j + n; j1 < m; j1 += n)
@@ -1656,7 +1656,7 @@ void ToFFTRep_trunc(FFTRep& y, const ZZ_pX& x, long k, long len, long lo, long h
 
 
 
-NTL_TBDECL(RevToFFTRep)(FFTRep& y, const vec_ZZ_p& x, 
+KCTSB_TBDECL(RevToFFTRep)(FFTRep& y, const vec_ZZ_p& x, 
                  long k, long lo, long hi, long offset)
 // computes an n = 2^k point convolution of X^offset*x[lo..hi] mod X^n-1
 // using "inverted" evaluation points.
@@ -1668,7 +1668,7 @@ NTL_TBDECL(RevToFFTRep)(FFTRep& y, const vec_ZZ_p& x,
 
    long n, i, j, m, j1;
    vec_long& t = ModularRepBuf();
-   NTL_ZZ_pRegister(accum);
+   KCTSB_ZZ_pRegister(accum);
 
    if (k > FFTInfo->MaxRoot) 
       ResourceError("Polynomial too big for FFT");
@@ -1721,7 +1721,7 @@ NTL_TBDECL(RevToFFTRep)(FFTRep& y, const vec_ZZ_p& x,
 
 
 
-#ifdef NTL_THREAD_BOOST
+#ifdef KCTSB_THREAD_BOOST
 
 void RevToFFTRep(FFTRep& y, const vec_ZZ_p& x, 
                  long k, long lo, long hi, long offset)
@@ -1777,7 +1777,7 @@ void RevToFFTRep(FFTRep& y, const vec_ZZ_p& x,
 
       long local_offset = (offset + first) & (n-1);
 
-      NTL_ZZ_pRegister(accum);
+      KCTSB_ZZ_pRegister(accum);
 
       for (long j = first; j < last; j++) {
          if (j >= m) {
@@ -1817,7 +1817,7 @@ void RevToFFTRep(FFTRep& y, const vec_ZZ_p& x,
 
 
 
-NTL_TBDECL(FromFFTRep)(ZZ_pX& x, FFTRep& y, long lo, long hi)
+KCTSB_TBDECL(FromFFTRep)(ZZ_pX& x, FFTRep& y, long lo, long hi)
 
    // converts from FFT-representation to coefficient representation
    // only the coefficients lo..hi are computed
@@ -1863,7 +1863,7 @@ NTL_TBDECL(FromFFTRep)(ZZ_pX& x, FFTRep& y, long lo, long hi)
    x.normalize();
 }
 
-#ifdef NTL_THREAD_BOOST
+#ifdef KCTSB_THREAD_BOOST
 
 void FromFFTRep(ZZ_pX& x, FFTRep& y, long lo, long hi)
 
@@ -1940,7 +1940,7 @@ void FromFFTRep(ZZ_pX& x, FFTRep& y, long lo, long hi)
 
 
 
-NTL_TBDECL(RevFromFFTRep)(vec_ZZ_p& x, FFTRep& y, long lo, long hi)
+KCTSB_TBDECL(RevFromFFTRep)(vec_ZZ_p& x, FFTRep& y, long lo, long hi)
 
    // converts from FFT-representation to coefficient representation
    // using "inverted" evaluation points.
@@ -1984,7 +1984,7 @@ NTL_TBDECL(RevFromFFTRep)(vec_ZZ_p& x, FFTRep& y, long lo, long hi)
 }
 
 
-#ifdef NTL_THREAD_BOOST
+#ifdef KCTSB_THREAD_BOOST
 
 void RevFromFFTRep(vec_ZZ_p& x, FFTRep& y, long lo, long hi)
 {
@@ -2055,7 +2055,7 @@ void RevFromFFTRep(vec_ZZ_p& x, FFTRep& y, long lo, long hi)
 
 
 
-NTL_TBDECL(NDFromFFTRep)(ZZ_pX& x, const FFTRep& y, long lo, long hi, FFTRep& z)
+KCTSB_TBDECL(NDFromFFTRep)(ZZ_pX& x, const FFTRep& y, long lo, long hi, FFTRep& z)
 {
    const ZZ_pFFTInfoT *FFTInfo = ZZ_p::GetFFTInfo();
    ZZ_pTmpSpaceT *TmpSpace = ZZ_p::GetTmpSpace();
@@ -2098,7 +2098,7 @@ NTL_TBDECL(NDFromFFTRep)(ZZ_pX& x, const FFTRep& y, long lo, long hi, FFTRep& z)
    x.normalize();
 }
 
-#ifdef NTL_THREAD_BOOST
+#ifdef KCTSB_THREAD_BOOST
 
 void NDFromFFTRep(ZZ_pX& x, const FFTRep& y, long lo, long hi, FFTRep& z)
 
@@ -2180,7 +2180,7 @@ void NDFromFFTRep(ZZ_pX& x, FFTRep& y, long lo, long hi)
 
 
 
-NTL_TBDECL(FromFFTRep)(ZZ_p* x, FFTRep& y, long lo, long hi)
+KCTSB_TBDECL(FromFFTRep)(ZZ_p* x, FFTRep& y, long lo, long hi)
 
    // converts from FFT-representation to coefficient representation
    // only the coefficients lo..hi are computed
@@ -2222,7 +2222,7 @@ NTL_TBDECL(FromFFTRep)(ZZ_p* x, FFTRep& y, long lo, long hi)
 }
 
 
-#ifdef NTL_THREAD_BOOST
+#ifdef KCTSB_THREAD_BOOST
 
 void FromFFTRep(ZZ_p* x, FFTRep& y, long lo, long hi)
 
@@ -2294,7 +2294,7 @@ void FromFFTRep(ZZ_p* x, FFTRep& y, long lo, long hi)
 
 
 
-NTL_TBDECL(mul)(FFTRep& z, const FFTRep& x, const FFTRep& y)
+KCTSB_TBDECL(mul)(FFTRep& z, const FFTRep& x, const FFTRep& y)
 {
    const ZZ_pFFTInfoT *FFTInfo = ZZ_p::GetFFTInfo();
 
@@ -2324,7 +2324,7 @@ NTL_TBDECL(mul)(FFTRep& z, const FFTRep& x, const FFTRep& y)
 }
 
 
-#ifdef NTL_THREAD_BOOST
+#ifdef KCTSB_THREAD_BOOST
 
 void mul(FFTRep& z, const FFTRep& x, const FFTRep& y)
 {
@@ -2368,7 +2368,7 @@ void mul(FFTRep& z, const FFTRep& x, const FFTRep& y)
 
 
 
-NTL_TBDECL(sub)(FFTRep& z, const FFTRep& x, const FFTRep& y)
+KCTSB_TBDECL(sub)(FFTRep& z, const FFTRep& x, const FFTRep& y)
 {
    const ZZ_pFFTInfoT *FFTInfo = ZZ_p::GetFFTInfo();
 
@@ -2397,7 +2397,7 @@ NTL_TBDECL(sub)(FFTRep& z, const FFTRep& x, const FFTRep& y)
 }
 
 
-#ifdef NTL_THREAD_BOOST
+#ifdef KCTSB_THREAD_BOOST
 
 void sub(FFTRep& z, const FFTRep& x, const FFTRep& y)
 {
@@ -2440,7 +2440,7 @@ void sub(FFTRep& z, const FFTRep& x, const FFTRep& y)
 
 
 
-NTL_TBDECL(add)(FFTRep& z, const FFTRep& x, const FFTRep& y)
+KCTSB_TBDECL(add)(FFTRep& z, const FFTRep& x, const FFTRep& y)
 {
    const ZZ_pFFTInfoT *FFTInfo = ZZ_p::GetFFTInfo();
 
@@ -2469,7 +2469,7 @@ NTL_TBDECL(add)(FFTRep& z, const FFTRep& x, const FFTRep& y)
 }
 
 
-#ifdef NTL_THREAD_BOOST
+#ifdef KCTSB_THREAD_BOOST
 
 void add(FFTRep& z, const FFTRep& x, const FFTRep& y)
 {
@@ -2514,7 +2514,7 @@ void add(FFTRep& z, const FFTRep& x, const FFTRep& y)
 
 
 
-NTL_TBDECL(reduce)(FFTRep& x, const FFTRep& a, long k)
+KCTSB_TBDECL(reduce)(FFTRep& x, const FFTRep& a, long k)
   // reduces a 2^l point FFT-rep to a 2^k point FFT-rep
   // input may alias output
 {
@@ -2546,7 +2546,7 @@ NTL_TBDECL(reduce)(FFTRep& x, const FFTRep& a, long k)
 }
 
 
-#ifdef NTL_THREAD_BOOST
+#ifdef KCTSB_THREAD_BOOST
 
 void reduce(FFTRep& x, const FFTRep& a, long k)
   // reduces a 2^l point FFT-rep to a 2^k point FFT-rep
@@ -2593,7 +2593,7 @@ void reduce(FFTRep& x, const FFTRep& a, long k)
 
 
 
-NTL_TBDECL(AddExpand)(FFTRep& x, const FFTRep& a)
+KCTSB_TBDECL(AddExpand)(FFTRep& x, const FFTRep& a)
 //  x = x + (an "expanded" version of a)
 {
    const ZZ_pFFTInfoT *FFTInfo = ZZ_p::GetFFTInfo();
@@ -2622,7 +2622,7 @@ NTL_TBDECL(AddExpand)(FFTRep& x, const FFTRep& a)
    }
 }
 
-#ifdef NTL_THREAD_BOOST
+#ifdef KCTSB_THREAD_BOOST
 
 void AddExpand(FFTRep& x, const FFTRep& a)
 //  x = x + (an "expanded" version of a)
@@ -2671,7 +2671,7 @@ void AddExpand(FFTRep& x, const FFTRep& a)
 
 
 
-NTL_TBDECL(ToZZ_pXModRep)(ZZ_pXModRep& y, const ZZ_pX& x, long lo, long hi)
+KCTSB_TBDECL(ToZZ_pXModRep)(ZZ_pXModRep& y, const ZZ_pX& x, long lo, long hi)
 {
    const ZZ_pFFTInfoT *FFTInfo = ZZ_p::GetFFTInfo();
    ZZ_pTmpSpaceT *TmpSpace = ZZ_p::GetTmpSpace();
@@ -2700,7 +2700,7 @@ NTL_TBDECL(ToZZ_pXModRep)(ZZ_pXModRep& y, const ZZ_pX& x, long lo, long hi)
    }
 }
 
-#ifdef NTL_THREAD_BOOST
+#ifdef KCTSB_THREAD_BOOST
 void ToZZ_pXModRep(ZZ_pXModRep& y, const ZZ_pX& x, long lo, long hi)
 {
    BasicThreadPool *pool = GetThreadPool();
@@ -2757,7 +2757,7 @@ void ToZZ_pXModRep(ZZ_pXModRep& y, const ZZ_pX& x, long lo, long hi)
 
 
 
-NTL_TBDECL(ToFFTRep)(FFTRep& x, const ZZ_pXModRep& a, long k, long lo, long hi)
+KCTSB_TBDECL(ToFFTRep)(FFTRep& x, const ZZ_pXModRep& a, long k, long lo, long hi)
 {
    const ZZ_pFFTInfoT *FFTInfo = ZZ_p::GetFFTInfo();
 
@@ -2801,7 +2801,7 @@ NTL_TBDECL(ToFFTRep)(FFTRep& x, const ZZ_pXModRep& a, long k, long lo, long hi)
    }
 }
 
-#ifdef NTL_THREAD_BOOST
+#ifdef KCTSB_THREAD_BOOST
 void ToFFTRep(FFTRep& x, const ZZ_pXModRep& a, long k, long lo, long hi)
 {
    BasicThreadPool *pool = GetThreadPool();
@@ -3018,7 +3018,7 @@ void rem21(ZZ_pX& x, const ZZ_pX& a, const ZZ_pXModulus& F)
       return;
    }
 
-   if (!F.UseFFT || da - n <= NTL_ZZ_pX_FFT_CROSSOVER) {
+   if (!F.UseFFT || da - n <= KCTSB_ZZ_pX_FFT_CROSSOVER) {
       PlainRem(x, a, F.f);
       return;
    }
@@ -3073,7 +3073,7 @@ void DivRem21(ZZ_pX& q, ZZ_pX& x, const ZZ_pX& a, const ZZ_pXModulus& F)
       return;
    }
 
-   if (!F.UseFFT || da - n <= NTL_ZZ_pX_FFT_CROSSOVER) {
+   if (!F.UseFFT || da - n <= KCTSB_ZZ_pX_FFT_CROSSOVER) {
       PlainDivRem(q, x, a, F.f);
       return;
    }
@@ -3129,7 +3129,7 @@ void div21(ZZ_pX& x, const ZZ_pX& a, const ZZ_pXModulus& F)
       return;
    }
 
-   if (!F.UseFFT || da - n <= NTL_ZZ_pX_FFT_CROSSOVER) {
+   if (!F.UseFFT || da - n <= KCTSB_ZZ_pX_FFT_CROSSOVER) {
       PlainDiv(x, a, F.f);
       return;
    }
@@ -3154,7 +3154,7 @@ void rem(ZZ_pX& x, const ZZ_pX& a, const ZZ_pXModulus& F)
       rem21(x, a, F);
       return;
    }
-   else if (!F.UseFFT || da - n <= NTL_ZZ_pX_FFT_CROSSOVER) {
+   else if (!F.UseFFT || da - n <= KCTSB_ZZ_pX_FFT_CROSSOVER) {
       PlainRem(x, a, F.f);
       return;
    }
@@ -3198,7 +3198,7 @@ void DivRem(ZZ_pX& q, ZZ_pX& r, const ZZ_pX& a, const ZZ_pXModulus& F)
       DivRem21(q, r, a, F);
       return;
    }
-   else if (!F.UseFFT || da - n <= NTL_ZZ_pX_FFT_CROSSOVER) {
+   else if (!F.UseFFT || da - n <= KCTSB_ZZ_pX_FFT_CROSSOVER) {
       PlainDivRem(q, r, a, F.f);
       return;
    }
@@ -3255,7 +3255,7 @@ void div(ZZ_pX& q, const ZZ_pX& a, const ZZ_pXModulus& F)
       div21(q, a, F);
       return;
    }
-   else if (!F.UseFFT || da - n <= NTL_ZZ_pX_FFT_CROSSOVER) {
+   else if (!F.UseFFT || da - n <= KCTSB_ZZ_pX_FFT_CROSSOVER) {
       PlainDiv(q, a, F.f);
       return;
    }
@@ -3323,7 +3323,7 @@ void MulMod(ZZ_pX& x, const ZZ_pX& a, const ZZ_pX& b, const ZZ_pXModulus& F)
       return;
    }
 
-   if (!F.UseFFT || da <= NTL_ZZ_pX_FFT_CROSSOVER || db <= NTL_ZZ_pX_FFT_CROSSOVER) {
+   if (!F.UseFFT || da <= KCTSB_ZZ_pX_FFT_CROSSOVER || db <= KCTSB_ZZ_pX_FFT_CROSSOVER) {
       ZZ_pX P1;
       mul(P1, a, b);
       rem(x, P1, F);
@@ -3366,7 +3366,7 @@ void SqrMod(ZZ_pX& x, const ZZ_pX& a, const ZZ_pXModulus& F)
    if (da >= n) 
       LogicError("bad args to SqrMod(ZZ_pX,ZZ_pX,ZZ_pXModulus)");
 
-   if (!F.UseFFT || da <= NTL_ZZ_pX_FFT_CROSSOVER) {
+   if (!F.UseFFT || da <= KCTSB_ZZ_pX_FFT_CROSSOVER) {
       ZZ_pX P1;
       sqr(P1, a);
       rem(x, P1, F);
@@ -3403,8 +3403,8 @@ void PlainInvTrunc(ZZ_pX& x, const ZZ_pX& a, long m)
 
 {
    long i, k, n, lb;
-   NTL_ZZRegister(v);
-   NTL_ZZRegister(t);
+   KCTSB_ZZRegister(v);
+   KCTSB_ZZRegister(t);
    ZZ_p s;
    const ZZ_p* ap;
    ZZ_p* xp;
@@ -3517,19 +3517,19 @@ void InvTrunc(ZZ_pX& x, const ZZ_pX& a, long m)
       return;
    }
 
-   if (NTL_OVERFLOW(m, 1, 0))
+   if (KCTSB_OVERFLOW(m, 1, 0))
       ResourceError("overflow in InvTrunc");
 
    if (&x == &a) {
       ZZ_pX la;
       la = a;
-      if (m > NTL_ZZ_pX_NEWTON_CROSSOVER && deg(a) > 0)
+      if (m > KCTSB_ZZ_pX_NEWTON_CROSSOVER && deg(a) > 0)
          NewtonInvTrunc(x, la, m);
       else
          PlainInvTrunc(x, la, m);
    }
    else {
-      if (m > NTL_ZZ_pX_NEWTON_CROSSOVER && deg(a) > 0)
+      if (m > KCTSB_ZZ_pX_NEWTON_CROSSOVER && deg(a) > 0)
          NewtonInvTrunc(x, a, m);
       else
          PlainInvTrunc(x, a, m);
@@ -3548,7 +3548,7 @@ void build(ZZ_pXModulus& x, const ZZ_pX& f)
    if (x.n <= 0)
       LogicError("build: deg(f) must be at least 1");
 
-   if (x.n <= NTL_ZZ_pX_FFT_CROSSOVER + 1) {
+   if (x.n <= KCTSB_ZZ_pX_FFT_CROSSOVER + 1) {
       x.UseFFT = 0;
       return;
    }
@@ -3591,7 +3591,7 @@ void build(ZZ_pXMultiplier& x, const ZZ_pX& b,
 
    if (db >= n) LogicError("build ZZ_pXMultiplier: deg(b) >= deg(f)");
 
-   if (!F.UseFFT || db <= NTL_ZZ_pX_FFT_CROSSOVER) {
+   if (!F.UseFFT || db <= KCTSB_ZZ_pX_FFT_CROSSOVER) {
       x.UseFFT = 0;
       return;
    }
@@ -3631,7 +3631,7 @@ void MulMod(ZZ_pX& x, const ZZ_pX& a, const ZZ_pXMultiplier& B,
       return;
    }
 
-   if (!B.UseFFT || !F.UseFFT || da <= NTL_ZZ_pX_FFT_CROSSOVER) {
+   if (!B.UseFFT || !F.UseFFT || da <= KCTSB_ZZ_pX_FFT_CROSSOVER) {
       ZZ_pX P1;
       mul(P1, a, B.b);
       rem(x, P1, F);
@@ -3761,7 +3761,7 @@ void NewtonInvTrunc(ZZ_pX& x, const ZZ_pX& a, long m)
    x.SetMaxLength(m);
    long i, t, k;
 
-   long log2_newton = NextPowerOfTwo(NTL_ZZ_pX_NEWTON_CROSSOVER)-1;
+   long log2_newton = NextPowerOfTwo(KCTSB_ZZ_pX_NEWTON_CROSSOVER)-1;
    PlainInvTrunc(x, a, 1L << log2_newton);
 
    t = NextPowerOfTwo(m);
@@ -3944,7 +3944,7 @@ void FFTRem(ZZ_pX& r, const ZZ_pX& a, const ZZ_pX& b)
 
 void DivRem(ZZ_pX& q, ZZ_pX& r, const ZZ_pX& a, const ZZ_pX& b)
 {
-   if (deg(b) > NTL_ZZ_pX_DIV_CROSSOVER && deg(a) - deg(b) > NTL_ZZ_pX_DIV_CROSSOVER)
+   if (deg(b) > KCTSB_ZZ_pX_DIV_CROSSOVER && deg(a) - deg(b) > KCTSB_ZZ_pX_DIV_CROSSOVER)
       FFTDivRem(q, r, a, b);
    else
       PlainDivRem(q, r, a, b);
@@ -3952,7 +3952,7 @@ void DivRem(ZZ_pX& q, ZZ_pX& r, const ZZ_pX& a, const ZZ_pX& b)
 
 void div(ZZ_pX& q, const ZZ_pX& a, const ZZ_pX& b)
 {
-   if (deg(b) > NTL_ZZ_pX_DIV_CROSSOVER && deg(a) - deg(b) > NTL_ZZ_pX_DIV_CROSSOVER)
+   if (deg(b) > KCTSB_ZZ_pX_DIV_CROSSOVER && deg(a) - deg(b) > KCTSB_ZZ_pX_DIV_CROSSOVER)
       FFTDiv(q, a, b);
    else
       PlainDiv(q, a, b);
@@ -3960,7 +3960,7 @@ void div(ZZ_pX& q, const ZZ_pX& a, const ZZ_pX& b)
 
 void div(ZZ_pX& q, const ZZ_pX& a, const ZZ_p& b)
 {
-   NTL_ZZ_pRegister(T);
+   KCTSB_ZZ_pRegister(T);
 
    inv(T, b);
    mul(q, a, T);
@@ -3968,7 +3968,7 @@ void div(ZZ_pX& q, const ZZ_pX& a, const ZZ_p& b)
 
 void div(ZZ_pX& q, const ZZ_pX& a, long b)
 {
-   NTL_ZZ_pRegister(T);
+   KCTSB_ZZ_pRegister(T);
 
    T = b;
    inv(T, T);
@@ -3979,7 +3979,7 @@ void div(ZZ_pX& q, const ZZ_pX& a, long b)
 
 void rem(ZZ_pX& r, const ZZ_pX& a, const ZZ_pX& b)
 {
-   if (deg(b) > NTL_ZZ_pX_DIV_CROSSOVER && deg(a) - deg(b) > NTL_ZZ_pX_DIV_CROSSOVER)
+   if (deg(b) > KCTSB_ZZ_pX_DIV_CROSSOVER && deg(a) - deg(b) > KCTSB_ZZ_pX_DIV_CROSSOVER)
       FFTRem(r, a, b);
    else
       PlainRem(r, a, b);
@@ -3999,7 +3999,7 @@ long operator==(const ZZ_pX& a, long b)
    if (da > 0)
       return 0;
 
-   NTL_ZZ_pRegister(bb);
+   KCTSB_ZZ_pRegister(bb);
    bb = b;
 
    if (da < 0)
@@ -4044,7 +4044,7 @@ void power(ZZ_pX& x, const ZZ_pX& a, long e)
       return;
    }
 
-   if (da > (NTL_MAX_LONG-1)/e)
+   if (da > (KCTSB_MAX_LONG-1)/e)
       ResourceError("overflow in power");
 
    ZZ_pX res;
@@ -4066,7 +4066,7 @@ void power(ZZ_pX& x, const ZZ_pX& a, long e)
 void reverse(ZZ_pX& x, const ZZ_pX& a, long hi)
 {
    if (hi < 0) { clear(x); return; }
-   if (NTL_OVERFLOW(hi, 1, 0))
+   if (KCTSB_OVERFLOW(hi, 1, 0))
       ResourceError("overflow in reverse");
 
    if (&x == &a) {
@@ -4078,4 +4078,4 @@ void reverse(ZZ_pX& x, const ZZ_pX& a, long hi)
       CopyReverse(x, a, 0, hi);
 }
 
-NTL_END_IMPL
+KCTSB_END_IMPL

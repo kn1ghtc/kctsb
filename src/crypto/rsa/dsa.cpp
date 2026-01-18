@@ -1,6 +1,6 @@
-/**
+﻿/**
  * @file dsa.cpp
- * @brief Digital Signature Algorithm (DSA) Implementation - NTL Backend
+ * @brief Digital Signature Algorithm (DSA) Implementation - Bignum Backend
  * 
  * Complete DSA implementation following:
  * - FIPS 186-4 Digital Signature Standard
@@ -184,7 +184,7 @@ bool DSAParams::is_valid() const {
 
 std::vector<uint8_t> DSAKeyPair::export_public_key() const {
     size_t p_len = static_cast<size_t>(NumBytes(params.p));
-    // NTL BytesFromZZ outputs little-endian, FIPS 186 requires big-endian
+    // bignum BytesFromZZ outputs little-endian, FIPS 186 requires big-endian
     std::vector<uint8_t> le_bytes(p_len);
     BytesFromZZ(le_bytes.data(), public_key, static_cast<long>(p_len));
     
@@ -197,7 +197,7 @@ std::vector<uint8_t> DSAKeyPair::export_public_key() const {
 
 std::vector<uint8_t> DSAKeyPair::export_private_key() const {
     size_t q_len = static_cast<size_t>(NumBytes(params.q));
-    // NTL BytesFromZZ outputs little-endian, FIPS 186 requires big-endian
+    // bignum BytesFromZZ outputs little-endian, FIPS 186 requires big-endian
     std::vector<uint8_t> le_bytes(q_len);
     BytesFromZZ(le_bytes.data(), private_key, static_cast<long>(q_len));
     
@@ -221,7 +221,7 @@ std::vector<uint8_t> DSASignature::to_bytes() const {
     size_t s_len = static_cast<size_t>(NumBytes(s));
     size_t total_len = r_len + s_len + 2;  // 2 bytes for lengths
     
-    // NTL BytesFromZZ outputs little-endian, convert to big-endian
+    // bignum BytesFromZZ outputs little-endian, convert to big-endian
     std::vector<uint8_t> r_le(r_len), s_le(s_len);
     BytesFromZZ(r_le.data(), r, static_cast<long>(r_len));
     BytesFromZZ(s_le.data(), s, static_cast<long>(s_len));
@@ -251,7 +251,7 @@ DSASignature DSASignature::from_bytes(const uint8_t* data, size_t len) {
         throw std::invalid_argument("Invalid signature format");
     }
     
-    // Input is big-endian, convert to little-endian for NTL
+    // Input is big-endian, convert to little-endian for bignum
     std::vector<uint8_t> r_le(r_len), s_le(s_len);
     for (size_t i = 0; i < r_len; i++) {
         r_le[i] = data[2 + r_len - 1 - i];

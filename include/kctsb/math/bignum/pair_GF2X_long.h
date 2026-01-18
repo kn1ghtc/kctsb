@@ -1,16 +1,16 @@
+﻿
+#ifndef KCTSB_pair_GF2X_long__H
+#define KCTSB_pair_GF2X_long__H
 
-#ifndef NTL_pair_GF2X_long__H
-#define NTL_pair_GF2X_long__H
+#include <kctsb/math/bignum/pair.h>
+#include <kctsb/math/bignum/vector.h>
+#include <kctsb/math/bignum/GF2X.h>
 
-#include <NTL/pair.h>
-#include <NTL/vector.h>
-#include <NTL/GF2X.h>
-
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 typedef Pair<GF2X,long> pair_GF2X_long;
 typedef Vec<pair_GF2X_long> vec_pair_GF2X_long;
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 #endif

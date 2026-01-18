@@ -1,10 +1,10 @@
+﻿
+
+#include <kctsb/math/bignum/mat_GF2.h>
+#include <kctsb/math/bignum/vec_long.h>
 
 
-#include <NTL/mat_GF2.h>
-#include <NTL/vec_long.h>
-
-
-NTL_START_IMPL
+KCTSB_START_IMPL
 
 
 void add(mat_GF2& X, const mat_GF2& A, const mat_GF2& B)  
@@ -17,13 +17,13 @@ void add(mat_GF2& X, const mat_GF2& A, const mat_GF2& B)
   
    X.SetDims(n, m);  
 
-   long mw = (m + NTL_BITS_PER_LONG - 1)/NTL_BITS_PER_LONG;
+   long mw = (m + KCTSB_BITS_PER_LONG - 1)/KCTSB_BITS_PER_LONG;
   
    long i;  
    for (i = 0; i < n; i++) {
-      _ntl_ulong *xp = X[i].rep.elts();
-      const _ntl_ulong *ap = A[i].rep.elts();
-      const _ntl_ulong *bp = B[i].rep.elts();
+      _kctsb_ulong *xp = X[i].rep.elts();
+      const _kctsb_ulong *ap = A[i].rep.elts();
+      const _kctsb_ulong *bp = B[i].rep.elts();
       long j;
       for (j = 0; j < mw; j++)
          xp[j] = ap[j] ^ bp[j];
@@ -72,17 +72,17 @@ void mul_aux(vec_GF2& x, const vec_GF2& a, const mat_GF2& B)
    x.SetLength(l);  
    clear(x);
 
-   const _ntl_ulong *ap = a.rep.elts();
-   _ntl_ulong a_mask = 1;
+   const _kctsb_ulong *ap = a.rep.elts();
+   _kctsb_ulong a_mask = 1;
 
-   _ntl_ulong *xp = x.rep.elts();
+   _kctsb_ulong *xp = x.rep.elts();
 
-   long lw = (l + NTL_BITS_PER_LONG - 1)/NTL_BITS_PER_LONG;
+   long lw = (l + KCTSB_BITS_PER_LONG - 1)/KCTSB_BITS_PER_LONG;
   
    long i;  
    for (i = 0; i < n; i++) {  
       if (*ap & a_mask) {
-         const _ntl_ulong *bp = B[i].rep.elts();
+         const _kctsb_ulong *bp = B[i].rep.elts();
          long j;
          for (j = 0; j < lw; j++)
             xp[j] ^= bp[j];
@@ -171,12 +171,12 @@ void determinant(ref_GF2 d, const mat_GF2& M_in)
 
    M = M_in;
 
-   long wn = (n + NTL_BITS_PER_LONG - 1)/NTL_BITS_PER_LONG;
+   long wn = (n + KCTSB_BITS_PER_LONG - 1)/KCTSB_BITS_PER_LONG;
 
    for (k = 0; k < n; k++) {
-      long wk = k/NTL_BITS_PER_LONG;
-      long bk = k - wk*NTL_BITS_PER_LONG;
-      _ntl_ulong k_mask = 1UL << bk;
+      long wk = k/KCTSB_BITS_PER_LONG;
+      long bk = k - wk*KCTSB_BITS_PER_LONG;
+      _kctsb_ulong k_mask = 1UL << bk;
 
       pos = -1;
       for (i = k; i < n; i++) {
@@ -192,13 +192,13 @@ void determinant(ref_GF2 d, const mat_GF2& M_in)
          }
 
 
-         _ntl_ulong *y = M[k].rep.elts();
+         _kctsb_ulong *y = M[k].rep.elts();
 
          for (i = k+1; i < n; i++) {
             // M[i] = M[i] + M[k]*M[i,k]
 
             if (M[i].rep.elts()[wk] & k_mask) {
-               _ntl_ulong *x = M[i].rep.elts();
+               _kctsb_ulong *x = M[i].rep.elts();
 
                for (j = wk; j < wn; j++)
                   x[j] ^= y[j];
@@ -219,10 +219,10 @@ void determinant(ref_GF2 d, const mat_GF2& M_in)
 static
 long IsUnitVector(const vec_GF2& a, long i)
 {
-   long wi = i/NTL_BITS_PER_LONG;
-   long bi = i - wi*NTL_BITS_PER_LONG;
+   long wi = i/KCTSB_BITS_PER_LONG;
+   long bi = i - wi*KCTSB_BITS_PER_LONG;
 
-   const _ntl_ulong *p = a.rep.elts();
+   const _kctsb_ulong *p = a.rep.elts();
    long wdlen = a.rep.length();
 
    long j;
@@ -266,12 +266,12 @@ void AddToCol(mat_GF2& x, long j, const vec_GF2& a)
    if (a.length() != n || j < 0 || j >= m)
       LogicError("AddToCol: bad args");
 
-   long wj = j/NTL_BITS_PER_LONG;
-   long bj = j - wj*NTL_BITS_PER_LONG;
-   _ntl_ulong j_mask = 1UL << bj;
+   long wj = j/KCTSB_BITS_PER_LONG;
+   long bj = j - wj*KCTSB_BITS_PER_LONG;
+   _kctsb_ulong j_mask = 1UL << bj;
 
-   const _ntl_ulong *ap = a.rep.elts();
-   _ntl_ulong a_mask = 1;
+   const _kctsb_ulong *ap = a.rep.elts();
+   _kctsb_ulong a_mask = 1;
 
    long i;
    for (i = 0; i < n; i++) {
@@ -349,12 +349,12 @@ void solve_impl(ref_GF2 d, vec_GF2& X, const mat_GF2& A, const vec_GF2& b, bool 
 
    AddToCol(M, n, b);
 
-   long wn = ((n+1) + NTL_BITS_PER_LONG - 1)/NTL_BITS_PER_LONG;
+   long wn = ((n+1) + KCTSB_BITS_PER_LONG - 1)/KCTSB_BITS_PER_LONG;
 
    for (k = 0; k < n; k++) {
-      long wk = k/NTL_BITS_PER_LONG;
-      long bk = k - wk*NTL_BITS_PER_LONG;
-      _ntl_ulong k_mask = 1UL << bk;
+      long wk = k/KCTSB_BITS_PER_LONG;
+      long bk = k - wk*KCTSB_BITS_PER_LONG;
+      _kctsb_ulong k_mask = 1UL << bk;
 
       pos = -1;
       for (i = k; i < n; i++) {
@@ -369,13 +369,13 @@ void solve_impl(ref_GF2 d, vec_GF2& X, const mat_GF2& A, const vec_GF2& b, bool 
             swap(M[pos], M[k]);
          }
 
-         _ntl_ulong *y = M[k].rep.elts();
+         _kctsb_ulong *y = M[k].rep.elts();
 
          for (i = k+1; i < n; i++) {
             // M[i] = M[i] + M[k]*M[i,k]
 
             if (M[i].rep.elts()[wk] & k_mask) {
-               _ntl_ulong *x = M[i].rep.elts();
+               _kctsb_ulong *x = M[i].rep.elts();
 
                for (j = wk; j < wn; j++)
                   x[j] ^= y[j];
@@ -443,12 +443,12 @@ void inv(ref_GF2 d, mat_GF2& X, const mat_GF2& A)
       M[i] = aa;
    }
 
-   long wn = ((2*n) + NTL_BITS_PER_LONG - 1)/NTL_BITS_PER_LONG;
+   long wn = ((2*n) + KCTSB_BITS_PER_LONG - 1)/KCTSB_BITS_PER_LONG;
 
    for (k = 0; k < n; k++) {
-      long wk = k/NTL_BITS_PER_LONG;
-      long bk = k - wk*NTL_BITS_PER_LONG;
-      _ntl_ulong k_mask = 1UL << bk;
+      long wk = k/KCTSB_BITS_PER_LONG;
+      long bk = k - wk*KCTSB_BITS_PER_LONG;
+      _kctsb_ulong k_mask = 1UL << bk;
 
       pos = -1;
       for (i = k; i < n; i++) {
@@ -463,13 +463,13 @@ void inv(ref_GF2 d, mat_GF2& X, const mat_GF2& A)
             swap(M[pos], M[k]);
          }
 
-         _ntl_ulong *y = M[k].rep.elts();
+         _kctsb_ulong *y = M[k].rep.elts();
 
          for (i = k+1; i < n; i++) {
             // M[i] = M[i] + M[k]*M[i,k]
 
             if (M[i].rep.elts()[wk] & k_mask) {
-               _ntl_ulong *x = M[i].rep.elts();
+               _kctsb_ulong *x = M[i].rep.elts();
 
                for (j = wk; j < wn; j++)
                   x[j] ^= y[j];
@@ -523,13 +523,13 @@ long gauss(mat_GF2& M, long w)
    if (w < 0 || w > m)
       LogicError("gauss: bad args");
 
-   long wm = (m + NTL_BITS_PER_LONG - 1)/NTL_BITS_PER_LONG;
+   long wm = (m + KCTSB_BITS_PER_LONG - 1)/KCTSB_BITS_PER_LONG;
 
    l = 0;
    for (k = 0; k < w && l < n; k++) {
-      long wk = k/NTL_BITS_PER_LONG;
-      long bk = k - wk*NTL_BITS_PER_LONG;
-      _ntl_ulong k_mask = 1UL << bk;
+      long wk = k/KCTSB_BITS_PER_LONG;
+      long bk = k - wk*KCTSB_BITS_PER_LONG;
+      _kctsb_ulong k_mask = 1UL << bk;
 
 
       pos = -1;
@@ -544,13 +544,13 @@ long gauss(mat_GF2& M, long w)
          if (l != pos)
             swap(M[pos], M[l]);
 
-         _ntl_ulong *y = M[l].rep.elts();
+         _kctsb_ulong *y = M[l].rep.elts();
 
          for (i = l+1; i < n; i++) {
             // M[i] = M[i] + M[l]*M[i,k]
 
             if (M[i].rep.elts()[wk] & k_mask) {
-               _ntl_ulong *x = M[i].rep.elts();
+               _kctsb_ulong *x = M[i].rep.elts();
 
                for (j = wk; j < wm; j++)
                   x[j] ^= y[j];
@@ -682,21 +682,21 @@ mat_GF2 operator+(const mat_GF2& a, const mat_GF2& b)
 {
    mat_GF2 res;
    add(res, a, b);
-   NTL_OPT_RETURN(mat_GF2, res);
+   KCTSB_OPT_RETURN(mat_GF2, res);
 }
 
 mat_GF2 operator*(const mat_GF2& a, const mat_GF2& b)
 {
    mat_GF2 res;
    mul_aux(res, a, b);
-   NTL_OPT_RETURN(mat_GF2, res);
+   KCTSB_OPT_RETURN(mat_GF2, res);
 }
 
 mat_GF2 operator-(const mat_GF2& a, const mat_GF2& b)
 {
    mat_GF2 res;
    add(res, a, b);
-   NTL_OPT_RETURN(mat_GF2, res);
+   KCTSB_OPT_RETURN(mat_GF2, res);
 }
 
 
@@ -704,14 +704,14 @@ vec_GF2 operator*(const mat_GF2& a, const vec_GF2& b)
 {
    vec_GF2 res;
    mul_aux(res, a, b);
-   NTL_OPT_RETURN(vec_GF2, res);
+   KCTSB_OPT_RETURN(vec_GF2, res);
 }
 
 vec_GF2 operator*(const vec_GF2& a, const mat_GF2& b)
 {
    vec_GF2 res;
    mul_aux(res, a, b);
-   NTL_OPT_RETURN(vec_GF2, res);
+   KCTSB_OPT_RETURN(vec_GF2, res);
 }
 
 
@@ -757,4 +757,4 @@ void random(mat_GF2& x, long n, long m)
    for (long i = 0; i < n; i++) random(x[i], m);
 }
 
-NTL_END_IMPL
+KCTSB_END_IMPL

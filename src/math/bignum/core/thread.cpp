@@ -1,7 +1,7 @@
+﻿
+#include <kctsb/math/bignum/thread.h>
 
-#include <NTL/thread.h>
-
-#ifdef NTL_THREADS
+#ifdef KCTSB_THREADS
 
 #include <thread>
 #include <sstream>
@@ -10,16 +10,16 @@
 
 
 
-NTL_START_IMPL
+KCTSB_START_IMPL
 
 
 const std::string& CurrentThreadID()
 {
-   NTL_TLS_LOCAL(std::string, ID);
-   static NTL_CHEAP_THREAD_LOCAL bool initialized = false;
+   KCTSB_TLS_LOCAL(std::string, ID);
+   static KCTSB_CHEAP_THREAD_LOCAL bool initialized = false;
 
    if (!initialized) {
-#ifdef NTL_THREADS
+#ifdef KCTSB_THREADS
       std::stringstream ss;
       ss << std::this_thread::get_id();
       ID = ss.str();
@@ -34,4 +34,4 @@ const std::string& CurrentThreadID()
 
 
 
-NTL_END_IMPL
+KCTSB_END_IMPL

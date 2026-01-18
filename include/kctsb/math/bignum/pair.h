@@ -1,12 +1,12 @@
+﻿
+#ifndef KCTSB_pair__H
+#define KCTSB_pair__H
 
-#ifndef NTL_pair__H
-#define NTL_pair__H
-
-#include <NTL/tools.h>
+#include <kctsb/math/bignum/tools.h>
 
 // pair templates
 
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 template<class S, class T>
 class Pair {  
@@ -19,7 +19,7 @@ public:
 
 };  
 
-template<class S, class T> NTL_DECLARE_RELOCATABLE_WHEN((Pair<S,T>*))
+template<class S, class T> KCTSB_DECLARE_RELOCATABLE_WHEN((Pair<S,T>*))
    { return DeclareRelocatableType((S*)0) &&
             DeclareRelocatableType((T*)0); }
 // FIXME: remove CV-qualifiers and S and T? 
@@ -41,13 +41,13 @@ inline long operator!=(const Pair<S,T>& x, const Pair<S,T>& y)
 
 
 template<class S, class T>
-NTL_SNS istream& operator>>(NTL_SNS istream& s, Pair<S,T>& x)  
+KCTSB_SNS istream& operator>>(KCTSB_SNS istream& s, Pair<S,T>& x)  
 {  
    long c;  
    S a;
    T b;
   
-   if (!s) NTL_INPUT_ERROR(s, "bad pair input");  
+   if (!s) KCTSB_INPUT_ERROR(s, "bad pair input");  
   
    c = s.peek();  
    while (IsWhiteSpace(c)) {  
@@ -56,14 +56,14 @@ NTL_SNS istream& operator>>(NTL_SNS istream& s, Pair<S,T>& x)
    }  
   
    if (c != '[')  
-      NTL_INPUT_ERROR(s, "bad pair input");  
+      KCTSB_INPUT_ERROR(s, "bad pair input");  
   
    s.get();  
   
    if (!(s >> a))   
-      NTL_INPUT_ERROR(s, "bad pair input");  
+      KCTSB_INPUT_ERROR(s, "bad pair input");  
    if (!(s >> b))  
-      NTL_INPUT_ERROR(s, "bad pair input");  
+      KCTSB_INPUT_ERROR(s, "bad pair input");  
   
    c = s.peek();  
    while (IsWhiteSpace(c)) {  
@@ -72,7 +72,7 @@ NTL_SNS istream& operator>>(NTL_SNS istream& s, Pair<S,T>& x)
    }  
   
    if (c != ']')  
-      NTL_INPUT_ERROR(s, "bad pair input");  
+      KCTSB_INPUT_ERROR(s, "bad pair input");  
   
    s.get();  
 
@@ -82,13 +82,13 @@ NTL_SNS istream& operator>>(NTL_SNS istream& s, Pair<S,T>& x)
 }  
   
 template<class S, class T>
-NTL_SNS ostream& operator<<(NTL_SNS ostream& s, const Pair<S,T>& x)  
+KCTSB_SNS ostream& operator<<(KCTSB_SNS ostream& s, const Pair<S,T>& x)  
 {  
    return s << "[" << x.a << " " << x.b << "]";  
 }  
 
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 
 #endif

@@ -1,14 +1,14 @@
+﻿
+
+#include <kctsb/math/bignum/ZZ_pE.h>
 
 
-#include <NTL/ZZ_pE.h>
+KCTSB_START_IMPL
 
 
-NTL_START_IMPL
+KCTSB_TLS_GLOBAL_DECL(SmartPtr<ZZ_pEInfoT>, ZZ_pEInfo_stg)
 
-
-NTL_TLS_GLOBAL_DECL(SmartPtr<ZZ_pEInfoT>, ZZ_pEInfo_stg)
-
-NTL_CHEAP_THREAD_LOCAL 
+KCTSB_CHEAP_THREAD_LOCAL 
 ZZ_pEInfoT *ZZ_pEInfo = 0; 
 
 
@@ -48,13 +48,13 @@ void ZZ_pE::init(const ZZ_pX& p)
 
 void ZZ_pEContext::save()
 {
-   NTL_TLS_GLOBAL_ACCESS(ZZ_pEInfo_stg);
+   KCTSB_TLS_GLOBAL_ACCESS(ZZ_pEInfo_stg);
    ptr = ZZ_pEInfo_stg;
 }
 
 void ZZ_pEContext::restore() const
 {
-   NTL_TLS_GLOBAL_ACCESS(ZZ_pEInfo_stg);
+   KCTSB_TLS_GLOBAL_ACCESS(ZZ_pEInfo_stg);
    ZZ_pEInfo_stg = ptr;
    ZZ_pEInfo = ZZ_pEInfo_stg.get();
 }
@@ -92,7 +92,7 @@ istream& operator>>(istream& s, ZZ_pE& x)
 {
    ZZ_pX y;
 
-   NTL_INPUT_CHECK_RET(s, s >> y);
+   KCTSB_INPUT_CHECK_RET(s, s >> y);
    conv(x, y);
 
    return s;
@@ -108,7 +108,7 @@ void div(ZZ_pE& x, const ZZ_pE& a, const ZZ_pE& b)
 
 void div(ZZ_pE& x, const ZZ_pE& a, long b)
 {
-   NTL_ZZ_pRegister(B);
+   KCTSB_ZZ_pRegister(B);
    B = b;
    inv(B, B);
    mul(x, a, B);
@@ -116,7 +116,7 @@ void div(ZZ_pE& x, const ZZ_pE& a, long b)
 
 void div(ZZ_pE& x, const ZZ_pE& a, const ZZ_p& b)
 {
-   NTL_ZZ_pRegister(B);
+   KCTSB_ZZ_pRegister(B);
    B = b;
    inv(B, B);
    mul(x, a, B);
@@ -143,4 +143,4 @@ void inv(ZZ_pE& x, const ZZ_pE& a)
    InvMod(x._ZZ_pE__rep, a._ZZ_pE__rep, ZZ_pE::modulus());
 }
 
-NTL_END_IMPL
+KCTSB_END_IMPL

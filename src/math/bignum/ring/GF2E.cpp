@@ -1,13 +1,13 @@
+﻿
+
+#include <kctsb/math/bignum/GF2E.h>
 
 
-#include <NTL/GF2E.h>
+KCTSB_START_IMPL
 
+KCTSB_TLS_GLOBAL_DECL(SmartPtr<GF2EInfoT>, GF2EInfo_stg)
 
-NTL_START_IMPL
-
-NTL_TLS_GLOBAL_DECL(SmartPtr<GF2EInfoT>, GF2EInfo_stg)
-
-NTL_CHEAP_THREAD_LOCAL
+KCTSB_CHEAP_THREAD_LOCAL
 GF2EInfoT *GF2EInfo = 0; 
 
 
@@ -30,20 +30,20 @@ GF2EInfoT::GF2EInfoT(const GF2X& NewP)
 //   * without gf2X lib and without pclmul
 // It is possible that one could be using gf2x lib on a platform without
 // pclmul, in which case the crossovers used here are not optimal.  It is also
-// possible that one could be using gf2x lib with pclmul, but compile NTL with
-// NATIVE=off, so that NTL assumes there is no pclmul.  Again, this will lead
+// possible that one could be using gf2x lib with pclmul, but compile bignum with
+// NATIVE=off, so that bignum assumes there is no pclmul.  Again, this will lead
 // to crossovers that are not optimal.
 
 // The crossovers were calculated based on a Skylake Xeon processor:
 // Intel(R) Xeon(R) Gold 6132 CPU @ 2.60GHz.
 
 
-#if (defined(NTL_GF2X_LIB) && defined(NTL_HAVE_PCLMUL))
+#if (defined(KCTSB_GF2X_LIB) && defined(KCTSB_HAVE_PCLMUL))
 
    //========== KarCross ==========
 
    if (sz <= 1) {
-      if (deg(p) <= NTL_BITS_PER_LONG/2)
+      if (deg(p) <= KCTSB_BITS_PER_LONG/2)
          KarCross = 3;
       else
          KarCross = 4;
@@ -58,7 +58,7 @@ GF2EInfoT::GF2EInfoT(const GF2X& NewP)
 
 
    if (sz <= 1) {
-      if (deg(p) <= NTL_BITS_PER_LONG/2)
+      if (deg(p) <= KCTSB_BITS_PER_LONG/2)
          ModCross = 15;
       else
          ModCross = 20;
@@ -71,7 +71,7 @@ GF2EInfoT::GF2EInfoT(const GF2X& NewP)
    //========== DivCross ==========
 
    if (sz <= 1) {
-      if (deg(p) <= NTL_BITS_PER_LONG/2)
+      if (deg(p) <= KCTSB_BITS_PER_LONG/2)
          DivCross =  50;
       else
          DivCross =  75;
@@ -88,7 +88,7 @@ GF2EInfoT::GF2EInfoT(const GF2X& NewP)
    //========== GCDCross ==========
 
    if (sz <= 1) {
-      if (deg(p) <= NTL_BITS_PER_LONG/2)
+      if (deg(p) <= KCTSB_BITS_PER_LONG/2)
          GCDCross = 225;
       else
          GCDCross = 225;
@@ -99,12 +99,12 @@ GF2EInfoT::GF2EInfoT(const GF2X& NewP)
    else               GCDCross =  600;
 
 
-#elif (defined(NTL_HAVE_PCLMUL))
+#elif (defined(KCTSB_HAVE_PCLMUL))
 
    //========== KarCross ==========
 
    if (sz <= 1) {
-      if (deg(p) <= NTL_BITS_PER_LONG/2)
+      if (deg(p) <= KCTSB_BITS_PER_LONG/2)
          KarCross = 5;
       else
          KarCross = 8;
@@ -119,7 +119,7 @@ GF2EInfoT::GF2EInfoT(const GF2X& NewP)
 
 
    if (sz <= 1) {
-      if (deg(p) <= NTL_BITS_PER_LONG/2)
+      if (deg(p) <= KCTSB_BITS_PER_LONG/2)
          ModCross = 30;
       else
          ModCross = 45;
@@ -140,7 +140,7 @@ GF2EInfoT::GF2EInfoT(const GF2X& NewP)
 
 
    if (sz <= 1) {
-      if (deg(p) <= NTL_BITS_PER_LONG/2)
+      if (deg(p) <= KCTSB_BITS_PER_LONG/2)
          DivCross =  75;
       else
          DivCross = 125;
@@ -158,7 +158,7 @@ GF2EInfoT::GF2EInfoT(const GF2X& NewP)
    //========== GCDCross ==========
 
    if (sz <= 1) {
-      if (deg(p) <= NTL_BITS_PER_LONG/2)
+      if (deg(p) <= KCTSB_BITS_PER_LONG/2)
          GCDCross = 225;
       else
          GCDCross = 225;
@@ -171,7 +171,7 @@ GF2EInfoT::GF2EInfoT(const GF2X& NewP)
    //========== KarCross ==========
 
    if (sz <= 1) {
-      if (deg(p) <= NTL_BITS_PER_LONG/2)
+      if (deg(p) <= KCTSB_BITS_PER_LONG/2)
          KarCross = 4;
       else
          KarCross = 12;
@@ -185,7 +185,7 @@ GF2EInfoT::GF2EInfoT(const GF2X& NewP)
 
 
    if (sz <= 1) {
-      if (deg(p) <= NTL_BITS_PER_LONG/2)
+      if (deg(p) <= KCTSB_BITS_PER_LONG/2)
          ModCross = 45;
       else
          ModCross = 65;
@@ -197,7 +197,7 @@ GF2EInfoT::GF2EInfoT(const GF2X& NewP)
    //========== DivCross ==========
 
    if (sz <= 1) {
-      if (deg(p) <= NTL_BITS_PER_LONG/2)
+      if (deg(p) <= KCTSB_BITS_PER_LONG/2)
          DivCross = 175;
       else
          DivCross = 250;
@@ -208,7 +208,7 @@ GF2EInfoT::GF2EInfoT(const GF2X& NewP)
    //========== GCDCross ==========
 
    if (sz <= 1) {
-      if (deg(p) <= NTL_BITS_PER_LONG/2)
+      if (deg(p) <= KCTSB_BITS_PER_LONG/2)
          GCDCross = 225;
       else
          GCDCross = 850;
@@ -254,13 +254,13 @@ void GF2E::init(const GF2X& p)
 
 void GF2EContext::save()
 {
-   NTL_TLS_GLOBAL_ACCESS(GF2EInfo_stg);
+   KCTSB_TLS_GLOBAL_ACCESS(GF2EInfo_stg);
    ptr = GF2EInfo_stg;
 }
 
 void GF2EContext::restore() const
 {
-   NTL_TLS_GLOBAL_ACCESS(GF2EInfo_stg);
+   KCTSB_TLS_GLOBAL_ACCESS(GF2EInfo_stg);
    GF2EInfo_stg = ptr;
    GF2EInfo = GF2EInfo_stg.get();
 }
@@ -299,7 +299,7 @@ istream& operator>>(istream& s, GF2E& x)
 {
    GF2X y;
 
-   NTL_INPUT_CHECK_RET(s, s >> y);
+   KCTSB_INPUT_CHECK_RET(s, s >> y);
    conv(x, y);
 
    return s;
@@ -332,4 +332,4 @@ void inv(GF2E& x, const GF2E& a)
 }
 
 
-NTL_END_IMPL
+KCTSB_END_IMPL

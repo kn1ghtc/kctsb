@@ -1,15 +1,15 @@
+﻿
+#ifndef KCTSB_vec_xdouble__H
+#define KCTSB_vec_xdouble__H
 
-#ifndef NTL_vec_xdouble__H
-#define NTL_vec_xdouble__H
+#include <kctsb/math/bignum/vector.h>
+#include <kctsb/math/bignum/xdouble.h>
 
-#include <NTL/vector.h>
-#include <NTL/xdouble.h>
-
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 typedef Vec<xdouble> vec_xdouble;
 
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 #endif

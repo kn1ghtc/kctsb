@@ -1,18 +1,18 @@
+﻿
+#include <kctsb/math/bignum/LLL.h>
+#include <kctsb/math/bignum/fileio.h>
+#include <kctsb/math/bignum/vec_xdouble.h>
+#include <kctsb/math/bignum/vec_double.h>
 
-#include <NTL/LLL.h>
-#include <NTL/fileio.h>
-#include <NTL/vec_xdouble.h>
-#include <NTL/vec_double.h>
 
-
-NTL_START_IMPL
+KCTSB_START_IMPL
 
 
 static void RowTransform(vec_ZZ& A, vec_ZZ& B, const ZZ& MU1)
 // x = x - y*MU
 {
-   NTL_ZZRegister(T);
-   NTL_ZZRegister(MU);
+   KCTSB_ZZRegister(T);
+   KCTSB_ZZRegister(MU);
    long k;
 
    long n = A.length();
@@ -36,7 +36,7 @@ static void RowTransform(vec_ZZ& A, vec_ZZ& B, const ZZ& MU1)
 
    if (MU == 0) return;
 
-   if (NumTwos(MU) >= NTL_ZZ_NBITS) 
+   if (NumTwos(MU) >= KCTSB_ZZ_NBITS) 
       k = MakeOdd(MU);
    else
       k = 0;
@@ -76,8 +76,8 @@ static void RowTransform(vec_ZZ& A, vec_ZZ& B, const ZZ& MU1)
 static void RowTransform2(vec_ZZ& A, vec_ZZ& B, const ZZ& MU1)
 // x = x + y*MU
 {
-   NTL_ZZRegister(T);
-   NTL_ZZRegister(MU);
+   KCTSB_ZZRegister(T);
+   KCTSB_ZZRegister(MU);
    long k;
 
    long n = A.length();
@@ -101,7 +101,7 @@ static void RowTransform2(vec_ZZ& A, vec_ZZ& B, const ZZ& MU1)
 
    if (MU == 0) return;
 
-   if (NumTwos(MU) >= NTL_ZZ_NBITS) 
+   if (NumTwos(MU) >= KCTSB_ZZ_NBITS) 
       k = MakeOdd(MU);
    else
       k = 0;
@@ -348,17 +348,17 @@ void GivensComputeGS(xdouble **B1, xdouble **mu, xdouble **aux, long k, long n,
    if (k > n) p[k] = 0;
 }
 
-NTL_TLS_GLOBAL_DECL_INIT(xdouble, red_fudge, (to_xdouble(0)))
+KCTSB_TLS_GLOBAL_DECL_INIT(xdouble, red_fudge, (to_xdouble(0)))
 
-static NTL_CHEAP_THREAD_LOCAL long log_red = 0;
+static KCTSB_CHEAP_THREAD_LOCAL long log_red = 0;
 
 static void init_red_fudge()
 {
-   NTL_TLS_GLOBAL_ACCESS(red_fudge);
+   KCTSB_TLS_GLOBAL_ACCESS(red_fudge);
 
    long i;
 
-   log_red = long(0.50*NTL_DOUBLE_PRECISION);
+   log_red = long(0.50*KCTSB_DOUBLE_PRECISION);
    red_fudge = 1;
 
    for (i = log_red; i > 0; i--)
@@ -367,7 +367,7 @@ static void init_red_fudge()
 
 static void inc_red_fudge()
 {
-   NTL_TLS_GLOBAL_ACCESS(red_fudge);
+   KCTSB_TLS_GLOBAL_ACCESS(red_fudge);
 
 
    red_fudge = red_fudge * 2;
@@ -381,10 +381,10 @@ static void inc_red_fudge()
 
 
 
-static NTL_CHEAP_THREAD_LOCAL long verbose = 0;
-static NTL_CHEAP_THREAD_LOCAL unsigned long NumSwaps = 0;
-static NTL_CHEAP_THREAD_LOCAL double StartTime = 0;
-static NTL_CHEAP_THREAD_LOCAL double LastTime = 0;
+static KCTSB_CHEAP_THREAD_LOCAL long verbose = 0;
+static KCTSB_CHEAP_THREAD_LOCAL unsigned long NumSwaps = 0;
+static KCTSB_CHEAP_THREAD_LOCAL double StartTime = 0;
+static KCTSB_CHEAP_THREAD_LOCAL double LastTime = 0;
 
 
 
@@ -437,7 +437,7 @@ long ll_G_LLL_XD(mat_ZZ& B, mat_ZZ* U, xdouble delta, long deep,
            xdouble **aux,
            long m, long init_k, long &quit, GivensCache_XD& cache)
 {
-   NTL_TLS_GLOBAL_ACCESS(red_fudge);
+   KCTSB_TLS_GLOBAL_ACCESS(red_fudge);
 
    long n = B.NumCols();
 
@@ -720,12 +720,12 @@ long G_LLL_XD(mat_ZZ& B, mat_ZZ& U, double delta, long deep,
 
 
 
-NTL_TLS_GLOBAL_DECL(vec_xdouble, G_BKZConstant)
+KCTSB_TLS_GLOBAL_DECL(vec_xdouble, G_BKZConstant)
 
 static
 void ComputeG_BKZConstant(long beta, long p)
 {
-   NTL_TLS_GLOBAL_ACCESS(G_BKZConstant);
+   KCTSB_TLS_GLOBAL_ACCESS(G_BKZConstant);
 
    const double c_PI = 3.14159265358979323846264338328;
    const double LogPI = 1.14472988584940017414342735135;
@@ -777,13 +777,13 @@ void ComputeG_BKZConstant(long beta, long p)
    }
 }
 
-NTL_TLS_GLOBAL_DECL(vec_xdouble, G_BKZThresh)
+KCTSB_TLS_GLOBAL_DECL(vec_xdouble, G_BKZThresh)
 
 static
 void ComputeG_BKZThresh(xdouble *c, long beta)
 {
-   NTL_TLS_GLOBAL_ACCESS(G_BKZConstant);
-   NTL_TLS_GLOBAL_ACCESS(G_BKZThresh);
+   KCTSB_TLS_GLOBAL_ACCESS(G_BKZConstant);
+   KCTSB_TLS_GLOBAL_ACCESS(G_BKZThresh);
 
    G_BKZThresh.SetLength(beta-1);
 
@@ -858,8 +858,8 @@ static
 long G_BKZ_XD(mat_ZZ& BB, mat_ZZ* UU, xdouble delta, 
          long beta, long prune, LLLCheckFct check)
 {
-   NTL_TLS_GLOBAL_ACCESS(red_fudge);
-   NTL_TLS_GLOBAL_ACCESS(G_BKZThresh);
+   KCTSB_TLS_GLOBAL_ACCESS(red_fudge);
+   KCTSB_TLS_GLOBAL_ACCESS(G_BKZThresh);
 
 
    long m = BB.NumRows();
@@ -1316,4 +1316,4 @@ long G_BKZ_XD(mat_ZZ& BB, double delta,
    return G_BKZ_XD(BB, 0, to_xdouble(delta), beta, prune, check);
 }
 
-NTL_END_IMPL
+KCTSB_END_IMPL

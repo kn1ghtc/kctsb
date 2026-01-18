@@ -1,4 +1,4 @@
-//
+﻿//
 //  Polynomials.cpp
 //  kcalg
 //
@@ -11,16 +11,16 @@
 
 #include "kctsb/math/math.h"
 
-#include <NTL/ZZXFactoring.h>  // Polynomial factorization over integers
-#include <NTL/ZZX.h>           // Univariate polynomial over integers
-#include <NTL/ZZ_pX.h>         // Univariate polynomial over Z/pZ
-#include <NTL/ZZ_pXFactoring.h>
-#include <NTL/GF2X.h>
-#include <NTL/GF2XFactoring.h>
-#include <NTL/GF2EX.h>
-#include <NTL/GF2EXFactoring.h>
+#include <kctsb/math/bignum/ZZXFactoring.h>  // Polynomial factorization over integers
+#include <kctsb/math/bignum/ZZX.h>           // Univariate polynomial over integers
+#include <kctsb/math/bignum/ZZ_pX.h>         // Univariate polynomial over Z/pZ
+#include <kctsb/math/bignum/ZZ_pXFactoring.h>
+#include <kctsb/math/bignum/GF2X.h>
+#include <kctsb/math/bignum/GF2XFactoring.h>
+#include <kctsb/math/bignum/GF2EX.h>
+#include <kctsb/math/bignum/GF2EXFactoring.h>
 
-// Bignum namespace is now kctsb (was NTL)
+// Bignum namespace is now kctsb (was bignum)
 using namespace kctsb;
 using namespace std;
 

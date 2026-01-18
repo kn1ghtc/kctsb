@@ -1,11 +1,11 @@
+﻿
+#ifndef KCTSB_pd_FFT__H
+#define KCTSB_pd_FFT__H
 
-#ifndef NTL_pd_FFT__H
-#define NTL_pd_FFT__H
 
+#include <kctsb/math/bignum/tools.h>
 
-#include <NTL/tools.h>
-
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 
 // Sets control register so that rounding mode
@@ -45,6 +45,6 @@ void
 pd_ifft_trunc_impl(long* A, const long* a, double* xp, long lgN, 
                    const pd_mod_t& mod, long yn, double fac);
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 #endif

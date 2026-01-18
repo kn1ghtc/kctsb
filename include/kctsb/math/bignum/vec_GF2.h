@@ -1,11 +1,11 @@
+﻿
+#ifndef KCTSB_vec_GF2__H
+#define KCTSB_vec_GF2__H
 
-#ifndef NTL_vec_GF2__H
-#define NTL_vec_GF2__H
+#include <kctsb/math/bignum/WordVector.h>
+#include <kctsb/math/bignum/GF2.h>
 
-#include <NTL/WordVector.h>
-#include <NTL/GF2.h>
-
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 
 // Vec<GF2> is an explicit specialization of Vec<T>.
@@ -42,30 +42,30 @@ public:
 
    ~Vec() {}
 
-#if (NTL_CXX_STANDARD >= 2011 && !defined(NTL_DISABLE_MOVE))
+#if (KCTSB_CXX_STANDARD >= 2011 && !defined(KCTSB_DISABLE_MOVE))
 
-Vec(Vec&& a) NTL_FAKE_NOEXCEPT : Vec()
+Vec(Vec&& a) KCTSB_FAKE_NOEXCEPT : Vec()
 {
    if (a.fixed()) {
       *this = a;
    }
    else {
       rep.unpinned_move(a.rep);
-      _len = _ntl_scalar_move(a._len);
-      _maxlen = _ntl_scalar_move(a._maxlen);
+      _len = _kctsb_scalar_move(a._len);
+      _maxlen = _kctsb_scalar_move(a._maxlen);
    }
 }
 
-#ifndef NTL_DISABLE_MOVE_ASSIGN
-Vec& operator=(Vec&& a) NTL_FAKE_NOEXCEPT
+#ifndef KCTSB_DISABLE_MOVE_ASSIGN
+Vec& operator=(Vec&& a) KCTSB_FAKE_NOEXCEPT
 {
    if (fixed() || a.fixed()) {
       *this = a;
    }
    else {
       rep.unpinned_move(a.rep);
-      _len = _ntl_scalar_move(a._len);
-      _maxlen = _ntl_scalar_move(a._maxlen);
+      _len = _kctsb_scalar_move(a._len);
+      _maxlen = _kctsb_scalar_move(a._maxlen);
    }
 
    return *this;
@@ -86,7 +86,7 @@ Vec& operator=(Vec&& a) NTL_FAKE_NOEXCEPT
 
    long length() const { return _len; }
    long MaxLength() const { return _maxlen >> 1; }  
-   long allocated() const { return rep.MaxLength() * NTL_BITS_PER_LONG; }
+   long allocated() const { return rep.MaxLength() * KCTSB_BITS_PER_LONG; }
    long fixed() const { return _maxlen & 1; }
 
 
@@ -97,7 +97,7 @@ Vec& operator=(Vec&& a) NTL_FAKE_NOEXCEPT
 
    ref_GF2 operator[](long i) 
    {
-#ifdef NTL_RANGE_CHECK
+#ifdef KCTSB_RANGE_CHECK
       if (i < 0 || i >= _len) LogicError("index out of range in Vec");
 #endif
 
@@ -107,7 +107,7 @@ Vec& operator=(Vec&& a) NTL_FAKE_NOEXCEPT
 
    const GF2 operator[](long i) const
    {
-#ifdef NTL_RANGE_CHECK
+#ifdef KCTSB_RANGE_CHECK
       if (i < 0 || i >= _len) LogicError("index out of range in Vec");
 #endif
 
@@ -191,14 +191,14 @@ Vec& operator=(Vec&& a) NTL_FAKE_NOEXCEPT
       ref_GF2 make_ref_GF2() const
       {
          long q, r;
-         _ntl_bpl_divrem(cast_unsigned(idx), q, r);
+         _kctsb_bpl_divrem(cast_unsigned(idx), q, r);
          return ref_GF2(INIT_LOOP_HOLE, ptr+q, r);
       }
 
       const GF2  make_GF2() const
       {
          long q, r;
-         _ntl_bpl_divrem(cast_unsigned(idx), q, r);
+         _kctsb_bpl_divrem(cast_unsigned(idx), q, r);
 	 return GF2(INIT_LOOP_HOLE, (ptr[q] >> r) & 1);
       }
 
@@ -364,8 +364,8 @@ long operator==(const vec_GF2& a, const vec_GF2& b);
 inline long operator!=(const vec_GF2& a, const vec_GF2& b)
    { return !(a == b); }
 
-NTL_SNS ostream& operator<<(NTL_SNS ostream& s, const vec_GF2& a);
-NTL_SNS istream& operator>>(NTL_SNS istream& s, vec_GF2& a);
+KCTSB_SNS ostream& operator<<(KCTSB_SNS ostream& s, const vec_GF2& a);
+KCTSB_SNS istream& operator>>(KCTSB_SNS istream& s, vec_GF2& a);
 
 void shift(vec_GF2& x, const vec_GF2& a, long n);
 // x = a shifted n places, i.e., if l = a.length(),
@@ -373,16 +373,16 @@ void shift(vec_GF2& x, const vec_GF2& a, long n);
 //    and x[i] = 0 for all other i such that 0 <= i < l.
 
 inline vec_GF2 shift(const vec_GF2& a, long n)
-   { vec_GF2 x; shift(x, a, n); NTL_OPT_RETURN(vec_GF2, x); }
+   { vec_GF2 x; shift(x, a, n); KCTSB_OPT_RETURN(vec_GF2, x); }
 
 void reverse(vec_GF2& x, const vec_GF2& a);
 
 inline vec_GF2 reverse(const vec_GF2& a)
-   { vec_GF2 x; reverse(x, a); NTL_OPT_RETURN(vec_GF2, x); }
+   { vec_GF2 x; reverse(x, a); KCTSB_OPT_RETURN(vec_GF2, x); }
 
 void random(vec_GF2& x, long n);
 inline vec_GF2 random_vec_GF2(long n)
-   { vec_GF2 x; random(x, n); NTL_OPT_RETURN(vec_GF2, x); }
+   { vec_GF2 x; random(x, n); KCTSB_OPT_RETURN(vec_GF2, x); }
 
 long weight(const vec_GF2& a);
 
@@ -418,16 +418,16 @@ inline vec_GF2 operator-(const vec_GF2& a)
    { return a; }
 
 inline vec_GF2 operator*(const vec_GF2& a, GF2 b)
-   { vec_GF2 x; mul(x, a, b); NTL_OPT_RETURN(vec_GF2, x); }
+   { vec_GF2 x; mul(x, a, b); KCTSB_OPT_RETURN(vec_GF2, x); }
 
 inline vec_GF2 operator*(const vec_GF2& a, long b)
-   { vec_GF2 x; mul(x, a, b); NTL_OPT_RETURN(vec_GF2, x); }
+   { vec_GF2 x; mul(x, a, b); KCTSB_OPT_RETURN(vec_GF2, x); }
 
 inline vec_GF2 operator*(GF2 a, const vec_GF2& b)
-   { vec_GF2 x; mul(x, a, b); NTL_OPT_RETURN(vec_GF2, x); }
+   { vec_GF2 x; mul(x, a, b); KCTSB_OPT_RETURN(vec_GF2, x); }
 
 inline vec_GF2 operator*(long a, const vec_GF2& b)
-   { vec_GF2 x; mul(x, a, b); NTL_OPT_RETURN(vec_GF2, x); }
+   { vec_GF2 x; mul(x, a, b); KCTSB_OPT_RETURN(vec_GF2, x); }
 
 
 inline GF2 operator*(const vec_GF2& a, const vec_GF2& b)
@@ -461,9 +461,9 @@ inline vec_GF2& operator*=(vec_GF2& x, long a)
 
 void VectorCopy(vec_GF2& x, const vec_GF2& a, long n);
 inline vec_GF2 VectorCopy(const vec_GF2& a, long n)
-   { vec_GF2 x; VectorCopy(x, a, n); NTL_OPT_RETURN(vec_GF2, x); }
+   { vec_GF2 x; VectorCopy(x, a, n); KCTSB_OPT_RETURN(vec_GF2, x); }
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 
 #endif

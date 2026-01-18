@@ -1,9 +1,9 @@
-#include <NTL/mat_poly_ZZ.h>
-#include <NTL/mat_poly_ZZ_p.h>
-#include <NTL/mat_poly_lzz_p.h>
+﻿#include <kctsb/math/bignum/mat_poly_ZZ.h>
+#include <kctsb/math/bignum/mat_poly_ZZ_p.h>
+#include <kctsb/math/bignum/mat_poly_lzz_p.h>
 
 
-NTL_START_IMPL
+KCTSB_START_IMPL
 
 static
 long CharPolyBound(const mat_ZZ& a)
@@ -112,4 +112,4 @@ void CharPoly(ZZX& gg, const mat_ZZ& a, long deterministic)
    bak1.restore();
 }
 
-NTL_END_IMPL
+KCTSB_END_IMPL

@@ -1,8 +1,8 @@
-/**
+﻿/**
  * @file ecc_curve.cpp
- * @brief Elliptic Curve Core Implementation - NTL Backend
+ * @brief Elliptic Curve Core Implementation - Bignum Backend
  * 
- * Complete implementation of elliptic curve operations using NTL.
+ * Complete implementation of elliptic curve operations using bignum.
  * Features:
  * - Constant-time Montgomery ladder for scalar multiplication
  * - Jacobian coordinates for efficient point arithmetic
@@ -18,7 +18,7 @@
 #include <vector>
 #include <cstdint>
 
-// Bignum namespace is now kctsb (was NTL)
+// Bignum namespace is now kctsb (was bignum)
 using namespace kctsb;
 
 namespace kctsb {
@@ -486,7 +486,7 @@ int ECCurve::point_to_bytes(const AffinePoint& P, unsigned char* out, size_t out
     // Uncompressed format: 0x04 || x || y
     out[0] = 0x04;
     
-    // Extract x coordinate bytes (NTL uses little-endian, SEC 1 requires big-endian)
+    // Extract x coordinate bytes (bignum uses little-endian, SEC 1 requires big-endian)
     ZZ x_int = rep(P.x);
     std::vector<uint8_t> x_le(field_size);
     BytesFromZZ(x_le.data(), x_int, static_cast<long>(field_size));
@@ -495,7 +495,7 @@ int ECCurve::point_to_bytes(const AffinePoint& P, unsigned char* out, size_t out
         out[1 + i] = x_le[field_size - 1 - i];
     }
     
-    // Extract y coordinate bytes (NTL uses little-endian, SEC 1 requires big-endian)
+    // Extract y coordinate bytes (bignum uses little-endian, SEC 1 requires big-endian)
     ZZ y_int = rep(P.y);
     std::vector<uint8_t> y_le(field_size);
     BytesFromZZ(y_le.data(), y_int, static_cast<long>(field_size));
@@ -527,7 +527,7 @@ AffinePoint ECCurve::point_from_bytes(const unsigned char* in, size_t in_len) co
         
         ZZ_p::init(p_);
         
-        // Convert big-endian input to little-endian for NTL
+        // Convert big-endian input to little-endian for bignum
         std::vector<uint8_t> x_le(field_size), y_le(field_size);
         for (size_t i = 0; i < field_size; i++) {
             x_le[i] = in[1 + field_size - 1 - i];

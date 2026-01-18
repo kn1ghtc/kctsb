@@ -1,10 +1,10 @@
+﻿
+#ifndef KCTSB_HNF__H
+#define KCTSB_HNF__H
 
-#ifndef NTL_HNF__H
-#define NTL_HNF__H
+#include <kctsb/math/bignum/mat_ZZ.h>
 
-#include <NTL/mat_ZZ.h>
-
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 void HNF(mat_ZZ& W, const mat_ZZ& A, const ZZ& D);
 // The input matrix A is an n x m matrix of rank m (so n >= m), and
@@ -20,6 +20,6 @@ void HNF(mat_ZZ& W, const mat_ZZ& A, const ZZ& D);
 // Currently, this is implemented using the algorithm of 
 // [P. Domich, R. Kannan and L. Trotter, Math. Oper. Research 12:50-59, 1987].
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 #endif

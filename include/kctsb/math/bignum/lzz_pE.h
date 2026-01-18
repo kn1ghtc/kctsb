@@ -1,13 +1,13 @@
+﻿
+#ifndef KCTSB_zz_pE__H
+#define KCTSB_zz_pE__H
 
-#ifndef NTL_zz_pE__H
-#define NTL_zz_pE__H
+#include <kctsb/math/bignum/vector.h>
+#include <kctsb/math/bignum/matrix.h>
+#include <kctsb/math/bignum/vec_long.h>
+#include <kctsb/math/bignum/lzz_pX.h>
 
-#include <NTL/vector.h>
-#include <NTL/matrix.h>
-#include <NTL/vec_long.h>
-#include <NTL/lzz_pX.h>
-
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 
 
@@ -30,7 +30,7 @@ public:
 };
 
 extern 
-NTL_CHEAP_THREAD_LOCAL 
+KCTSB_CHEAP_THREAD_LOCAL 
 zz_pEInfoT *zz_pEInfo; 
 // info for current modulus, initially null
 // fast TLS access
@@ -156,7 +156,7 @@ inline zz_pE& operator=(const zz_p& a);
 };
 
 
-NTL_DECLARE_RELOCATABLE((zz_pE*))
+KCTSB_DECLARE_RELOCATABLE((zz_pE*))
 
 inline const zz_pX& _zz_pE__rep(const zz_pE& a) { return a._zz_pE__rep; }
 
@@ -237,7 +237,7 @@ inline void sqr(zz_pE& x, const zz_pE& a)
    { SqrMod(x._zz_pE__rep, a._zz_pE__rep, zz_pE::modulus()); }
 
 inline zz_pE sqr(const zz_pE& a)
-   { zz_pE x; sqr(x, a); NTL_OPT_RETURN(zz_pE, x); }
+   { zz_pE x; sqr(x, a); KCTSB_OPT_RETURN(zz_pE, x); }
 
 
 inline void mul(zz_pE& x, const zz_pE& a, long b)
@@ -266,7 +266,7 @@ void div(zz_pE& x, const zz_p& a, const zz_pE& b);
 void inv(zz_pE& x, const zz_pE& a);
 
 inline zz_pE inv(const zz_pE& a)
-   { zz_pE x; inv(x, a); NTL_OPT_RETURN(zz_pE, x); }
+   { zz_pE x; inv(x, a); KCTSB_OPT_RETURN(zz_pE, x); }
 
 
 
@@ -278,13 +278,13 @@ inline void power(zz_pE& x, const zz_pE& a, const ZZ& e)
    { PowerMod(x._zz_pE__rep, a._zz_pE__rep, e, zz_pE::modulus()); }
 
 inline zz_pE power(const zz_pE& a, const ZZ& e)
-   { zz_pE x; power(x, a, e); NTL_OPT_RETURN(zz_pE, x); }
+   { zz_pE x; power(x, a, e); KCTSB_OPT_RETURN(zz_pE, x); }
 
 inline void power(zz_pE& x, const zz_pE& a, long e)
    { power(x, a, ZZ_expo(e)); }
 
 inline zz_pE power(const zz_pE& a, long e)
-   { zz_pE x; power(x, a, e); NTL_OPT_RETURN(zz_pE, x); }
+   { zz_pE x; power(x, a, e); KCTSB_OPT_RETURN(zz_pE, x); }
 
 
 
@@ -304,16 +304,16 @@ inline void conv(zz_pE& x, const ZZ& a)
    { conv(x._zz_pE__rep, a); }
 
 inline zz_pE to_zz_pE(const zz_pX& a) 
-   { zz_pE x; conv(x, a); NTL_OPT_RETURN(zz_pE, x); }
+   { zz_pE x; conv(x, a); KCTSB_OPT_RETURN(zz_pE, x); }
 
 inline zz_pE to_zz_pE(long a) 
-   { zz_pE x; conv(x, a); NTL_OPT_RETURN(zz_pE, x); }
+   { zz_pE x; conv(x, a); KCTSB_OPT_RETURN(zz_pE, x); }
 
 inline zz_pE to_zz_pE(const zz_p& a) 
-   { zz_pE x; conv(x, a); NTL_OPT_RETURN(zz_pE, x); }
+   { zz_pE x; conv(x, a); KCTSB_OPT_RETURN(zz_pE, x); }
 
 inline zz_pE to_zz_pE(const ZZ& a) 
-   { zz_pE x; conv(x, a); NTL_OPT_RETURN(zz_pE, x); }
+   { zz_pE x; conv(x, a); KCTSB_OPT_RETURN(zz_pE, x); }
 
 
 
@@ -369,15 +369,15 @@ inline void random(zz_pE& x)
    { random(x._zz_pE__rep, zz_pE::degree()); }
 
 inline zz_pE random_zz_pE()
-   { zz_pE x; random(x); NTL_OPT_RETURN(zz_pE, x); }
+   { zz_pE x; random(x); KCTSB_OPT_RETURN(zz_pE, x); }
 
 
 // ****** input/output
 
-inline NTL_SNS ostream& operator<<(NTL_SNS ostream& s, const zz_pE& a)
+inline KCTSB_SNS ostream& operator<<(KCTSB_SNS ostream& s, const zz_pE& a)
    { return s << a._zz_pE__rep; }
    
-NTL_SNS istream& operator>>(NTL_SNS istream& s, zz_pE& x);
+KCTSB_SNS istream& operator>>(KCTSB_SNS istream& s, zz_pE& x);
 
 inline const zz_pX& rep(const zz_pE& a) { return a._zz_pE__rep; }
 
@@ -390,38 +390,38 @@ inline zz_pE& zz_pE::operator=(const zz_p& a) { conv(*this, a); return *this; }
 
 
 inline zz_pE operator+(const zz_pE& a, const zz_pE& b) 
-   { zz_pE x; add(x, a, b); NTL_OPT_RETURN(zz_pE, x); }
+   { zz_pE x; add(x, a, b); KCTSB_OPT_RETURN(zz_pE, x); }
 
 inline zz_pE operator+(const zz_pE& a, const zz_p& b) 
-   { zz_pE x; add(x, a, b); NTL_OPT_RETURN(zz_pE, x); }
+   { zz_pE x; add(x, a, b); KCTSB_OPT_RETURN(zz_pE, x); }
 
 inline zz_pE operator+(const zz_pE& a, long b) 
-   { zz_pE x; add(x, a, b); NTL_OPT_RETURN(zz_pE, x); }
+   { zz_pE x; add(x, a, b); KCTSB_OPT_RETURN(zz_pE, x); }
 
 inline zz_pE operator+(const zz_p& a, const zz_pE& b) 
-   { zz_pE x; add(x, a, b); NTL_OPT_RETURN(zz_pE, x); }
+   { zz_pE x; add(x, a, b); KCTSB_OPT_RETURN(zz_pE, x); }
 
 inline zz_pE operator+(long a, const zz_pE& b) 
-   { zz_pE x; add(x, a, b); NTL_OPT_RETURN(zz_pE, x); }
+   { zz_pE x; add(x, a, b); KCTSB_OPT_RETURN(zz_pE, x); }
 
 
 inline zz_pE operator-(const zz_pE& a, const zz_pE& b) 
-   { zz_pE x; sub(x, a, b); NTL_OPT_RETURN(zz_pE, x); }
+   { zz_pE x; sub(x, a, b); KCTSB_OPT_RETURN(zz_pE, x); }
 
 inline zz_pE operator-(const zz_pE& a, const zz_p& b) 
-   { zz_pE x; sub(x, a, b); NTL_OPT_RETURN(zz_pE, x); }
+   { zz_pE x; sub(x, a, b); KCTSB_OPT_RETURN(zz_pE, x); }
 
 inline zz_pE operator-(const zz_pE& a, long b) 
-   { zz_pE x; sub(x, a, b); NTL_OPT_RETURN(zz_pE, x); }
+   { zz_pE x; sub(x, a, b); KCTSB_OPT_RETURN(zz_pE, x); }
 
 inline zz_pE operator-(const zz_p& a, const zz_pE& b) 
-   { zz_pE x; sub(x, a, b); NTL_OPT_RETURN(zz_pE, x); }
+   { zz_pE x; sub(x, a, b); KCTSB_OPT_RETURN(zz_pE, x); }
 
 inline zz_pE operator-(long a, const zz_pE& b) 
-   { zz_pE x; sub(x, a, b); NTL_OPT_RETURN(zz_pE, x); }
+   { zz_pE x; sub(x, a, b); KCTSB_OPT_RETURN(zz_pE, x); }
 
 inline zz_pE operator-(const zz_pE& a)
-   { zz_pE x; negate(x, a); NTL_OPT_RETURN(zz_pE, x); } 
+   { zz_pE x; negate(x, a); KCTSB_OPT_RETURN(zz_pE, x); } 
 
 
 inline zz_pE& operator+=(zz_pE& x, const zz_pE& b)
@@ -455,19 +455,19 @@ inline void operator--(zz_pE& x, int) { sub(x, x, 1); }
 
 
 inline zz_pE operator*(const zz_pE& a, const zz_pE& b) 
-   { zz_pE x; mul(x, a, b); NTL_OPT_RETURN(zz_pE, x); }
+   { zz_pE x; mul(x, a, b); KCTSB_OPT_RETURN(zz_pE, x); }
 
 inline zz_pE operator*(const zz_pE& a, const zz_p& b) 
-   { zz_pE x; mul(x, a, b); NTL_OPT_RETURN(zz_pE, x); }
+   { zz_pE x; mul(x, a, b); KCTSB_OPT_RETURN(zz_pE, x); }
 
 inline zz_pE operator*(const zz_pE& a, long b) 
-   { zz_pE x; mul(x, a, b); NTL_OPT_RETURN(zz_pE, x); }
+   { zz_pE x; mul(x, a, b); KCTSB_OPT_RETURN(zz_pE, x); }
 
 inline zz_pE operator*(const zz_p& a, const zz_pE& b) 
-   { zz_pE x; mul(x, a, b); NTL_OPT_RETURN(zz_pE, x); }
+   { zz_pE x; mul(x, a, b); KCTSB_OPT_RETURN(zz_pE, x); }
 
 inline zz_pE operator*(long a, const zz_pE& b) 
-   { zz_pE x; mul(x, a, b); NTL_OPT_RETURN(zz_pE, x); }
+   { zz_pE x; mul(x, a, b); KCTSB_OPT_RETURN(zz_pE, x); }
 
 
 inline zz_pE& operator*=(zz_pE& x, const zz_pE& b)
@@ -483,19 +483,19 @@ inline zz_pE& operator*=(zz_pE& x, long b)
 
 
 inline zz_pE operator/(const zz_pE& a, const zz_pE& b) 
-   { zz_pE x; div(x, a, b); NTL_OPT_RETURN(zz_pE, x); }
+   { zz_pE x; div(x, a, b); KCTSB_OPT_RETURN(zz_pE, x); }
 
 inline zz_pE operator/(const zz_pE& a, const zz_p& b) 
-   { zz_pE x; div(x, a, b); NTL_OPT_RETURN(zz_pE, x); }
+   { zz_pE x; div(x, a, b); KCTSB_OPT_RETURN(zz_pE, x); }
 
 inline zz_pE operator/(const zz_pE& a, long b) 
-   { zz_pE x; div(x, a, b); NTL_OPT_RETURN(zz_pE, x); }
+   { zz_pE x; div(x, a, b); KCTSB_OPT_RETURN(zz_pE, x); }
 
 inline zz_pE operator/(const zz_p& a, const zz_pE& b) 
-   { zz_pE x; div(x, a, b); NTL_OPT_RETURN(zz_pE, x); }
+   { zz_pE x; div(x, a, b); KCTSB_OPT_RETURN(zz_pE, x); }
 
 inline zz_pE operator/(long a, const zz_pE& b) 
-   { zz_pE x; div(x, a, b); NTL_OPT_RETURN(zz_pE, x); }
+   { zz_pE x; div(x, a, b); KCTSB_OPT_RETURN(zz_pE, x); }
 
 
 inline zz_pE& operator/=(zz_pE& x, const zz_pE& b)
@@ -518,6 +518,6 @@ inline void conv(zz_pE& x, const zz_pE& a) { x = a; }
 /* ------------------------------------- */
 
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 #endif

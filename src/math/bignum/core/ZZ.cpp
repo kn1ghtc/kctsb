@@ -1,30 +1,30 @@
+﻿
+#include <kctsb/math/bignum/ZZ.h>
+#include <kctsb/math/bignum/vec_ZZ.h>
+#include <kctsb/math/bignum/Lazy.h>
+#include <kctsb/math/bignum/fileio.h>
+#include <kctsb/math/bignum/SmartPtr.h>
 
-#include <NTL/ZZ.h>
-#include <NTL/vec_ZZ.h>
-#include <NTL/Lazy.h>
-#include <NTL/fileio.h>
-#include <NTL/SmartPtr.h>
-
-#include <NTL/BasicThreadPool.h>
+#include <kctsb/math/bignum/BasicThreadPool.h>
 
 
 
-#if defined(NTL_HAVE_AVX2)
+#if defined(KCTSB_HAVE_AVX2)
 #include <immintrin.h>
-#elif defined(NTL_HAVE_SSSE3)
+#elif defined(KCTSB_HAVE_SSSE3)
 #include <emmintrin.h>
 #include <tmmintrin.h>
 #endif
 
 
 
-#if defined(NTL_HAVE_KMA)
-#include <NTL/linux_s390x.h>
+#if defined(KCTSB_HAVE_KMA)
+#include <kctsb/math/bignum/linux_s390x.h>
 #endif
 
 
 
-NTL_START_IMPL
+KCTSB_START_IMPL
 
 
 
@@ -40,7 +40,7 @@ const ZZ& ZZ::zero()
 
 const ZZ& ZZ_expo(long e)
 {
-   NTL_TLS_LOCAL(ZZ, expo_helper);
+   KCTSB_TLS_LOCAL(ZZ, expo_helper);
 
    conv(expo_helper, e);
    return expo_helper;
@@ -50,7 +50,7 @@ const ZZ& ZZ_expo(long e)
 
 void AddMod(ZZ& x, const ZZ& a, long b, const ZZ& n)
 {
-   NTL_ZZRegister(B);
+   KCTSB_ZZRegister(B);
    conv(B, b);
    AddMod(x, a, B, n);
 }
@@ -58,14 +58,14 @@ void AddMod(ZZ& x, const ZZ& a, long b, const ZZ& n)
 
 void SubMod(ZZ& x, const ZZ& a, long b, const ZZ& n)
 {
-   NTL_ZZRegister(B);
+   KCTSB_ZZRegister(B);
    conv(B, b);
    SubMod(x, a, B, n);
 }
 
 void SubMod(ZZ& x, long a, const ZZ& b, const ZZ& n)
 {
-   NTL_ZZRegister(A);
+   KCTSB_ZZRegister(A);
    conv(A, a);
    SubMod(x, A, b, n);
 }
@@ -75,16 +75,16 @@ void SubMod(ZZ& x, long a, const ZZ& b, const ZZ& n)
 // ****** input and output
 
 
-static NTL_CHEAP_THREAD_LOCAL long iodigits = 0;
-static NTL_CHEAP_THREAD_LOCAL long ioradix = 0;
-// iodigits is the greatest integer such that 10^{iodigits} < NTL_WSP_BOUND
+static KCTSB_CHEAP_THREAD_LOCAL long iodigits = 0;
+static KCTSB_CHEAP_THREAD_LOCAL long ioradix = 0;
+// iodigits is the greatest integer such that 10^{iodigits} < KCTSB_WSP_BOUND
 // ioradix = 10^{iodigits}
 
 static void InitZZIO()
 {
    long x;
 
-   x = (NTL_WSP_BOUND-1)/10;
+   x = (KCTSB_WSP_BOUND-1)/10;
    iodigits = 0;
    ioradix = 1;
 
@@ -105,9 +105,9 @@ istream& operator>>(istream& s, ZZ& x)
    long sign;
    long ndigits;
    long acc;
-   NTL_ZZRegister(a);
+   KCTSB_ZZRegister(a);
 
-   if (!s) NTL_INPUT_ERROR(s, "bad ZZ input");
+   if (!s) KCTSB_INPUT_ERROR(s, "bad ZZ input");
 
    if (!iodigits) InitZZIO();
 
@@ -126,7 +126,7 @@ istream& operator>>(istream& s, ZZ& x)
 
    cval = CharToIntVal(c);
 
-   if (cval < 0 || cval > 9) NTL_INPUT_ERROR(s, "bad ZZ input");
+   if (cval < 0 || cval > 9) KCTSB_INPUT_ERROR(s, "bad ZZ input");
 
    ndigits = 0;
    acc = 0;
@@ -193,7 +193,7 @@ void _ZZ_local_stack::push(long x)
 static
 void PrintDigits(ostream& s, long d, long justify)
 {
-   NTL_TLS_LOCAL_INIT(Vec<char>, buf, (INIT_SIZE, iodigits));
+   KCTSB_TLS_LOCAL_INIT(Vec<char>, buf, (INIT_SIZE, iodigits));
 
    long i = 0;
 
@@ -266,12 +266,12 @@ long GCD(long a, long b)
    long u, v, t, x;
 
    if (a < 0) {
-      if (a < -NTL_MAX_LONG) ResourceError("GCD: integer overflow");
+      if (a < -KCTSB_MAX_LONG) ResourceError("GCD: integer overflow");
       a = -a;
    }
 
    if (b < 0) {
-      if (b < -NTL_MAX_LONG) ResourceError("GCD: integer overflow");
+      if (b < -KCTSB_MAX_LONG) ResourceError("GCD: integer overflow");
       b = -b;
    }
 
@@ -302,13 +302,13 @@ void XGCD(long& d, long& s, long& t, long a, long b)
    long aneg = 0, bneg = 0;
 
    if (a < 0) {
-      if (a < -NTL_MAX_LONG) ResourceError("XGCD: integer overflow");
+      if (a < -KCTSB_MAX_LONG) ResourceError("XGCD: integer overflow");
       a = -a;
       aneg = 1;
    }
 
    if (b < 0) {
-      if (b < -NTL_MAX_LONG) ResourceError("XGCD: integer overflow");
+      if (b < -KCTSB_MAX_LONG) ResourceError("XGCD: integer overflow");
       b = -b;
       bneg = 1;
    }
@@ -457,7 +457,7 @@ long ProbPrime(long n, long NumTrials)
    if (n == 13) return 1;
    if (n % 13 == 0) return 0;
 
-   if (n >= NTL_SP_BOUND) {
+   if (n >= KCTSB_SP_BOUND) {
       return ProbPrime(to_ZZ(n), NumTrials);
    }
 
@@ -552,7 +552,7 @@ long MillerWitness(const ZZ& n, const ZZ& x)
 static
 long ComputePrimeBound(long bn)
 {
-   long wn = (bn+NTL_ZZ_NBITS-1)/NTL_ZZ_NBITS;
+   long wn = (bn+KCTSB_ZZ_NBITS-1)/KCTSB_ZZ_NBITS;
 
    long fn;
 
@@ -563,8 +563,8 @@ long ComputePrimeBound(long bn)
 
    long prime_bnd;
 
-   if (NumBits(bn) + NumBits(fn) > NTL_SP_NBITS)
-      prime_bnd = NTL_SP_BOUND;
+   if (NumBits(bn) + NumBits(fn) > KCTSB_SP_NBITS)
+      prime_bnd = KCTSB_SP_BOUND;
    else
       prime_bnd = bn*fn;
 
@@ -650,7 +650,7 @@ void MultiThreadedRandomPrime(ZZ& n, long l, long NumTrials)
       Vec< UniquePtr<ZZ> > result(INIT_SIZE, nt);
       Vec<unsigned long> result_ctr(INIT_SIZE, nt, -1UL);
 
-      NTL_EXEC_INDEX(nt, index)
+      KCTSB_EXEC_INDEX(nt, index)
 
          RandomStreamPush push;
 
@@ -662,7 +662,7 @@ void MultiThreadedRandomPrime(ZZ& n, long l, long NumTrials)
 	 while (low_water_mark == -1UL) {
 
 	    unsigned long local_ctr = counter.inc();
-            if (local_ctr >> (NTL_BITS_PER_NONCE-1)) {
+            if (local_ctr >> (KCTSB_BITS_PER_NONCE-1)) {
                // counter overflow...rather academic
                break;
             }
@@ -684,7 +684,7 @@ void MultiThreadedRandomPrime(ZZ& n, long l, long NumTrials)
 	    }
 	 }
 
-      NTL_EXEC_INDEX_END
+      KCTSB_EXEC_INDEX_END
 
       // find index of low_water_mark
 
@@ -718,13 +718,13 @@ void MultiThreadedRandomPrime(ZZ& n, long l, long NumTrials)
 
       AtomicBool tests_pass(true);
 
-      NTL_EXEC_RANGE(NumTrials, first, last)
+      KCTSB_EXEC_RANGE(NumTrials, first, last)
 
          for (long i = first; i < last && tests_pass; i++) {
             if (MillerWitness(N, W[i])) tests_pass = false;
          }
 
-      NTL_EXEC_RANGE_END
+      KCTSB_EXEC_RANGE_END
 
       if (tests_pass) {
          n = N;
@@ -810,10 +810,10 @@ long NextPrime(long m, long NumTrials)
 
    x = m;
 
-   while (x < NTL_SP_BOUND && !ProbPrime(x, NumTrials))
+   while (x < KCTSB_SP_BOUND && !ProbPrime(x, NumTrials))
       x++;
 
-   if (x >= NTL_SP_BOUND)
+   if (x >= KCTSB_SP_BOUND)
       ResourceError("NextPrime: no more primes");
 
    return x;
@@ -837,7 +837,7 @@ long NextPowerOfTwo(long m)
       k++;
    }
 
-   if (k >= NTL_BITS_PER_LONG-1)
+   if (k >= KCTSB_BITS_PER_LONG-1)
       ResourceError("NextPowerOfTwo: overflow");
 
    return k;
@@ -854,7 +854,7 @@ long bit(long a, long k)
    else
       aa = a;
 
-   if (k < 0 || k >= NTL_BITS_PER_LONG) 
+   if (k < 0 || k >= KCTSB_BITS_PER_LONG) 
       return 0;
    else
       return long((aa >> k) & 1);
@@ -864,8 +864,8 @@ long bit(long a, long k)
 
 long divide(ZZ& q, const ZZ& a, const ZZ& b)
 {
-   NTL_ZZRegister(qq);
-   NTL_ZZRegister(r);
+   KCTSB_ZZRegister(qq);
+   KCTSB_ZZRegister(r);
 
    if (IsZero(b)) {
       if (IsZero(a)) {
@@ -890,7 +890,7 @@ long divide(ZZ& q, const ZZ& a, const ZZ& b)
 
 long divide(const ZZ& a, const ZZ& b)
 {
-   NTL_ZZRegister(r);
+   KCTSB_ZZRegister(r);
 
    if (IsZero(b)) return IsZero(a);
    if (IsOne(b)) return 1;
@@ -901,7 +901,7 @@ long divide(const ZZ& a, const ZZ& b)
 
 long divide(ZZ& q, const ZZ& a, long b)
 {
-   NTL_ZZRegister(qq);
+   KCTSB_ZZRegister(qq);
 
    if (!b) {
       if (IsZero(a)) {
@@ -940,7 +940,7 @@ void InvMod(ZZ& x, const ZZ& a, const ZZ& n)
    // NOTE: the underlying LIP routines write to the first argument,
    // even if inverse is undefined
 
-   NTL_ZZRegister(xx);
+   KCTSB_ZZRegister(xx);
    if (InvModStatus(xx, a, n)) 
       InvModError("InvMod: inverse undefined", a, n);
    x = xx;
@@ -963,7 +963,7 @@ void PowerMod(ZZ& x, const ZZ& a, const ZZ& e, const ZZ& n)
       LowLevelPowerMod(x, a, e, n); 
 }
    
-#ifdef NTL_EXCEPTIONS
+#ifdef KCTSB_EXCEPTIONS
 
 void InvModError(const char *s, const ZZ& a, const ZZ& n)
 {
@@ -984,7 +984,7 @@ long RandomPrime_long(long l, long NumTrials)
 {
    if (NumTrials < 0) NumTrials = 0;
 
-   if (l <= 1 || l >= NTL_BITS_PER_LONG)
+   if (l <= 1 || l >= KCTSB_BITS_PER_LONG)
       ResourceError("RandomPrime: length out of range");
 
    long n;
@@ -1024,16 +1024,16 @@ long PrimeSeq::next()
       const char *p = movesieve;
       long i = pindex;
 
-      while ((++i) < NTL_PRIME_BND) {
+      while ((++i) < KCTSB_PRIME_BND) {
          if (p[i]) {
             pindex = i;
             return pshift + 2 * i + 3;
          }
       }
 
-      long newshift = pshift + 2*NTL_PRIME_BND;
+      long newshift = pshift + 2*KCTSB_PRIME_BND;
 
-      if (newshift > 2 * NTL_PRIME_BND * (2 * NTL_PRIME_BND + 1)) {
+      if (newshift > 2 * KCTSB_PRIME_BND * (2 * KCTSB_PRIME_BND + 1)) {
          /* end of the road */
          exhausted = 1;
          return 0;
@@ -1067,16 +1067,16 @@ void PrimeSeq::shift(long newshift)
    } 
    else if (newshift != pshift) {
       if (movesieve_mem.length() == 0) {
-         movesieve_mem.SetLength(NTL_PRIME_BND);
+         movesieve_mem.SetLength(KCTSB_PRIME_BND);
       }
 
       pshift = newshift;
       movesieve = p = movesieve_mem.elts();
-      for (i = 0; i < NTL_PRIME_BND; i++)
+      for (i = 0; i < KCTSB_PRIME_BND; i++)
          p[i] = 1;
 
       jstep = 3;
-      ibound = pshift + 2 * NTL_PRIME_BND + 1;
+      ibound = pshift + 2 * KCTSB_PRIME_BND + 1;
       for (i = 0; jstep * jstep <= ibound; i++) {
          if (lowsieve[i]) {
             if (!((jstart = (pshift + 2) / jstep + 1) & 1))
@@ -1084,7 +1084,7 @@ void PrimeSeq::shift(long newshift)
             if (jstart <= jstep)
                jstart = jstep;
             jstart = (jstart * jstep - pshift - 3) / 2;
-            for (j = jstart; j < NTL_PRIME_BND; j += jstep)
+            for (j = jstart; j < KCTSB_PRIME_BND; j += jstep)
                p[j] = 0;
          }
          jstep += 2;
@@ -1111,20 +1111,20 @@ void PrimeSeq::start()
 
       UniquePtr< Vec<char> > ptr;
       ptr.make();
-      ptr->SetLength(NTL_PRIME_BND);
+      ptr->SetLength(KCTSB_PRIME_BND);
 
       p = ptr->elts();
 
-      for (i = 0; i < NTL_PRIME_BND; i++)
+      for (i = 0; i < KCTSB_PRIME_BND; i++)
          p[i] = 1;
          
       jstep = 1;
       jstart = -1;
-      ibnd = (SqrRoot(2 * NTL_PRIME_BND + 1) - 3) / 2;
+      ibnd = (SqrRoot(2 * KCTSB_PRIME_BND + 1) - 3) / 2;
       for (i = 0; i <= ibnd; i++) {
          jstart += 2 * ((jstep += 2) - 1);
          if (p[i])
-            for (j = jstart; j < NTL_PRIME_BND; j += jstep)
+            for (j = jstart; j < KCTSB_PRIME_BND; j += jstep)
                p[j] = 0;
       }
 
@@ -1135,7 +1135,7 @@ void PrimeSeq::start()
 
 void PrimeSeq::reset(long b)
 {
-   if (b > (2*NTL_PRIME_BND+1)*(2*NTL_PRIME_BND+1)) {
+   if (b > (2*KCTSB_PRIME_BND+1)*(2*KCTSB_PRIME_BND+1)) {
       exhausted = 1;
       return;
    }
@@ -1147,7 +1147,7 @@ void PrimeSeq::reset(long b)
 
    if ((b & 1) == 0) b++;
 
-   shift(((b-3) / (2*NTL_PRIME_BND))* (2*NTL_PRIME_BND));
+   shift(((b-3) / (2*KCTSB_PRIME_BND))* (2*KCTSB_PRIME_BND));
    pindex = (b - pshift - 3)/2 - 1;
 }
  
@@ -1349,7 +1349,7 @@ void SqrRootMod(ZZ& x, const ZZ& aa, const ZZ& nn)
 
 long CRT(ZZ& gg, ZZ& a, long G, long p)
 {
-   if (p >= NTL_SP_BOUND) {
+   if (p >= KCTSB_SP_BOUND) {
       ZZ GG, pp;
       conv(GG, G);
       conv(pp, p);
@@ -1358,7 +1358,7 @@ long CRT(ZZ& gg, ZZ& a, long G, long p)
 
    long modified = 0;
 
-   NTL_ZZRegister(g);
+   KCTSB_ZZRegister(g);
 
    if (!CRTInRange(gg, a)) {
       modified = 1;
@@ -1452,7 +1452,7 @@ long CRT(ZZ& gg, ZZ& a, const ZZ& G, const ZZ& p)
 
 void sub(ZZ& x, long a, const ZZ& b)
 {
-   NTL_ZZRegister(A);
+   KCTSB_ZZRegister(A);
    conv(A, a);
    sub(x, A, b);
 }
@@ -1469,21 +1469,21 @@ void power2(ZZ& x, long e)
 
 void bit_and(ZZ& x, const ZZ& a, long b)
 {
-   NTL_ZZRegister(B);
+   KCTSB_ZZRegister(B);
    conv(B, b);
    bit_and(x, a, B);
 }
 
 void bit_or(ZZ& x, const ZZ& a, long b)
 {
-   NTL_ZZRegister(B);
+   KCTSB_ZZRegister(B);
    conv(B, b);
    bit_or(x, a, B);
 }
 
 void bit_xor(ZZ& x, const ZZ& a, long b)
 {
-   NTL_ZZRegister(B);
+   KCTSB_ZZRegister(B);
    conv(B, b);
    bit_xor(x, a, B);
 }
@@ -1523,10 +1523,10 @@ long power_long(long a, long e)
 
 
 
-#if (NTL_BITS_PER_INT32 == 32)
+#if (KCTSB_BITS_PER_INT32 == 32)
 #define INT32MASK(x) (x)
 #else
-#define INT32MASK(x) ((x) & _ntl_uint32(0xffffffff))
+#define INT32MASK(x) ((x) & _kctsb_uint32(0xffffffff))
 #endif
 
 
@@ -1586,10 +1586,10 @@ been employed.
 
 // DBL_INT_ADD treats two unsigned ints a and b as one 64-bit integer and adds c to it
 static inline
-void DBL_INT_ADD(_ntl_uint32& a, _ntl_uint32& b, _ntl_uint32 c)
+void DBL_INT_ADD(_kctsb_uint32& a, _kctsb_uint32& b, _kctsb_uint32 c)
 {
-   _ntl_uint32 aa = INT32MASK(a);
-   if (aa > INT32MASK(_ntl_uint32(0xffffffff) - c)) b++;
+   _kctsb_uint32 aa = INT32MASK(a);
+   if (aa > INT32MASK(_kctsb_uint32(0xffffffff) - c)) b++;
    a = aa + c;
 }
 
@@ -1605,12 +1605,12 @@ void DBL_INT_ADD(_ntl_uint32& a, _ntl_uint32& b, _ntl_uint32 c)
 
 struct SHA256_CTX {
    unsigned char data[64];
-   _ntl_uint32 datalen;
-   _ntl_uint32 bitlen[2];
-   _ntl_uint32 state[8];
+   _kctsb_uint32 datalen;
+   _kctsb_uint32 bitlen[2];
+   _kctsb_uint32 state[8];
 };
 
-static const _ntl_uint32 sha256_const[64] = {
+static const _kctsb_uint32 sha256_const[64] = {
    0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
    0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
    0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
@@ -1625,7 +1625,7 @@ static const _ntl_uint32 sha256_const[64] = {
 static
 void sha256_transform(SHA256_CTX& ctx, unsigned char *data)
 {  
-   _ntl_uint32 a,b,c,d,e,f,g,h,i,j,t1,t2,m[64];
+   _kctsb_uint32 a,b,c,d,e,f,g,h,i,j,t1,t2,m[64];
       
    for (i=0,j=0; i < 16; ++i, j += 4)
       m[i] = (data[j] << 24) | (data[j+1] << 16) | (data[j+2] << 8) | (data[j+3]);
@@ -1681,9 +1681,9 @@ void sha256_init(SHA256_CTX& ctx)
 }
 
 static
-void sha256_update(SHA256_CTX& ctx, const unsigned char *data, _ntl_uint32 len)
+void sha256_update(SHA256_CTX& ctx, const unsigned char *data, _kctsb_uint32 len)
 {  
-   _ntl_uint32 i;
+   _kctsb_uint32 i;
    
    for (i=0; i < len; ++i) { 
       ctx.data[ctx.datalen] = data[i]; 
@@ -1700,7 +1700,7 @@ static
 void sha256_final(SHA256_CTX& ctx, unsigned char *hash, 
                   long hlen=SHA256_HASHSIZE)
 {  
-   _ntl_uint32 i, j; 
+   _kctsb_uint32 i, j; 
    
    i = ctx.datalen; 
    
@@ -1732,7 +1732,7 @@ void sha256_final(SHA256_CTX& ctx, unsigned char *hash,
    sha256_transform(ctx,ctx.data);
    
    for (i = 0; i < 8; i++) {
-      _ntl_uint32 w = ctx.state[i];
+      _kctsb_uint32 w = ctx.state[i];
       for (j = 0; j < 4; j++) {
          if (hlen <= 0) break;
          hash[4*i + j] = w >> (24-j*8); 
@@ -1853,8 +1853,8 @@ void DeriveKey(unsigned char *key, long klen,
 
 // ============= old stuff
 
-#define LE(p) (((_ntl_uint32)((p)[0])) + ((_ntl_uint32)((p)[1]) << 8) + \
-    ((_ntl_uint32)((p)[2]) << 16) + ((_ntl_uint32)((p)[3]) << 24))
+#define LE(p) (((_kctsb_uint32)((p)[0])) + ((_kctsb_uint32)((p)[1]) << 8) + \
+    ((_kctsb_uint32)((p)[2]) << 16) + ((_kctsb_uint32)((p)[3]) << 24))
 
 #define FROMLE(p, x) (p)[0] = (x), (p)[1] = ((x) >> 8), \
    (p)[2] = ((x) >> 16), (p)[3] = ((x) >> 24)
@@ -1868,7 +1868,7 @@ void DeriveKey(unsigned char *key, long klen,
 
 
 static
-void salsa20_core(_ntl_uint32* data)
+void salsa20_core(_kctsb_uint32* data)
 {
    long i;
 
@@ -1887,9 +1887,9 @@ void salsa20_core(_ntl_uint32* data)
 
 // key K must be exactly 32 bytes
 static
-void salsa20_init(_ntl_uint32 *state, const unsigned char *K)  
+void salsa20_init(_kctsb_uint32 *state, const unsigned char *K)  
 {
-   static const _ntl_uint32 chacha_const[4] = 
+   static const _kctsb_uint32 chacha_const[4] = 
       { 0x61707865, 0x3320646e, 0x79622d32, 0x6b206574 };
 
    long i;
@@ -1908,7 +1908,7 @@ void salsa20_init(_ntl_uint32 *state, const unsigned char *K)
 
 // state and data are of length 16
 static
-void salsa20_apply(_ntl_uint32 *state, _ntl_uint32 *data)
+void salsa20_apply(_kctsb_uint32 *state, _kctsb_uint32 *data)
 {
    long i;
 
@@ -1952,7 +1952,7 @@ void old_RandomStream::do_get(unsigned char *res, long n)
    res += 64-pos;
    pos = 64;
 
-   _ntl_uint32 wdata[16];
+   _kctsb_uint32 wdata[16];
 
    // read 64-byte chunks
    for (i = 0; i <= n-64; i += 64) {
@@ -1973,7 +1973,7 @@ void old_RandomStream::do_get(unsigned char *res, long n)
    }
 }
 
-#if defined(NTL_RANDOM_AES256CTR)
+#if defined(KCTSB_RANDOM_AES256CTR)
 
 /* Size must be a multiple of AES block-size (16 bytes). */
 #define BUFSIZE                 4096
@@ -1991,7 +1991,7 @@ inc32(unsigned char ctr[16])
    }
 }
 
-#if defined(NTL_HAVE_AES_NI) && defined(NTL_HAVE_AVX2)
+#if defined(KCTSB_HAVE_AES_NI) && defined(KCTSB_HAVE_AVX2)
 
 /*****************************************************************
 This optimized AES-256 implementation is derived from public
@@ -2261,7 +2261,7 @@ aes256ctr_stream(unsigned char out[BUFSIZE], unsigned char iv[16], const unsigne
 
 /*****************************************************************/
 
-#elif defined(NTL_HAVE_KMA)
+#elif defined(KCTSB_HAVE_KMA)
 
 static void
 aes256ctr_stream(unsigned char out[BUFSIZE], unsigned char iv[16], const unsigned char key[32])
@@ -2894,9 +2894,9 @@ struct RandomStream_impl {
    }
 };
 
-#else // defined(NTL_RANDOM_AES256CTR)
+#else // defined(KCTSB_RANDOM_AES256CTR)
 
-#if (defined(NTL_HAVE_AVX2) || defined(NTL_HAVE_SSSE3))
+#if (defined(KCTSB_HAVE_AVX2) || defined(KCTSB_HAVE_SSSE3))
 
 
 /*****************************************************************
@@ -2966,7 +2966,7 @@ Our implementation is in public domain.
 #endif
 
 
-#if (defined(NTL_HAVE_AVX2))
+#if (defined(KCTSB_HAVE_AVX2))
 
 typedef __m256i ivec_t;
 
@@ -3020,7 +3020,7 @@ typedef __m256i ivec_t;
 // leads to a BUFSZ of 512
 
 
-#elif defined(NTL_HAVE_SSSE3)
+#elif defined(KCTSB_HAVE_SSSE3)
 
 typedef __m128i ivec_t;
 
@@ -3169,13 +3169,13 @@ struct RandomStream_impl {
    // bytes.  This optimizes a bit for short bursts following a reset.
 
    long
-   get_bytes(unsigned char *NTL_RESTRICT res, 
+   get_bytes(unsigned char *KCTSB_RESTRICT res, 
              long n, long pos)
    {
       if (n < 0) LogicError("RandomStream::get: bad args");
       if (n == 0) return pos;
 
-      unsigned char *NTL_RESTRICT buf = buf_store.elts();
+      unsigned char *KCTSB_RESTRICT buf = buf_store.elts();
 
       if (n <= RANSTREAM_BUFSZ-pos) {
 	 std::memcpy(&res[0], &buf[pos], n);
@@ -3183,7 +3183,7 @@ struct RandomStream_impl {
 	 return pos;
       }
 
-      unsigned char *NTL_RESTRICT state = state_store.elts();
+      unsigned char *KCTSB_RESTRICT state = state_store.elts();
 
       ivec_t d0, d1, d2, d3;
       LOAD_VEC(d0, state + 0*SZ_VEC);
@@ -3274,7 +3274,7 @@ struct RandomStream_impl {
 #else
 
 struct RandomStream_impl {
-   _ntl_uint32 state[16];
+   _kctsb_uint32 state[16];
    unsigned char buf[64];
 
    explicit
@@ -3313,7 +3313,7 @@ struct RandomStream_impl {
       res += 64-pos;
       pos = 64;
 
-      _ntl_uint32 wdata[16];
+      _kctsb_uint32 wdata[16];
 
       // read 64-byte chunks
       for (i = 0; i <= n-64; i += 64) {
@@ -3338,14 +3338,14 @@ struct RandomStream_impl {
 
    void set_nonce(unsigned long nonce)
    {
-      _ntl_uint32 nonce0, nonce1;
+      _kctsb_uint32 nonce0, nonce1;
 
       nonce0 = nonce;
       nonce0 = INT32MASK(nonce0);
 
       nonce1 = 0;
 
-#if (NTL_BITS_PER_LONG > 32)
+#if (KCTSB_BITS_PER_LONG > 32)
       nonce1 = nonce >> 32;
       nonce1 = INT32MASK(nonce1);
 #endif
@@ -3359,7 +3359,7 @@ struct RandomStream_impl {
 
 
 #endif
-#endif // defined(NTL_RANDOMSTREAM_AES256CTR)
+#endif // defined(KCTSB_RANDOMSTREAM_AES256CTR)
 
 
 
@@ -3423,12 +3423,12 @@ RandomStream_impl_set_nonce(RandomStream_impl& impl, unsigned long nonce)
 
 
 
-NTL_TLS_GLOBAL_DECL(UniquePtr<RandomStream>,  CurrentRandomStream);
+KCTSB_TLS_GLOBAL_DECL(UniquePtr<RandomStream>,  CurrentRandomStream);
 
 
 void SetSeed(const RandomStream& s)
 {
-   NTL_TLS_GLOBAL_ACCESS(CurrentRandomStream);
+   KCTSB_TLS_GLOBAL_ACCESS(CurrentRandomStream);
 
    if (!CurrentRandomStream)
       CurrentRandomStream.make(s);
@@ -3442,8 +3442,8 @@ void SetSeed(const unsigned char *data, long dlen)
    if (dlen < 0) LogicError("SetSeed: bad args");
 
    Vec<unsigned char> key;
-   key.SetLength(NTL_PRG_KEYLEN);
-   DeriveKey(key.elts(), NTL_PRG_KEYLEN, data, dlen);
+   key.SetLength(KCTSB_PRG_KEYLEN);
+   DeriveKey(key.elts(), KCTSB_PRG_KEYLEN, data, dlen);
  
    SetSeed(RandomStream(key.elts()));
 }
@@ -3471,7 +3471,7 @@ void InitRandomStream()
 static inline
 RandomStream& LocalGetCurrentRandomStream()
 {
-   NTL_TLS_GLOBAL_ACCESS(CurrentRandomStream);
+   KCTSB_TLS_GLOBAL_ACCESS(CurrentRandomStream);
 
    if (!CurrentRandomStream) InitRandomStream();
    return *CurrentRandomStream;
@@ -3504,32 +3504,32 @@ unsigned long WordFromBytes(const unsigned char *buf, long n)
 unsigned long RandomWord()
 {
    RandomStream& stream = LocalGetCurrentRandomStream();
-   unsigned char buf[NTL_BITS_PER_LONG/8];
+   unsigned char buf[KCTSB_BITS_PER_LONG/8];
 
-   stream.get(buf, NTL_BITS_PER_LONG/8);
-   return WordFromBytes(buf, NTL_BITS_PER_LONG/8);
+   stream.get(buf, KCTSB_BITS_PER_LONG/8);
+   return WordFromBytes(buf, KCTSB_BITS_PER_LONG/8);
 }
 
 
 void VectorRandomWord(long k, unsigned long* x)
 {
    RandomStream& stream = LocalGetCurrentRandomStream();
-   unsigned char buf[NTL_BITS_PER_LONG/8];
+   unsigned char buf[KCTSB_BITS_PER_LONG/8];
 
    for (long i = 0; i < k; i++) {
-      stream.get(buf, NTL_BITS_PER_LONG/8);
-      x[i] = WordFromBytes(buf, NTL_BITS_PER_LONG/8);
+      stream.get(buf, KCTSB_BITS_PER_LONG/8);
+      x[i] = WordFromBytes(buf, KCTSB_BITS_PER_LONG/8);
    }
 }
 
 long RandomBits_long(long l)
 {
    if (l <= 0) return 0;
-   if (l >= NTL_BITS_PER_LONG) 
+   if (l >= KCTSB_BITS_PER_LONG) 
       ResourceError("RandomBits: length too big");
 
    RandomStream& stream = LocalGetCurrentRandomStream();
-   unsigned char buf[NTL_BITS_PER_LONG/8];
+   unsigned char buf[KCTSB_BITS_PER_LONG/8];
    long nb = (l+7)/8;
    stream.get(buf, nb);
 
@@ -3539,15 +3539,15 @@ long RandomBits_long(long l)
 unsigned long RandomBits_ulong(long l)
 {
    if (l <= 0) return 0;
-   if (l > NTL_BITS_PER_LONG) 
+   if (l > KCTSB_BITS_PER_LONG) 
       ResourceError("RandomBits: length too big");
 
    RandomStream& stream = LocalGetCurrentRandomStream();
-   unsigned char buf[NTL_BITS_PER_LONG/8];
+   unsigned char buf[KCTSB_BITS_PER_LONG/8];
    long nb = (l+7)/8;
    stream.get(buf, nb);
    unsigned long res = WordFromBytes(buf, nb);
-   if (l < NTL_BITS_PER_LONG)
+   if (l < KCTSB_BITS_PER_LONG)
       res = res & ((1UL << l)-1UL);
    return res;
 }
@@ -3556,11 +3556,11 @@ long RandomLen_long(long l)
 {
    if (l <= 0) return 0;
    if (l == 1) return 1;
-   if (l >= NTL_BITS_PER_LONG) 
+   if (l >= KCTSB_BITS_PER_LONG) 
       ResourceError("RandomLen: length too big");
 
    RandomStream& stream = LocalGetCurrentRandomStream();
-   unsigned char buf[NTL_BITS_PER_LONG/8];
+   unsigned char buf[KCTSB_BITS_PER_LONG/8];
    long nb = ((l-1)+7)/8;
    stream.get(buf, nb);
    unsigned long res = WordFromBytes(buf, nb);
@@ -3574,7 +3574,7 @@ long RandomBnd(long bnd)
    if (bnd <= 1) return 0;
 
    RandomStream& stream = LocalGetCurrentRandomStream();
-   unsigned char buf[NTL_BITS_PER_LONG/8];
+   unsigned char buf[KCTSB_BITS_PER_LONG/8];
    long l = NumBits(bnd-1);
    long nb = (l+7)/8;
 
@@ -3596,7 +3596,7 @@ void RandomBits(ZZ& x, long l)
       return;
    }
 
-   if (NTL_OVERFLOW(l, 1, 0))
+   if (KCTSB_OVERFLOW(l, 1, 0))
       ResourceError("RandomBits: length too big");
 
    RandomStream& stream = LocalGetCurrentRandomStream();
@@ -3604,13 +3604,13 @@ void RandomBits(ZZ& x, long l)
    long nb = (l+7)/8;
    unsigned long mask = (1UL << (8 - nb*8 + l)) - 1UL;
 
-   NTL_TLS_LOCAL(Vec<unsigned char>, buf_mem);
+   KCTSB_TLS_LOCAL(Vec<unsigned char>, buf_mem);
    Vec<unsigned char>::Watcher watch_buf_mem(buf_mem);
 
    buf_mem.SetLength(nb);
    unsigned char *buf = buf_mem.elts();
 
-   x.SetSize((l + NTL_ZZ_NBITS - 1)/NTL_ZZ_NBITS);
+   x.SetSize((l + KCTSB_ZZ_NBITS - 1)/KCTSB_ZZ_NBITS);
    // pre-allocate to ensure strong ES
 
    stream.get(buf, nb);
@@ -3632,7 +3632,7 @@ void RandomLen(ZZ& x, long l)
       return;
    }
 
-   if (NTL_OVERFLOW(l, 1, 0))
+   if (KCTSB_OVERFLOW(l, 1, 0))
       ResourceError("RandomLen: length too big");
 
    RandomStream& stream = LocalGetCurrentRandomStream();
@@ -3640,13 +3640,13 @@ void RandomLen(ZZ& x, long l)
    long nb = (l+7)/8;
    unsigned long mask = (1UL << (8 - nb*8 + l)) - 1UL;
 
-   NTL_TLS_LOCAL(Vec<unsigned char>, buf_mem);
+   KCTSB_TLS_LOCAL(Vec<unsigned char>, buf_mem);
    Vec<unsigned char>::Watcher watch_buf_mem(buf_mem);
 
    buf_mem.SetLength(nb);
    unsigned char *buf = buf_mem.elts();
 
-   x.SetSize((l + NTL_ZZ_NBITS - 1)/NTL_ZZ_NBITS);
+   x.SetSize((l + KCTSB_ZZ_NBITS - 1)/KCTSB_ZZ_NBITS);
    // pre-allocate to ensure strong ES
 
    stream.get(buf, nb);
@@ -3693,7 +3693,7 @@ void RandomBnd(ZZ& x, const ZZ& bnd)
       unsigned char lbuf[3];
       long ltmp;
       
-      x.SetSize((l + NTL_ZZ_NBITS - 1)/NTL_ZZ_NBITS);
+      x.SetSize((l + KCTSB_ZZ_NBITS - 1)/KCTSB_ZZ_NBITS);
       // pre-allocate to ensure strong ES
       do {
          stream.get(lbuf, nb);
@@ -3705,24 +3705,24 @@ void RandomBnd(ZZ& x, const ZZ& bnd)
    }
 
    // deal with possible alias
-   NTL_ZZRegister(tmp_store);
+   KCTSB_ZZRegister(tmp_store);
    const ZZ& bnd_ref = ((&x == &bnd) ? (tmp_store = bnd) : bnd); 
 
 
-   NTL_ZZRegister(hbnd);
+   KCTSB_ZZRegister(hbnd);
    RightShift(hbnd, bnd_ref, (nb-2)*8);
    long lhbnd = conv<long>(hbnd);
 
    unsigned long mask = (1UL << (16 - nb*8 + l)) - 1UL;
 
-   NTL_TLS_LOCAL(Vec<unsigned char>, buf_mem);
+   KCTSB_TLS_LOCAL(Vec<unsigned char>, buf_mem);
    Vec<unsigned char>::Watcher watch_buf_mem(buf_mem);
    buf_mem.SetLength(nb);
    unsigned char *buf = buf_mem.elts();
 
    unsigned char hbuf[2];
 
-   x.SetSize((l + NTL_ZZ_NBITS - 1)/NTL_ZZ_NBITS);
+   x.SetSize((l + KCTSB_ZZ_NBITS - 1)/KCTSB_ZZ_NBITS);
    // pre-allocate to ensure strong ES
    for (;;) {
       stream.get(hbuf, 2);
@@ -3768,7 +3768,7 @@ static
 long ErrBoundTest(long kk, long tt, long nn)
 
 {
-   const double fudge = (1.0 + 1024.0/NTL_FDOUBLE_PRECISION);
+   const double fudge = (1.0 + 1024.0/KCTSB_FDOUBLE_PRECISION);
    const double log2_3 = Log2(3.0);
    const double log2_7 = Log2(7.0);
    const double log2_20 = Log2(20.0);
@@ -3781,7 +3781,7 @@ long ErrBoundTest(long kk, long tt, long nn)
    if (n < 1) return 1;
 
    // the following test is largely academic
-   if (9*t > NTL_FDOUBLE_PRECISION) LogicError("ErrBoundTest: t too big");
+   if (9*t > KCTSB_FDOUBLE_PRECISION) LogicError("ErrBoundTest: t too big");
 
    double log2_k = Log2(k);
 
@@ -3845,7 +3845,7 @@ long GenPrime_long(long k, long err)
 {
    if (k <= 1) LogicError("GenPrime: bad length");
 
-   if (k >= NTL_BITS_PER_LONG) ResourceError("GenPrime: length too large");
+   if (k >= KCTSB_BITS_PER_LONG) ResourceError("GenPrime: length too large");
 
    if (err < 1) err = 1;
    if (err > 512) err = 512;
@@ -3899,7 +3899,7 @@ void MultiThreadedGenGermainPrime(ZZ& n, long k, long err)
       Vec< UniquePtr<ZZ> > result(INIT_SIZE, nt);
       Vec<unsigned long> result_ctr(INIT_SIZE, nt, -1UL);
 
-      NTL_EXEC_INDEX(nt, index)
+      KCTSB_EXEC_INDEX(nt, index)
 
          RandomStreamPush push;
 
@@ -3912,7 +3912,7 @@ void MultiThreadedGenGermainPrime(ZZ& n, long k, long err)
 	 while (low_water_mark == -1UL) {
 
 	    unsigned long local_ctr = counter.inc();
-            if (local_ctr >> (NTL_BITS_PER_NONCE-1)) {
+            if (local_ctr >> (KCTSB_BITS_PER_NONCE-1)) {
                // counter overflow...rather academic
                break;
             }
@@ -3968,7 +3968,7 @@ void MultiThreadedGenGermainPrime(ZZ& n, long k, long err)
             }
          }
 
-      NTL_EXEC_INDEX_END
+      KCTSB_EXEC_INDEX_END
 
       // find index of low_water_mark
 
@@ -3993,7 +3993,7 @@ void MultiThreadedGenGermainPrime(ZZ& n, long k, long err)
       ZZ N;
       N = *result[low_water_index];
 
-      ZZ iter = ((overflow_counter << (NTL_BITS_PER_NONCE-1)) +
+      ZZ iter = ((overflow_counter << (KCTSB_BITS_PER_NONCE-1)) +
                  conv<ZZ>(low_water_mark1) + 1)*LOCAL_ITER_BOUND;
 
       // now do t M-R iterations...just to make sure
@@ -4021,13 +4021,13 @@ void MultiThreadedGenGermainPrime(ZZ& n, long k, long err)
 
       AtomicBool tests_pass(true);
 
-      NTL_EXEC_RANGE(t, first, last)
+      KCTSB_EXEC_RANGE(t, first, last)
 
          for (long i = first; i < last && tests_pass; i++) {
             if (MillerWitness(N, W[i])) tests_pass = false;
          }
 
-      NTL_EXEC_RANGE_END
+      KCTSB_EXEC_RANGE_END
 
       if (tests_pass) {
          n = N;
@@ -4272,7 +4272,7 @@ void OldGenGermainPrime(ZZ& n, long k, long err)
 
 long GenGermainPrime_long(long k, long err)
 {
-   if (k >= NTL_BITS_PER_LONG-1)
+   if (k >= KCTSB_BITS_PER_LONG-1)
       ResourceError("GenGermainPrime_long: length too long");
 
    ZZ n;
@@ -4281,4 +4281,4 @@ long GenGermainPrime_long(long k, long err)
 }
 
 
-NTL_END_IMPL
+KCTSB_END_IMPL

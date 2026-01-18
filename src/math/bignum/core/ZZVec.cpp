@@ -1,8 +1,8 @@
+﻿
+#include <kctsb/math/bignum/ZZVec.h>
 
-#include <NTL/ZZVec.h>
 
-
-NTL_START_IMPL
+KCTSB_START_IMPL
 
 void ZZVec::SetSize(long n, long d)
 {
@@ -21,7 +21,7 @@ void ZZVec::SetSize(long n, long d)
    tmp.len = 0;
    tmp.bsize = d;
 
-   tmp.v = (ZZ*) NTL_SNS_MALLOC(n, sizeof(ZZ), 0);
+   tmp.v = (ZZ*) KCTSB_SNS_MALLOC(n, sizeof(ZZ), 0);
    if (!tmp.v) MemoryError();
 
    long i = 0;
@@ -75,4 +75,4 @@ ZZVec::ZZVec(const ZZVec& a) : v(0), len(0), bsize(0)
 }
 
 
-NTL_END_IMPL
+KCTSB_END_IMPL

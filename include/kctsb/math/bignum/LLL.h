@@ -1,10 +1,10 @@
-#ifndef NTL_LLL__H
-#define NTL_LLL__H
+﻿#ifndef KCTSB_LLL__H
+#define KCTSB_LLL__H
 
-#include <NTL/mat_ZZ.h>
-#include <NTL/mat_RR.h>
+#include <kctsb/math/bignum/mat_ZZ.h>
+#include <kctsb/math/bignum/mat_RR.h>
 
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 long LLL(ZZ& det, mat_ZZ& B, long verbose = 0);
 long LLL(ZZ& det, mat_ZZ& B, mat_ZZ& U, long verbose = 0);
@@ -26,8 +26,8 @@ long LatticeSolve(vec_ZZ& x, const mat_ZZ& A, const vec_ZZ& y, long reduce=0);
 
 typedef long (*LLLCheckFct)(const vec_ZZ&); 
 
-extern NTL_CHEAP_THREAD_LOCAL double LLLStatusInterval;
-extern NTL_CHEAP_THREAD_LOCAL char *LLLDumpFile;
+extern KCTSB_CHEAP_THREAD_LOCAL double LLLStatusInterval;
+extern KCTSB_CHEAP_THREAD_LOCAL char *LLLDumpFile;
 
 
 // classical Gramm-Schmidt versions
@@ -144,6 +144,6 @@ void ComputeGS(const mat_ZZ& B, mat_RR& mu, vec_RR& c);
 
 void NearVector(vec_ZZ& ww, const mat_ZZ& BB, const vec_ZZ& a);
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 #endif

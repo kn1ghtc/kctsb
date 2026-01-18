@@ -1,11 +1,11 @@
+﻿
+
+#include <kctsb/math/bignum/GF2EX.h>
+#include <kctsb/math/bignum/vec_vec_GF2.h>
+#include <kctsb/math/bignum/ZZX.h>
 
 
-#include <NTL/GF2EX.h>
-#include <NTL/vec_vec_GF2.h>
-#include <NTL/ZZX.h>
-
-
-NTL_START_IMPL
+KCTSB_START_IMPL
 
 
 
@@ -19,7 +19,7 @@ const GF2EX& GF2EX::zero()
 
 istream& operator>>(istream& s, GF2EX& x)
 {
-   NTL_INPUT_CHECK_RET(s, s >> x.rep);
+   KCTSB_INPUT_CHECK_RET(s, s >> x.rep);
    x.normalize();
    return s;
 }
@@ -71,7 +71,7 @@ void SetCoeff(GF2EX& x, long i, const GF2E& a)
    if (i < 0) 
       LogicError("SetCoeff: negative index");
 
-   if (NTL_OVERFLOW(i, 1, 0))
+   if (KCTSB_OVERFLOW(i, 1, 0))
       LogicError("overflow in SetCoeff");
 
    m = deg(x);
@@ -131,7 +131,7 @@ void SetCoeff(GF2EX& x, long i)
    if (i < 0) 
       LogicError("coefficient index out of range");
 
-   if (NTL_OVERFLOW(i, 1, 0))
+   if (KCTSB_OVERFLOW(i, 1, 0))
       ResourceError("overflow in SetCoeff");
 
    m = deg(x);
@@ -446,9 +446,9 @@ void q_add(GF2X& x, const GF2X& a, const GF2X& b)
 // It shaves a few percent off the running time.
 
 {
-   _ntl_ulong *xp = x.xrep.elts();
-   const _ntl_ulong *ap = a.xrep.elts();
-   const _ntl_ulong *bp = b.xrep.elts();
+   _kctsb_ulong *xp = x.xrep.elts();
+   const _kctsb_ulong *ap = a.xrep.elts();
+   const _kctsb_ulong *bp = b.xrep.elts();
 
    long sa = ap[-1];
    long sb = bp[-1];
@@ -489,8 +489,8 @@ void q_copy(GF2X& x, const GF2X& a)
 // see comments for q_add above
 
 {
-   _ntl_ulong *xp = x.xrep.elts();
-   const _ntl_ulong *ap = a.xrep.elts();
+   _kctsb_ulong *xp = x.xrep.elts();
+   const _kctsb_ulong *ap = a.xrep.elts();
 
    long sa = ap[-1];
    long i;
@@ -663,15 +663,15 @@ void KarMul(GF2X *c, const GF2X *a,
    }
 }
 
-void ExtractBits(_ntl_ulong *cp, const _ntl_ulong *ap, long k, long n)
+void ExtractBits(_kctsb_ulong *cp, const _kctsb_ulong *ap, long k, long n)
 
 // extract k bits from a at position n
 
 {
-   long sc = (k + NTL_BITS_PER_LONG-1)/NTL_BITS_PER_LONG;
+   long sc = (k + KCTSB_BITS_PER_LONG-1)/KCTSB_BITS_PER_LONG;
 
-   long wn = n/NTL_BITS_PER_LONG;
-   long bn = n - wn*NTL_BITS_PER_LONG;
+   long wn = n/KCTSB_BITS_PER_LONG;
+   long bn = n - wn*KCTSB_BITS_PER_LONG;
 
    long i;
 
@@ -681,15 +681,15 @@ void ExtractBits(_ntl_ulong *cp, const _ntl_ulong *ap, long k, long n)
    }
    else {
       for (i = 0; i < sc-1; i++)
-         cp[i] = (ap[i+wn] >> bn) | (ap[i+wn+1] << (NTL_BITS_PER_LONG - bn));
+         cp[i] = (ap[i+wn] >> bn) | (ap[i+wn+1] << (KCTSB_BITS_PER_LONG - bn));
 
-      if (k > sc*NTL_BITS_PER_LONG - bn) 
-         cp[sc-1] = (ap[sc+wn-1] >> bn)|(ap[sc+wn] << (NTL_BITS_PER_LONG - bn));
+      if (k > sc*KCTSB_BITS_PER_LONG - bn) 
+         cp[sc-1] = (ap[sc+wn-1] >> bn)|(ap[sc+wn] << (KCTSB_BITS_PER_LONG - bn));
       else
          cp[sc-1] = ap[sc+wn-1] >> bn;
    }
 
-   long p = k % NTL_BITS_PER_LONG;
+   long p = k % KCTSB_BITS_PER_LONG;
    if (p != 0) 
       cp[sc-1] &= ((1UL << p) - 1UL);
 
@@ -703,11 +703,11 @@ void KronSubst(GF2X& aa, const GF2EX& a)
 
    long saa = sa*blocksz;
 
-   long wsaa = (saa + NTL_BITS_PER_LONG-1)/NTL_BITS_PER_LONG;
+   long wsaa = (saa + KCTSB_BITS_PER_LONG-1)/KCTSB_BITS_PER_LONG;
 
    aa.xrep.SetLength(wsaa+1);
 
-   _ntl_ulong *paa = aa.xrep.elts();
+   _kctsb_ulong *paa = aa.xrep.elts();
 
 
    long i;
@@ -733,7 +733,7 @@ void KronMul(GF2EX& x, const GF2EX& a, const GF2EX& b)
    long sx = deg(a) + deg(b) + 1;
    long blocksz = 2*GF2E::degree() - 1;
 
-   if (NTL_OVERFLOW(blocksz, sx, 0))
+   if (KCTSB_OVERFLOW(blocksz, sx, 0))
       ResourceError("overflow in GF2EX KronMul");
 
    KronSubst(aa, a);
@@ -742,7 +742,7 @@ void KronMul(GF2EX& x, const GF2EX& a, const GF2EX& b)
 
    GF2X c;
 
-   long wc = (blocksz + NTL_BITS_PER_LONG-1)/NTL_BITS_PER_LONG;
+   long wc = (blocksz + KCTSB_BITS_PER_LONG-1)/KCTSB_BITS_PER_LONG;
 
    x.rep.SetLength(sx);
 
@@ -755,7 +755,7 @@ void KronMul(GF2EX& x, const GF2EX& a, const GF2EX& b)
    }
 
    long last_blocksz = deg(xx) - (sx-1)*blocksz + 1;
-   wc = (last_blocksz + NTL_BITS_PER_LONG-1)/NTL_BITS_PER_LONG;
+   wc = (last_blocksz + KCTSB_BITS_PER_LONG-1)/KCTSB_BITS_PER_LONG;
    c.xrep.SetLength(wc);
 
    ExtractBits(c.xrep.elts(), xx.xrep.elts(), last_blocksz, (sx-1)*blocksz);
@@ -801,7 +801,7 @@ void mul(GF2EX& c, const GF2EX& a, const GF2EX& b)
 
    if (GF2E::WordLength() <= 1) use_kron_mul = true;
 
-#if (defined(NTL_GF2X_LIB) && defined(NTL_HAVE_PCLMUL))
+#if (defined(KCTSB_GF2X_LIB) && defined(KCTSB_HAVE_PCLMUL))
    // With gf2x library and pclmul, KronMul is better in a larger range, but
    // it is very hard to characterize that range.  The following is very
    // conservative.
@@ -1331,24 +1331,24 @@ void PlainGCD(GF2EX& x, const GF2EX& a, const GF2EX& b)
    mul(x, x, t); 
 }
 
-class _NTL_GF2EXMatrix {
+class _KCTSB_GF2EXMatrix {
 private:
 
-   _NTL_GF2EXMatrix(const _NTL_GF2EXMatrix&);  // disable
+   _KCTSB_GF2EXMatrix(const _KCTSB_GF2EXMatrix&);  // disable
    GF2EX elts[2][2];
 
 public:
 
-   _NTL_GF2EXMatrix() { }
-   ~_NTL_GF2EXMatrix() { }
+   _KCTSB_GF2EXMatrix() { }
+   ~_KCTSB_GF2EXMatrix() { }
 
-   void operator=(const _NTL_GF2EXMatrix&);
+   void operator=(const _KCTSB_GF2EXMatrix&);
    GF2EX& operator() (long i, long j) { return elts[i][j]; }
    const GF2EX& operator() (long i, long j) const { return elts[i][j]; }
 };
 
 
-void _NTL_GF2EXMatrix::operator=(const _NTL_GF2EXMatrix& M)
+void _KCTSB_GF2EXMatrix::operator=(const _KCTSB_GF2EXMatrix& M)
 {
    elts[0][0] = M.elts[0][0];
    elts[0][1] = M.elts[0][1];
@@ -1358,7 +1358,7 @@ void _NTL_GF2EXMatrix::operator=(const _NTL_GF2EXMatrix& M)
 
 
 static
-void mul(GF2EX& U, GF2EX& V, const _NTL_GF2EXMatrix& M)
+void mul(GF2EX& U, GF2EX& V, const _KCTSB_GF2EXMatrix& M)
 // (U, V)^T = M*(U, V)^T
 {
    GF2EX t1, t2, t3;
@@ -1374,7 +1374,7 @@ void mul(GF2EX& U, GF2EX& V, const _NTL_GF2EXMatrix& M)
 
 
 static
-void mul(_NTL_GF2EXMatrix& A, _NTL_GF2EXMatrix& B, _NTL_GF2EXMatrix& C)
+void mul(_KCTSB_GF2EXMatrix& A, _KCTSB_GF2EXMatrix& B, _KCTSB_GF2EXMatrix& C)
 // A = B*C, B and C are destroyed
 {
    GF2EX t1, t2;
@@ -1405,7 +1405,7 @@ void mul(_NTL_GF2EXMatrix& A, _NTL_GF2EXMatrix& B, _NTL_GF2EXMatrix& C)
 }
 
 
-void IterHalfGCD(_NTL_GF2EXMatrix& M_out, GF2EX& U, GF2EX& V, long d_red)
+void IterHalfGCD(_KCTSB_GF2EXMatrix& M_out, GF2EX& U, GF2EX& V, long d_red)
 {
    M_out(0,0).SetMaxLength(d_red);
    M_out(0,1).SetMaxLength(d_red);
@@ -1439,10 +1439,10 @@ void IterHalfGCD(_NTL_GF2EXMatrix& M_out, GF2EX& U, GF2EX& V, long d_red)
 }
 
 
-#define NTL_GF2EX_HalfGCD_CROSSOVER (40)
+#define KCTSB_GF2EX_HalfGCD_CROSSOVER (40)
 
 
-void HalfGCD(_NTL_GF2EXMatrix& M_out, const GF2EX& U, const GF2EX& V, long d_red)
+void HalfGCD(_KCTSB_GF2EXMatrix& M_out, const GF2EX& U, const GF2EX& V, long d_red)
 {
    if (IsZero(V) || deg(V) <= deg(U) - d_red) {
       set(M_out(0,0));   clear(M_out(0,1));
@@ -1460,7 +1460,7 @@ void HalfGCD(_NTL_GF2EXMatrix& M_out, const GF2EX& U, const GF2EX& V, long d_red
    RightShift(U1, U, n);
    RightShift(V1, V, n);
 
-   if (d_red <= NTL_GF2EX_HalfGCD_CROSSOVER) {
+   if (d_red <= KCTSB_GF2EX_HalfGCD_CROSSOVER) {
       IterHalfGCD(M_out, U1, V1, d_red);
       return;
    }
@@ -1469,7 +1469,7 @@ void HalfGCD(_NTL_GF2EXMatrix& M_out, const GF2EX& U, const GF2EX& V, long d_red
    if (d1 < 1) d1 = 1;
    if (d1 >= d_red) d1 = d_red - 1;
 
-   _NTL_GF2EXMatrix M1;
+   _KCTSB_GF2EXMatrix M1;
 
    HalfGCD(M1, U1, V1, d1);
    mul(U1, V1, M1);
@@ -1483,7 +1483,7 @@ void HalfGCD(_NTL_GF2EXMatrix& M_out, const GF2EX& U, const GF2EX& V, long d_red
 
 
    GF2EX Q;
-   _NTL_GF2EXMatrix M2;
+   _KCTSB_GF2EXMatrix M2;
 
    DivRem(Q, U1, U1, V1);
    swap(U1, V1);
@@ -1511,7 +1511,7 @@ void HalfGCD(_NTL_GF2EXMatrix& M_out, const GF2EX& U, const GF2EX& V, long d_red
    mul(M_out, M2, M1); 
 }
 
-void XHalfGCD(_NTL_GF2EXMatrix& M_out, GF2EX& U, GF2EX& V, long d_red)
+void XHalfGCD(_KCTSB_GF2EXMatrix& M_out, GF2EX& U, GF2EX& V, long d_red)
 {
    if (IsZero(V) || deg(V) <= deg(U) - d_red) {
       set(M_out(0,0));   clear(M_out(0,1));
@@ -1522,7 +1522,7 @@ void XHalfGCD(_NTL_GF2EXMatrix& M_out, GF2EX& U, GF2EX& V, long d_red)
 
    long du = deg(U);
 
-   if (d_red <= NTL_GF2EX_HalfGCD_CROSSOVER) {
+   if (d_red <= KCTSB_GF2EX_HalfGCD_CROSSOVER) {
       IterHalfGCD(M_out, U, V, d_red);
       return;
    }
@@ -1532,7 +1532,7 @@ void XHalfGCD(_NTL_GF2EXMatrix& M_out, GF2EX& U, GF2EX& V, long d_red)
    if (d1 >= d_red) d1 = d_red - 1;
 
    //ZZ_pXMatrix M1;
-   _NTL_GF2EXMatrix M1;
+   _KCTSB_GF2EXMatrix M1;
 
    HalfGCD(M1, U, V, d1);
    mul(U, V, M1);
@@ -1546,7 +1546,7 @@ void XHalfGCD(_NTL_GF2EXMatrix& M_out, GF2EX& U, GF2EX& V, long d_red)
 
 
    GF2EX Q;
-   _NTL_GF2EXMatrix M2;
+   _KCTSB_GF2EXMatrix M2;
 
    DivRem(Q, U, U, V);
    swap(U, V);
@@ -1589,7 +1589,7 @@ void HalfGCD(GF2EX& U, GF2EX& V)
    if (d1 < 1) d1 = 1;
    if (d1 >= d_red) d1 = d_red - 1;
 
-   _NTL_GF2EXMatrix M1;
+   _KCTSB_GF2EXMatrix M1;
 
    HalfGCD(M1, U, V, d1);
    mul(U, V, M1);
@@ -1682,7 +1682,7 @@ void XGCD(GF2EX& d, GF2EX& s, GF2EX& t, const GF2EX& a, const GF2EX& b)
       flag = 2;
    }
 
-   _NTL_GF2EXMatrix M;
+   _KCTSB_GF2EXMatrix M;
 
    XHalfGCD(M, U, V, deg(U)+1);
 
@@ -1959,7 +1959,7 @@ void InvTrunc(GF2EX& c, const GF2EX& a, long e)
       return;
    }
 
-   if (NTL_OVERFLOW(e, 1, 0))
+   if (KCTSB_OVERFLOW(e, 1, 0))
       ResourceError("overflow in InvTrunc");
 
    NewtonInvTrunc(c, a, e);
@@ -1976,7 +1976,7 @@ void build(GF2EXModulus& F, const GF2EX& f)
 
    if (n <= 0) LogicError("build(GF2EXModulus,GF2EX): deg(f) <= 0");
 
-   if (NTL_OVERFLOW(n, GF2E::degree(), 0))
+   if (KCTSB_OVERFLOW(n, GF2E::degree(), 0))
       ResourceError("build(GF2EXModulus,GF2EX): overflow");
 
    F.tracevec.make();
@@ -2010,7 +2010,7 @@ void BuildPlain(GF2EXModulus& F, const GF2EX& f, bool plain)
 
    if (n <= 0) LogicError("build(GF2EXModulus,GF2EX): deg(f) <= 0");
 
-   if (NTL_OVERFLOW(n, GF2E::degree(), 0))
+   if (KCTSB_OVERFLOW(n, GF2E::degree(), 0))
       ResourceError("build(GF2EXModulus,GF2EX): overflow");
 
    F.tracevec.make();
@@ -2647,7 +2647,7 @@ void RightShift(GF2EX& x, const GF2EX& a, long n)
    }
 
    if (n < 0) {
-      if (n < -NTL_MAX_LONG) ResourceError("overflow in RightShift");
+      if (n < -KCTSB_MAX_LONG) ResourceError("overflow in RightShift");
       LeftShift(x, a, -n);
       return;
    }
@@ -2680,14 +2680,14 @@ void LeftShift(GF2EX& x, const GF2EX& a, long n)
    }
 
    if (n < 0) {
-      if (n < -NTL_MAX_LONG) 
+      if (n < -KCTSB_MAX_LONG) 
          clear(x);
       else
          RightShift(x, a, -n);
       return;
    }
 
-   if (NTL_OVERFLOW(n, 1, 0))
+   if (KCTSB_OVERFLOW(n, 1, 0))
       ResourceError("overflow in LeftShift");
 
    long m = a.rep.length();
@@ -2939,7 +2939,7 @@ void build(GF2EXArgument& A, const GF2EX& h, const GF2EXModulus& F, long m)
    if (GF2EXArgBound > 0) {
       double sz = GF2E::storage();
       sz = sz*F.n;
-      sz = sz + NTL_VECTOR_HEADER_SIZE + sizeof(vec_GF2E);
+      sz = sz + KCTSB_VECTOR_HEADER_SIZE + sizeof(vec_GF2E);
       sz = sz/1024;
       m = min(m, long(GF2EXArgBound/sz));
       m = max(m, 1);
@@ -2956,7 +2956,7 @@ void build(GF2EXArgument& A, const GF2EX& h, const GF2EXModulus& F, long m)
 
 
 
-NTL_CHEAP_THREAD_LOCAL
+KCTSB_CHEAP_THREAD_LOCAL
 long GF2EXArgBound = 0;
 
 
@@ -3121,7 +3121,7 @@ void ProjectPowers(vec_GF2E& x, const GF2EX& a, long k,
    if (k < 0 || deg(a) >= F.n) 
       LogicError("ProjectPowers: bad args");
 
-   if (NTL_OVERFLOW(k, 1, 0)) 
+   if (KCTSB_OVERFLOW(k, 1, 0)) 
       ResourceError("ProjectPowers: excessive args");
 
    long m = H.H.length()-1;
@@ -3252,7 +3252,7 @@ void BerlekampMassey(GF2EX& h, const vec_GF2E& a, long m)
 
 void MinPolySeq(GF2EX& h, const vec_GF2E& a, long m)
 {
-   if (m < 0 || NTL_OVERFLOW(m, 1, 0)) LogicError("MinPoly: bad args");
+   if (m < 0 || KCTSB_OVERFLOW(m, 1, 0)) LogicError("MinPoly: bad args");
    if (a.length() < 2*m) LogicError("MinPoly: sequence too short");
 
    BerlekampMassey(h, a, m);
@@ -3441,7 +3441,7 @@ void power(GF2EX& x, const GF2EX& a, long e)
    }
 
 
-   if (da > (NTL_MAX_LONG-1)/e)
+   if (da > (KCTSB_MAX_LONG-1)/e)
       ResourceError("overflow in power");
 
    GF2EX res;
@@ -3463,7 +3463,7 @@ void power(GF2EX& x, const GF2EX& a, long e)
 void reverse(GF2EX& x, const GF2EX& a, long hi)
 {
    if (hi < 0) { clear(x); return; }
-   if (NTL_OVERFLOW(hi, 1, 0)) ResourceError("overflow in reverse");
+   if (KCTSB_OVERFLOW(hi, 1, 0)) ResourceError("overflow in reverse");
 
    if (&x == &a) {
       GF2EX tmp;
@@ -3949,4 +3949,4 @@ void IrredPolyTower(GF2X& h, const GF2EX& g, const GF2EXModulus& F, long m)
    DoMinPolyTower(h, g, F, m, R, proj);
 }
 
-NTL_END_IMPL
+KCTSB_END_IMPL

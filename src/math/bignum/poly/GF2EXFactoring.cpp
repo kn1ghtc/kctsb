@@ -1,12 +1,12 @@
+﻿
+
+#include <kctsb/math/bignum/GF2EXFactoring.h>
+#include <kctsb/math/bignum/vec_GF2XVec.h>
+#include <kctsb/math/bignum/fileio.h>
+#include <kctsb/math/bignum/FacVec.h>
 
 
-#include <NTL/GF2EXFactoring.h>
-#include <NTL/vec_GF2XVec.h>
-#include <NTL/fileio.h>
-#include <NTL/FacVec.h>
-
-
-NTL_START_IMPL
+KCTSB_START_IMPL
 
 
 
@@ -241,7 +241,7 @@ long UseComposeFrobenius(long d, long n)
          long m1 = 2*m;
          if (i & d) m1++;
    
-         if (m1 >= NTL_BITS_PER_LONG-1 || (1L << m1) >= n) break;
+         if (m1 >= KCTSB_BITS_PER_LONG-1 || (1L << m1) >= n) break;
    
          m = m1;
          i = i >> 1;
@@ -290,7 +290,7 @@ void ComposeFrobeniusMap(GF2EX& y, const GF2EXModulus& F)
          long m1 = 2*m;
          if (i & d) m1++;
    
-         if (m1 >= NTL_BITS_PER_LONG-1 || (1L << m1) >= n) break;
+         if (m1 >= KCTSB_BITS_PER_LONG-1 || (1L << m1) >= n) break;
    
          m = m1;
          i = i >> 1;
@@ -841,7 +841,7 @@ long ProbIrredTest(const GF2EX& f, long iter)
 }
 
 
-NTL_CHEAP_THREAD_LOCAL
+KCTSB_CHEAP_THREAD_LOCAL
 long GF2EX_BlockingFactor = 10;
 
 void DDF(vec_pair_GF2EX_long& factors, const GF2EX& ff, const GF2EX& hh, 
@@ -1567,7 +1567,7 @@ void BuildIrred(GF2EX& f, long n)
    if (n <= 0)
       LogicError("BuildIrred: n must be positive");
 
-   if (NTL_OVERFLOW(n, 1, 0))
+   if (KCTSB_OVERFLOW(n, 1, 0))
       ResourceError("overflow in BuildIrred");
 
    if (n == 1) {
@@ -1590,7 +1590,7 @@ void BuildIrred(GF2EX& f, long n)
    if (n <= 0)
       LogicError("BuildIrred: n must be positive");
 
-   if (NTL_OVERFLOW(n, 1, 0))
+   if (KCTSB_OVERFLOW(n, 1, 0))
       ResourceError("overflow in BuildIrred");
 
    if (n == 1) {
@@ -1629,11 +1629,11 @@ void BuildRandomIrred(GF2EX& f, const GF2EX& g)
 
 /************* NEW DDF ****************/
 
-NTL_CHEAP_THREAD_LOCAL long GF2EX_GCDTableSize = 4;
-NTL_CHEAP_THREAD_LOCAL double GF2EXFileThresh = NTL_FILE_THRESH;
-static NTL_CHEAP_THREAD_LOCAL vec_GF2EX *BabyStepFile = 0;
-static NTL_CHEAP_THREAD_LOCAL vec_GF2EX *GiantStepFile = 0;
-static NTL_CHEAP_THREAD_LOCAL long use_files;
+KCTSB_CHEAP_THREAD_LOCAL long GF2EX_GCDTableSize = 4;
+KCTSB_CHEAP_THREAD_LOCAL double GF2EXFileThresh = KCTSB_FILE_THRESH;
+static KCTSB_CHEAP_THREAD_LOCAL vec_GF2EX *BabyStepFile = 0;
+static KCTSB_CHEAP_THREAD_LOCAL vec_GF2EX *GiantStepFile = 0;
+static KCTSB_CHEAP_THREAD_LOCAL long use_files;
 
 
 static
@@ -1641,7 +1641,7 @@ double CalcTableSize(long n, long k)
 {
    double sz = GF2E::storage();
    sz = sz * n;
-   sz = sz + NTL_VECTOR_HEADER_SIZE + sizeof(vec_GF2E);
+   sz = sz + KCTSB_VECTOR_HEADER_SIZE + sizeof(vec_GF2E);
    sz = sz * k;
    sz = sz/1024;
    return sz;
@@ -1840,7 +1840,7 @@ void FetchGiantStep(GF2EX& g, long gs, const GF2EXModulus& F)
    if (use_files) {
       ifstream s;
       OpenRead(s, FileName("giant", gs));
-      NTL_INPUT_CHECK_ERR(s >> g);
+      KCTSB_INPUT_CHECK_ERR(s >> g);
    }
    else
       g = (*GiantStepFile)(gs);
@@ -1861,7 +1861,7 @@ void FetchBabySteps(vec_GF2EX& v, long k)
       if (use_files) {
          ifstream s;
          OpenRead(s, FileName("baby", i));
-         NTL_INPUT_CHECK_ERR(s >> v[i]);
+         KCTSB_INPUT_CHECK_ERR(s >> v[i]);
       }
       else
          v[i] = (*BabyStepFile)(i);
@@ -2159,4 +2159,4 @@ long IterComputeDegree(const GF2EX& h, const GF2EXModulus& F)
    return n;
 }
 
-NTL_END_IMPL
+KCTSB_END_IMPL

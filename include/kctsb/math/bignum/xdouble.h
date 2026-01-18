@@ -1,28 +1,28 @@
-#ifndef NTL_xdouble__H
-#define NTL_xdouble__H
+﻿#ifndef KCTSB_xdouble__H
+#define KCTSB_xdouble__H
 
-#include <NTL/ZZ.h>
+#include <kctsb/math/bignum/ZZ.h>
 
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
-// NTL_XD_HBOUND = 2^{max(NTL_DOUBLE_PRECISION,NTL_BITS_PER_LONG)+4}
+// KCTSB_XD_HBOUND = 2^{max(KCTSB_DOUBLE_PRECISION,KCTSB_BITS_PER_LONG)+4}
 
-#if (NTL_DOUBLE_PRECISION > NTL_BITS_PER_LONG)
+#if (KCTSB_DOUBLE_PRECISION > KCTSB_BITS_PER_LONG)
 
-#define NTL_XD_HBOUND (NTL_FDOUBLE_PRECISION*32.0)
-#define NTL_XD_HBOUND_LOG (NTL_DOUBLE_PRECISION+4)
+#define KCTSB_XD_HBOUND (KCTSB_FDOUBLE_PRECISION*32.0)
+#define KCTSB_XD_HBOUND_LOG (KCTSB_DOUBLE_PRECISION+4)
 
 #else
 
-#define NTL_XD_HBOUND (double(1L << (NTL_BITS_PER_LONG - 2))*64.0)
-#define NTL_XD_HBOUND_LOG (NTL_BITS_PER_LONG+4)
+#define KCTSB_XD_HBOUND (double(1L << (KCTSB_BITS_PER_LONG - 2))*64.0)
+#define KCTSB_XD_HBOUND_LOG (KCTSB_BITS_PER_LONG+4)
 
 #endif
 
-#define NTL_XD_HBOUND_INV (double(1)/NTL_XD_HBOUND)
+#define KCTSB_XD_HBOUND_INV (double(1)/KCTSB_XD_HBOUND)
 
-#define NTL_XD_BOUND (NTL_XD_HBOUND*NTL_XD_HBOUND)
-#define NTL_XD_BOUND_INV (double(1)/NTL_XD_BOUND)
+#define KCTSB_XD_BOUND (KCTSB_XD_HBOUND*KCTSB_XD_HBOUND)
+#define KCTSB_XD_BOUND_INV (double(1)/KCTSB_XD_BOUND)
 
 
 class xdouble {
@@ -42,7 +42,7 @@ inline xdouble& operator=(double a);
 void normalize();
 
 static 
-NTL_CHEAP_THREAD_LOCAL 
+KCTSB_CHEAP_THREAD_LOCAL 
 long oprec;
 
 static void SetOutputPrecision(long p);
@@ -56,7 +56,7 @@ xdouble(double xx, long ee) : x(xx), e(ee) { } // internal use only
 };
 
 
-NTL_DECLARE_RELOCATABLE((xdouble*))
+KCTSB_DECLARE_RELOCATABLE((xdouble*))
 
 inline xdouble to_xdouble(int a) { return xdouble(a, 0); }
 inline xdouble to_xdouble(long a) { return xdouble(a, 0); }
@@ -178,7 +178,7 @@ void conv(ZZ& x, const xdouble& a);
 // x = floor(a);
 
 inline ZZ to_ZZ(const xdouble& a)
-   { ZZ x; conv(x, a); NTL_OPT_RETURN(ZZ, x); }
+   { ZZ x; conv(x, a); KCTSB_OPT_RETURN(ZZ, x); }
 
 
 
@@ -197,7 +197,7 @@ inline float to_float(const xdouble& a)
 
 
 inline void conv(long& x, const xdouble& a)
-   { double z; conv(z, a); x = long(NTL_SNS floor(z)); }
+   { double z; conv(z, a); x = long(KCTSB_SNS floor(z)); }
 inline long to_long(const xdouble& a)
    { long z; conv(z, a); return z; }
 
@@ -205,7 +205,7 @@ inline long to_long(const xdouble& a)
 
 
 inline void conv(int& x, const xdouble& a)
-   { double z; conv(z, a); x = int(NTL_SNS floor(z)); }
+   { double z; conv(z, a); x = int(KCTSB_SNS floor(z)); }
 inline int to_int(const xdouble& a)
    { int z; conv(z, a); return z; }
 
@@ -237,9 +237,9 @@ inline void conv(unsigned long& x, const xdouble& a)
 
 /* ------------------------------------- */
 
-NTL_SNS ostream& operator<<(NTL_SNS ostream& s, const xdouble& a);
+KCTSB_SNS ostream& operator<<(KCTSB_SNS ostream& s, const xdouble& a);
 
-NTL_SNS istream& operator>>(NTL_SNS istream& s, xdouble& x);
+KCTSB_SNS istream& operator>>(KCTSB_SNS istream& s, xdouble& x);
 
 xdouble trunc(const xdouble& a);
 xdouble floor(const xdouble& a);
@@ -278,6 +278,6 @@ xdouble xexp(double x);
 inline xdouble exp(const xdouble& x) { return xexp(to_double(x)); }
 
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 #endif

@@ -1,4 +1,4 @@
-//
+﻿//
 //  kc_ffs.cpp
 //  kcalg
 //
@@ -8,12 +8,12 @@
 
 #include <stdio.h>
 
-#include <NTL/ZZ.h>
+#include <kctsb/math/bignum/ZZ.h>
 
 #include "kctsb/core/security.h"
 
 using namespace std;
-// Bignum namespace is now kctsb (was NTL)
+// Bignum namespace is now kctsb (was bignum)
 using namespace kctsb;
 
 ZZ getmodule(){

@@ -1,13 +1,13 @@
+﻿
+#ifndef KCTSB_mat_ZZ_p__H
+#define KCTSB_mat_ZZ_p__H
 
-#ifndef NTL_mat_ZZ_p__H
-#define NTL_mat_ZZ_p__H
+#include <kctsb/math/bignum/tools.h>
+#include <kctsb/math/bignum/matrix.h>
+#include <kctsb/math/bignum/vec_vec_ZZ_p.h>
+#include <kctsb/math/bignum/SmartPtr.h>
 
-#include <NTL/tools.h>
-#include <NTL/matrix.h>
-#include <NTL/vec_vec_ZZ_p.h>
-#include <NTL/SmartPtr.h>
-
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 typedef Mat<ZZ_p> mat_ZZ_p;
 
@@ -92,12 +92,12 @@ inline void mul(mat_ZZ_p& X, long a, const mat_ZZ_p& B)
 
 void ident(mat_ZZ_p& X, long n); 
 inline mat_ZZ_p ident_mat_ZZ_p(long n)
-   { mat_ZZ_p X; ident(X, n); NTL_OPT_RETURN(mat_ZZ_p, X); }
+   { mat_ZZ_p X; ident(X, n); KCTSB_OPT_RETURN(mat_ZZ_p, X); }
 
 
 void random(mat_ZZ_p& x, long n, long m);
 inline mat_ZZ_p random_mat_ZZ_p(long n, long m)
-   { mat_ZZ_p x; random(x, n, m); NTL_OPT_RETURN(mat_ZZ_p, x); }
+   { mat_ZZ_p x; random(x, n, m); KCTSB_OPT_RETURN(mat_ZZ_p, x); }
 
 
 
@@ -112,26 +112,26 @@ inline void sqr(mat_ZZ_p& X, const mat_ZZ_p& A)
    { mul(X, A, A); }
 
 inline mat_ZZ_p sqr(const mat_ZZ_p& A)
-   { mat_ZZ_p X; sqr(X, A); NTL_OPT_RETURN(mat_ZZ_p, X); }
+   { mat_ZZ_p X; sqr(X, A); KCTSB_OPT_RETURN(mat_ZZ_p, X); }
 
 void inv(mat_ZZ_p& X, const mat_ZZ_p& A);
 
 inline mat_ZZ_p inv(const mat_ZZ_p& A)
-   { mat_ZZ_p X; inv(X, A); NTL_OPT_RETURN(mat_ZZ_p, X); }
+   { mat_ZZ_p X; inv(X, A); KCTSB_OPT_RETURN(mat_ZZ_p, X); }
 
 void power(mat_ZZ_p& X, const mat_ZZ_p& A, const ZZ& e);
 inline mat_ZZ_p power(const mat_ZZ_p& A, const ZZ& e)
-   { mat_ZZ_p X; power(X, A, e); NTL_OPT_RETURN(mat_ZZ_p, X); }
+   { mat_ZZ_p X; power(X, A, e); KCTSB_OPT_RETURN(mat_ZZ_p, X); }
 
 inline void power(mat_ZZ_p& X, const mat_ZZ_p& A, long e)
    { power(X, A, ZZ_expo(e)); }
 inline mat_ZZ_p power(const mat_ZZ_p& A, long e)
-   { mat_ZZ_p X; power(X, A, e); NTL_OPT_RETURN(mat_ZZ_p, X); }
+   { mat_ZZ_p X; power(X, A, e); KCTSB_OPT_RETURN(mat_ZZ_p, X); }
 
 
 void diag(mat_ZZ_p& X, long n, const ZZ_p& d);
 inline mat_ZZ_p diag(long n, const ZZ_p& d)
-   { mat_ZZ_p X; diag(X, n, d); NTL_OPT_RETURN(mat_ZZ_p, X); }
+   { mat_ZZ_p X; diag(X, n, d); KCTSB_OPT_RETURN(mat_ZZ_p, X); }
 
 long IsDiag(const mat_ZZ_p& A, long n, const ZZ_p& d);
 
@@ -149,7 +149,7 @@ inline ZZ_p determinant(const mat_ZZ_p& a)
 // functional variant of determinant
 
 inline mat_ZZ_p transpose(const mat_ZZ_p & a)
-   { mat_ZZ_p x; transpose(x, a); NTL_OPT_RETURN(mat_ZZ_p, x); }
+   { mat_ZZ_p x; transpose(x, a); KCTSB_OPT_RETURN(mat_ZZ_p, x); }
 
 void clear(mat_ZZ_p& a);
 // x = 0 (dimension unchanged)
@@ -170,16 +170,16 @@ mat_ZZ_p operator-(const mat_ZZ_p& a);
 // matrix/scalar multiplication:
 
 inline mat_ZZ_p operator*(const mat_ZZ_p& a, const ZZ_p& b)
-   { mat_ZZ_p x; mul(x, a, b); NTL_OPT_RETURN(mat_ZZ_p, x); }
+   { mat_ZZ_p x; mul(x, a, b); KCTSB_OPT_RETURN(mat_ZZ_p, x); }
 
 inline mat_ZZ_p operator*(const mat_ZZ_p& a, long b)
-   { mat_ZZ_p x; mul(x, a, b); NTL_OPT_RETURN(mat_ZZ_p, x); }
+   { mat_ZZ_p x; mul(x, a, b); KCTSB_OPT_RETURN(mat_ZZ_p, x); }
 
 inline mat_ZZ_p operator*(const ZZ_p& a, const mat_ZZ_p& b)
-   { mat_ZZ_p x; mul(x, a, b); NTL_OPT_RETURN(mat_ZZ_p, x); }
+   { mat_ZZ_p x; mul(x, a, b); KCTSB_OPT_RETURN(mat_ZZ_p, x); }
 
 inline mat_ZZ_p operator*(long a, const mat_ZZ_p& b)
-   { mat_ZZ_p x; mul(x, a, b); NTL_OPT_RETURN(mat_ZZ_p, x); }
+   { mat_ZZ_p x; mul(x, a, b); KCTSB_OPT_RETURN(mat_ZZ_p, x); }
 
 // matrix/vector multiplication:
 
@@ -230,7 +230,7 @@ inline vec_ZZ_p& operator*=(vec_ZZ_p& x, const mat_ZZ_p& a)
    return x;
 }   
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 
 

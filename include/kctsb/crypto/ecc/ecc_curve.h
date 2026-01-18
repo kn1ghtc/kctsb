@@ -1,13 +1,13 @@
-/**
+﻿/**
  * @file ecc_curve.h
- * @brief Elliptic Curve Definitions and Core Operations - NTL Implementation
+ * @brief Elliptic Curve Definitions and Core Operations - Bignum Implementation
  * 
  * This header provides complete elliptic curve definitions including:
  * - Standard curves (secp256k1, secp256r1/P-256, secp384r1/P-384, SM2)
  * - Point representation (Affine and Jacobian coordinates)
  * - Core point arithmetic operations
  * 
- * All operations use NTL (Number Theory Library) for arbitrary precision arithmetic.
+ * All operations use bignum (bignum module) for arbitrary precision arithmetic.
  * Constant-time implementations protect against timing side-channel attacks.
  * 
  * @author knightc
@@ -18,9 +18,9 @@
 #ifndef KCTSB_CRYPTO_ECC_CURVE_H
 #define KCTSB_CRYPTO_ECC_CURVE_H
 
-#include <NTL/ZZ.h>
-#include <NTL/ZZ_p.h>
-#include <NTL/ZZ_pX.h>
+#include <kctsb/math/bignum/ZZ.h>
+#include <kctsb/math/bignum/ZZ_p.h>
+#include <kctsb/math/bignum/ZZ_pX.h>
 #include <string>
 #include <cstring>
 #include <memory>

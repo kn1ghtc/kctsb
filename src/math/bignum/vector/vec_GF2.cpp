@@ -1,9 +1,9 @@
-
-#include <NTL/vec_GF2.h>
+﻿
+#include <kctsb/math/bignum/vec_GF2.h>
 
 //#include <cstdio>
 
-NTL_START_IMPL
+KCTSB_START_IMPL
 
 
 // FIXME: why do vec_GF2 and GF2X use different strategies for 
@@ -18,24 +18,24 @@ void vec_GF2::SetLength(long n)
 
    if (n < 0) LogicError("negative length in vec_GF2::SetLength");
 
-   if (NTL_OVERFLOW(n, 1, 0))
+   if (KCTSB_OVERFLOW(n, 1, 0))
       ResourceError("vec_GF2::SetLength: excessive length");
 
    if (fixed()) LogicError("SetLength: can't change this vector's length");
 
-   long wdlen = (n+NTL_BITS_PER_LONG-1)/NTL_BITS_PER_LONG;
+   long wdlen = (n+KCTSB_BITS_PER_LONG-1)/KCTSB_BITS_PER_LONG;
 
    if (n < len) {
       // have to clear bits n..len-1
 
-      long q = n/NTL_BITS_PER_LONG;
-      long p = n - q*NTL_BITS_PER_LONG;
+      long q = n/KCTSB_BITS_PER_LONG;
+      long p = n - q*KCTSB_BITS_PER_LONG;
 
-      _ntl_ulong *x = rep.elts();
+      _kctsb_ulong *x = rep.elts();
 
       x[q] &= (1UL << p) - 1UL;
 
-      long q1 = (len-1)/NTL_BITS_PER_LONG;
+      long q1 = (len-1)/KCTSB_BITS_PER_LONG;
       long i;
 
       for (i = q+1; i <= q1; i++)
@@ -73,7 +73,7 @@ void vec_GF2::SetLength(long n)
                             // old value of wdlen...this is due to 
                             // the awkward semantics of WordVector.
 
-   _ntl_ulong *x = rep.elts();
+   _kctsb_ulong *x = rep.elts();
 
    long i;
    for (i = alloc; i < wdlen; i++)
@@ -104,10 +104,10 @@ vec_GF2& vec_GF2::operator=(const vec_GF2& a)
 
    SetLength(n);
 
-   long wdlen = (n+NTL_BITS_PER_LONG-1)/NTL_BITS_PER_LONG;
+   long wdlen = (n+KCTSB_BITS_PER_LONG-1)/KCTSB_BITS_PER_LONG;
 
-   _ntl_ulong *x = rep.elts();
-   const _ntl_ulong *y = a.rep.elts();
+   _kctsb_ulong *x = rep.elts();
+   const _kctsb_ulong *y = a.rep.elts();
 
    long i;
    for (i = 0; i < wdlen; i++)
@@ -163,8 +163,8 @@ void vec_GF2::swap(vec_GF2& y)
       LogicError("swap: can't swap these vec_GF2s");
 
    rep.swap(y.rep);
-   _ntl_swap(_len, y._len);
-   _ntl_swap(_maxlen, y._maxlen);
+   _kctsb_swap(_len, y._len);
+   _kctsb_swap(_maxlen, y._maxlen);
 }
 
 
@@ -218,10 +218,10 @@ long operator==(const vec_GF2& a, const vec_GF2& b)
 
 istream & operator>>(istream& s, vec_GF2& a) 
 {   
-   NTL_ZZRegister(ival);
+   KCTSB_ZZRegister(ival);
 
    long c;   
-   if (!s) NTL_INPUT_ERROR(s, "bad vec_GF2 input"); 
+   if (!s) KCTSB_INPUT_ERROR(s, "bad vec_GF2 input"); 
    
    c = s.peek();  
    while (IsWhiteSpace(c)) {  
@@ -230,7 +230,7 @@ istream & operator>>(istream& s, vec_GF2& a)
    }  
 
    if (c != '[') {  
-      NTL_INPUT_ERROR(s, "bad vec_GF2 input");  
+      KCTSB_INPUT_ERROR(s, "bad vec_GF2 input");  
    }  
 
    vec_GF2 ibuf;  
@@ -245,7 +245,7 @@ istream & operator>>(istream& s, vec_GF2& a)
    }  
 
    while (c != ']' && c != EOF) {   
-      if (!(s >> ival)) NTL_INPUT_ERROR(s, "bad vec_GF2 input");
+      if (!(s >> ival)) KCTSB_INPUT_ERROR(s, "bad vec_GF2 input");
       append(ibuf, to_GF2(ival));
 
       c = s.peek();  
@@ -256,7 +256,7 @@ istream & operator>>(istream& s, vec_GF2& a)
       }  
    }   
 
-   if (c == EOF) NTL_INPUT_ERROR(s, "bad vec_GF2 input");  
+   if (c == EOF) KCTSB_INPUT_ERROR(s, "bad vec_GF2 input");  
    s.get(); 
    
    a = ibuf; 
@@ -307,9 +307,9 @@ void add(vec_GF2& x, const vec_GF2& a, const vec_GF2& b)
    long wlen = a.rep.length();
    long i;
 
-   _ntl_ulong *xp = x.rep.elts();
-   const _ntl_ulong *ap = a.rep.elts();
-   const _ntl_ulong *bp = b.rep.elts();
+   _kctsb_ulong *xp = x.rep.elts();
+   const _kctsb_ulong *ap = a.rep.elts();
+   const _kctsb_ulong *bp = b.rep.elts();
 
    for (i = 0; i < wlen; i++)
       xp[i] = ap[i] ^ bp[i];
@@ -319,7 +319,7 @@ void clear(vec_GF2& x)
 {
    long wlen = x.rep.length();
    long i;
-   _ntl_ulong *xp = x.rep.elts();
+   _kctsb_ulong *xp = x.rep.elts();
 
    for (i = 0; i < wlen; i++)
       xp[i] = 0;
@@ -330,7 +330,7 @@ long IsZero(const vec_GF2& x)
 {
    long wlen = x.rep.length();
    long i;
-   const _ntl_ulong *xp = x.rep.elts();
+   const _kctsb_ulong *xp = x.rep.elts();
 
    for (i = 0; i < wlen; i++)
       if (xp[i] != 0) return 0;
@@ -342,7 +342,7 @@ vec_GF2 operator+(const vec_GF2& a, const vec_GF2& b)
 {
    vec_GF2 res;
    add(res, a, b);
-   NTL_OPT_RETURN(vec_GF2, res);
+   KCTSB_OPT_RETURN(vec_GF2, res);
 }
 
 
@@ -350,7 +350,7 @@ vec_GF2 operator-(const vec_GF2& a, const vec_GF2& b)
 {
    vec_GF2 res;
    add(res, a, b);
-   NTL_OPT_RETURN(vec_GF2, res);
+   KCTSB_OPT_RETURN(vec_GF2, res);
 }
 
 static
@@ -362,11 +362,11 @@ void ShiftToHigh(vec_GF2& x, const vec_GF2& a, long n)
 
    x.SetLength(l);
 
-   _ntl_ulong *xp = x.rep.elts();
-   const _ntl_ulong *ap = a.rep.elts();
+   _kctsb_ulong *xp = x.rep.elts();
+   const _kctsb_ulong *ap = a.rep.elts();
 
-   long wn = n/NTL_BITS_PER_LONG;
-   long bn = n - wn*NTL_BITS_PER_LONG;
+   long wn = n/KCTSB_BITS_PER_LONG;
+   long bn = n - wn*KCTSB_BITS_PER_LONG;
 
    long sa = a.rep.length();
 
@@ -380,13 +380,13 @@ void ShiftToHigh(vec_GF2& x, const vec_GF2& a, long n)
    }
    else {
       for (i = sa-1; i >= wn+1; i--)
-         xp[i] = (ap[i-wn] << bn) | (ap[i-wn-1] >> (NTL_BITS_PER_LONG-bn));
+         xp[i] = (ap[i-wn] << bn) | (ap[i-wn-1] >> (KCTSB_BITS_PER_LONG-bn));
       xp[wn] = ap[0] << bn;
       for (i = wn-1; i >= 0; i--)
          xp[i] = 0;
    }
 
-   long p = l % NTL_BITS_PER_LONG;
+   long p = l % KCTSB_BITS_PER_LONG;
 
    if (p != 0)
       xp[sa-1] &= (1UL << p) - 1UL;
@@ -402,11 +402,11 @@ void ShiftToLow(vec_GF2& x, const vec_GF2& a, long n)
 
    x.SetLength(l);
 
-   _ntl_ulong *xp = x.rep.elts();
-   const _ntl_ulong *ap = a.rep.elts();
+   _kctsb_ulong *xp = x.rep.elts();
+   const _kctsb_ulong *ap = a.rep.elts();
 
-   long wn = n/NTL_BITS_PER_LONG;
-   long bn = n - wn*NTL_BITS_PER_LONG;
+   long wn = n/KCTSB_BITS_PER_LONG;
+   long bn = n - wn*KCTSB_BITS_PER_LONG;
 
    long sa = a.rep.length();
 
@@ -418,7 +418,7 @@ void ShiftToLow(vec_GF2& x, const vec_GF2& a, long n)
    }
    else {
       for (i = 0; i < sa-wn-1; i++)
-         xp[i] = (ap[i+wn] >> bn) | (ap[i+wn+1] << (NTL_BITS_PER_LONG - bn));
+         xp[i] = (ap[i+wn] >> bn) | (ap[i+wn+1] << (KCTSB_BITS_PER_LONG - bn));
 
       xp[sa-wn-1] = ap[sa-1] >> bn;
    }
@@ -450,7 +450,7 @@ void shift(vec_GF2& x, const vec_GF2& a, long n)
 // This code is simply canibalized from GF2X.c...
 // so much for "code re-use" and "modularity"
 
-static const _ntl_ulong revtab[256] = {
+static const _kctsb_ulong revtab[256] = {
 
 0UL, 128UL, 64UL, 192UL, 32UL, 160UL, 96UL, 224UL, 16UL, 144UL, 
 80UL, 208UL, 48UL, 176UL, 112UL, 240UL, 8UL, 136UL, 72UL, 200UL, 
@@ -480,9 +480,9 @@ static const _ntl_ulong revtab[256] = {
 95UL, 223UL, 63UL, 191UL, 127UL, 255UL  }; 
 
 static inline 
-_ntl_ulong rev1(_ntl_ulong a)
+_kctsb_ulong rev1(_kctsb_ulong a)
 {
-   return NTL_BB_REV_CODE;
+   return KCTSB_BB_REV_CODE;
 }
 
 
@@ -499,26 +499,26 @@ void reverse(vec_GF2& c, const vec_GF2& a)
       return;
    }
 
-   long wn = n/NTL_BITS_PER_LONG;
-   long bn = n - wn*NTL_BITS_PER_LONG;
+   long wn = n/KCTSB_BITS_PER_LONG;
+   long bn = n - wn*KCTSB_BITS_PER_LONG;
 
    if (bn != 0) {
       wn++;
-      bn = NTL_BITS_PER_LONG - bn;
+      bn = KCTSB_BITS_PER_LONG - bn;
    }
 
-   _ntl_ulong *cp = c.rep.elts();
+   _kctsb_ulong *cp = c.rep.elts();
 
    long i;
 
    if (bn != 0) {
       for (i = wn-1; i >= 1; i--)
-         cp[i] = (cp[i] << bn) | (cp[i-1] >> (NTL_BITS_PER_LONG-bn));
+         cp[i] = (cp[i] << bn) | (cp[i-1] >> (KCTSB_BITS_PER_LONG-bn));
       cp[0] = cp[0] << bn;
    }
 
    for (i = 0; i < wn/2; i++) {
-      _ntl_ulong t; t = cp[i]; cp[i] = cp[wn-1-i]; cp[wn-1-i] = t;
+      _kctsb_ulong t; t = cp[i]; cp[i] = cp[wn-1-i]; cp[wn-1-i] = t;
    }
 
    for (i = 0; i < wn; i++)
@@ -526,7 +526,7 @@ void reverse(vec_GF2& c, const vec_GF2& a)
 }
 
 static 
-long weight1(_ntl_ulong a)
+long weight1(_kctsb_ulong a)
 {
    long res = 0;
    while (a) {
@@ -558,8 +558,8 @@ void random(vec_GF2& x, long n)
    VectorRandomWord(wl-1, x.rep.elts());
 
    if (n > 0) {
-      long pos = n % NTL_BITS_PER_LONG;
-      if (pos == 0) pos = NTL_BITS_PER_LONG;
+      long pos = n % KCTSB_BITS_PER_LONG;
+      if (pos == 0) pos = KCTSB_BITS_PER_LONG;
       x.rep[wl-1] = RandomBits_ulong(pos);
    }
 }
@@ -569,17 +569,17 @@ void random(vec_GF2& x, long n)
 void VectorCopy(vec_GF2& x, const vec_GF2& a, long n)
 {
    if (n < 0) LogicError("VectorCopy: negative length");
-   if (NTL_OVERFLOW(n, 1, 0)) ResourceError("overflow in VectorCopy");
+   if (KCTSB_OVERFLOW(n, 1, 0)) ResourceError("overflow in VectorCopy");
 
    long m = min(n, a.length());
 
    x.SetLength(n);
 
-   long wn = (n + NTL_BITS_PER_LONG - 1)/NTL_BITS_PER_LONG;
-   long wm = (m + NTL_BITS_PER_LONG - 1)/NTL_BITS_PER_LONG;
+   long wn = (n + KCTSB_BITS_PER_LONG - 1)/KCTSB_BITS_PER_LONG;
+   long wm = (m + KCTSB_BITS_PER_LONG - 1)/KCTSB_BITS_PER_LONG;
 
-   _ntl_ulong *xp = x.rep.elts();
-   const _ntl_ulong *ap = a.rep.elts();
+   _kctsb_ulong *xp = x.rep.elts();
+   const _kctsb_ulong *ap = a.rep.elts();
 
    long i;
 
@@ -589,11 +589,11 @@ void VectorCopy(vec_GF2& x, const vec_GF2& a, long n)
    for (i = wm; i < wn; i++)
       xp[i] = 0;
 
-   long p = n % NTL_BITS_PER_LONG;
+   long p = n % KCTSB_BITS_PER_LONG;
    if (p != 0) {
       xp[wn-1] &= ((1UL << p) - 1UL);
    }
 }
 
 
-NTL_END_IMPL
+KCTSB_END_IMPL

@@ -1,10 +1,10 @@
-#ifndef NTL_GF2XFactoring__H
-#define NTL_GF2XFactoring__H
+﻿#ifndef KCTSB_GF2XFactoring__H
+#define KCTSB_GF2XFactoring__H
 
-#include <NTL/GF2X.h>
-#include <NTL/pair_GF2X_long.h>
+#include <kctsb/math/bignum/GF2X.h>
+#include <kctsb/math/bignum/pair_GF2X_long.h>
 
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 long IterIrredTest(const GF2X& f);
 
@@ -42,19 +42,19 @@ inline GF2X mul(const vec_pair_GF2X_long& v)
 
 void BuildIrred(GF2X& f, long n);
 inline GF2X BuildIrred_GF2X(long n)
-   { GF2X x; BuildIrred(x, n); NTL_OPT_RETURN(GF2X, x); }
+   { GF2X x; BuildIrred(x, n); KCTSB_OPT_RETURN(GF2X, x); }
 
 
 void BuildRandomIrred(GF2X& f, const GF2X& g);
 inline GF2X BuildRandomIrred(const GF2X& g)
-   { GF2X x; BuildRandomIrred(x, g); NTL_OPT_RETURN(GF2X, x); }
+   { GF2X x; BuildRandomIrred(x, g); KCTSB_OPT_RETURN(GF2X, x); }
 
 
 void BuildSparseIrred(GF2X& f, long n);
 inline GF2X BuildSparseIrred_GF2X(long n)
-   { GF2X x; BuildSparseIrred(x, n); NTL_OPT_RETURN(GF2X, x); }
+   { GF2X x; BuildSparseIrred(x, n); KCTSB_OPT_RETURN(GF2X, x); }
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 
 #endif

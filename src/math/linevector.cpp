@@ -1,4 +1,4 @@
-//
+﻿//
 //  linevector.cpp
 //  kcalg
 //
@@ -11,9 +11,9 @@
 #include "kctsb/core/common.h"
 
 #include <vector>
-#include <NTL/GF2X.h>
+#include <kctsb/math/bignum/GF2X.h>
 
-// Bignum namespace is now kctsb (was NTL)
+// Bignum namespace is now kctsb (was bignum)
 using namespace kctsb;
 using namespace std;
 

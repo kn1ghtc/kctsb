@@ -1,10 +1,10 @@
+﻿
+#ifndef KCTSB_vec_ZZ_pE__H
+#define KCTSB_vec_ZZ_pE__H
 
-#ifndef NTL_vec_ZZ_pE__H
-#define NTL_vec_ZZ_pE__H
+#include <kctsb/math/bignum/ZZ_pE.h>
 
-#include <NTL/ZZ_pE.h>
-
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 typedef Vec<ZZ_pE> vec_ZZ_pE;
 
@@ -38,7 +38,7 @@ long IsZero(const vec_ZZ_pE& a);
 
 void VectorCopy(vec_ZZ_pE& x, const vec_ZZ_pE& a, long n);
 inline vec_ZZ_pE VectorCopy(const vec_ZZ_pE& a, long n)
-   { vec_ZZ_pE x; VectorCopy(x, a, n); NTL_OPT_RETURN(vec_ZZ_pE, x); }
+   { vec_ZZ_pE x; VectorCopy(x, a, n); KCTSB_OPT_RETURN(vec_ZZ_pE, x); }
 
 
 
@@ -47,22 +47,22 @@ vec_ZZ_pE operator-(const vec_ZZ_pE& a, const vec_ZZ_pE& b);
 vec_ZZ_pE operator-(const vec_ZZ_pE& a);
 
 inline vec_ZZ_pE operator*(const vec_ZZ_pE& a, const ZZ_pE& b)
-   { vec_ZZ_pE x; mul(x, a, b); NTL_OPT_RETURN(vec_ZZ_pE, x); }
+   { vec_ZZ_pE x; mul(x, a, b); KCTSB_OPT_RETURN(vec_ZZ_pE, x); }
 
 inline vec_ZZ_pE operator*(const vec_ZZ_pE& a, const ZZ_p& b)
-   { vec_ZZ_pE x; mul(x, a, b); NTL_OPT_RETURN(vec_ZZ_pE, x); }
+   { vec_ZZ_pE x; mul(x, a, b); KCTSB_OPT_RETURN(vec_ZZ_pE, x); }
 
 inline vec_ZZ_pE operator*(const vec_ZZ_pE& a, long b)
-   { vec_ZZ_pE x; mul(x, a, b); NTL_OPT_RETURN(vec_ZZ_pE, x); }
+   { vec_ZZ_pE x; mul(x, a, b); KCTSB_OPT_RETURN(vec_ZZ_pE, x); }
 
 inline vec_ZZ_pE operator*(const ZZ_pE& a, const vec_ZZ_pE& b)
-   { vec_ZZ_pE x; mul(x, a, b); NTL_OPT_RETURN(vec_ZZ_pE, x); }
+   { vec_ZZ_pE x; mul(x, a, b); KCTSB_OPT_RETURN(vec_ZZ_pE, x); }
 
 inline vec_ZZ_pE operator*(const ZZ_p& a, const vec_ZZ_pE& b)
-   { vec_ZZ_pE x; mul(x, a, b); NTL_OPT_RETURN(vec_ZZ_pE, x); }
+   { vec_ZZ_pE x; mul(x, a, b); KCTSB_OPT_RETURN(vec_ZZ_pE, x); }
 
 inline vec_ZZ_pE operator*(long a, const vec_ZZ_pE& b)
-   { vec_ZZ_pE x; mul(x, a, b); NTL_OPT_RETURN(vec_ZZ_pE, x); }
+   { vec_ZZ_pE x; mul(x, a, b); KCTSB_OPT_RETURN(vec_ZZ_pE, x); }
 
 
 
@@ -104,8 +104,8 @@ inline vec_ZZ_pE& operator*=(vec_ZZ_pE& x, long a)
 
 void random(vec_ZZ_pE& x, long n);
 inline vec_ZZ_pE random_vec_ZZ_pE(long n)
-   { vec_ZZ_pE x; random(x, n); NTL_OPT_RETURN(vec_ZZ_pE, x); }
+   { vec_ZZ_pE x; random(x, n); KCTSB_OPT_RETURN(vec_ZZ_pE, x); }
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 #endif

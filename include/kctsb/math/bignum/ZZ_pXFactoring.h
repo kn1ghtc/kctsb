@@ -1,14 +1,14 @@
+﻿
 
+#ifndef KCTSB_ZZ_pXFactoring__H
+#define KCTSB_ZZ_pXFactoring__H
 
-#ifndef NTL_ZZ_pXFactoring__H
-#define NTL_ZZ_pXFactoring__H
+#include <kctsb/math/bignum/ZZ.h>
+#include <kctsb/math/bignum/ZZ_p.h>
+#include <kctsb/math/bignum/ZZ_pX.h>
+#include <kctsb/math/bignum/pair_ZZ_pX_long.h>
 
-#include <NTL/ZZ.h>
-#include <NTL/ZZ_p.h>
-#include <NTL/ZZ_pX.h>
-#include <NTL/pair_ZZ_pX_long.h>
-
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 
 
@@ -68,7 +68,7 @@ berlekamp(const ZZ_pX& f, long verbose=0)
 // Uses "Berlekamp" appraoch.
 
 
-extern NTL_CHEAP_THREAD_LOCAL long ZZ_pX_BlockingFactor;
+extern KCTSB_CHEAP_THREAD_LOCAL long ZZ_pX_BlockingFactor;
 // Controls GCD blocking for DDF.
 
 void DDF(vec_pair_ZZ_pX_long& factors, const ZZ_pX& f, const ZZ_pX& h,
@@ -82,11 +82,11 @@ inline vec_pair_ZZ_pX_long DDF(const ZZ_pX& f, const ZZ_pX& h,
 // Assumes f is monic and square-free,  and h  = X^p mod f
 // Obsolete: see NewDDF, below.
 
-extern NTL_CHEAP_THREAD_LOCAL long ZZ_pX_GCDTableSize; /* = 4 */
+extern KCTSB_CHEAP_THREAD_LOCAL long ZZ_pX_GCDTableSize; /* = 4 */
 // Controls GCD blocking for NewDDF
 
 
-extern NTL_CHEAP_THREAD_LOCAL double ZZ_pXFileThresh; 
+extern KCTSB_CHEAP_THREAD_LOCAL double ZZ_pXFileThresh; 
 // external files are used for baby/giant steps if size
 // of these tables exceeds ZZ_pXFileThresh KB.
 
@@ -173,13 +173,13 @@ long IterIrredTest(const ZZ_pX& f);
 
 void BuildIrred(ZZ_pX& f, long n);
 inline ZZ_pX BuildIrred_ZZ_pX(long n)
-   { ZZ_pX x; BuildIrred(x, n); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; BuildIrred(x, n); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 // Build a monic irreducible poly of degree n.
 
 void BuildRandomIrred(ZZ_pX& f, const ZZ_pX& g);
 inline ZZ_pX BuildRandomIrred(const ZZ_pX& g)
-   { ZZ_pX x; BuildRandomIrred(x, g); NTL_OPT_RETURN(ZZ_pX, x); }
+   { ZZ_pX x; BuildRandomIrred(x, g); KCTSB_OPT_RETURN(ZZ_pX, x); }
 
 // g is a monic irreducible polynomial.
 // constructs a random monic irreducible polynomial f of the same degree.
@@ -209,7 +209,7 @@ inline ZZ_pX TraceMap(const ZZ_pX& a, long d, const ZZ_pXModulus& F,
 
 // w = a+a^q+...+^{q^{d-1}} mod f;
 // it is assumed that d >= 0, and b = X^q mod f, q a power of p
-// Space allocation can be controlled via ComposeBound (see <NTL/ZZ_pX.h>)
+// Space allocation can be controlled via ComposeBound (see <bignum/ZZ_pX.h>)
 
 
 
@@ -219,9 +219,9 @@ inline ZZ_pX PowerCompose(const ZZ_pX& a, long d, const ZZ_pXModulus& F)
 
 // w = X^{q^d} mod f;
 // it is assumed that d >= 0, and b = X^q mod f, q a power of p
-// Space allocation can be controlled via ComposeBound (see <NTL/ZZ_pX.h>)
+// Space allocation can be controlled via ComposeBound (see <bignum/ZZ_pX.h>)
 
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 #endif

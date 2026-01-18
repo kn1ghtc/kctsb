@@ -1,8 +1,8 @@
+﻿
+#include <kctsb/math/bignum/vec_GF2E.h>
 
-#include <NTL/vec_GF2E.h>
 
-
-NTL_START_IMPL
+KCTSB_START_IMPL
 
 static
 void BasicBlockConstruct(GF2E* x, long n, long d)
@@ -11,7 +11,7 @@ void BasicBlockConstruct(GF2E* x, long n, long d)
  
    long i = 0;
 
-   NTL_SCOPE(guard) { BlockDestroy(x, i); };
+   KCTSB_SCOPE(guard) { BlockDestroy(x, i); };
  
    while (i < n) {
       m = WV_BlockConstructAlloc(x[i]._GF2E__rep.xrep, d, n-i);
@@ -42,7 +42,7 @@ void BlockConstructFromVec(GF2E* x, long n, const GF2E* y)
    long d = y->_GF2E__rep.xrep.MaxLength();
    BasicBlockConstruct(x, n, d);
 
-   NTL_SCOPE(guard) { BlockDestroy(x, n); };
+   KCTSB_SCOPE(guard) { BlockDestroy(x, n); };
 
    long i;
    for (i = 0; i < n; i++) x[i] = y[i];
@@ -61,7 +61,7 @@ void BlockConstructFromObj(GF2E* x, long n, const GF2E& y)
 
    BasicBlockConstruct(x, n, d);
 
-   NTL_SCOPE(guard) { BlockDestroy(x, n); };
+   KCTSB_SCOPE(guard) { BlockDestroy(x, n); };
 
    long i;
    for (i = 0; i < n; i++) x[i] = y;
@@ -106,7 +106,7 @@ void InnerProduct(GF2E& x, const vec_GF2E& a, const vec_GF2E& b,
                   long offset)
 {
    if (offset < 0) LogicError("InnerProduct: negative offset");
-   if (NTL_OVERFLOW(offset, 1, 0)) ResourceError("InnerProduct: offset too big");
+   if (KCTSB_OVERFLOW(offset, 1, 0)) ResourceError("InnerProduct: offset too big");
 
    long n = min(a.length(), b.length()+offset);
    long i;
@@ -177,14 +177,14 @@ vec_GF2E operator+(const vec_GF2E& a, const vec_GF2E& b)
 {
    vec_GF2E res;
    add(res, a, b);
-   NTL_OPT_RETURN(vec_GF2E, res);
+   KCTSB_OPT_RETURN(vec_GF2E, res);
 }
 
 vec_GF2E operator-(const vec_GF2E& a, const vec_GF2E& b)
 {
    vec_GF2E res;
    sub(res, a, b);
-   NTL_OPT_RETURN(vec_GF2E, res);
+   KCTSB_OPT_RETURN(vec_GF2E, res);
 }
 
 
@@ -192,7 +192,7 @@ vec_GF2E operator-(const vec_GF2E& a)
 {
    vec_GF2E res;
    negate(res, a);
-   NTL_OPT_RETURN(vec_GF2E, res);
+   KCTSB_OPT_RETURN(vec_GF2E, res);
 }
 
 
@@ -207,7 +207,7 @@ GF2E operator*(const vec_GF2E& a, const vec_GF2E& b)
 void VectorCopy(vec_GF2E& x, const vec_GF2E& a, long n)
 {
    if (n < 0) LogicError("VectorCopy: negative length");
-   if (NTL_OVERFLOW(n, 1, 0)) ResourceError("overflow in VectorCopy");
+   if (KCTSB_OVERFLOW(n, 1, 0)) ResourceError("overflow in VectorCopy");
 
    long m = min(n, a.length());
 
@@ -229,4 +229,4 @@ void random(vec_GF2E& x, long n)
 }
 
 
-NTL_END_IMPL
+KCTSB_END_IMPL

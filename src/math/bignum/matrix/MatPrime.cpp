@@ -1,8 +1,8 @@
+﻿
+#include <kctsb/math/bignum/MatPrime.h>
 
-#include <NTL/MatPrime.h>
 
-
-NTL_START_IMPL
+KCTSB_START_IMPL
 
 
 MatPrimeTablesType MatPrimeTables;
@@ -20,7 +20,7 @@ long IsMatPrime(long n)
    long j, k;
 
 
-   if (n <= 1 || n >= NTL_SP_BOUND) return 0;
+   if (n <= 1 || n >= KCTSB_SP_BOUND) return 0;
 
    if (n % 2 == 0) return 0;
 
@@ -85,7 +85,7 @@ long IsMatPrime(long n)
 static
 void NextMatPrime(long& q, long index)
 {
-   static long m = NTL_MatPrime_NBITS-1;
+   static long m = KCTSB_MatPrime_NBITS-1;
    static long k = 0;
    // m and k are truly GLOBAL variables, shared among
    // all threads.  Access is protected by a critical section
@@ -116,12 +116,12 @@ void NextMatPrime(long& q, long index)
       if (k == 0) {
          m--;
          if (m < 3) ResourceError("ran out of matrix primes");
-         k = 1L << (NTL_MatPrime_NBITS-m-2);
+         k = 1L << (KCTSB_MatPrime_NBITS-m-2);
       }
 
       k--;
 
-      cand = (1L << (NTL_MatPrime_NBITS-1)) + (k << (m+1)) + (1L << m) + 1;
+      cand = (1L << (KCTSB_MatPrime_NBITS-1)) + (k << (m+1)) + (1L << m) + 1;
 
       if (!IsMatPrime(cand)) continue;
       q = cand;
@@ -141,9 +141,9 @@ void InitMatPrimeInfo(MatPrimeInfo& info, long q)
 void UseMatPrime(long index)
 {
    if (index < 0) LogicError("invalid matrix prime index");
-   if (index >= NTL_MAX_MATPRIMES) ResourceError("matrix prime index too large");
+   if (index >= KCTSB_MAX_MATPRIMES) ResourceError("matrix prime index too large");
 
-   if (index+1 >= NTL_NSP_BOUND) ResourceError("matrix prime index too large");
+   if (index+1 >= KCTSB_NSP_BOUND) ResourceError("matrix prime index too large");
    // largely acacedemic, but it is a convenient assumption
 
    do {  // NOTE: thread safe lazy init
@@ -170,7 +170,7 @@ void UseMatPrime(long index)
 }
 
 
-#ifndef NTL_MatPrime_HALF_SIZE_STRATEGY
+#ifndef KCTSB_MatPrime_HALF_SIZE_STRATEGY
 
 
 void build(MatPrime_crt_helper& H, const ZZ& P)
@@ -181,8 +181,8 @@ void build(MatPrime_crt_helper& H, const ZZ& P)
    mulmod_t qinv;
 
    sqr(B, P);
-   mul(B, B, NTL_MatPrimeLimit);
-   LeftShift(B, B, NTL_MatPrimeFudge);
+   mul(B, B, KCTSB_MatPrimeLimit);
+   LeftShift(B, B, KCTSB_MatPrimeFudge);
 
    set(M);
    n = 0;
@@ -196,7 +196,7 @@ void build(MatPrime_crt_helper& H, const ZZ& P)
 
    double fn = double(n);
 
-   if (8.0*fn*(fn+48) > NTL_FDOUBLE_PRECISION)
+   if (8.0*fn*(fn+48) > KCTSB_FDOUBLE_PRECISION)
       ResourceError("modulus too big");
 
    H.NumPrimes = n;
@@ -209,7 +209,7 @@ void build(MatPrime_crt_helper& H, const ZZ& P)
 
    H.coeff.SetSize(n, P.size());
 
-   H.montgomery_struct.init(P, ZZ(n) << NTL_MatPrime_NBITS);
+   H.montgomery_struct.init(P, ZZ(n) << KCTSB_MatPrime_NBITS);
 
    ZZ qq, rr;
 
@@ -307,8 +307,8 @@ void build(MatPrime_crt_helper& H, const ZZ& P)
    mulmod_t qinv;
 
    sqr(B, P);
-   mul(B, B, NTL_MatPrimeLimit);
-   LeftShift(B, B, NTL_MatPrimeFudge);
+   mul(B, B, KCTSB_MatPrimeLimit);
+   LeftShift(B, B, KCTSB_MatPrimeFudge);
 
    set(M);
    n = 0;
@@ -322,7 +322,7 @@ void build(MatPrime_crt_helper& H, const ZZ& P)
 
    double fn = double(n);
 
-   if (8.0*fn*(fn+48) > NTL_FDOUBLE_PRECISION)
+   if (8.0*fn*(fn+48) > KCTSB_FDOUBLE_PRECISION)
       ResourceError("modulus too big");
 
    long n_half_ceil = (n+1)/2;
@@ -339,7 +339,7 @@ void build(MatPrime_crt_helper& H, const ZZ& P)
    H.ZZ_red_struct.SetLength(n_half_ceil);
    H.coeff.SetSize(n_half_ceil, P.size());
 
-   H.montgomery_struct.init(P, ZZ(n) << (2*NTL_MatPrime_NBITS));
+   H.montgomery_struct.init(P, ZZ(n) << (2*KCTSB_MatPrime_NBITS));
 
 
    for (i = 0; i < n; i++) {
@@ -456,11 +456,11 @@ void MatPrime_crt_helper_deleter(MatPrime_crt_helper* p)
 
 
 
-NTL_END_IMPL
+KCTSB_END_IMPL
 
 #if 0
 
-NTL_CLIENT
+KCTSB_CLIENT
 
 int main()
 {

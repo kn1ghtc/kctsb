@@ -1,6 +1,6 @@
-/**
+﻿/**
  * @file dh.h
- * @brief Diffie-Hellman Key Exchange Interface - NTL Backend
+ * @brief Diffie-Hellman Key Exchange Interface - Bignum Backend
  * 
  * Provides complete DH key exchange functionality:
  * - Standard MODP groups (RFC 3526 / RFC 7919)
@@ -40,7 +40,7 @@
 #include <vector>
 #include <cstdint>
 #include <string>
-#include <NTL/ZZ.h>
+#include <kctsb/math/bignum/ZZ.h>
 
 using kctsb::ZZ;
 using kctsb::conv;

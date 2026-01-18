@@ -1,7 +1,7 @@
+﻿
+#include <kctsb/math/bignum/vec_ZZ.h>
 
-#include <NTL/vec_ZZ.h>
-
-NTL_START_IMPL
+KCTSB_START_IMPL
 
 
 void InnerProduct(ZZ& xx, const vec_ZZ& a, const vec_ZZ& b)
@@ -96,14 +96,14 @@ vec_ZZ operator+(const vec_ZZ& a, const vec_ZZ& b)
 {
    vec_ZZ res;
    add(res, a, b);
-   NTL_OPT_RETURN(vec_ZZ, res);
+   KCTSB_OPT_RETURN(vec_ZZ, res);
 }
 
 vec_ZZ operator-(const vec_ZZ& a, const vec_ZZ& b)
 {
    vec_ZZ res;
    sub(res, a, b);
-   NTL_OPT_RETURN(vec_ZZ, res);
+   KCTSB_OPT_RETURN(vec_ZZ, res);
 }
 
 
@@ -111,7 +111,7 @@ vec_ZZ operator-(const vec_ZZ& a)
 {
    vec_ZZ res;
    negate(res, a);
-   NTL_OPT_RETURN(vec_ZZ, res);
+   KCTSB_OPT_RETURN(vec_ZZ, res);
 }
 
 
@@ -119,13 +119,13 @@ ZZ operator*(const vec_ZZ& a, const vec_ZZ& b)
 {
    ZZ res;
    InnerProduct(res, a, b);
-   NTL_OPT_RETURN(ZZ, res);
+   KCTSB_OPT_RETURN(ZZ, res);
 }
 
 void VectorCopy(vec_ZZ& x, const vec_ZZ& a, long n)
 {
    if (n < 0) LogicError("VectorCopy: negative length");
-   if (NTL_OVERFLOW(n, 1, 0)) ResourceError("overflow in VectorCopy");
+   if (KCTSB_OVERFLOW(n, 1, 0)) ResourceError("overflow in VectorCopy");
 
    long m = min(n, a.length());
 
@@ -141,4 +141,4 @@ void VectorCopy(vec_ZZ& x, const vec_ZZ& a, long n)
 }
 
 
-NTL_END_IMPL
+KCTSB_END_IMPL

@@ -1,10 +1,10 @@
+﻿
+#ifndef KCTSB_mat_ZZ_pE__H
+#define KCTSB_mat_ZZ_pE__H
 
-#ifndef NTL_mat_ZZ_pE__H
-#define NTL_mat_ZZ_pE__H
+#include <kctsb/math/bignum/vec_vec_ZZ_pE.h>
 
-#include <NTL/vec_vec_ZZ_pE.h>
-
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 typedef Mat<ZZ_pE> mat_ZZ_pE;
 
@@ -32,23 +32,23 @@ inline void mul(mat_ZZ_pE& X, long a, const mat_ZZ_pE& B)
 
 void ident(mat_ZZ_pE& X, long n); 
 inline mat_ZZ_pE ident_mat_ZZ_pE(long n)
-   { mat_ZZ_pE X; ident(X, n); NTL_OPT_RETURN(mat_ZZ_pE, X); }
+   { mat_ZZ_pE X; ident(X, n); KCTSB_OPT_RETURN(mat_ZZ_pE, X); }
 
 
 void random(mat_ZZ_pE& x, long n, long m);
 inline mat_ZZ_pE random_mat_ZZ_pE(long n, long m)
-   { mat_ZZ_pE x; random(x, n, m); NTL_OPT_RETURN(mat_ZZ_pE, x); }
+   { mat_ZZ_pE x; random(x, n, m); KCTSB_OPT_RETURN(mat_ZZ_pE, x); }
 
 
 void determinant(ZZ_pE& d, const mat_ZZ_pE& A);
 inline ZZ_pE determinant(const mat_ZZ_pE& A)
-   {  ZZ_pE d; determinant(d, A); NTL_OPT_RETURN(ZZ_pE, d); }
+   {  ZZ_pE d; determinant(d, A); KCTSB_OPT_RETURN(ZZ_pE, d); }
 
 long IsIdent(const mat_ZZ_pE& A, long n);
 
 void transpose(mat_ZZ_pE& X, const mat_ZZ_pE& A);
 inline mat_ZZ_pE transpose(const mat_ZZ_pE& A)
-   { mat_ZZ_pE X; transpose(X, A); NTL_OPT_RETURN(mat_ZZ_pE, X); }
+   { mat_ZZ_pE X; transpose(X, A); KCTSB_OPT_RETURN(mat_ZZ_pE, X); }
 
 void solve(ZZ_pE& d, vec_ZZ_pE& x, const mat_ZZ_pE& A, const vec_ZZ_pE& b);
 void solve(ZZ_pE& d, const mat_ZZ_pE& A, vec_ZZ_pE& x, const vec_ZZ_pE& b);
@@ -59,26 +59,26 @@ inline void sqr(mat_ZZ_pE& X, const mat_ZZ_pE& A)
    { mul(X, A, A); }
 
 inline mat_ZZ_pE sqr(const mat_ZZ_pE& A)
-   { mat_ZZ_pE X; sqr(X, A); NTL_OPT_RETURN(mat_ZZ_pE, X); }
+   { mat_ZZ_pE X; sqr(X, A); KCTSB_OPT_RETURN(mat_ZZ_pE, X); }
 
 void inv(mat_ZZ_pE& X, const mat_ZZ_pE& A);
 
 inline mat_ZZ_pE inv(const mat_ZZ_pE& A)
-   { mat_ZZ_pE X; inv(X, A); NTL_OPT_RETURN(mat_ZZ_pE, X); }
+   { mat_ZZ_pE X; inv(X, A); KCTSB_OPT_RETURN(mat_ZZ_pE, X); }
 
 void power(mat_ZZ_pE& X, const mat_ZZ_pE& A, const ZZ& e);
 inline mat_ZZ_pE power(const mat_ZZ_pE& A, const ZZ& e)
-   { mat_ZZ_pE X; power(X, A, e); NTL_OPT_RETURN(mat_ZZ_pE, X); }
+   { mat_ZZ_pE X; power(X, A, e); KCTSB_OPT_RETURN(mat_ZZ_pE, X); }
 
 inline void power(mat_ZZ_pE& X, const mat_ZZ_pE& A, long e)
    { power(X, A, ZZ_expo(e)); }
 inline mat_ZZ_pE power(const mat_ZZ_pE& A, long e)
-   { mat_ZZ_pE X; power(X, A, e); NTL_OPT_RETURN(mat_ZZ_pE, X); }
+   { mat_ZZ_pE X; power(X, A, e); KCTSB_OPT_RETURN(mat_ZZ_pE, X); }
 
 
 void diag(mat_ZZ_pE& X, long n, const ZZ_pE& d);
 inline mat_ZZ_pE diag(long n, const ZZ_pE& d)
-   { mat_ZZ_pE X; diag(X, n, d); NTL_OPT_RETURN(mat_ZZ_pE, X); }
+   { mat_ZZ_pE X; diag(X, n, d); KCTSB_OPT_RETURN(mat_ZZ_pE, X); }
 
 long IsDiag(const mat_ZZ_pE& A, long n, const ZZ_pE& d);
 
@@ -110,18 +110,18 @@ mat_ZZ_pE operator-(const mat_ZZ_pE& a);
 // matrix/scalar multiplication:
 
 inline mat_ZZ_pE operator*(const mat_ZZ_pE& a, const ZZ_pE& b)
-   { mat_ZZ_pE x; mul(x, a, b); NTL_OPT_RETURN(mat_ZZ_pE, x); }
+   { mat_ZZ_pE x; mul(x, a, b); KCTSB_OPT_RETURN(mat_ZZ_pE, x); }
 inline mat_ZZ_pE operator*(const mat_ZZ_pE& a, const ZZ_p& b)
-   { mat_ZZ_pE x; mul(x, a, b); NTL_OPT_RETURN(mat_ZZ_pE, x); }
+   { mat_ZZ_pE x; mul(x, a, b); KCTSB_OPT_RETURN(mat_ZZ_pE, x); }
 inline mat_ZZ_pE operator*(const mat_ZZ_pE& a, long b)
-   { mat_ZZ_pE x; mul(x, a, b); NTL_OPT_RETURN(mat_ZZ_pE, x); }
+   { mat_ZZ_pE x; mul(x, a, b); KCTSB_OPT_RETURN(mat_ZZ_pE, x); }
 
 inline mat_ZZ_pE operator*(const ZZ_pE& a, const mat_ZZ_pE& b)
-   { mat_ZZ_pE x; mul(x, a, b); NTL_OPT_RETURN(mat_ZZ_pE, x); }
+   { mat_ZZ_pE x; mul(x, a, b); KCTSB_OPT_RETURN(mat_ZZ_pE, x); }
 inline mat_ZZ_pE operator*(const ZZ_p& a, const mat_ZZ_pE& b)
-   { mat_ZZ_pE x; mul(x, a, b); NTL_OPT_RETURN(mat_ZZ_pE, x); }
+   { mat_ZZ_pE x; mul(x, a, b); KCTSB_OPT_RETURN(mat_ZZ_pE, x); }
 inline mat_ZZ_pE operator*(long a, const mat_ZZ_pE& b)
-   { mat_ZZ_pE x; mul(x, a, b); NTL_OPT_RETURN(mat_ZZ_pE, x); }
+   { mat_ZZ_pE x; mul(x, a, b); KCTSB_OPT_RETURN(mat_ZZ_pE, x); }
 
 // matrix/vector multiplication:
 
@@ -178,6 +178,6 @@ inline vec_ZZ_pE& operator*=(vec_ZZ_pE& x, const mat_ZZ_pE& a)
    return x;
 }   
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 #endif

@@ -1,8 +1,8 @@
+﻿
+#include <kctsb/math/bignum/vec_RR.h>
 
-#include <NTL/vec_RR.h>
 
-
-NTL_START_IMPL
+KCTSB_START_IMPL
 
 
 void InnerProduct(RR& xx, const vec_RR& a, const vec_RR& b)
@@ -33,7 +33,7 @@ void mul(vec_RR& x, const vec_RR& a, const RR& b_in)
 
 void mul(vec_RR& x, const vec_RR& a, double b_in)
 {
-   NTL_TLS_LOCAL(RR, b);
+   KCTSB_TLS_LOCAL(RR, b);
    conv(b, b_in);
    long n = a.length();
    x.SetLength(n);
@@ -97,14 +97,14 @@ vec_RR operator+(const vec_RR& a, const vec_RR& b)
 {
    vec_RR res;
    add(res, a, b);
-   NTL_OPT_RETURN(vec_RR, res);
+   KCTSB_OPT_RETURN(vec_RR, res);
 }
 
 vec_RR operator-(const vec_RR& a, const vec_RR& b)
 {
    vec_RR res;
    sub(res, a, b);
-   NTL_OPT_RETURN(vec_RR, res);
+   KCTSB_OPT_RETURN(vec_RR, res);
 }
 
 
@@ -112,7 +112,7 @@ vec_RR operator-(const vec_RR& a)
 {
    vec_RR res;
    negate(res, a);
-   NTL_OPT_RETURN(vec_RR, res);
+   KCTSB_OPT_RETURN(vec_RR, res);
 }
 
 RR operator*(const vec_RR& a, const vec_RR& b)
@@ -125,7 +125,7 @@ RR operator*(const vec_RR& a, const vec_RR& b)
 void VectorCopy(vec_RR& x, const vec_RR& a, long n)
 {
    if (n < 0) LogicError("VectorCopy: negative length");
-   if (NTL_OVERFLOW(n, 1, 0)) ResourceError("overflow in VectorCopy");
+   if (KCTSB_OVERFLOW(n, 1, 0)) ResourceError("overflow in VectorCopy");
 
    long m = min(n, a.length());
 
@@ -140,4 +140,4 @@ void VectorCopy(vec_RR& x, const vec_RR& a, long n)
       clear(x[i]);
 }
 
-NTL_END_IMPL
+KCTSB_END_IMPL

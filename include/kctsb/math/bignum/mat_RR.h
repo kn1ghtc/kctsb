@@ -1,11 +1,11 @@
+﻿
+#ifndef KCTSB_mat_RR__H
+#define KCTSB_mat_RR__H
 
-#ifndef NTL_mat_RR__H
-#define NTL_mat_RR__H
+#include <kctsb/math/bignum/matrix.h>
+#include <kctsb/math/bignum/vec_vec_RR.h>
 
-#include <NTL/matrix.h>
-#include <NTL/vec_vec_RR.h>
-
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 typedef Mat<RR> mat_RR;
 
@@ -27,7 +27,7 @@ inline void mul(mat_RR& X, double a, const mat_RR& B)
 
 void ident(mat_RR& X, long n); 
 inline mat_RR ident_mat_RR(long n)
-   { mat_RR X; ident(X, n); NTL_OPT_RETURN(mat_RR, X); }
+   { mat_RR X; ident(X, n); KCTSB_OPT_RETURN(mat_RR, X); }
 
 void determinant(RR& d, const mat_RR& A);
 long IsIdent(const mat_RR& A, long n);
@@ -40,27 +40,27 @@ inline void sqr(mat_RR& X, const mat_RR& A)
    { mul(X, A, A); }
 
 inline mat_RR sqr(const mat_RR& A)
-   { mat_RR X; sqr(X, A); NTL_OPT_RETURN(mat_RR, X); }
+   { mat_RR X; sqr(X, A); KCTSB_OPT_RETURN(mat_RR, X); }
 
 void inv(mat_RR& X, const mat_RR& A);
 
 inline mat_RR inv(const mat_RR& A)
-   { mat_RR X; inv(X, A); NTL_OPT_RETURN(mat_RR, X); }
+   { mat_RR X; inv(X, A); KCTSB_OPT_RETURN(mat_RR, X); }
 
 void power(mat_RR& X, const mat_RR& A, const ZZ& e);
 inline mat_RR power(const mat_RR& A, const ZZ& e)
-   { mat_RR X; power(X, A, e); NTL_OPT_RETURN(mat_RR, X); }
+   { mat_RR X; power(X, A, e); KCTSB_OPT_RETURN(mat_RR, X); }
 
 inline void power(mat_RR& X, const mat_RR& A, long e)
    { power(X, A, ZZ_expo(e)); }
 inline mat_RR power(const mat_RR& A, long e)
-   { mat_RR X; power(X, A, e); NTL_OPT_RETURN(mat_RR, X); }
+   { mat_RR X; power(X, A, e); KCTSB_OPT_RETURN(mat_RR, X); }
 
 
 
 void diag(mat_RR& X, long n, const RR& d);
 inline mat_RR diag(long n, const RR& d)
-   { mat_RR X; diag(X, n, d); NTL_OPT_RETURN(mat_RR, X); }
+   { mat_RR X; diag(X, n, d); KCTSB_OPT_RETURN(mat_RR, X); }
 
 long IsDiag(const mat_RR& A, long n, const RR& d);
 
@@ -71,7 +71,7 @@ RR determinant(const mat_RR& a);
 // functional variant of determinant
 
 inline mat_RR transpose(const mat_RR & a)
-   { mat_RR x; transpose(x, a); NTL_OPT_RETURN(mat_RR, x); }
+   { mat_RR x; transpose(x, a); KCTSB_OPT_RETURN(mat_RR, x); }
 
 
 void clear(mat_RR& a);
@@ -101,16 +101,16 @@ vec_RR operator*(const vec_RR& a, const mat_RR& b);
 // matrix/scalar multiplication:
 
 inline mat_RR operator*(const mat_RR& a, const RR& b)
-   { mat_RR x; mul(x, a, b); NTL_OPT_RETURN(mat_RR, x); }
+   { mat_RR x; mul(x, a, b); KCTSB_OPT_RETURN(mat_RR, x); }
 
 inline mat_RR operator*(const mat_RR& a, double b)
-   { mat_RR x; mul(x, a, b); NTL_OPT_RETURN(mat_RR, x); }
+   { mat_RR x; mul(x, a, b); KCTSB_OPT_RETURN(mat_RR, x); }
 
 inline mat_RR operator*(const RR& a, const mat_RR& b)
-   { mat_RR x; mul(x, a, b); NTL_OPT_RETURN(mat_RR, x); }
+   { mat_RR x; mul(x, a, b); KCTSB_OPT_RETURN(mat_RR, x); }
 
 inline mat_RR operator*(double a, const mat_RR& b)
-   { mat_RR x; mul(x, a, b); NTL_OPT_RETURN(mat_RR, x); }
+   { mat_RR x; mul(x, a, b); KCTSB_OPT_RETURN(mat_RR, x); }
 
 
 
@@ -156,7 +156,7 @@ inline vec_RR& operator*=(vec_RR& x, const mat_RR& a)
 }   
 
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 
 #endif

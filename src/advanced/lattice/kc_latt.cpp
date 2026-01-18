@@ -1,4 +1,4 @@
-//
+﻿//
 //  kc_latt.cpp
 //  kcalg
 //
@@ -8,9 +8,9 @@
 
 #include <stdio.h>
 
-#include <NTL/LLL.h>
-#include <NTL/mat_ZZ.h>
-#include <NTL/ZZ.h>
+#include <kctsb/math/bignum/LLL.h>
+#include <kctsb/math/bignum/mat_ZZ.h>
+#include <kctsb/math/bignum/ZZ.h>
 
 #include <vector>
 #include <iostream>
@@ -18,7 +18,7 @@
 #include "kctsb/math/math.h"
 #include "kctsb/core/security.h"
 
-// Bignum namespace is now kctsb (was NTL)
+// Bignum namespace is now kctsb (was bignum)
 using namespace kctsb;
 using namespace std;
 

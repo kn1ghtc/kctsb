@@ -1,14 +1,14 @@
+﻿
+#ifndef KCTSB_vec_vec_GF2__H
+#define KCTSB_vec_vec_GF2__H
 
-#ifndef NTL_vec_vec_GF2__H
-#define NTL_vec_vec_GF2__H
+#include <kctsb/math/bignum/vec_GF2.h>
+#include <kctsb/math/bignum/vector.h>
 
-#include <NTL/vec_GF2.h>
-#include <NTL/vector.h>
-
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 typedef Vec< Vec<GF2> > vec_vec_GF2;
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 #endif

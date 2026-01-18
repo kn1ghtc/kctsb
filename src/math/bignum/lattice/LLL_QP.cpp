@@ -1,10 +1,10 @@
+﻿
+#include <kctsb/math/bignum/LLL.h>
+#include <kctsb/math/bignum/vec_quad_float.h>
+#include <kctsb/math/bignum/fileio.h>
 
-#include <NTL/LLL.h>
-#include <NTL/vec_quad_float.h>
-#include <NTL/fileio.h>
 
-
-NTL_START_IMPL
+KCTSB_START_IMPL
 
 static inline
 void CheckFinite(double *p)
@@ -36,8 +36,8 @@ static quad_float InnerProduct(quad_float *a, quad_float *b, long n)
 static void RowTransform(vec_ZZ& A, vec_ZZ& B, const ZZ& MU1)
 // x = x - y*MU
 {
-   NTL_ZZRegister(T);
-   NTL_ZZRegister(MU);
+   KCTSB_ZZRegister(T);
+   KCTSB_ZZRegister(MU);
    long k;
 
    long n = A.length();
@@ -61,7 +61,7 @@ static void RowTransform(vec_ZZ& A, vec_ZZ& B, const ZZ& MU1)
 
    if (MU == 0) return;
 
-   if (NumTwos(MU) >= NTL_ZZ_NBITS) 
+   if (NumTwos(MU) >= KCTSB_ZZ_NBITS) 
       k = MakeOdd(MU);
    else
       k = 0;
@@ -99,7 +99,7 @@ static void RowTransform(vec_ZZ& A, vec_ZZ& B, const ZZ& MU1)
 
 
 
-#define TR_BND (NTL_FDOUBLE_PRECISION/2.0)
+#define TR_BND (KCTSB_FDOUBLE_PRECISION/2.0)
 // Just to be safe!!
 
 static double max_abs(quad_float *v, long n)
@@ -159,8 +159,8 @@ static void RowTransform(vec_ZZ& A, vec_ZZ& B, const ZZ& MU1,
                          double& max_a, double max_b, long& in_float)
 // x = x - y*MU
 {
-   NTL_ZZRegister(T);
-   NTL_ZZRegister(MU);
+   KCTSB_ZZRegister(T);
+   KCTSB_ZZRegister(MU);
    long k;
    double mu;
 
@@ -255,7 +255,7 @@ static void RowTransform(vec_ZZ& A, vec_ZZ& B, const ZZ& MU1,
    if (b_bnd < 0) b_bnd = 0;
 
 
-   if (NumTwos(MU) >= NTL_ZZ_NBITS) 
+   if (NumTwos(MU) >= KCTSB_ZZ_NBITS) 
       k = MakeOdd(MU);
    else
       k = 0;
@@ -310,8 +310,8 @@ static void RowTransform(vec_ZZ& A, vec_ZZ& B, const ZZ& MU1,
 static void RowTransform2(vec_ZZ& A, vec_ZZ& B, const ZZ& MU1)
 // x = x + y*MU
 {
-   NTL_ZZRegister(T);
-   NTL_ZZRegister(MU);
+   KCTSB_ZZRegister(T);
+   KCTSB_ZZRegister(MU);
    long k;
 
    long n = A.length();
@@ -335,7 +335,7 @@ static void RowTransform2(vec_ZZ& A, vec_ZZ& B, const ZZ& MU1)
 
    if (MU == 0) return;
 
-   if (NumTwos(MU) >= NTL_ZZ_NBITS) 
+   if (NumTwos(MU) >= KCTSB_ZZ_NBITS) 
       k = MakeOdd(MU);
    else
       k = 0;
@@ -377,7 +377,7 @@ void ComputeGS(mat_ZZ& B, quad_float **B1, quad_float **mu, quad_float *b,
    }
 
    for (j = st; j <= k-1; j++) {
-      if (b[k].hi/NTL_FDOUBLE_PRECISION < NTL_FDOUBLE_PRECISION/b[j].hi) {
+      if (b[k].hi/KCTSB_FDOUBLE_PRECISION < KCTSB_FDOUBLE_PRECISION/b[j].hi) {
          // we can compute inner product exactly in double precision
 
          double z = 0;
@@ -429,13 +429,13 @@ void ComputeGS(mat_ZZ& B, quad_float **B1, quad_float **mu, quad_float *b,
    c[k] = b[k] - s;
 }
 
-NTL_TLS_GLOBAL_DECL_INIT(quad_float, red_fudge, (to_quad_float(0)))
+KCTSB_TLS_GLOBAL_DECL_INIT(quad_float, red_fudge, (to_quad_float(0)))
 
-static NTL_CHEAP_THREAD_LOCAL long log_red = 0;
-static NTL_CHEAP_THREAD_LOCAL long verbose = 0;
-static NTL_CHEAP_THREAD_LOCAL unsigned long NumSwaps = 0;
-static NTL_CHEAP_THREAD_LOCAL double StartTime = 0;
-static NTL_CHEAP_THREAD_LOCAL double LastTime = 0;
+static KCTSB_CHEAP_THREAD_LOCAL long log_red = 0;
+static KCTSB_CHEAP_THREAD_LOCAL long verbose = 0;
+static KCTSB_CHEAP_THREAD_LOCAL unsigned long NumSwaps = 0;
+static KCTSB_CHEAP_THREAD_LOCAL double StartTime = 0;
+static KCTSB_CHEAP_THREAD_LOCAL double LastTime = 0;
 
 
 static void LLLStatus(long max_k, double t, long m, const mat_ZZ& B)
@@ -483,14 +483,14 @@ static void LLLStatus(long max_k, double t, long m, const mat_ZZ& B)
 
 static void init_red_fudge()
 {
-   NTL_TLS_GLOBAL_ACCESS(red_fudge);
+   KCTSB_TLS_GLOBAL_ACCESS(red_fudge);
 
    long i;
 
-   // initial log_red should be <= NTL_DOUBLE_PRECISION-2,
+   // initial log_red should be <= KCTSB_DOUBLE_PRECISION-2,
    // to help ensure stability in BKZ_QP1
 
-   log_red = NTL_DOUBLE_PRECISION-2; 
+   log_red = KCTSB_DOUBLE_PRECISION-2; 
 
    red_fudge = 1;
 
@@ -500,7 +500,7 @@ static void init_red_fudge()
 
 static void inc_red_fudge()
 {
-   NTL_TLS_GLOBAL_ACCESS(red_fudge);
+   KCTSB_TLS_GLOBAL_ACCESS(red_fudge);
 
 
    red_fudge = red_fudge * 2;
@@ -519,7 +519,7 @@ long ll_LLL_QP(mat_ZZ& B, mat_ZZ* U, quad_float delta, long deep,
            quad_float *b, quad_float *c,
            long m, long init_k, long &quit)
 {
-   NTL_TLS_GLOBAL_ACCESS(red_fudge);
+   KCTSB_TLS_GLOBAL_ACCESS(red_fudge);
 
    long n = B.NumCols();
 
@@ -533,7 +533,7 @@ long ll_LLL_QP(mat_ZZ& B, mat_ZZ* U, quad_float delta, long deep,
    quad_float *tp;
 
 
-   static NTL_CHEAP_THREAD_LOCAL double bound = 0;
+   static KCTSB_CHEAP_THREAD_LOCAL double bound = 0;
 
 
    if (bound == 0) {
@@ -541,7 +541,7 @@ long ll_LLL_QP(mat_ZZ& B, mat_ZZ* U, quad_float delta, long deep,
       // inner products in ComputeGS.
 
       bound = 1;
-      for (i = 2*long(0.15*2*NTL_DOUBLE_PRECISION); i > 0; i--) {
+      for (i = 2*long(0.15*2*KCTSB_DOUBLE_PRECISION); i > 0; i--) {
          bound = bound * 2;
       }
    }
@@ -890,12 +890,12 @@ long LLL_QP(mat_ZZ& B, mat_ZZ& U, double delta, long deep,
 
 
 
-NTL_TLS_GLOBAL_DECL(vec_quad_float, BKZConstant)
+KCTSB_TLS_GLOBAL_DECL(vec_quad_float, BKZConstant)
 
 static
 void ComputeBKZConstant(long beta, long p)
 {
-   NTL_TLS_GLOBAL_ACCESS(BKZConstant);
+   KCTSB_TLS_GLOBAL_ACCESS(BKZConstant);
 
 
    const quad_float c_PI = 
@@ -951,13 +951,13 @@ void ComputeBKZConstant(long beta, long p)
 }
 
 
-NTL_TLS_GLOBAL_DECL(vec_quad_float, BKZThresh)
+KCTSB_TLS_GLOBAL_DECL(vec_quad_float, BKZThresh)
 
 static 
 void ComputeBKZThresh(quad_float *c, long beta)
 {
-   NTL_TLS_GLOBAL_ACCESS(BKZConstant);
-   NTL_TLS_GLOBAL_ACCESS(BKZThresh);
+   KCTSB_TLS_GLOBAL_ACCESS(BKZConstant);
+   KCTSB_TLS_GLOBAL_ACCESS(BKZThresh);
 
    BKZThresh.SetLength(beta-1);
 
@@ -1033,8 +1033,8 @@ static
 long BKZ_QP(mat_ZZ& BB, mat_ZZ* UU, quad_float delta, 
          long beta, long prune, LLLCheckFct check)
 {
-   NTL_TLS_GLOBAL_ACCESS(red_fudge);
-   NTL_TLS_GLOBAL_ACCESS(BKZThresh);
+   KCTSB_TLS_GLOBAL_ACCESS(red_fudge);
+   KCTSB_TLS_GLOBAL_ACCESS(BKZThresh);
 
 
 
@@ -1511,8 +1511,8 @@ static
 long BKZ_QP1(mat_ZZ& BB, mat_ZZ* UU, quad_float delta, 
          long beta, long prune, LLLCheckFct check)
 {
-   NTL_TLS_GLOBAL_ACCESS(red_fudge);
-   NTL_TLS_GLOBAL_ACCESS(BKZThresh);
+   KCTSB_TLS_GLOBAL_ACCESS(red_fudge);
+   KCTSB_TLS_GLOBAL_ACCESS(BKZThresh);
 
 
 
@@ -1784,7 +1784,7 @@ long BKZ_QP1(mat_ZZ& BB, mat_ZZ* UU, quad_float delta,
 
          quad_float t1;
    
-         if ((delta-8*red_fudge)*c[jj] > cbar*(1+64/NTL_FDOUBLE_PRECISION)) {
+         if ((delta-8*red_fudge)*c[jj] > cbar*(1+64/KCTSB_FDOUBLE_PRECISION)) {
 
             clean = 0;
 
@@ -1990,4 +1990,4 @@ long BKZ_QP1(mat_ZZ& BB, double delta,
    return BKZ_QP1(BB, 0, to_quad_float(delta), beta, prune, check);
 }
 
-NTL_END_IMPL
+KCTSB_END_IMPL

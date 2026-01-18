@@ -1,20 +1,20 @@
+﻿
+#ifndef KCTSB_vec_zz_p__H
+#define KCTSB_vec_zz_p__H
 
-#ifndef NTL_vec_zz_p__H
-#define NTL_vec_zz_p__H
+#include <kctsb/math/bignum/vec_ZZ.h>
+#include <kctsb/math/bignum/lzz_p.h>
 
-#include <NTL/vec_ZZ.h>
-#include <NTL/lzz_p.h>
-
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 typedef Vec<zz_p> vec_zz_p;
 
 
 // legacy conversion notation
 inline vec_zz_p to_vec_zz_p(const vec_ZZ& a)
-   { vec_zz_p x; conv(x, a); NTL_OPT_RETURN(vec_zz_p, x); }
+   { vec_zz_p x; conv(x, a); KCTSB_OPT_RETURN(vec_zz_p, x); }
 inline vec_ZZ to_vec_ZZ(const vec_zz_p& a)
-   { vec_ZZ x; conv(x, a); NTL_OPT_RETURN(vec_ZZ, x); }
+   { vec_ZZ x; conv(x, a); KCTSB_OPT_RETURN(vec_ZZ, x); }
 
 
 
@@ -47,7 +47,7 @@ long IsZero(const vec_zz_p& a);
 
 void VectorCopy(vec_zz_p& x, const vec_zz_p& a, long n);
 inline vec_zz_p VectorCopy(const vec_zz_p& a, long n)
-   { vec_zz_p x; VectorCopy(x, a, n); NTL_OPT_RETURN(vec_zz_p, x); }
+   { vec_zz_p x; VectorCopy(x, a, n); KCTSB_OPT_RETURN(vec_zz_p, x); }
 
 
 
@@ -57,16 +57,16 @@ vec_zz_p operator-(const vec_zz_p& a);
 zz_p operator*(const vec_zz_p& a, const vec_zz_p& b);
 
 inline vec_zz_p operator*(const vec_zz_p& a, zz_p b)
-   { vec_zz_p x; mul(x, a, b); NTL_OPT_RETURN(vec_zz_p, x); }
+   { vec_zz_p x; mul(x, a, b); KCTSB_OPT_RETURN(vec_zz_p, x); }
 
 inline vec_zz_p operator*(const vec_zz_p& a, long b)
-   { vec_zz_p x; mul(x, a, b); NTL_OPT_RETURN(vec_zz_p, x); }
+   { vec_zz_p x; mul(x, a, b); KCTSB_OPT_RETURN(vec_zz_p, x); }
 
 inline vec_zz_p operator*(zz_p a, const vec_zz_p& b)
-   { vec_zz_p x; mul(x, a, b); NTL_OPT_RETURN(vec_zz_p, x); }
+   { vec_zz_p x; mul(x, a, b); KCTSB_OPT_RETURN(vec_zz_p, x); }
 
 inline vec_zz_p operator*(long a, const vec_zz_p& b)
-   { vec_zz_p x; mul(x, a, b); NTL_OPT_RETURN(vec_zz_p, x); }
+   { vec_zz_p x; mul(x, a, b); KCTSB_OPT_RETURN(vec_zz_p, x); }
 
 
 
@@ -104,9 +104,9 @@ inline vec_zz_p& operator*=(vec_zz_p& x, long a)
 
 void random(vec_zz_p& x, long n);
 inline vec_zz_p random_vec_zz_p(long n)
-   { vec_zz_p x; random(x, n); NTL_OPT_RETURN(vec_zz_p, x); }
+   { vec_zz_p x; random(x, n); KCTSB_OPT_RETURN(vec_zz_p, x); }
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 
 #endif

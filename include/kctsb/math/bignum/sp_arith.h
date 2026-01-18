@@ -1,7 +1,7 @@
+﻿
 
-
-#ifndef NTL_sp_arith__H
-#define NTL_sp_arith__H
+#ifndef KCTSB_sp_arith__H
+#define KCTSB_sp_arith__H
 
 
 /****************************************************************
@@ -18,7 +18,7 @@
     - On Linux/macOS (LP64): sp_word_t = long (64-bit)
     - On Windows (LLP64): sp_word_t = long long (64-bit)
     
-    The NTL_BITS_PER_LONG macro still represents the algorithm word size (64),
+    The KCTSB_BITS_PER_LONG macro still represents the algorithm word size (64),
     but operations use sp_word_t for the actual type.
 
 *****************************************************************/
@@ -44,13 +44,13 @@
 /*
 these routines implement single-precision modular arithmetic.
 If n is the modulus, all inputs should be in the range 0..n-1.
-The number n itself should be in the range 1..2^{NTL_SP_NBITS}-1.
+The number n itself should be in the range 1..2^{KCTSB_SP_NBITS}-1.
 */
 
 
 // DIRT: undocumented feature: in all of these MulMod routines,
 // the first argument, a, need only be in the range
-// 0..2^{NTL_SP_NBITS}-1.  This is assumption is used internally
+// 0..2^{KCTSB_SP_NBITS}-1.  This is assumption is used internally
 // in some NT routines...I've tried to mark all such uses with a
 // DIRT comment.  I may decide to make this feature part
 // of the documented interface at some point in the future.
@@ -59,22 +59,22 @@ The number n itself should be in the range 1..2^{NTL_SP_NBITS}-1.
 // It is also used in the LIP implementation files c/g_lip_impl.h.
 
 
-#include <NTL/lip.h>
-#include <NTL/tools.h>
+#include <kctsb/math/bignum/lip.h>
+#include <kctsb/math/bignum/tools.h>
 
 
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 
-#define NTL_HAVE_MULMOD_T
+#define KCTSB_HAVE_MULMOD_T
 
-#if (defined(NTL_SPMM_ULL) && defined(NTL_HAVE_LL_TYPE))
+#if (defined(KCTSB_SPMM_ULL) && defined(KCTSB_HAVE_LL_TYPE))
 // we only honor SPMM_ULL if we have LL
-#define NTL_SPMM_ULL_VIABLE
+#define KCTSB_SPMM_ULL_VIABLE
 
-#elif (defined(NTL_SPMM_ULL) && defined(NTL_WIZARD_HACK))
+#elif (defined(KCTSB_SPMM_ULL) && defined(KCTSB_WIZARD_HACK))
 // raise an error when running the wizard and we cannot honor SPMM_ULL
-#error "cannot honor NTL_SPMM_ULL"
+#error "cannot honor KCTSB_SPMM_ULL"
 
 #endif
 
@@ -82,12 +82,12 @@ NTL_OPEN_NNS
 
 #if 0
 // the following code can be used to use new-style clients with old versions
-// of NTL
+// of bignum
 
 
-#ifndef NTL_HAVE_MULMOD_T
+#ifndef KCTSB_HAVE_MULMOD_T
 
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 typedef double mulmod_t;
 typedef double muldivrem_t;
@@ -114,7 +114,7 @@ inline double PrepMulModPrecon(long b, long n)
    return PrepMulModPrecon(b, n, PrepMulMod(n));
 }
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 
 
@@ -146,7 +146,7 @@ long sp_CorrectDeficit(long a, long n)
 long sp_CorrectDeficit(unsigned long a, long n): 
 // if (long(a) >= 0) then a else a+n
 
-// it is assumed that n in (0..B), where B = 2^(NTL_BITS_PER_LONG-1),
+// it is assumed that n in (0..B), where B = 2^(KCTSB_BITS_PER_LONG-1),
 // and that long(a) >= -n 
 
 long sp_CorrectExcess(long a, long n) 
@@ -158,38 +158,38 @@ long sp_CorrectExcess(unsigned long a, long n):
 //   n in (0..B) and a-n in (-B..B).
 
 
-These are designed to respect the flags NTL_CLEAN_INT,
-NTL_ARITH_RIGHT_SHIFT, and NTL_AVOID_BRANCHING.
+These are designed to respect the flags KCTSB_CLEAN_INT,
+KCTSB_ARITH_RIGHT_SHIFT, and KCTSB_AVOID_BRANCHING.
 
 
 *********************************************************/
 
 
-#if (NTL_ARITH_RIGHT_SHIFT && !defined(NTL_CLEAN_INT))
+#if (KCTSB_ARITH_RIGHT_SHIFT && !defined(KCTSB_CLEAN_INT))
 // DIRT: IMPL-DEF: arithmetic right shift and cast unsigned to signed
 
 inline 
 long sp_SignMask(long a)
 {
-   return a >> (NTL_BITS_PER_LONG-1);
+   return a >> (KCTSB_BITS_PER_LONG-1);
 }
 
 inline 
 long sp_SignMask(unsigned long a)
 {
-   return cast_signed(a) >> (NTL_BITS_PER_LONG-1);
+   return cast_signed(a) >> (KCTSB_BITS_PER_LONG-1);
 }
 #else
 inline 
 long sp_SignMask(long a)
 {
-   return -long(cast_unsigned(a) >> (NTL_BITS_PER_LONG-1));
+   return -long(cast_unsigned(a) >> (KCTSB_BITS_PER_LONG-1));
 }
 
 inline 
 long sp_SignMask(unsigned long a)
 {
-   return -long(a >> (NTL_BITS_PER_LONG-1));
+   return -long(a >> (KCTSB_BITS_PER_LONG-1));
 }
 #endif
 
@@ -201,7 +201,7 @@ bool sp_Negative(unsigned long a)
 
 
 
-#if (!defined(NTL_AVOID_BRANCHING))
+#if (!defined(KCTSB_AVOID_BRANCHING))
 
 // The C++ code is written using branching, but  
 // on machines with large branch penalties, this code
@@ -341,7 +341,7 @@ long sp_CorrectExcessQuo(T& q, unsigned long a, long n, long amt=1)
 
 
 
-#ifdef NTL_HAVE_BUILTIN_CLZL
+#ifdef KCTSB_HAVE_BUILTIN_CLZL
 
 inline long 
 sp_CountLeadingZeros(unsigned long x)
@@ -354,9 +354,9 @@ sp_CountLeadingZeros(unsigned long x)
 inline long 
 sp_CountLeadingZeros(unsigned long x)
 {
-   long res = NTL_BITS_PER_LONG-NTL_SP_NBITS;
-   x = x << (NTL_BITS_PER_LONG-NTL_SP_NBITS);
-   while (x < (1UL << (NTL_BITS_PER_LONG-1))) {
+   long res = KCTSB_BITS_PER_LONG-KCTSB_SP_NBITS;
+   x = x << (KCTSB_BITS_PER_LONG-KCTSB_SP_NBITS);
+   while (x < (1UL << (KCTSB_BITS_PER_LONG-1))) {
       x <<= 1;
       res++;
    }
@@ -394,31 +394,31 @@ long NegateMod(long a, long n)
 
 
 
-#if (!defined(NTL_LONGLONG_SP_MULMOD))
+#if (!defined(KCTSB_LONGLONG_SP_MULMOD))
 
 
 
-#ifdef NTL_LEGACY_SP_MULMOD
+#ifdef KCTSB_LEGACY_SP_MULMOD
 
-#define NTL_WIDE_DOUBLE_PRECISION NTL_DOUBLE_PRECISION
-#define NTL_WIDE_FDOUBLE_PRECISION NTL_WIDE_DOUBLE_DP
+#define KCTSB_WIDE_DOUBLE_PRECISION KCTSB_DOUBLE_PRECISION
+#define KCTSB_WIDE_FDOUBLE_PRECISION KCTSB_WIDE_DOUBLE_DP
 typedef double wide_double;
 
 
 #else
 
 
-#ifdef NTL_LONGDOUBLE_SP_MULMOD
+#ifdef KCTSB_LONGDOUBLE_SP_MULMOD
 
 
-#define NTL_WIDE_DOUBLE_PRECISION NTL_LONGDOUBLE_PRECISION
-#define NTL_WIDE_FDOUBLE_PRECISION NTL_WIDE_DOUBLE_LDP
+#define KCTSB_WIDE_DOUBLE_PRECISION KCTSB_LONGDOUBLE_PRECISION
+#define KCTSB_WIDE_FDOUBLE_PRECISION KCTSB_WIDE_DOUBLE_LDP
 typedef long double wide_double_impl_t;
 
 #else
 
-#define NTL_WIDE_DOUBLE_PRECISION NTL_DOUBLE_PRECISION
-#define NTL_WIDE_FDOUBLE_PRECISION NTL_WIDE_DOUBLE_DP
+#define KCTSB_WIDE_DOUBLE_PRECISION KCTSB_DOUBLE_PRECISION
+#define KCTSB_WIDE_FDOUBLE_PRECISION KCTSB_WIDE_DOUBLE_DP
 typedef double wide_double_impl_t;
 
 #endif
@@ -577,7 +577,7 @@ struct sp_inverse {
    unsigned long inv;
    long shamt;
 
-   sp_inverse() NTL_DEFAULT
+   sp_inverse() KCTSB_DEFAULT
    sp_inverse(unsigned long _inv, long _shamt) : inv(_inv), shamt(_shamt) { }
 };
 
@@ -585,29 +585,29 @@ typedef sp_inverse mulmod_t;
 
 
 
-#if (NTL_BITS_PER_LONG >= NTL_SP_NBITS+4)
+#if (KCTSB_BITS_PER_LONG >= KCTSB_SP_NBITS+4)
 
-#define NTL_PRE_SHIFT1 (NTL_BITS_PER_LONG-NTL_SP_NBITS-4)
-#define NTL_POST_SHIFT (0)
+#define KCTSB_PRE_SHIFT1 (KCTSB_BITS_PER_LONG-KCTSB_SP_NBITS-4)
+#define KCTSB_POST_SHIFT (0)
 
-#define NTL_PRE_SHIFT2 (2*NTL_SP_NBITS+2)
+#define KCTSB_PRE_SHIFT2 (2*KCTSB_SP_NBITS+2)
 
 #else
 
-// DIRT: This assumes NTL_BITS_PER_LONG == NTL_SP_NBITS+2.
+// DIRT: This assumes KCTSB_BITS_PER_LONG == KCTSB_SP_NBITS+2.
 // There are checks in lip.h to verify this.
 
-#define NTL_PRE_SHIFT1 (0)
-#define NTL_POST_SHIFT (1)
+#define KCTSB_PRE_SHIFT1 (0)
+#define KCTSB_POST_SHIFT (1)
 
-#define NTL_PRE_SHIFT2 (2*NTL_SP_NBITS+1)
+#define KCTSB_PRE_SHIFT2 (2*KCTSB_SP_NBITS+1)
 
 #endif
 
 
 
 
-#if (NTL_SP_NBITS <= 2*NTL_DOUBLE_PRECISION-10)
+#if (KCTSB_SP_NBITS <= 2*KCTSB_DOUBLE_PRECISION-10)
 
 
 inline unsigned long
@@ -617,16 +617,16 @@ sp_NormalizedPrepMulMod(long n)
    unsigned long nn = n;
 
    // initial approximation to quotient
-   unsigned long qq = long((double(1L << (NTL_SP_NBITS-1)) * double(1L << NTL_SP_NBITS)) * ninv);
+   unsigned long qq = long((double(1L << (KCTSB_SP_NBITS-1)) * double(1L << KCTSB_SP_NBITS)) * ninv);
 
-   // NOTE: the true quotient is <= 2^{NTL_SP_NBITS}
+   // NOTE: the true quotient is <= 2^{KCTSB_SP_NBITS}
 
    // compute approximate remainder using ULL arithmetic
-   NTL_ULL_TYPE rr = (((NTL_ULL_TYPE)(1)) << (2*NTL_SP_NBITS-1)) -
-                     (((NTL_ULL_TYPE)(nn)) * ((NTL_ULL_TYPE)(qq)));
+   KCTSB_ULL_TYPE rr = (((KCTSB_ULL_TYPE)(1)) << (2*KCTSB_SP_NBITS-1)) -
+                     (((KCTSB_ULL_TYPE)(nn)) * ((KCTSB_ULL_TYPE)(qq)));
                     
 
-   rr = (rr << (NTL_PRE_SHIFT2-2*NTL_SP_NBITS+1)) - 1;
+   rr = (rr << (KCTSB_PRE_SHIFT2-2*KCTSB_SP_NBITS+1)) - 1;
 
    // now compute a floating point approximation to r,
    // but avoiding unsigned -> float conversions,
@@ -634,13 +634,13 @@ sp_NormalizedPrepMulMod(long n)
    // signed -> float conversions
    
    unsigned long rrlo = (unsigned long) rr;
-   unsigned long rrhi = ((unsigned long) (rr >> NTL_BITS_PER_LONG)) 
-                        + (rrlo >> (NTL_BITS_PER_LONG-1));
+   unsigned long rrhi = ((unsigned long) (rr >> KCTSB_BITS_PER_LONG)) 
+                        + (rrlo >> (KCTSB_BITS_PER_LONG-1));
 
    long rlo = cast_signed(rrlo);  // these should be No-Ops
    long rhi = cast_signed(rrhi);
 
-   const double bpl_as_double (double(1L << NTL_SP_NBITS) * double(1L << (NTL_BITS_PER_LONG-NTL_SP_NBITS)));
+   const double bpl_as_double (double(1L << KCTSB_SP_NBITS) * double(1L << (KCTSB_BITS_PER_LONG-KCTSB_SP_NBITS)));
    double fr = double(rlo) + double(rhi)*bpl_as_double;
 
    // now convert fr*ninv to a long
@@ -659,9 +659,9 @@ sp_NormalizedPrepMulMod(long n)
 
    qq1 += 1L + sp_SignMask(rr1) + sp_SignMask(rr1-n);
 
-   unsigned long res = (qq << (NTL_PRE_SHIFT2-2*NTL_SP_NBITS+1)) + qq1;
+   unsigned long res = (qq << (KCTSB_PRE_SHIFT2-2*KCTSB_SP_NBITS+1)) + qq1;
 
-   res = res << NTL_PRE_SHIFT1;
+   res = res << KCTSB_PRE_SHIFT1;
    return res;
 }
 
@@ -671,7 +671,7 @@ inline unsigned long
 sp_NormalizedPrepMulMod(long n)
 {
    return 
-      (((unsigned long) ( ((((NTL_ULL_TYPE) 1) << NTL_PRE_SHIFT2) - 1)/n )) << NTL_PRE_SHIFT1);
+      (((unsigned long) ( ((((KCTSB_ULL_TYPE) 1) << KCTSB_PRE_SHIFT2) - 1)/n )) << KCTSB_PRE_SHIFT1);
 }
 
 #endif
@@ -680,7 +680,7 @@ sp_NormalizedPrepMulMod(long n)
 inline sp_inverse
 PrepMulMod(long n)
 {
-   long shamt = sp_CountLeadingZeros(n) - (NTL_BITS_PER_LONG-NTL_SP_NBITS);
+   long shamt = sp_CountLeadingZeros(n) - (KCTSB_BITS_PER_LONG-KCTSB_SP_NBITS);
    unsigned long inv = sp_NormalizedPrepMulMod(n << shamt);
    return sp_inverse(inv, shamt);
 }
@@ -696,9 +696,9 @@ sp_NormalizedMulMod(long a, long b, long n, unsigned long ninv)
 {
    ll_type U;
    ll_imul(U, a, b);
-   unsigned long H = ll_rshift_get_lo<NTL_SP_NBITS-2>(U);
+   unsigned long H = ll_rshift_get_lo<KCTSB_SP_NBITS-2>(U);
    unsigned long Q = ll_mul_hi(H, ninv);
-   Q = Q >> NTL_POST_SHIFT;
+   Q = Q >> KCTSB_POST_SHIFT;
    unsigned long L = ll_get_lo(U);
    long r = L - Q*cast_unsigned(n);  // r in [0..2*n)
 
@@ -734,9 +734,9 @@ sp_NormalizedMulModWithQuo(long& qres, long a, long b, long n, unsigned long nin
 {
    ll_type U;
    ll_imul(U, a, b);
-   unsigned long H = ll_rshift_get_lo<NTL_SP_NBITS-2>(U);
+   unsigned long H = ll_rshift_get_lo<KCTSB_SP_NBITS-2>(U);
    unsigned long Q = ll_mul_hi(H, ninv);
-   Q = Q >> NTL_POST_SHIFT;
+   Q = Q >> KCTSB_POST_SHIFT;
    unsigned long L = ll_get_lo(U);
    long r = L - Q*cast_unsigned(n);  // r in [0..2*n)
 
@@ -758,22 +758,22 @@ MulModWithQuo(long& qres, long a, long b, long n, sp_inverse ninv)
 
 
 
-#if (defined(NTL_SPMM_ULL_VIABLE) || defined(NTL_LONGLONG_SP_MULMOD))
+#if (defined(KCTSB_SPMM_ULL_VIABLE) || defined(KCTSB_LONGLONG_SP_MULMOD))
 
 
 typedef unsigned long mulmod_precon_t;
 
 
-#if (!defined(NTL_LONGLONG_SP_MULMOD))
+#if (!defined(KCTSB_LONGLONG_SP_MULMOD))
 
 inline unsigned long PrepMulModPrecon(long b, long n, wide_double ninv)
 {
-   long q  = (long) ( (((wide_double) b) * wide_double(NTL_SP_BOUND)) * ninv ); 
-   unsigned long rr = (cast_unsigned(b) << NTL_SP_NBITS) - cast_unsigned(q)*cast_unsigned(n);
+   long q  = (long) ( (((wide_double) b) * wide_double(KCTSB_SP_BOUND)) * ninv ); 
+   unsigned long rr = (cast_unsigned(b) << KCTSB_SP_NBITS) - cast_unsigned(q)*cast_unsigned(n);
 
    q += sp_SignMask(rr) + sp_SignMask(rr-n) + 1L;
 
-   return cast_unsigned(q) << (NTL_BITS_PER_LONG - NTL_SP_NBITS);
+   return cast_unsigned(q) << (KCTSB_BITS_PER_LONG - KCTSB_SP_NBITS);
 }
 
 #else
@@ -784,8 +784,8 @@ sp_NormalizedPrepMulModPrecon(long b, long n, unsigned long ninv)
 {
    unsigned long H = cast_unsigned(b) << 2;
    unsigned long Q = ll_mul_hi(H, ninv);
-   Q = Q >> NTL_POST_SHIFT;
-   unsigned long L = cast_unsigned(b) << NTL_SP_NBITS;
+   Q = Q >> KCTSB_POST_SHIFT;
+   unsigned long L = cast_unsigned(b) << KCTSB_SP_NBITS;
    long r = L - Q*cast_unsigned(n);  // r in [0..2*n)
 
 
@@ -797,7 +797,7 @@ sp_NormalizedPrepMulModPrecon(long b, long n, unsigned long ninv)
 inline unsigned long 
 PrepMulModPrecon(long b, long n, sp_inverse ninv)
 {
-   return sp_NormalizedPrepMulModPrecon(b << ninv.shamt, n << ninv.shamt, ninv.inv) << (NTL_BITS_PER_LONG-NTL_SP_NBITS);
+   return sp_NormalizedPrepMulModPrecon(b << ninv.shamt, n << ninv.shamt, ninv.inv) << (KCTSB_BITS_PER_LONG-KCTSB_SP_NBITS);
 }
 
 
@@ -863,7 +863,7 @@ inline long MulModPreconWithQuo(long& qq, long a, long b, long n, wide_double bn
 
 
 
-#if (defined(NTL_LONGLONG_SP_MULMOD))
+#if (defined(KCTSB_LONGLONG_SP_MULMOD))
 
 // some annoying backward-compatibiliy nonsense
 
@@ -871,7 +871,7 @@ struct sp_muldivrem_struct {
    unsigned long bninv;
 
    explicit sp_muldivrem_struct(unsigned long _bninv) : bninv(_bninv) { }
-   sp_muldivrem_struct() NTL_DEFAULT
+   sp_muldivrem_struct() KCTSB_DEFAULT
 };
 
 typedef sp_muldivrem_struct muldivrem_t;
@@ -917,7 +917,7 @@ inline muldivrem_t PrepMulDivRem(long b, long n)
 
 
 
-#ifdef NTL_LEGACY_SP_MULMOD
+#ifdef KCTSB_LEGACY_SP_MULMOD
 
 inline long MulMod2(long a, long b, long n, wide_double bninv)
 {
@@ -955,7 +955,7 @@ void VectorMulMod(long k, long *x, const long *a, long b, long n)
    VectorMulMod(k, x, a, b, n, ninv);
 }
 
-#ifdef NTL_HAVE_LL_TYPE
+#ifdef KCTSB_HAVE_LL_TYPE
 
 
 struct sp_reduce_struct {
@@ -965,14 +965,14 @@ struct sp_reduce_struct {
    sp_reduce_struct(unsigned long _ninv, long _sgn) : 
       ninv(_ninv), sgn(_sgn)  { }
 
-   sp_reduce_struct() NTL_DEFAULT
+   sp_reduce_struct() KCTSB_DEFAULT
 };
 
 inline
 sp_reduce_struct sp_PrepRem(long n)
 {
-   unsigned long q = (1UL << (NTL_BITS_PER_LONG-1))/cast_unsigned(n);
-   long r = (1UL << (NTL_BITS_PER_LONG-1)) - q*cast_unsigned(n);
+   unsigned long q = (1UL << (KCTSB_BITS_PER_LONG-1))/cast_unsigned(n);
+   long r = (1UL << (KCTSB_BITS_PER_LONG-1)) - q*cast_unsigned(n);
 
    long r1 = 2*r;
    q = 2*q;
@@ -996,7 +996,7 @@ long rem(unsigned long a, long n, sp_reduce_struct red)
 inline
 long rem(long a, long n, sp_reduce_struct red) 
 {
-   unsigned long a0 = cast_unsigned(a) & ((1UL << (NTL_BITS_PER_LONG-1))-1);
+   unsigned long a0 = cast_unsigned(a) & ((1UL << (KCTSB_BITS_PER_LONG-1))-1);
    long r = rem(a0, n, red);
    long s = sp_SignMask(a) & red.sgn;
    return SubMod(r, s, n);
@@ -1030,9 +1030,9 @@ long rem(long a, long n, sp_reduce_struct red)
 #endif
 
 
-#ifdef NTL_HAVE_LL_TYPE
+#ifdef KCTSB_HAVE_LL_TYPE
 
-#define NTL_HAVE_SP_LL_ROUTINES
+#define KCTSB_HAVE_SP_LL_ROUTINES
 
 
 // some routines that are currently not part of the documented
@@ -1044,7 +1044,7 @@ struct sp_ll_reduce_struct {
    unsigned long inv;
    long nbits;
 
-   sp_ll_reduce_struct() NTL_DEFAULT
+   sp_ll_reduce_struct() KCTSB_DEFAULT
 
    sp_ll_reduce_struct(unsigned long _inv, long _nbits) : inv(_inv), nbits(_nbits) { }
 
@@ -1054,9 +1054,9 @@ struct sp_ll_reduce_struct {
 inline sp_ll_reduce_struct
 make_sp_ll_reduce_struct(long n)
 {
-   long nbits = NTL_BITS_PER_LONG - sp_CountLeadingZeros(n);
+   long nbits = KCTSB_BITS_PER_LONG - sp_CountLeadingZeros(n);
    unsigned long inv =
-       (unsigned long) ( ((((NTL_ULL_TYPE) 1) << (nbits+NTL_BITS_PER_LONG))-1UL) / ((NTL_ULL_TYPE) n) );
+       (unsigned long) ( ((((KCTSB_ULL_TYPE) 1) << (nbits+KCTSB_BITS_PER_LONG))-1UL) / ((KCTSB_ULL_TYPE) n) );
 
    return sp_ll_reduce_struct(inv, nbits);
 }
@@ -1068,7 +1068,7 @@ sp_ll_red_21(unsigned long hi, unsigned long lo, long d,
             sp_ll_reduce_struct dinv)
 {
    unsigned long H = 
-      (hi << (NTL_BITS_PER_LONG-dinv.nbits)) | (lo >> dinv.nbits);
+      (hi << (KCTSB_BITS_PER_LONG-dinv.nbits)) | (lo >> dinv.nbits);
    unsigned long Q = ll_mul_hi(H, dinv.inv) + H;
    unsigned long rr = lo - Q*cast_unsigned(d); // rr in [0..4*d)
    long r = sp_CorrectExcess(rr, 2*d); // r in [0..2*d)
@@ -1097,7 +1097,7 @@ sp_ll_red_31(unsigned long x2, unsigned long x1, unsigned long x0,
 }
 
 
-// normalized versions of the above: assume NumBits(d) == NTL_SP_NBITS
+// normalized versions of the above: assume NumBits(d) == KCTSB_SP_NBITS
 
 // computes remainder (hi, lo) mod d, assumes hi < d
 inline long  
@@ -1105,7 +1105,7 @@ sp_ll_red_21_normalized(unsigned long hi, unsigned long lo, long d,
             sp_ll_reduce_struct dinv)
 {
    unsigned long H = 
-      (hi << (NTL_BITS_PER_LONG-NTL_SP_NBITS)) | (lo >> NTL_SP_NBITS);
+      (hi << (KCTSB_BITS_PER_LONG-KCTSB_SP_NBITS)) | (lo >> KCTSB_SP_NBITS);
    unsigned long Q = ll_mul_hi(H, dinv.inv) + H;
    unsigned long rr = lo - Q*cast_unsigned(d); // rr in [0..4*d)
    long r = sp_CorrectExcess(rr, 2*d); // r in [0..2*d)
@@ -1151,7 +1151,7 @@ make_sp_ll_reduce_struct(long n)
 #endif
 
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 #endif
 

@@ -1,13 +1,13 @@
-
-#include <NTL/ZZ_pX.h>
-#include <NTL/BasicThreadPool.h>
-
-
+﻿
+#include <kctsb/math/bignum/ZZ_pX.h>
+#include <kctsb/math/bignum/BasicThreadPool.h>
 
 
 
 
-NTL_START_IMPL
+
+
+KCTSB_START_IMPL
 
 
 
@@ -59,7 +59,7 @@ void RightShift(ZZ_pX& x, const ZZ_pX& a, long n)
    }
 
    if (n < 0) {
-      if (n < -NTL_MAX_LONG) ResourceError("overflow in RightShift");
+      if (n < -KCTSB_MAX_LONG) ResourceError("overflow in RightShift");
       LeftShift(x, a, -n);
       return;
    }
@@ -92,14 +92,14 @@ void LeftShift(ZZ_pX& x, const ZZ_pX& a, long n)
    }
 
    if (n < 0) {
-      if (n < -NTL_MAX_LONG) 
+      if (n < -KCTSB_MAX_LONG) 
          clear(x);
       else
          RightShift(x, a, -n);
       return;
    }
 
-   if (NTL_OVERFLOW(n, 1, 0))
+   if (KCTSB_OVERFLOW(n, 1, 0))
       ResourceError("overflow in LeftShift");
 
    long m = a.rep.length();
@@ -179,8 +179,8 @@ void mul(ZZ_pX& U, ZZ_pX& V, const ZZ_pXMatrix& M)
    long n = (1L << k);
    long xx;
    ZZ_p a0, a1, b0, b1, c0, d0, u0, u1, v0, v1, nu0, nu1, nv0;
-   NTL_ZZRegister(t1);
-   NTL_ZZRegister(t2);
+   KCTSB_ZZRegister(t1);
+   KCTSB_ZZRegister(t2);
 
    if (n == d-1)
       xx = 1;
@@ -394,7 +394,7 @@ void HalfGCD(ZZ_pXMatrix& M_out, const ZZ_pX& U, const ZZ_pX& V, long d_red)
    RightShift(U1, U, n);
    RightShift(V1, V, n);
 
-   if (d_red <= NTL_ZZ_pX_HalfGCD_CROSSOVER) {
+   if (d_red <= KCTSB_ZZ_pX_HalfGCD_CROSSOVER) {
       IterHalfGCD(M_out, U1, V1, d_red);
       return;
    }
@@ -459,7 +459,7 @@ void XHalfGCD(ZZ_pXMatrix& M_out, ZZ_pX& U, ZZ_pX& V, long d_red)
 
    long du = deg(U);
 
-   if (d_red <= NTL_ZZ_pX_HalfGCD_CROSSOVER) {
+   if (d_red <= KCTSB_ZZ_pX_HalfGCD_CROSSOVER) {
       IterHalfGCD(M_out, U, V, d_red);
       return;
    }
@@ -574,7 +574,7 @@ void GCD(ZZ_pX& d, const ZZ_pX& u, const ZZ_pX& v)
 
    // deg(u1) > deg(v1)
 
-   while (deg(u1) > NTL_ZZ_pX_GCD_CROSSOVER && !IsZero(v1)) {
+   while (deg(u1) > KCTSB_ZZ_pX_GCD_CROSSOVER && !IsZero(v1)) {
       HalfGCD(u1, v1);
 
       if (!IsZero(v1)) {
@@ -672,8 +672,8 @@ void IterBuild(ZZ_p* a, long n)
 
 void mul(ZZ_p* x, const ZZ_p* a, const ZZ_p* b, long n)
 {
-   NTL_ZZRegister(t);
-   NTL_ZZRegister(accum);
+   KCTSB_ZZRegister(t);
+   KCTSB_ZZRegister(accum);
 
    long i, j, jmin, jmax;
 
@@ -706,7 +706,7 @@ void BuildFromRoots(ZZ_pX& x, const vec_ZZ_p& a)
       return;
    }
 
-   long k0 = NextPowerOfTwo(NTL_ZZ_pX_FFT_CROSSOVER);
+   long k0 = NextPowerOfTwo(KCTSB_ZZ_pX_FFT_CROSSOVER);
    long crossover = 1L << k0;
 
    if (n <= crossover) {
@@ -904,10 +904,10 @@ void interpolate(ZZ_pX& f, const vec_ZZ_p& a, const vec_ZZ_p& b)
 
    
 
-NTL_TBDECL(InnerProduct)(ZZ_pX& x, const vec_ZZ_p& v, long low, long high, 
+KCTSB_TBDECL(InnerProduct)(ZZ_pX& x, const vec_ZZ_p& v, long low, long high, 
                    const vec_ZZ_pX& H, long n, ZZVec& t)
 {
-   NTL_ZZRegister(s);
+   KCTSB_ZZRegister(s);
    long i, j;
 
    for (j = 0; j < n; j++)
@@ -932,7 +932,7 @@ NTL_TBDECL(InnerProduct)(ZZ_pX& x, const vec_ZZ_p& v, long low, long high,
 }
 
 
-#ifdef NTL_THREAD_BOOST
+#ifdef KCTSB_THREAD_BOOST
 
 void InnerProduct(ZZ_pX& x, const vec_ZZ_p& v, long low, long high, 
                    const vec_ZZ_pX& H, long n, ZZVec& t)
@@ -955,7 +955,7 @@ void InnerProduct(ZZ_pX& x, const vec_ZZ_p& v, long low, long high,
 
       local_context.restore();
 
-      NTL_ZZRegister(s);
+      KCTSB_ZZRegister(s);
    
       for (long j = first; j < last; j++) clear(t[j]);
 
@@ -1019,7 +1019,7 @@ void build(ZZ_pXArgument& A, const ZZ_pX& h, const ZZ_pXModulus& F, long m)
    if (ZZ_pXArgBound > 0) {
       double sz = ZZ_p::storage();
       sz = sz*F.n;
-      sz = sz + NTL_VECTOR_HEADER_SIZE + sizeof(vec_ZZ_p);
+      sz = sz + KCTSB_VECTOR_HEADER_SIZE + sizeof(vec_ZZ_p);
       sz = sz/1024;
       m = min(m, long(ZZ_pXArgBound/sz));
       m = max(m, 1);
@@ -1040,7 +1040,7 @@ void build(ZZ_pXArgument& A, const ZZ_pX& h, const ZZ_pXModulus& F, long m)
 
 
 
-NTL_CHEAP_THREAD_LOCAL long ZZ_pXArgBound = 0;
+KCTSB_CHEAP_THREAD_LOCAL long ZZ_pXArgBound = 0;
 
 
 void CompMod(ZZ_pX& x, const ZZ_pX& g, const ZZ_pX& h, const ZZ_pXModulus& F)
@@ -1197,7 +1197,7 @@ void UpdateMap(vec_ZZ_p& x, const vec_ZZ_p& aa,
 
    
 
-NTL_TBDECL(ProjectPowers)(vec_ZZ_p& x, const vec_ZZ_p& a, long k,
+KCTSB_TBDECL(ProjectPowers)(vec_ZZ_p& x, const vec_ZZ_p& a, long k,
                    const ZZ_pXArgument& H, const ZZ_pXModulus& F)
 
 {
@@ -1205,7 +1205,7 @@ NTL_TBDECL(ProjectPowers)(vec_ZZ_p& x, const vec_ZZ_p& a, long k,
 
    if (a.length() > n || k < 0) 
       LogicError("ProjectPowers: bad args");
-   if (NTL_OVERFLOW(k, 1, 0)) 
+   if (KCTSB_OVERFLOW(k, 1, 0)) 
       ResourceError("ProjectPowers: excessive args");
 
 
@@ -1232,7 +1232,7 @@ NTL_TBDECL(ProjectPowers)(vec_ZZ_p& x, const vec_ZZ_p& a, long k,
 }
 
 
-#ifdef NTL_THREAD_BOOST
+#ifdef KCTSB_THREAD_BOOST
 
 void ProjectPowers(vec_ZZ_p& x, const vec_ZZ_p& a, long k,
                    const ZZ_pXArgument& H, const ZZ_pXModulus& F)
@@ -1249,7 +1249,7 @@ void ProjectPowers(vec_ZZ_p& x, const vec_ZZ_p& a, long k,
 
    if (a.length() > n || k < 0) 
       LogicError("ProjectPowers: bad args");
-   if (NTL_OVERFLOW(k, 1, 0)) 
+   if (KCTSB_OVERFLOW(k, 1, 0)) 
       ResourceError("ProjectPowers: excessive args");
 
 
@@ -1309,7 +1309,7 @@ void ProjectPowers(vec_ZZ_p& x, const vec_ZZ_p& a, long k,
    ProjectPowers(x, a, k, H, F);
 }
 
-#ifdef  NTL_USE_ZZ_pXNewArgument
+#ifdef  KCTSB_USE_ZZ_pXNewArgument
 
 // ZZ_pXNewArgument stuff
 
@@ -1320,7 +1320,7 @@ void build(ZZ_pXNewArgument& H, const ZZ_pX& h, const ZZ_pXModulus& F, long m)
 
    if (m <= 0 || deg(h) >= n) LogicError("build: bad args");
 
-   if (NTL_OVERFLOW(m, 1, 0)) 
+   if (KCTSB_OVERFLOW(m, 1, 0)) 
       ResourceError("ZZ_pXNewArgument:build: m too big");
 
    // NOTE: we don't take ZZ_pXArgBound into account, as the 
@@ -1415,7 +1415,7 @@ void ProjectPowers(vec_ZZ_p& x, const vec_ZZ_p& a, long k,
 
    if (a.length() > n || k < 0)
       LogicError("ProjectPowers: bad args");
-   if (NTL_OVERFLOW(k, 1, 0))
+   if (KCTSB_OVERFLOW(k, 1, 0))
       ResourceError("ProjectPowers: excessive args");
 
    long m = H.mat.NumRows();
@@ -1555,10 +1555,10 @@ void GCDMinPolySeq(ZZ_pX& h, const vec_ZZ_p& x, long m)
 void MinPolySeq(ZZ_pX& h, const vec_ZZ_p& a, long m)
 {
    if (m < 0) LogicError("MinPoly: bad args");
-   if (NTL_OVERFLOW(m, 1, 0)) LogicError("MinPoly: bad args");
+   if (KCTSB_OVERFLOW(m, 1, 0)) LogicError("MinPoly: bad args");
    if (a.length() < 2*m) LogicError("MinPoly: sequence too short");
 
-   if (m > NTL_ZZ_pX_BERMASS_CROSSOVER)
+   if (m > KCTSB_ZZ_pX_BERMASS_CROSSOVER)
       GCDMinPolySeq(h, a, m);
    else
       BerlekampMassey(h, a, m);
@@ -1708,7 +1708,7 @@ void MulTrunc(ZZ_pX& x, const ZZ_pX& a, const ZZ_pX& b, long n)
 {
    if (n < 0) LogicError("MulTrunc: bad args");
 
-   if (deg(a) <= NTL_ZZ_pX_FFT_CROSSOVER || deg(b) <= NTL_ZZ_pX_FFT_CROSSOVER)
+   if (deg(a) <= KCTSB_ZZ_pX_FFT_CROSSOVER || deg(b) <= KCTSB_ZZ_pX_FFT_CROSSOVER)
       PlainMulTrunc(x, a, b, n);
    else
       FFTMulTrunc(x, a, b, n);
@@ -1746,7 +1746,7 @@ void SqrTrunc(ZZ_pX& x, const ZZ_pX& a, long n)
 {
    if (n < 0) LogicError("SqrTrunc: bad args");
 
-   if (deg(a) <= NTL_ZZ_pX_FFT_CROSSOVER)
+   if (deg(a) <= KCTSB_ZZ_pX_FFT_CROSSOVER)
       PlainSqrTrunc(x, a, n);
    else
       FFTSqrTrunc(x, a, n);
@@ -1835,7 +1835,7 @@ void PlainTraceVec(vec_ZZ_p& S, const ZZ_pX& ff)
 
 void TraceVec(vec_ZZ_p& S, const ZZ_pX& f)
 {
-   if (deg(f) <= NTL_ZZ_pX_TRACE_CROSSOVER)
+   if (deg(f) <= KCTSB_ZZ_pX_TRACE_CROSSOVER)
       PlainTraceVec(S, f);
    else
       FastTraceVec(S, f);
@@ -2008,7 +2008,7 @@ void ResHalfGCD(ZZ_pXMatrix& M_out, const ZZ_pX& U, const ZZ_pX& V, long d_red,
    RightShift(U1, U, n);
    RightShift(V1, V, n);
 
-   if (d_red <= NTL_ZZ_pX_HalfGCD_CROSSOVER) { 
+   if (d_red <= KCTSB_ZZ_pX_HalfGCD_CROSSOVER) { 
       ResIterHalfGCD(M_out, U1, V1, d_red, cvec, dvec);
       return;
    }
@@ -2108,7 +2108,7 @@ void ResHalfGCD(ZZ_pX& U, ZZ_pX& V, vec_ZZ_p& cvec, vec_long& dvec)
 
 void resultant(ZZ_p& rres, const ZZ_pX& u, const ZZ_pX& v)
 {
-   if (deg(u) <= NTL_ZZ_pX_GCD_CROSSOVER || deg(v) <= NTL_ZZ_pX_GCD_CROSSOVER) { 
+   if (deg(u) <= KCTSB_ZZ_pX_GCD_CROSSOVER || deg(v) <= KCTSB_ZZ_pX_GCD_CROSSOVER) { 
       PlainResultant(rres, u, v);
       return;
    }
@@ -2153,7 +2153,7 @@ void resultant(ZZ_p& rres, const ZZ_pX& u, const ZZ_pX& v)
    append(dvec, deg(u1));
 
 
-   while (deg(u1) > NTL_ZZ_pX_GCD_CROSSOVER && !IsZero(v1)) { 
+   while (deg(u1) > KCTSB_ZZ_pX_GCD_CROSSOVER && !IsZero(v1)) { 
       ResHalfGCD(u1, v1, cvec, dvec);
 
       if (!IsZero(v1)) {
@@ -2227,4 +2227,4 @@ void NormMod(ZZ_p& x, const ZZ_pX& a, const ZZ_pX& f)
    x = t;
 }
 
-NTL_END_IMPL
+KCTSB_END_IMPL

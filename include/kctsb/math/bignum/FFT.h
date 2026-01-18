@@ -1,18 +1,18 @@
+﻿
+#ifndef KCTSB_FFT__H
+#define KCTSB_FFT__H
 
-#ifndef NTL_FFT__H
-#define NTL_FFT__H
+#include <kctsb/math/bignum/ZZ.h>
+#include <kctsb/math/bignum/vector.h>
+#include <kctsb/math/bignum/vec_long.h>
+#include <kctsb/math/bignum/SmartPtr.h>
+#include <kctsb/math/bignum/LazyTable.h>
 
-#include <NTL/ZZ.h>
-#include <NTL/vector.h>
-#include <NTL/vec_long.h>
-#include <NTL/SmartPtr.h>
-#include <NTL/LazyTable.h>
+KCTSB_OPEN_NNS
 
-NTL_OPEN_NNS
+#define KCTSB_PROVIDES_TRUNC_FFT
 
-#define NTL_PROVIDES_TRUNC_FFT
-
-#define NTL_FFTFudge (4)
+#define KCTSB_FFTFudge (4)
 // This constant is used in selecting the correct
 // number of FFT primes for polynomial multiplication
 // in ZZ_pX and zz_pX.  Set at 4, this allows for
@@ -20,14 +20,14 @@ NTL_OPEN_NNS
 // before performing CRT, and leaves a reasonable margin for error.
 // Don't change this!
 
-#define NTL_FFTMaxRootBnd (NTL_SP_NBITS-2)
+#define KCTSB_FFTMaxRootBnd (KCTSB_SP_NBITS-2)
 // Absolute maximum root bound for FFT primes.
 // Don't change this!
 
-#if (25 <= NTL_FFTMaxRootBnd)
-#define NTL_FFTMaxRoot (25)
+#if (25 <= KCTSB_FFTMaxRootBnd)
+#define KCTSB_FFTMaxRoot (25)
 #else
-#define NTL_FFTMaxRoot  NTL_FFTMaxRootBnd
+#define KCTSB_FFTMaxRoot  KCTSB_FFTMaxRootBnd
 #endif
 // Root bound for FFT primes.  Held to a maximum
 // of 25 to avoid large tables and excess precomputation,
@@ -77,7 +77,7 @@ struct FFTPrimeInfo {
 void InitFFTPrimeInfo(FFTPrimeInfo& info, long q, long w, long bigtab_index);
 
 
-#define NTL_MAX_FFTPRIMES (20000)
+#define KCTSB_MAX_FFTPRIMES (20000)
 // for a thread-safe implementation, it is most convenient to
 // impose a reasonabel upper bound on he number of FFT primes.
 // without this restriction, a growing table would have to be
@@ -94,7 +94,7 @@ void InitFFTPrimeInfo(FFTPrimeInfo& info, long q, long w, long bigtab_index);
 // coefficients, while the table itself takes 160KB.
 
 
-typedef LazyTable<FFTPrimeInfo, NTL_MAX_FFTPRIMES> FFTTablesType;
+typedef LazyTable<FFTPrimeInfo, KCTSB_MAX_FFTPRIMES> FFTTablesType;
 
 extern FFTTablesType FFTTables;
 // a truly GLOBAL variable, shared among all threads
@@ -243,6 +243,6 @@ long IsFFTPrime(long n, long& w);
 
 
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 #endif

@@ -1,10 +1,10 @@
-#ifndef NTL_PD__H
-#define NTL_PD__H
+﻿#ifndef KCTSB_PD__H
+#define KCTSB_PD__H
 
-#include <NTL/tools.h>
+#include <kctsb/math/bignum/tools.h>
 #include <immintrin.h>
 
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 
 template<int N>
@@ -24,7 +24,7 @@ private:
 
 //=================== PD<8> implementation ===============
 
-#ifdef NTL_HAVE_AVX512F
+#ifdef KCTSB_HAVE_AVX512F
 
 template<>
 struct PD<8> {
@@ -202,7 +202,7 @@ fused_negmuladd(PD<8> a, PD<8> b, PD<8> c)
 
 //=================== PD<4> implementation ===============
 
-#if (defined(NTL_HAVE_AVX2) && defined(NTL_HAVE_FMA))
+#if (defined(KCTSB_HAVE_AVX2) && defined(KCTSB_HAVE_FMA))
 
 template<>
 struct PD<4> {
@@ -261,7 +261,7 @@ storeu(double *p, PD<4> a)
 inline void
 load(PD<4>& x, const long *p)
 { 
-#ifdef NTL_HAVE_AVX512F
+#ifdef KCTSB_HAVE_AVX512F
    __m256i a = _mm256_load_si256((const __m256i*)p);  
    x = _mm256_cvtepi64_pd(a); 
 #else
@@ -275,7 +275,7 @@ load(PD<4>& x, const long *p)
 inline void
 loadu(PD<4>& x, const long *p)
 { 
-#ifdef NTL_HAVE_AVX512F
+#ifdef KCTSB_HAVE_AVX512F
    __m256i a = _mm256_loadu_si256((const __m256i*)p);  x = _mm256_cvtepi64_pd(a); 
 #else
    __m256i a = _mm256_loadu_si256((const __m256i*)p);
@@ -288,7 +288,7 @@ loadu(PD<4>& x, const long *p)
 inline void 
 store(long *p, PD<4> a)
 {  
-#ifdef NTL_HAVE_AVX512F
+#ifdef KCTSB_HAVE_AVX512F
    __m256i b = _mm256_cvtpd_epi64(a.data); 
 #ifdef __clang__
    _mm256_store_si256((__m256i*)p, b);
@@ -310,7 +310,7 @@ store(long *p, PD<4> a)
 inline void 
 storeu(long *p, PD<4> a)
 {  
-#ifdef NTL_HAVE_AVX512F
+#ifdef KCTSB_HAVE_AVX512F
    __m256i b = _mm256_cvtpd_epi64(a.data); 
   _mm256_storeu_si256((__m256i*)p, b); 
 #else
@@ -350,7 +350,7 @@ blend2(PD<4> a, PD<4> b)
 inline PD<4>
 correct_excess(PD<4> a, PD<4> b)
 { 
-#ifdef NTL_HAVE_AVX512F
+#ifdef KCTSB_HAVE_AVX512F
    __mmask8 k = _mm256_cmp_pd_mask(a.data, b.data, _CMP_GE_OQ);
    return _mm256_mask_sub_pd(a.data, k, a.data, b.data); 
 #else
@@ -364,7 +364,7 @@ correct_excess(PD<4> a, PD<4> b)
 inline PD<4>
 correct_deficit(PD<4> a, PD<4> b)
 { 
-#ifdef NTL_HAVE_AVX512F
+#ifdef KCTSB_HAVE_AVX512F
    __mmask8 k = _mm256_cmp_pd_mask(a.data, _mm256_setzero_pd(), _CMP_LT_OQ);
    return _mm256_mask_add_pd(a.data, k, a.data, b.data); 
 #else
@@ -477,7 +477,7 @@ storeu(double *p, PD<2> a)
 inline void
 load(PD<2>& x, const long *p)
 { 
-#ifdef NTL_HAVE_AVX512F
+#ifdef KCTSB_HAVE_AVX512F
    __m128i a = _mm_load_si128((const __m128i*)p);  
    x = _mm_cvtepi64_pd(a); 
 #else
@@ -491,7 +491,7 @@ load(PD<2>& x, const long *p)
 inline void
 loadu(PD<2>& x, const long *p)
 { 
-#ifdef NTL_HAVE_AVX512F
+#ifdef KCTSB_HAVE_AVX512F
    __m128i a = _mm_loadu_si128((const __m128i*)p);  x = _mm_cvtepi64_pd(a); 
 #else
    __m128i a = _mm_loadu_si128((const __m128i*)p);
@@ -504,7 +504,7 @@ loadu(PD<2>& x, const long *p)
 inline void 
 store(long *p, PD<2> a)
 {  
-#ifdef NTL_HAVE_AVX512F
+#ifdef KCTSB_HAVE_AVX512F
    __m128i b = _mm_cvtpd_epi64(a.data); 
 #ifdef __clang__
    _mm_store_si128((__m128i*)p, b);
@@ -526,7 +526,7 @@ store(long *p, PD<2> a)
 inline void 
 storeu(long *p, PD<2> a)
 {  
-#ifdef NTL_HAVE_AVX512F
+#ifdef KCTSB_HAVE_AVX512F
    __m128i b = _mm_cvtpd_epi64(a.data); 
   _mm_storeu_si128((__m128i*)p, b); 
 #else
@@ -544,7 +544,7 @@ storeu(long *p, PD<2> a)
 inline PD<2>
 correct_excess(PD<2> a, PD<2> b)
 { 
-#ifdef NTL_HAVE_AVX512F
+#ifdef KCTSB_HAVE_AVX512F
    __mmask8 k = _mm_cmp_pd_mask(a.data, b.data, _CMP_GE_OQ);
    return _mm_mask_sub_pd(a.data, k, a.data, b.data); 
 #else
@@ -558,7 +558,7 @@ correct_excess(PD<2> a, PD<2> b)
 inline PD<2>
 correct_deficit(PD<2> a, PD<2> b)
 { 
-#ifdef NTL_HAVE_AVX512F
+#ifdef KCTSB_HAVE_AVX512F
    __mmask8 k = _mm_cmp_pd_mask(a.data, _mm_setzero_pd(), _CMP_LT_OQ);
    return _mm_mask_add_pd(a.data, k, a.data, b.data); 
 #else
@@ -624,7 +624,7 @@ fused_negmuladd(PD<2> a, PD<2> b, PD<2> c)
 
 //================== PD<8>/PD<4> conversions ================
 
-#ifdef NTL_HAVE_AVX512F 
+#ifdef KCTSB_HAVE_AVX512F 
 
 // 0123, 4567 -> 01234567
 inline PD<8> 
@@ -673,7 +673,7 @@ get_hi(PD<4> a)
 #endif
 
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 
 #endif

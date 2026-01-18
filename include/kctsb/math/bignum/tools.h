@@ -1,14 +1,14 @@
+﻿
 
 
 
+#ifndef KCTSB_tools__H
+#define KCTSB_tools__H
 
-#ifndef NTL_tools__H
-#define NTL_tools__H
+//#define KCTSB_TEST_EXCEPTIONS
 
-//#define NTL_TEST_EXCEPTIONS
-
-#include <NTL/ctools.h>
-#include <NTL/new.h>
+#include <kctsb/math/bignum/ctools.h>
+#include <kctsb/math/bignum/new.h>
 
 #include <utility>
 #include <iostream>
@@ -20,104 +20,104 @@
 #include <cmath>
 #include <cstring>
 
-#ifdef NTL_SAFE_VECTORS
+#ifdef KCTSB_SAFE_VECTORS
 
 #include <type_traits>
 
 #endif
 
 
-#if (defined(NTL_THREADS) && defined(NTL_TLS_HACK)) 
+#if (defined(KCTSB_THREADS) && defined(KCTSB_TLS_HACK)) 
 #include <pthread.h>
 #endif
 
 
 
 
-#define NTL_SNS std ::
-#define NTL_USE_SNS using namespace std;
+#define KCTSB_SNS std ::
+#define KCTSB_USE_SNS using namespace std;
 
-#define NTL_IMPORT_FROM_STD \
-   using NTL_SNS abs; \
-   using NTL_SNS ceil; \
-   using NTL_SNS exp; \
-   using NTL_SNS fabs; \
-   using NTL_SNS floor; \
-   using NTL_SNS ldexp; \
-   using NTL_SNS log; \
-   using NTL_SNS sqrt; \
-   using NTL_SNS ostream;  \
-   using NTL_SNS istream;  \
-   using NTL_SNS cerr;  \
-   using NTL_SNS ifstream;  \
-   using NTL_SNS ofstream; 
+#define KCTSB_IMPORT_FROM_STD \
+   using KCTSB_SNS abs; \
+   using KCTSB_SNS ceil; \
+   using KCTSB_SNS exp; \
+   using KCTSB_SNS fabs; \
+   using KCTSB_SNS floor; \
+   using KCTSB_SNS ldexp; \
+   using KCTSB_SNS log; \
+   using KCTSB_SNS sqrt; \
+   using KCTSB_SNS ostream;  \
+   using KCTSB_SNS istream;  \
+   using KCTSB_SNS cerr;  \
+   using KCTSB_SNS ifstream;  \
+   using KCTSB_SNS ofstream; 
 
 
 
-#ifndef NTL_LEGACY_NO_NAMESPACE
+#ifndef KCTSB_LEGACY_NO_NAMESPACE
 
 // This wraps bignum math in the kctsb namespace.
-// Migrated from NTL namespace to kctsb namespace for project integration.
+// Migrated from bignum namespace to kctsb namespace for project integration.
 
-#define NTL_NAMESPACE kctsb
-#define NTL_OPEN_NNS namespace NTL_NAMESPACE {
-#define NTL_CLOSE_NNS  }
-#define NTL_USE_NNS using namespace NTL_NAMESPACE;
-#define NTL_NNS NTL_NAMESPACE ::
+#define KCTSB_NAMESPACE kctsb
+#define KCTSB_OPEN_NNS namespace KCTSB_NAMESPACE {
+#define KCTSB_CLOSE_NNS  }
+#define KCTSB_USE_NNS using namespace KCTSB_NAMESPACE;
+#define KCTSB_NNS KCTSB_NAMESPACE ::
 
 // To make things work, we have to apply using declarations of all std
-// functions that are both overloaded by NTL and are used in
-// the implementation of NTL.
+// functions that are both overloaded by bignum and are used in
+// the implementation of bignum.
 
-#define NTL_START_IMPL NTL_OPEN_NNS NTL_IMPORT_FROM_STD
+#define KCTSB_START_IMPL KCTSB_OPEN_NNS KCTSB_IMPORT_FROM_STD
 
 
-#define NTL_END_IMPL NTL_CLOSE_NNS
+#define KCTSB_END_IMPL KCTSB_CLOSE_NNS
 
 #else
 
-// This puts NTL in the global namespace.
+// This puts bignum in the global namespace.
 // Provided only for backward compatibility.
 
-#define NTL_NAMESPACE 
-#define NTL_OPEN_NNS 
-#define NTL_CLOSE_NNS 
-#define NTL_USE_NNS 
-#define NTL_NNS 
+#define KCTSB_NAMESPACE 
+#define KCTSB_OPEN_NNS 
+#define KCTSB_CLOSE_NNS 
+#define KCTSB_USE_NNS 
+#define KCTSB_NNS 
 
-#define NTL_START_IMPL NTL_IMPORT_FROM_STD
-#define NTL_END_IMPL
+#define KCTSB_START_IMPL KCTSB_IMPORT_FROM_STD
+#define KCTSB_END_IMPL
 
 #endif
 
-#define NTL_CLIENT NTL_USE_SNS NTL_USE_NNS
+#define KCTSB_CLIENT KCTSB_USE_SNS KCTSB_USE_NNS
 
 
 
-double _ntl_GetTime();
-unsigned long _ntl_GetPID();
+double _kctsb_GetTime();
+unsigned long _kctsb_GetPID();
 
-typedef unsigned long _ntl_ulong;
-typedef _ntl_ulong *_ntl_ulong_ptr;
+typedef unsigned long _kctsb_ulong;
+typedef _kctsb_ulong *_kctsb_ulong_ptr;
 // I made these have "obscure" names to avoid conflict with
 // (non-standard but common) definitions in standard headers.
-// Putting u_long inside namespace NTL only tends to creates ambiguities,
+// Putting u_long inside namespace bignum only tends to creates ambiguities,
 // for no good reason.
 
 
 
 
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
-#ifndef NTL_LEGACY_INPUT_ERROR
+#ifndef KCTSB_LEGACY_INPUT_ERROR
 
 // this newer version is more in line with wider C++
 // practice, setting the "fail bit" of an input stream
-// when an error is encounted.  This is now the default in NTL
+// when an error is encounted.  This is now the default in bignum
 
-#define NTL_INPUT_ERROR(s, msg) \
+#define KCTSB_INPUT_ERROR(s, msg) \
    do {\
-      s.setstate(NTL_SNS ios::failbit);\
+      s.setstate(KCTSB_SNS ios::failbit);\
       return s;\
    } while (0)\
 
@@ -127,7 +127,7 @@ NTL_OPEN_NNS
 // this version provides full backward compatibility,
 // raising an error on ill-formed or missing input
 
-#define NTL_INPUT_ERROR(s, msg) \
+#define KCTSB_INPUT_ERROR(s, msg) \
    do {\
       InputError(msg);\
    } while (0)\
@@ -136,23 +136,23 @@ NTL_OPEN_NNS
 #endif
 
 
-#define NTL_INPUT_CHECK_ERR(stmt) \
+#define KCTSB_INPUT_CHECK_ERR(stmt) \
    do {\
       if (!(stmt)) InputError("bad input\n");\
    } while (0)\
 
 
 
-#define NTL_INPUT_CHECK_RET(s, stmt) \
+#define KCTSB_INPUT_CHECK_RET(s, stmt) \
    do {\
-      if (!(stmt)) { s.setstate(NTL_SNS ios::failbit); return s; }\
+      if (!(stmt)) { s.setstate(KCTSB_SNS ios::failbit); return s; }\
    } while (0)\
 
 
 
 
 
-#define NTL_FILE_THRESH (1e12)
+#define KCTSB_FILE_THRESH (1e12)
 // threshold in KB for switching to external storage of certain tables 
 
 
@@ -197,14 +197,14 @@ typedef const INIT_MONO_STRUCT& INIT_MONO_TYPE;
 
 
 
-#ifdef NTL_NO_INIT_TRANS
-#define NTL_OPT_RETURN(t, x) return x
+#ifdef KCTSB_NO_INIT_TRANS
+#define KCTSB_OPT_RETURN(t, x) return x
 #else
-#define NTL_OPT_RETURN(t, x) return t(x, INIT_TRANS)
+#define KCTSB_OPT_RETURN(t, x) return t(x, INIT_TRANS)
 #endif
 
 
-#ifndef NTL_NO_MIN_MAX
+#ifndef KCTSB_NO_MIN_MAX
 
 inline int min(int a, int b) { return (a < b) ?  a : b; } 
 inline int max(int a, int b) { return (a < b) ? b : a; }
@@ -254,20 +254,20 @@ inline unsigned long cast_unsigned(long a) { return (unsigned long) a; }
 inline unsigned int cast_unsigned(int a) { return (unsigned int) a; }
 
 
-// these routines respect the NTL_CLEAN_INT flag: if set,
+// these routines respect the KCTSB_CLEAN_INT flag: if set,
 // they use code that is guaranteed to work, under the
 // assumption that signed integers are two's complement.
 // A good compiler should optimize it all away and generate
 // the same code in either case (tested on gcc, clang, icc, msvc++).
 // This is really an academic exercise...
 
-#ifdef NTL_CLEAN_INT
+#ifdef KCTSB_CLEAN_INT
 
 inline long cast_signed(unsigned long a) 
-{ return NTL_ULONG_TO_LONG(a); }
+{ return KCTSB_ULONG_TO_LONG(a); }
 
 inline int cast_signed(unsigned int a) 
-{ return NTL_UINT_TO_INT(a); }
+{ return KCTSB_UINT_TO_INT(a); }
 
 #else
 
@@ -280,8 +280,8 @@ inline int cast_signed(unsigned int a) { return int(a); }
 inline void conv(int& x, int a) { x = a; }
 inline void conv(int& x, long a) 
    { unsigned y = (unsigned) a;  x = cast_signed(y); }
-inline void conv(int& x, float a) { x = int(NTL_SNS floor(double(a))); }
-inline void conv(int& x, double a) { x = int(NTL_SNS floor(a)); }
+inline void conv(int& x, float a) { x = int(KCTSB_SNS floor(double(a))); }
+inline void conv(int& x, double a) { x = int(KCTSB_SNS floor(a)); }
 
 inline void conv(int& x, unsigned a) 
    { x = cast_signed(a); }
@@ -292,8 +292,8 @@ inline void conv(int& x, unsigned long a)
 inline int to_int(int a) { return a; }
 inline int to_int(long a) 
    { unsigned y = (unsigned) a;  return cast_signed(y); }
-inline int to_int(float a) { return int(NTL_SNS floor(double(a))); }
-inline int to_int(double a) { return int(NTL_SNS floor(a)); }
+inline int to_int(float a) { return int(KCTSB_SNS floor(double(a))); }
+inline int to_int(double a) { return int(KCTSB_SNS floor(a)); }
 
 inline int to_int(unsigned a) 
    { return cast_signed(a); }
@@ -304,8 +304,8 @@ inline int to_int(unsigned long a)
 
 inline void conv(long& x, int a) { x = a; }
 inline void conv(long& x, long a) { x = a; }
-inline void conv(long& x, float a) { x = long(NTL_SNS floor(double(a))); }
-inline void conv(long& x, double a) { x = long(NTL_SNS floor(a)); }
+inline void conv(long& x, float a) { x = long(KCTSB_SNS floor(double(a))); }
+inline void conv(long& x, double a) { x = long(KCTSB_SNS floor(a)); }
 
 inline void conv(long& x, unsigned a)
    { unsigned long y = a;  x = cast_signed(y); }
@@ -315,8 +315,8 @@ inline void conv(long& x, unsigned long a)
 
 inline long to_long(int a) { return a; }
 inline long to_long(long a) { return a; }
-inline long to_long(float a) { return long(NTL_SNS floor(double(a))); }
-inline long to_long(double a) { return long(NTL_SNS floor(a)); }
+inline long to_long(float a) { return long(KCTSB_SNS floor(double(a))); }
+inline long to_long(double a) { return long(KCTSB_SNS floor(a)); }
 
 inline long to_long(unsigned a)
    { unsigned long y = a;  return cast_signed(y); }
@@ -385,7 +385,7 @@ inline void conv(unsigned long& x, double a) { x = ((unsigned int) to_long(a)); 
 
 
 
-long SkipWhiteSpace(NTL_SNS istream& s);
+long SkipWhiteSpace(KCTSB_SNS istream& s);
 long IsWhiteSpace(long c);
 long IsEOFChar(long c);
 
@@ -396,17 +396,17 @@ char IntValToChar(long a);
 
 
 
-inline double GetTime() { return _ntl_GetTime(); }
-inline unsigned long GetPID() { return _ntl_GetPID(); }
+inline double GetTime() { return _kctsb_GetTime(); }
+inline unsigned long GetPID() { return _kctsb_GetPID(); }
 
-inline double GetWallTime() { return _ntl_GetWallTime(); }
+inline double GetWallTime() { return _kctsb_GetWallTime(); }
 
-inline long IsFinite(double *p) { return _ntl_IsFinite(p); }
+inline long IsFinite(double *p) { return _kctsb_IsFinite(p); }
 
 
-#if (NTL_EXT_DOUBLE)
+#if (KCTSB_EXT_DOUBLE)
 
-inline void ForceToMem(double *p) { _ntl_ForceToMem(p); }
+inline void ForceToMem(double *p) { _kctsb_ForceToMem(p); }
 
 #else
 
@@ -424,7 +424,7 @@ inline double TrueDouble(double x)
 
 
 
-void PrintTime(NTL_SNS ostream& s, double t);
+void PrintTime(KCTSB_SNS ostream& s, double t);
 
 
 
@@ -436,13 +436,13 @@ void PrintTime(NTL_SNS ostream& s, double t);
 // we also can use __attribute__((always_inline))
 
 
-#define NTL_RESTRICT __restrict
-#define NTL_ALWAYS_INLINE __attribute__((always_inline))
+#define KCTSB_RESTRICT __restrict
+#define KCTSB_ALWAYS_INLINE __attribute__((always_inline))
 
 #else
 
-#define NTL_RESTRICT
-#define NTL_ALWAYS_INLINE 
+#define KCTSB_RESTRICT
+#define KCTSB_ALWAYS_INLINE 
 
 #endif
 
@@ -481,7 +481,7 @@ public:
 
    void kill() { if (rep) { Deleter::apply(rep); rep = 0; } }
 
-   void swap(WrappedPtr& other) { _ntl_swap(rep, other.rep); }
+   void swap(WrappedPtr& other) { _kctsb_swap(rep, other.rep); }
 
    void move(WrappedPtr& other) 
    {
@@ -504,7 +504,7 @@ void swap(WrappedPtr<T,Deleter>& x, WrappedPtr<T,Deleter>& y)
 
 
 
-class ErrorObject : public NTL_SNS runtime_error {
+class ErrorObject : public KCTSB_SNS runtime_error {
 public:
    ErrorObject(const char *msg) : runtime_error(msg) { }
 };
@@ -536,16 +536,16 @@ public:
 
 
 
-extern NTL_CHEAP_THREAD_LOCAL void (*ErrorCallback)();
+extern KCTSB_CHEAP_THREAD_LOCAL void (*ErrorCallback)();
 
-extern NTL_CHEAP_THREAD_LOCAL void (*ErrorMsgCallback)(const char *);
+extern KCTSB_CHEAP_THREAD_LOCAL void (*ErrorMsgCallback)(const char *);
 
 
 void TerminalError(const char *s);
 
-#ifdef NTL_EXCEPTIONS
+#ifdef KCTSB_EXCEPTIONS
 
-inline void MemoryError() { throw NTL_SNS bad_alloc(); }
+inline void MemoryError() { throw KCTSB_SNS bad_alloc(); }
 inline void Error(const char *msg) { throw ErrorObject(msg); }
 inline void LogicError(const char *msg) { throw LogicErrorObject(msg); }
 inline void ArithmeticError(const char *msg) { throw ArithmeticErrorObject(msg); }
@@ -572,7 +572,7 @@ inline void InputError(const char *msg) { TerminalError(msg); }
 
 
 
-#ifdef NTL_EXCEPTIONS
+#ifdef KCTSB_EXCEPTIONS
 
 
 template < typename F  >
@@ -588,8 +588,8 @@ public:
 
     ~scope_guard() {
         if (active) {
-#ifdef NTL_TEST_EXCEPTIONS
-            NTL_SNS cerr << "*** ACTIVE SCOPE GUARD TRIGGERED: "
+#ifdef KCTSB_TEST_EXCEPTIONS
+            KCTSB_SNS cerr << "*** ACTIVE SCOPE GUARD TRIGGERED: "
                          <<  info << "\n";
 #endif
             f();
@@ -613,8 +613,8 @@ operator+(scope_guard_builder b, F&& f)
 }
 
 
-#define NTL_SCOPE(var) auto var =  \
-   scope_guard_builder(__FILE__ ":" NTL_STRINGIFY(__LINE__)) + [&]
+#define KCTSB_SCOPE(var) auto var =  \
+   scope_guard_builder(__FILE__ ":" KCTSB_STRINGIFY(__LINE__)) + [&]
 
 
 #else
@@ -629,7 +629,7 @@ public:
    void relax() { active = false; }
 };
 
-#define NTL_SCOPE(var) DummyScopeGuard var; if (false)
+#define KCTSB_SCOPE(var) DummyScopeGuard var; if (false)
 
 
 
@@ -638,10 +638,10 @@ public:
 
 
 
-#define NTL_DETAILS_PTHREAD NTL_NNS details_pthread
+#define KCTSB_DETAILS_PTHREAD KCTSB_NNS details_pthread
 
 
-#if (defined(NTL_THREADS) && defined(NTL_TLS_HACK)) 
+#if (defined(KCTSB_THREADS) && defined(KCTSB_TLS_HACK)) 
 
 // NOTE: All of this TLS code is replicated in CheckThreads.cpp.
 
@@ -720,67 +720,67 @@ push_node(Node *p)
 }
 
 
-#define NTL_TLS_LOCAL_INIT(type, var, init)  \
-   static NTL_CHEAP_THREAD_LOCAL NTL_DETAILS_PTHREAD::DerivedNode<type> *_ntl_hidden_variable_tls_local_ptr_ ## var = 0;  \
-   NTL_DETAILS_PTHREAD::DerivedNode<type> *_ntl_hidden_variable_tls_local_ptr1_ ## var = _ntl_hidden_variable_tls_local_ptr_ ## var;  \
-   if (!_ntl_hidden_variable_tls_local_ptr1_ ## var) {  \
-      NTL_DETAILS_PTHREAD::DerivedNode<type> *_ntl_hidden_variable_tls_local_ptr2_ ## var = NTL_NEW_OP NTL_DETAILS_PTHREAD::DerivedNode<type> init;  \
-      NTL_DETAILS_PTHREAD::push_node(_ntl_hidden_variable_tls_local_ptr2_ ## var); \
-      _ntl_hidden_variable_tls_local_ptr1_ ## var = _ntl_hidden_variable_tls_local_ptr2_ ## var;  \
-      _ntl_hidden_variable_tls_local_ptr_ ## var = _ntl_hidden_variable_tls_local_ptr1_ ## var;  \
+#define KCTSB_TLS_LOCAL_INIT(type, var, init)  \
+   static KCTSB_CHEAP_THREAD_LOCAL KCTSB_DETAILS_PTHREAD::DerivedNode<type> *_kctsb_hidden_variable_tls_local_ptr_ ## var = 0;  \
+   KCTSB_DETAILS_PTHREAD::DerivedNode<type> *_kctsb_hidden_variable_tls_local_ptr1_ ## var = _kctsb_hidden_variable_tls_local_ptr_ ## var;  \
+   if (!_kctsb_hidden_variable_tls_local_ptr1_ ## var) {  \
+      KCTSB_DETAILS_PTHREAD::DerivedNode<type> *_kctsb_hidden_variable_tls_local_ptr2_ ## var = KCTSB_NEW_OP KCTSB_DETAILS_PTHREAD::DerivedNode<type> init;  \
+      KCTSB_DETAILS_PTHREAD::push_node(_kctsb_hidden_variable_tls_local_ptr2_ ## var); \
+      _kctsb_hidden_variable_tls_local_ptr1_ ## var = _kctsb_hidden_variable_tls_local_ptr2_ ## var;  \
+      _kctsb_hidden_variable_tls_local_ptr_ ## var = _kctsb_hidden_variable_tls_local_ptr1_ ## var;  \
    }  \
-   type &var = _ntl_hidden_variable_tls_local_ptr1_ ## var->t  \
+   type &var = _kctsb_hidden_variable_tls_local_ptr1_ ## var->t  \
 
 
 
 #else
 
 
-// NOTE: this definition of NTL_TLS_LOCAL_INIT ensures that var names
+// NOTE: this definition of KCTSB_TLS_LOCAL_INIT ensures that var names
 // a local reference, regardless of the implementation
-#define NTL_TLS_LOCAL_INIT(type,var,init) \
-    static NTL_THREAD_LOCAL type _ntl_hidden_variable_tls_local ## var init; \
-    type &var = _ntl_hidden_variable_tls_local ## var
+#define KCTSB_TLS_LOCAL_INIT(type,var,init) \
+    static KCTSB_THREAD_LOCAL type _kctsb_hidden_variable_tls_local ## var init; \
+    type &var = _kctsb_hidden_variable_tls_local ## var
 
 
 
 
 #endif
 
-#define NTL_EMPTY_ARG
-#define NTL_TLS_LOCAL(type,var) NTL_TLS_LOCAL_INIT(type,var,NTL_EMPTY_ARG)
+#define KCTSB_EMPTY_ARG
+#define KCTSB_TLS_LOCAL(type,var) KCTSB_TLS_LOCAL_INIT(type,var,KCTSB_EMPTY_ARG)
 
-#define NTL_TLS_GLOBAL_DECL_INIT(type,var,init)  \
-   typedef type _ntl_hidden_typedef_tls_access_ ## var;  \
+#define KCTSB_TLS_GLOBAL_DECL_INIT(type,var,init)  \
+   typedef type _kctsb_hidden_typedef_tls_access_ ## var;  \
    static inline  \
-   type& _ntl_hidden_function_tls_access_ ## var() {  \
-      NTL_TLS_LOCAL_INIT(type,var,init);  \
+   type& _kctsb_hidden_function_tls_access_ ## var() {  \
+      KCTSB_TLS_LOCAL_INIT(type,var,init);  \
       return var;  \
    }  \
 
 
-#define NTL_TLS_GLOBAL_DECL(type,var) NTL_TLS_GLOBAL_DECL_INIT(type,var,NTL_EMPTY_ARG)
+#define KCTSB_TLS_GLOBAL_DECL(type,var) KCTSB_TLS_GLOBAL_DECL_INIT(type,var,KCTSB_EMPTY_ARG)
 
-#define NTL_TLS_GLOBAL_ACCESS(var) \
-_ntl_hidden_typedef_tls_access_ ## var & var = _ntl_hidden_function_tls_access_ ## var()
+#define KCTSB_TLS_GLOBAL_ACCESS(var) \
+_kctsb_hidden_typedef_tls_access_ ## var & var = _kctsb_hidden_function_tls_access_ ## var()
 
 
 // **************************************************************
 // Following is code for "long long" arithmetic that can
-// be implemented using NTL_ULL_TYPE or using assembly.
+// be implemented using KCTSB_ULL_TYPE or using assembly.
 // I have found that the assembly can be a bit faster.
-// For now, this code is only available if NTL_HAVE_LL_TYPE
+// For now, this code is only available if KCTSB_HAVE_LL_TYPE
 // is defined.  This could change.  In any case, this provides
 // a cleaner interface and might eventually allow for 
 // implementation on systems that don't provide a long long type.
 // **************************************************************
 
-#ifdef NTL_HAVE_LL_TYPE
+#ifdef KCTSB_HAVE_LL_TYPE
 
       
-#if (!defined(NTL_DISABLE_LL_ASM) \
+#if (!defined(KCTSB_DISABLE_LL_ASM) \
      && defined(__GNUC__) && (__GNUC__ >= 4) && !defined(__INTEL_COMPILER)  && !defined(__clang__) \
-     && defined (__x86_64__)  && NTL_BITS_PER_LONG == 64)
+     && defined (__x86_64__)  && KCTSB_BITS_PER_LONG == 64)
 
 // NOTE: clang's and icc's inline asm code gen is pretty bad, so
 // we don't even try. 
@@ -877,12 +877,12 @@ ll_add(ll_type& x, const ll_type& a)
 // of compilers and still maintain internal linkage --- it is not 
 // allowed to include static spec in the specialization (new compilers
 // will complain) and without it, some older compilers will generate
-// an external symbol.  In fact, NTL currently never calls 
+// an external symbol.  In fact, bignum currently never calls 
 // this with shamt=0, so it is all rather academic...but I want to
 // keep this general for future use.
 
 // NOTE: this implementation assumes that shamt is in the range 
-// 0..NTL_BITS_PER_LONG-1
+// 0..KCTSB_BITS_PER_LONG-1
 
 #if 1
 
@@ -895,7 +895,7 @@ ll_rshift_get_lo(ll_type x)
 {
    unsigned long res;
    if (shamt) 
-      res = (x.lo >> shamt) | (x.hi << (NTL_BITS_PER_LONG-shamt));
+      res = (x.lo >> shamt) | (x.hi << (KCTSB_BITS_PER_LONG-shamt));
    else
       res = x.lo;
       
@@ -946,7 +946,7 @@ ll_init(ll_type& x, unsigned long a)
 #else
 
 
-typedef NTL_ULL_TYPE ll_type;
+typedef KCTSB_ULL_TYPE ll_type;
 
 // NOTE: the following functions definitions should serve as
 // documentation, as well.
@@ -991,7 +991,7 @@ ll_add(ll_type& x, const ll_type& a)
 }
 
 
-// NOTE: shamt must be in the range 0..NTL_BITS_PER_LONG-1
+// NOTE: shamt must be in the range 0..KCTSB_BITS_PER_LONG-1
 template<long shamt>
 unsigned long
 ll_rshift_get_lo(const ll_type& x)
@@ -1008,7 +1008,7 @@ ll_get_lo(const ll_type& x)
 inline unsigned long 
 ll_get_hi(const ll_type& x)
 {
-   return ((unsigned long) (x >> NTL_BITS_PER_LONG));
+   return ((unsigned long) (x >> KCTSB_BITS_PER_LONG));
 }
 
 
@@ -1037,15 +1037,15 @@ ll_mul_hi(unsigned long a, unsigned long b)
 
 
 
-#ifdef NTL_SAFE_VECTORS
+#ifdef KCTSB_SAFE_VECTORS
 
 
-#define NTL_RELOC_TAG (relocatable)
+#define KCTSB_RELOC_TAG (relocatable)
 
-#define NTL_DECLARE_RELOCATABLE_WHEN(x) \
+#define KCTSB_DECLARE_RELOCATABLE_WHEN(x) \
 constexpr bool DeclareRelocatableType x
 
-#if (defined(NTL_HAVE_COPY_TRAITS1) || defined(NTL_WINPACK))
+#if (defined(KCTSB_HAVE_COPY_TRAITS1) || defined(KCTSB_WINPACK))
 
 
 // This strategy is used on compilers that fully support C++11 type traits.
@@ -1074,7 +1074,7 @@ constexpr bool Relocate_aux_has_any_copy(T*)
    return std::is_copy_constructible<T>::value;
 }
 
-#elif (defined(NTL_HAVE_COPY_TRAITS2))
+#elif (defined(KCTSB_HAVE_COPY_TRAITS2))
 
 // This strategy is needed on GCC before v5.0, as the required type
 // traits are not impplemented.  Note that on a class with it's copy
@@ -1126,7 +1126,7 @@ constexpr bool Relocate_aux_has_any_copy(T*)
 
 #else
 
-#error "lacking compiler support for NTL_SAFE_VECTORS"
+#error "lacking compiler support for KCTSB_SAFE_VECTORS"
 
 #endif
 
@@ -1145,9 +1145,9 @@ constexpr bool DeclareRelocatableType(T*)
 
 #else
 
-#define NTL_RELOC_TAG (true)
+#define KCTSB_RELOC_TAG (true)
 
-#define NTL_DECLARE_RELOCATABLE_WHEN(x) \
+#define KCTSB_DECLARE_RELOCATABLE_WHEN(x) \
 inline bool DeclareRelocatableType x
 
 
@@ -1160,23 +1160,23 @@ inline bool DeclareRelocatableType(T*)
 #endif
 
 
-#define NTL_DECLARE_RELOCATABLE(x) NTL_DECLARE_RELOCATABLE_WHEN(x) \
+#define KCTSB_DECLARE_RELOCATABLE(x) KCTSB_DECLARE_RELOCATABLE_WHEN(x) \
    { return true; }
 
 
 // Examples: 
-//   NTL_DECLARE_RELOCATABLE((int*))
-//   NTL_DECLARE_RELOCATABLE((Foo<int>*)) 
-//   template <class X, class Y> NTL_DECLARE_RELOCATABLE((Foo<X,Y>*))
+//   KCTSB_DECLARE_RELOCATABLE((int*))
+//   KCTSB_DECLARE_RELOCATABLE((Foo<int>*)) 
+//   template <class X, class Y> KCTSB_DECLARE_RELOCATABLE((Foo<X,Y>*))
 
 
-#if (NTL_CXX_STANDARD >= 2011)
+#if (KCTSB_CXX_STANDARD >= 2011)
 
-#define NTL_DEFAULT =default;
+#define KCTSB_DEFAULT =default;
 
 #else
 
-#define NTL_DEFAULT {}
+#define KCTSB_DEFAULT {}
 
 #endif
 
@@ -1202,7 +1202,7 @@ struct plain_c_string_streambuf : public std::streambuf
 
 
 template<class S, class T>
-typename _ntl_enable_if<_ntl_is_char_pointer<T>::value,void>::type
+typename _kctsb_enable_if<_kctsb_is_char_pointer<T>::value,void>::type
 conv(S& x, T y)
 {
    if (!y) InputError("bad conversion from char*");
@@ -1229,7 +1229,7 @@ T conv(const S& a)
 
 
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 
 #endif

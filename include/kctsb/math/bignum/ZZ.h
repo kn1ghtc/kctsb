@@ -1,7 +1,7 @@
+﻿
 
-
-#ifndef NTL_ZZ__H
-#define NTL_ZZ__H
+#ifndef KCTSB_ZZ__H
+#define KCTSB_ZZ__H
 
 
 
@@ -15,13 +15,13 @@
 **********************************************************/
 
 
-#include <NTL/lip.h>
-#include <NTL/tools.h>
-#include <NTL/vector.h>
-#include <NTL/SmartPtr.h>
-#include <NTL/sp_arith.h>
+#include <kctsb/math/bignum/lip.h>
+#include <kctsb/math/bignum/tools.h>
+#include <kctsb/math/bignum/vector.h>
+#include <kctsb/math/bignum/SmartPtr.h>
+#include <kctsb/math/bignum/sp_arith.h>
 
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 
 class ZZ_p; // forward declaration
@@ -36,10 +36,10 @@ typedef ZZX poly_type;
 
 class Deleter {
 public:
-   static void apply(_ntl_gbigint p) { _ntl_gfree(p); }
+   static void apply(_kctsb_gbigint p) { _kctsb_gfree(p); }
 };
 
-WrappedPtr<_ntl_gbigint_body, Deleter> rep;
+WrappedPtr<_kctsb_gbigint_body, Deleter> rep;
 // This is currently public for "emergency" situations
 // May be private in future versions.
 
@@ -57,31 +57,31 @@ ZZ(INIT_SIZE_TYPE, long k)
 
 
 {
-   _ntl_gsetlength(&rep, k); 
+   _kctsb_gsetlength(&rep, k); 
 }
 
 ZZ(const ZZ& a) 
 // initial value is a.
 
 {
-   _ntl_gcopy(a.rep, &rep);
+   _kctsb_gcopy(a.rep, &rep);
 }
 
 
-ZZ(INIT_VAL_TYPE, long a)  { _ntl_gintoz(a, &rep); }
-ZZ(INIT_VAL_TYPE, int a)  { _ntl_gintoz(a, &rep); }
+ZZ(INIT_VAL_TYPE, long a)  { _kctsb_gintoz(a, &rep); }
+ZZ(INIT_VAL_TYPE, int a)  { _kctsb_gintoz(a, &rep); }
 
-ZZ(INIT_VAL_TYPE, unsigned long a)  { _ntl_guintoz(a, &rep); }
-ZZ(INIT_VAL_TYPE, unsigned int a)  { _ntl_guintoz((unsigned long) a, &rep); }
+ZZ(INIT_VAL_TYPE, unsigned long a)  { _kctsb_guintoz(a, &rep); }
+ZZ(INIT_VAL_TYPE, unsigned int a)  { _kctsb_guintoz((unsigned long) a, &rep); }
 
 inline ZZ(INIT_VAL_TYPE, const char *);
 inline ZZ(INIT_VAL_TYPE, float);
 inline ZZ(INIT_VAL_TYPE, double);
 
 
-ZZ& operator=(const ZZ& a) { _ntl_gcopy(a.rep, &rep); return *this; }
+ZZ& operator=(const ZZ& a) { _kctsb_gcopy(a.rep, &rep); return *this; }
 
-ZZ& operator=(long a) { _ntl_gintoz(a, &rep); return *this; }
+ZZ& operator=(long a) { _kctsb_gintoz(a, &rep); return *this; }
 
 
 void kill()
@@ -92,25 +92,25 @@ void kill()
 
 
 void swap(ZZ& x)
-{ _ntl_gswap(&rep, &x.rep); }
+{ _kctsb_gswap(&rep, &x.rep); }
 
 bool pinned() const
 {
-   return _ntl_PINNED(rep);
+   return _kctsb_PINNED(rep);
 }
 
 
-#if (NTL_CXX_STANDARD >= 2011 && !defined(NTL_DISABLE_MOVE))
+#if (KCTSB_CXX_STANDARD >= 2011 && !defined(KCTSB_DISABLE_MOVE))
 
-ZZ(ZZ&& a) NTL_FAKE_NOEXCEPT
+ZZ(ZZ&& a) KCTSB_FAKE_NOEXCEPT
 {
    *this = std::move(a);
 }
 
-ZZ& operator=(ZZ&& a) NTL_FAKE_NOEXCEPT
+ZZ& operator=(ZZ&& a) KCTSB_FAKE_NOEXCEPT
 {
    if (pinned() || a.pinned()) {
-      _ntl_gcopy(a.rep, &rep);
+      _kctsb_gcopy(a.rep, &rep);
    }
    else {
       rep.move(a.rep);
@@ -124,14 +124,14 @@ ZZ& operator=(ZZ&& a) NTL_FAKE_NOEXCEPT
 
 
 void SetSize(long k)
-// pre-allocates space for k-digit numbers (base 2^NTL_ZZ_NBITS);  
+// pre-allocates space for k-digit numbers (base 2^KCTSB_ZZ_NBITS);  
 // does not change the value.
 
-{ _ntl_gsetlength(&rep, k); }
+{ _kctsb_gsetlength(&rep, k); }
 
 long size() const
-// returns the number of (NTL_ZZ_NBIT-bit) digits of |a|; the size of 0 is 0.
-   { return _ntl_gsize(rep); }
+// returns the number of (KCTSB_ZZ_NBIT-bit) digits of |a|; the size of 0 is 0.
+   { return _kctsb_gsize(rep); }
 
 long null() const
 // test of rep is null
@@ -139,18 +139,18 @@ long null() const
 
 long MaxAlloc() const
 // returns max allocation request, possibly rounded up a bit...
-   { return _ntl_gmaxalloc(rep); }
+   { return _kctsb_gmaxalloc(rep); }
 
 
 long SinglePrecision() const
-   { return _ntl_gsptest(rep); }
+   { return _kctsb_gsptest(rep); }
 
-// tests if less than NTL_SP_BOUND in absolute value
+// tests if less than KCTSB_SP_BOUND in absolute value
 
 long WideSinglePrecision() const
-   { return _ntl_gwsptest(rep); }
+   { return _kctsb_gwsptest(rep); }
 
-// tests if less than NTL_WSP_BOUND in absolute value
+// tests if less than KCTSB_WSP_BOUND in absolute value
 
 static const ZZ& zero();
 
@@ -167,15 +167,15 @@ ZZ(ZZ& x, INIT_TRANS_TYPE) { rep.swap(x.rep); }
 
 // mainly for internal consumption by ZZWatcher
 
-void KillBig() { if (MaxAlloc() > NTL_RELEASE_THRESH) kill(); }
+void KillBig() { if (MaxAlloc() > KCTSB_RELEASE_THRESH) kill(); }
 
 
-long validate() { return _ntl_gvalidate(rep); }
+long validate() { return _kctsb_gvalidate(rep); }
 
 };
 
 
-NTL_DECLARE_RELOCATABLE((ZZ*))
+KCTSB_DECLARE_RELOCATABLE((ZZ*))
 
 
 class ZZWatcher {
@@ -187,7 +187,7 @@ public:
    ~ZZWatcher() { watched.KillBig(); }
 };
 
-#define NTL_ZZRegister(x) NTL_TLS_LOCAL(ZZ, x); ZZWatcher _WATCHER__ ## x(x)
+#define KCTSB_ZZRegister(x) KCTSB_TLS_LOCAL(ZZ, x); ZZWatcher _WATCHER__ ## x(x)
 
 
 
@@ -199,12 +199,12 @@ const ZZ& ZZ_expo(long e);
 inline void clear(ZZ& x)
 // x = 0
 
-   { _ntl_gzero(&x.rep); }
+   { _kctsb_gzero(&x.rep); }
 
 inline void set(ZZ& x)
 // x = 1
 
-   { _ntl_gone(&x.rep); }
+   { _kctsb_gone(&x.rep); }
 
 
 inline void swap(ZZ& x, ZZ& y)
@@ -214,7 +214,7 @@ inline void swap(ZZ& x, ZZ& y)
 
 
 inline double log(const ZZ& a)
-   { return _ntl_glog(a.rep); }
+   { return _kctsb_glog(a.rep); }
 
 
 
@@ -230,62 +230,62 @@ inline double log(const ZZ& a)
 inline void conv(ZZ& x, const ZZ& a) { x = a; }
 inline ZZ to_ZZ(const ZZ& a) { return a; }
 
-inline void conv(ZZ& x, long a) { _ntl_gintoz(a, &x.rep); }
+inline void conv(ZZ& x, long a) { _kctsb_gintoz(a, &x.rep); }
 inline ZZ to_ZZ(long a) { return ZZ(INIT_VAL, a); }
 
-inline void conv(ZZ& x, int a) { _ntl_gintoz(long(a), &x.rep); }
+inline void conv(ZZ& x, int a) { _kctsb_gintoz(long(a), &x.rep); }
 inline ZZ to_ZZ(int a) { return ZZ(INIT_VAL, a); }
 
-inline void conv(ZZ& x, unsigned long a) { _ntl_guintoz(a, &x.rep); }
+inline void conv(ZZ& x, unsigned long a) { _kctsb_guintoz(a, &x.rep); }
 inline ZZ to_ZZ(unsigned long a) { return ZZ(INIT_VAL, a); }
 
-inline void conv(ZZ& x, unsigned int a) { _ntl_guintoz((unsigned long)(a), &x.rep); }
+inline void conv(ZZ& x, unsigned int a) { _kctsb_guintoz((unsigned long)(a), &x.rep); }
 inline ZZ to_ZZ(unsigned int a) { return ZZ(INIT_VAL, a); }
 
 inline ZZ::ZZ(INIT_VAL_TYPE, const char *s)  { conv(*this, s); }
 inline ZZ to_ZZ(const char *s) { return ZZ(INIT_VAL, s); }
 
-inline void conv(ZZ& x, double a) { _ntl_gdoubtoz(a, &x.rep); }
+inline void conv(ZZ& x, double a) { _kctsb_gdoubtoz(a, &x.rep); }
 inline ZZ::ZZ(INIT_VAL_TYPE, double a)  { conv(*this, a); }
 inline ZZ to_ZZ(double a) { return ZZ(INIT_VAL, a); }
 
-inline void conv(ZZ& x, float a) { _ntl_gdoubtoz(double(a), &x.rep); }
+inline void conv(ZZ& x, float a) { _kctsb_gdoubtoz(double(a), &x.rep); }
 inline ZZ::ZZ(INIT_VAL_TYPE, float a)  { conv(*this, a); }
 inline ZZ to_ZZ(float a) { return ZZ(INIT_VAL, a); }
 
-inline void conv(long& x, const ZZ& a) { x = _ntl_gtoint(a.rep); }
-inline long to_long(const ZZ& a)  { return _ntl_gtoint(a.rep); }
+inline void conv(long& x, const ZZ& a) { x = _kctsb_gtoint(a.rep); }
+inline long to_long(const ZZ& a)  { return _kctsb_gtoint(a.rep); }
 
 inline void conv(int& x, const ZZ& a) 
-   { unsigned int res = (unsigned int) _ntl_gtouint(a.rep); 
-     x = NTL_UINT_TO_INT(res); }
+   { unsigned int res = (unsigned int) _kctsb_gtouint(a.rep); 
+     x = KCTSB_UINT_TO_INT(res); }
 
 inline int to_int(const ZZ& a)  
-   { unsigned int res = (unsigned int) _ntl_gtouint(a.rep); 
-     return NTL_UINT_TO_INT(res); }
+   { unsigned int res = (unsigned int) _kctsb_gtouint(a.rep); 
+     return KCTSB_UINT_TO_INT(res); }
 
-inline void conv(unsigned long& x, const ZZ& a) { x = _ntl_gtouint(a.rep); }
-inline unsigned long to_ulong(const ZZ& a)  { return _ntl_gtouint(a.rep); }
+inline void conv(unsigned long& x, const ZZ& a) { x = _kctsb_gtouint(a.rep); }
+inline unsigned long to_ulong(const ZZ& a)  { return _kctsb_gtouint(a.rep); }
 
 inline void conv(unsigned int& x, const ZZ& a) 
-   { x = (unsigned int)(_ntl_gtouint(a.rep)); }
+   { x = (unsigned int)(_kctsb_gtouint(a.rep)); }
 inline unsigned int to_uint(const ZZ& a)  
-   { return (unsigned int)(_ntl_gtouint(a.rep)); }
+   { return (unsigned int)(_kctsb_gtouint(a.rep)); }
 
-inline void conv(double& x, const ZZ& a) { x = _ntl_gdoub(a.rep); }
-inline double to_double(const ZZ& a) { return _ntl_gdoub(a.rep); }
+inline void conv(double& x, const ZZ& a) { x = _kctsb_gdoub(a.rep); }
+inline double to_double(const ZZ& a) { return _kctsb_gdoub(a.rep); }
 
-inline void conv(float& x, const ZZ& a) { x = float(_ntl_gdoub(a.rep)); }
-inline float to_float(const ZZ& a) { return float(_ntl_gdoub(a.rep)); }
+inline void conv(float& x, const ZZ& a) { x = float(_kctsb_gdoub(a.rep)); }
+inline float to_float(const ZZ& a) { return float(_kctsb_gdoub(a.rep)); }
 
 inline void ZZFromBytes(ZZ& x, const unsigned char *p, long n)
-   { _ntl_gfrombytes(&x.rep, p, n); }
+   { _kctsb_gfrombytes(&x.rep, p, n); }
 
 inline ZZ ZZFromBytes(const unsigned char *p, long n)
-   { ZZ x; ZZFromBytes(x, p, n); NTL_OPT_RETURN(ZZ, x); }
+   { ZZ x; ZZFromBytes(x, p, n); KCTSB_OPT_RETURN(ZZ, x); }
 
 inline void BytesFromZZ(unsigned char *p, const ZZ& a, long n)
-   { _ntl_gbytesfromz(p, a.rep, n); }
+   { _kctsb_gbytesfromz(p, a.rep, n); }
 
 
 
@@ -296,53 +296,53 @@ inline void BytesFromZZ(unsigned char *p, const ZZ& a, long n)
 inline long sign(const ZZ& a)
 // returns the sign of a (-1, 0, or 1).
 
-   { return _ntl_gsign(a.rep); }
+   { return _kctsb_gsign(a.rep); }
 
 
 inline long compare(const ZZ& a, const ZZ& b)
 // returns the sign of a-b (-1, 0, or 1).
 
 {
-   return _ntl_gcompare(a.rep, b.rep);
+   return _kctsb_gcompare(a.rep, b.rep);
 }
 
 inline long IsZero(const ZZ& a)
 // zero test
 
-   { return _ntl_giszero(a.rep); }
+   { return _kctsb_giszero(a.rep); }
 
 
 inline long IsOne(const ZZ& a)
-   { return _ntl_gisone(a.rep); }
+   { return _kctsb_gisone(a.rep); }
 // test for 1
    
 
 /* the usual comparison operators */
 
 inline long operator==(const ZZ& a, const ZZ& b)
-  { return _ntl_gcompare(a.rep, b.rep) == 0; }
+  { return _kctsb_gcompare(a.rep, b.rep) == 0; }
 inline long operator!=(const ZZ& a, const ZZ& b)
-  { return _ntl_gcompare(a.rep, b.rep) != 0; }
+  { return _kctsb_gcompare(a.rep, b.rep) != 0; }
 inline long operator<(const ZZ& a, const ZZ& b)
-  { return _ntl_gcompare(a.rep, b.rep) < 0; }
+  { return _kctsb_gcompare(a.rep, b.rep) < 0; }
 inline long operator>(const ZZ& a, const ZZ& b)
-  { return _ntl_gcompare(a.rep, b.rep) > 0; }
+  { return _kctsb_gcompare(a.rep, b.rep) > 0; }
 inline long operator<=(const ZZ& a, const ZZ& b)
-  { return _ntl_gcompare(a.rep, b.rep) <= 0; }
+  { return _kctsb_gcompare(a.rep, b.rep) <= 0; }
 inline long operator>=(const ZZ& a, const ZZ& b)
-  { return _ntl_gcompare(a.rep, b.rep) >= 0; }
+  { return _kctsb_gcompare(a.rep, b.rep) >= 0; }
 
 /* single-precision versions of the above */
 
-inline long compare(const ZZ& a, long b) { return _ntl_gscompare(a.rep, b); }
-inline long compare(long a, const ZZ& b) { return -_ntl_gscompare(b.rep, a); }
+inline long compare(const ZZ& a, long b) { return _kctsb_gscompare(a.rep, b); }
+inline long compare(long a, const ZZ& b) { return -_kctsb_gscompare(b.rep, a); }
 
-inline long operator==(const ZZ& a, long b) { return _ntl_gscompare(a.rep, b) == 0; }
-inline long operator!=(const ZZ& a, long b) { return _ntl_gscompare(a.rep, b) != 0; }
-inline long operator<(const ZZ& a, long b) { return _ntl_gscompare(a.rep, b) < 0; }
-inline long operator>(const ZZ& a, long b) { return _ntl_gscompare(a.rep, b) > 0; }
-inline long operator<=(const ZZ& a, long b) { return _ntl_gscompare(a.rep, b) <= 0; }
-inline long operator>=(const ZZ& a, long b) { return _ntl_gscompare(a.rep, b) >= 0; }
+inline long operator==(const ZZ& a, long b) { return _kctsb_gscompare(a.rep, b) == 0; }
+inline long operator!=(const ZZ& a, long b) { return _kctsb_gscompare(a.rep, b) != 0; }
+inline long operator<(const ZZ& a, long b) { return _kctsb_gscompare(a.rep, b) < 0; }
+inline long operator>(const ZZ& a, long b) { return _kctsb_gscompare(a.rep, b) > 0; }
+inline long operator<=(const ZZ& a, long b) { return _kctsb_gscompare(a.rep, b) <= 0; }
+inline long operator>=(const ZZ& a, long b) { return _kctsb_gscompare(a.rep, b) >= 0; }
 
 
 inline long operator==(long a, const ZZ& b) { return b == a; }
@@ -362,38 +362,38 @@ inline long operator>=(long a, const ZZ& b) { return b <= a; }
 inline void add(ZZ& x, const ZZ& a, const ZZ& b)
 // x = a + b
 
-   { _ntl_gadd(a.rep, b.rep, &x.rep); }
+   { _kctsb_gadd(a.rep, b.rep, &x.rep); }
 
 inline void sub(ZZ& x, const ZZ& a, const ZZ& b)
 // x = a - b
 
-   { _ntl_gsub(a.rep, b.rep, &x.rep); }
+   { _kctsb_gsub(a.rep, b.rep, &x.rep); }
 
 inline void SubPos(ZZ& x, const ZZ& a, const ZZ& b)
 // x = a - b;  assumes a >= b >= 0.
 
-   { _ntl_gsubpos(a.rep, b.rep, &x.rep); }
+   { _kctsb_gsubpos(a.rep, b.rep, &x.rep); }
 
 inline void negate(ZZ& x, const ZZ& a)
 // x = -a
 
-   { _ntl_gcopy(a.rep, &x.rep); _ntl_gnegate(&x.rep); }
+   { _kctsb_gcopy(a.rep, &x.rep); _kctsb_gnegate(&x.rep); }
 
 inline void abs(ZZ& x, const ZZ& a)
 // x = |a|
-{ _ntl_gcopy(a.rep, &x.rep); _ntl_gabs(&x.rep); }
+{ _kctsb_gcopy(a.rep, &x.rep); _kctsb_gabs(&x.rep); }
 
 
 /* single-precision versions of the above */
 
 inline void add(ZZ& x, const ZZ& a, long b)
-   { _ntl_gsadd(a.rep, b, &x.rep); }
+   { _kctsb_gsadd(a.rep, b, &x.rep); }
 
 inline void add(ZZ& x, long a, const ZZ& b) { add(x, b, a); }
 
 
 inline void sub(ZZ& x, const ZZ& a, long b)
-   { _ntl_gssub(a.rep, b, &x.rep); }
+   { _kctsb_gssub(a.rep, b, &x.rep); }
 
 void sub(ZZ& x, long a, const ZZ& b);
 // defined in ZZ.cpp
@@ -401,28 +401,28 @@ void sub(ZZ& x, long a, const ZZ& b);
 /* operator/function notation */
 
 inline ZZ operator+(const ZZ& a, const ZZ& b) 
-  { ZZ x; add(x, a, b); NTL_OPT_RETURN(ZZ, x); } 
+  { ZZ x; add(x, a, b); KCTSB_OPT_RETURN(ZZ, x); } 
 
 inline ZZ operator+(const ZZ& a, long b) 
-  { ZZ x; add(x, a, b); NTL_OPT_RETURN(ZZ, x); } 
+  { ZZ x; add(x, a, b); KCTSB_OPT_RETURN(ZZ, x); } 
 
 inline ZZ operator+(long  a, const ZZ& b) 
-  { ZZ x; add(x, a, b); NTL_OPT_RETURN(ZZ, x); } 
+  { ZZ x; add(x, a, b); KCTSB_OPT_RETURN(ZZ, x); } 
 
 inline ZZ operator-(const ZZ& a, const ZZ& b) 
-  { ZZ x; sub(x, a, b); NTL_OPT_RETURN(ZZ, x); } 
+  { ZZ x; sub(x, a, b); KCTSB_OPT_RETURN(ZZ, x); } 
 
 inline ZZ operator-(const ZZ& a, long b) 
-  { ZZ x; sub(x, a, b); NTL_OPT_RETURN(ZZ, x); } 
+  { ZZ x; sub(x, a, b); KCTSB_OPT_RETURN(ZZ, x); } 
 
 inline ZZ operator-(long  a, const ZZ& b) 
-  { ZZ x; sub(x, a, b); NTL_OPT_RETURN(ZZ, x); } 
+  { ZZ x; sub(x, a, b); KCTSB_OPT_RETURN(ZZ, x); } 
 
 inline ZZ operator-(const ZZ& a)
-  { ZZ x; negate(x, a); NTL_OPT_RETURN(ZZ, x); }
+  { ZZ x; negate(x, a); KCTSB_OPT_RETURN(ZZ, x); }
 
 inline ZZ abs(const ZZ& a)
-  { ZZ x; abs(x, a); NTL_OPT_RETURN(ZZ, x); }
+  { ZZ x; abs(x, a); KCTSB_OPT_RETURN(ZZ, x); }
 
 /* op= notation */
 
@@ -460,22 +460,22 @@ inline void operator--(ZZ& x, int) { add(x, x, -1); }
 inline void mul(ZZ& x, const ZZ& a, const ZZ& b)
 // x = a * b
 
-   { _ntl_gmul(a.rep, b.rep, &x.rep); }
+   { _kctsb_gmul(a.rep, b.rep, &x.rep); }
 
 
 inline void sqr(ZZ& x, const ZZ& a)
 // x = a*a
 
-   { _ntl_gsq(a.rep, &x.rep); }
+   { _kctsb_gsq(a.rep, &x.rep); }
 
 inline ZZ sqr(const ZZ& a)
-   { ZZ x; sqr(x, a); NTL_OPT_RETURN(ZZ, x); }
+   { ZZ x; sqr(x, a); KCTSB_OPT_RETURN(ZZ, x); }
 
 
 /* single-precision versions */
 
 inline void mul(ZZ& x, const ZZ& a, long b)
-   { _ntl_gsmul(a.rep, b, &x.rep); }
+   { _kctsb_gsmul(a.rep, b, &x.rep); }
 
 inline void mul(ZZ& x, long a, const ZZ& b)
     { mul(x, b, a); }
@@ -483,13 +483,13 @@ inline void mul(ZZ& x, long a, const ZZ& b)
 /* operator notation */
 
 inline ZZ operator*(const ZZ& a, const ZZ& b)
-  { ZZ x; mul(x, a, b); NTL_OPT_RETURN(ZZ, x); }
+  { ZZ x; mul(x, a, b); KCTSB_OPT_RETURN(ZZ, x); }
 
 inline ZZ operator*(const ZZ& a, long b)
-  { ZZ x; mul(x, a, b); NTL_OPT_RETURN(ZZ, x); }
+  { ZZ x; mul(x, a, b); KCTSB_OPT_RETURN(ZZ, x); }
 
 inline ZZ operator*(long a, const ZZ& b)
-  { ZZ x; mul(x, a, b); NTL_OPT_RETURN(ZZ, x); }
+  { ZZ x; mul(x, a, b); KCTSB_OPT_RETURN(ZZ, x); }
 
 /* op= notation */
 
@@ -504,13 +504,13 @@ inline ZZ& operator*=(ZZ& x, long a)
 inline void
 MulAddTo(ZZ& x, const ZZ& a, long b)
 {
-   _ntl_gsaddmul(a.rep, b, &x.rep);
+   _kctsb_gsaddmul(a.rep, b, &x.rep);
 }
 
 inline void
 MulAddTo(ZZ& x, const ZZ& a, const ZZ& b)
 {
-   _ntl_gaddmul(a.rep, b.rep, &x.rep);
+   _kctsb_gaddmul(a.rep, b.rep, &x.rep);
 }
 
 // x -= a*b
@@ -518,13 +518,13 @@ MulAddTo(ZZ& x, const ZZ& a, const ZZ& b)
 inline void
 MulSubFrom(ZZ& x, const ZZ& a, long b)
 {
-   _ntl_gssubmul(a.rep, b, &x.rep);
+   _kctsb_gssubmul(a.rep, b, &x.rep);
 }
 
 inline void
 MulSubFrom(ZZ& x, const ZZ& a, const ZZ& b)
 {
-   _ntl_gsubmul(a.rep, b.rep, &x.rep);
+   _kctsb_gsubmul(a.rep, b.rep, &x.rep);
 }
 
 
@@ -539,7 +539,7 @@ class ZZ_RemStructAdapter;
 
 class ZZ_TmpVecAdapter {
 public:
-   UniquePtr<_ntl_tmp_vec> rep;
+   UniquePtr<_kctsb_tmp_vec> rep;
 
    inline void fetch(const ZZ_CRTStructAdapter&);
    inline void fetch(ZZ_CRTStructAdapter&);
@@ -549,11 +549,11 @@ public:
 
 class ZZ_CRTStructAdapter {
 public:
-   UniquePtr<_ntl_crt_struct> rep;
+   UniquePtr<_kctsb_crt_struct> rep;
 
    void init(long n, const ZZ& p, long (*primes)(long))
    {
-      rep.reset(_ntl_crt_struct_build(n, p.rep, primes));
+      rep.reset(_kctsb_crt_struct_build(n, p.rep, primes));
    }
 
    void insert(long i, const ZZ& m)
@@ -575,11 +575,11 @@ public:
 
 class ZZ_RemStructAdapter {
 public:
-   UniquePtr<_ntl_rem_struct> rep;
+   UniquePtr<_kctsb_rem_struct> rep;
 
    void init(long n, const ZZ& p, long (*primes)(long))
    {
-      rep.reset(_ntl_rem_struct_build(n, p.rep, primes));
+      rep.reset(_kctsb_rem_struct_build(n, p.rep, primes));
    }
 
    void eval(long *x, const ZZ& a, ZZ_TmpVecAdapter& tmp_vec) const
@@ -609,11 +609,11 @@ inline void ZZ_TmpVecAdapter::fetch(const ZZ_RemStructAdapter& rem_struct)
 // montgomery
 class ZZ_ReduceStructAdapter {
 public:
-   UniquePtr<_ntl_reduce_struct> rep;
+   UniquePtr<_kctsb_reduce_struct> rep;
 
    void init(const ZZ& p, const ZZ& excess)
    {
-      rep.reset(_ntl_reduce_struct_build(p.rep, excess.rep));
+      rep.reset(_kctsb_reduce_struct_build(p.rep, excess.rep));
    }
 
    void eval(ZZ& x, ZZ& a) const
@@ -640,19 +640,19 @@ inline void DivRem(ZZ& q, ZZ& r, const ZZ& a, const ZZ& b)
 // q = [a/b], r = a - b*q
 // |r| < |b|, and if r != 0, sign(r) = sign(b)
 
-   { _ntl_gdiv(a.rep, b.rep, &q.rep, &r.rep); }
+   { _kctsb_gdiv(a.rep, b.rep, &q.rep, &r.rep); }
 
 
 
 inline void div(ZZ& q, const ZZ& a, const ZZ& b)
 // q = a/b
 
-   { _ntl_gdiv(a.rep, b.rep, &q.rep, 0); }
+   { _kctsb_gdiv(a.rep, b.rep, &q.rep, 0); }
 
 inline void rem(ZZ& r, const ZZ& a, const ZZ& b)
 // r = a%b
 
-   { _ntl_gmod(a.rep, b.rep, &r.rep); }
+   { _kctsb_gmod(a.rep, b.rep, &r.rep); }
 
 
 inline void QuickRem(ZZ& r, const ZZ& b)
@@ -660,7 +660,7 @@ inline void QuickRem(ZZ& r, const ZZ& b)
 // assumes b > 0 and r >=0
 // division is performed in place and may cause r to be re-allocated.
 
-   { _ntl_gquickmod(&r.rep, b.rep); }
+   { _kctsb_gquickmod(&r.rep, b.rep); }
 
 long divide(ZZ& q, const ZZ& a, const ZZ& b);
 // if b | a, sets q = a/b and returns 1; otherwise returns 0.
@@ -672,16 +672,16 @@ long divide(const ZZ& a, const ZZ& b);
 /* non-standard single-precision versions */
 
 inline long DivRem(ZZ& q, const ZZ& a, long b)
-   { return _ntl_gsdiv(a.rep, b, &q.rep); } 
+   { return _kctsb_gsdiv(a.rep, b, &q.rep); } 
 
 inline long rem(const ZZ& a, long b)
-   { return _ntl_gsmod(a.rep, b); }
+   { return _kctsb_gsmod(a.rep, b); }
 
 
 /* single precision versions */
 
 inline void div(ZZ& q, const ZZ& a, long b)
-   { (void) _ntl_gsdiv(a.rep, b, &q.rep); }
+   { (void) _kctsb_gsdiv(a.rep, b, &q.rep); }
 
 
 long divide(ZZ& q, const ZZ& a, long b);
@@ -692,13 +692,13 @@ long divide(const ZZ& a, long b);
 
 
 inline ZZ operator/(const ZZ& a, const ZZ& b)
-   { ZZ x; div(x, a, b); NTL_OPT_RETURN(ZZ, x); }
+   { ZZ x; div(x, a, b); KCTSB_OPT_RETURN(ZZ, x); }
 
 inline ZZ operator/(const ZZ& a, long b)
-   { ZZ x; div(x, a, b); NTL_OPT_RETURN(ZZ, x); }
+   { ZZ x; div(x, a, b); KCTSB_OPT_RETURN(ZZ, x); }
 
 inline ZZ operator%(const ZZ& a, const ZZ& b)
-   { ZZ x; rem(x, a, b); NTL_OPT_RETURN(ZZ, x); }
+   { ZZ x; rem(x, a, b); KCTSB_OPT_RETURN(ZZ, x); }
 
 inline long operator%(const ZZ& a, long b)
    { return rem(a, b); }
@@ -722,28 +722,28 @@ inline ZZ& operator%=(ZZ& x, const ZZ& b)
 struct sp_ZZ_reduce_struct_policy {
 
    static
-   void deleter(_ntl_general_rem_one_struct *pinfo)
+   void deleter(_kctsb_general_rem_one_struct *pinfo)
    {
-      _ntl_general_rem_one_struct_delete(pinfo); 
+      _kctsb_general_rem_one_struct_delete(pinfo); 
    }
 
 };
 
 struct sp_ZZ_reduce_struct {
    long p;
-   UniquePtr<_ntl_general_rem_one_struct,sp_ZZ_reduce_struct_policy> pinfo;
+   UniquePtr<_kctsb_general_rem_one_struct,sp_ZZ_reduce_struct_policy> pinfo;
 
    sp_ZZ_reduce_struct() : p(0) { }
 
    void build(long _p)
    {
-      pinfo.reset(_ntl_general_rem_one_struct_build(_p));
+      pinfo.reset(_kctsb_general_rem_one_struct_build(_p));
       p = _p;
    }
 
    long rem(const ZZ& a) const
    {
-      return _ntl_general_rem_one_struct_apply(a.rep, p, pinfo.get());
+      return _kctsb_general_rem_one_struct_apply(a.rep, p, pinfo.get());
    }
 };
 
@@ -757,24 +757,24 @@ struct sp_ZZ_reduce_struct {
 inline
 void QuickAccumBegin(ZZ& x, long sz)
 {
-   _ntl_quick_accum_begin(&x.rep, sz);
+   _kctsb_quick_accum_begin(&x.rep, sz);
 }
 
 // x += y*b. 
-// Assumes y >= 0 and that 0 <= b < NTL_SP_BOUND.
+// Assumes y >= 0 and that 0 <= b < KCTSB_SP_BOUND.
 // Caller must assure that x does not exceed sz+2 limbs.
 // x remains unnormalized.
 inline
 void QuickAccumMulAdd(ZZ& x, const ZZ& y, long b)
 {
-   _ntl_quick_accum_muladd(x.rep, y.rep, b);
+   _kctsb_quick_accum_muladd(x.rep, y.rep, b);
 }
 
 // renormalizes x.
 inline
 void QuickAccumEnd(ZZ& x)
 {
-   _ntl_quick_accum_end(x.rep);
+   _kctsb_quick_accum_end(x.rep);
 }
 
 
@@ -788,21 +788,21 @@ void QuickAccumEnd(ZZ& x)
 inline void GCD(ZZ& d, const ZZ& a, const ZZ& b)
 // d = gcd(a, b)
 
-   { _ntl_ggcd(a.rep, b.rep, &d.rep); }
+   { _kctsb_ggcd(a.rep, b.rep, &d.rep); }
 
 inline ZZ GCD(const ZZ& a, const ZZ& b)
-   { ZZ x; GCD(x, a, b); NTL_OPT_RETURN(ZZ, x); }
+   { ZZ x; GCD(x, a, b); KCTSB_OPT_RETURN(ZZ, x); }
 
 inline void GCD_alt(ZZ& d, const ZZ& a, const ZZ& b)
 // d = gcd(a, b)
 
-   { _ntl_ggcd_alt(a.rep, b.rep, &d.rep); }
+   { _kctsb_ggcd_alt(a.rep, b.rep, &d.rep); }
 
 
 inline void XGCD(ZZ& d, ZZ& s, ZZ& t, const ZZ& a, const ZZ& b)
 //  d = gcd(a, b) = a*s + b*t;
 
-   { _ntl_gexteucl(a.rep, &s.rep, b.rep, &t.rep, &d.rep); }
+   { _kctsb_gexteucl(a.rep, &s.rep, b.rep, &t.rep, &d.rep); }
 
 // single-precision versions
 long GCD(long a, long b);
@@ -825,27 +825,27 @@ void XGCD(long& d, long& s, long& t, long a, long b);
 inline void LeftShift(ZZ& x, const ZZ& a, long k)
 // x = (a << k), k < 0 => RightShift
 
-   { _ntl_glshift(a.rep, k, &x.rep); }
+   { _kctsb_glshift(a.rep, k, &x.rep); }
 
 inline ZZ LeftShift(const ZZ& a, long k)
-   { ZZ x; LeftShift(x, a, k); NTL_OPT_RETURN(ZZ, x); }
+   { ZZ x; LeftShift(x, a, k); KCTSB_OPT_RETURN(ZZ, x); }
 
 
 inline void RightShift(ZZ& x, const ZZ& a, long k)
 // x = (a >> k), k < 0 => LeftShift
 
-   { _ntl_grshift(a.rep, k, &x.rep); }
+   { _kctsb_grshift(a.rep, k, &x.rep); }
 
 inline ZZ RightShift(const ZZ& a, long k)
-   { ZZ x; RightShift(x, a, k); NTL_OPT_RETURN(ZZ, x); }
+   { ZZ x; RightShift(x, a, k); KCTSB_OPT_RETURN(ZZ, x); }
 
-#ifndef NTL_TRANSITION
+#ifndef KCTSB_TRANSITION
 
 inline ZZ operator>>(const ZZ& a, long n)
-   { ZZ x; RightShift(x, a, n); NTL_OPT_RETURN(ZZ, x); }
+   { ZZ x; RightShift(x, a, n); KCTSB_OPT_RETURN(ZZ, x); }
 
 inline ZZ operator<<(const ZZ& a, long n)
-   { ZZ x; LeftShift(x, a, n); NTL_OPT_RETURN(ZZ, x); }
+   { ZZ x; LeftShift(x, a, n); KCTSB_OPT_RETURN(ZZ, x); }
 
 inline ZZ& operator<<=(ZZ& x, long n)
    { LeftShift(x, x, n); return x; }
@@ -860,38 +860,38 @@ inline long MakeOdd(ZZ& x)
 // removes factors of 2 from x, returns the number of 2's removed
 // returns 0 if x == 0
 
-   { return _ntl_gmakeodd(&x.rep); }
+   { return _kctsb_gmakeodd(&x.rep); }
 
 inline long NumTwos(const ZZ& x)
 // returns max e such that 2^e divides x if x != 0, and returns 0 if x == 0.
 
-   { return _ntl_gnumtwos(x.rep); }
+   { return _kctsb_gnumtwos(x.rep); }
 
 
 inline long IsOdd(const ZZ& a)
 // returns 1 if a is odd, otherwise 0
 
-   { return _ntl_godd(a.rep); }
+   { return _kctsb_godd(a.rep); }
 
 
 inline long NumBits(const ZZ& a)
 // returns the number of bits in |a|; NumBits(0) = 0
-   { return _ntl_g2log(a.rep); }
+   { return _kctsb_g2log(a.rep); }
 
 
 
 inline long bit(const ZZ& a, long k)
 // returns bit k of a, 0 being the low-order bit
 
-   { return _ntl_gbit(a.rep, k); }
+   { return _kctsb_gbit(a.rep, k); }
 
-#ifndef NTL_GMP_LIP
+#ifndef KCTSB_GMP_LIP
 
 // only defined for the "classic" long integer package, for backward
 // compatability.
 
 inline long digit(const ZZ& a, long k)
-   { return _ntl_gdigit(a.rep, k); }
+   { return _kctsb_gdigit(a.rep, k); }
 
 #endif
 
@@ -900,22 +900,22 @@ inline long digit(const ZZ& a, long k)
 inline void trunc(ZZ& x, const ZZ& a, long k)
 // puts k low order bits of |a| into x
 
-   { _ntl_glowbits(a.rep, k, &x.rep); }
+   { _kctsb_glowbits(a.rep, k, &x.rep); }
 
 inline ZZ trunc_ZZ(const ZZ& a, long k)
-   { ZZ x; trunc(x, a, k); NTL_OPT_RETURN(ZZ, x); }
+   { ZZ x; trunc(x, a, k); KCTSB_OPT_RETURN(ZZ, x); }
 
 inline long trunc_long(const ZZ& a, long k)
 // returns k low order bits of |a|
 
-   { return _ntl_gslowbits(a.rep, k); }
+   { return _kctsb_gslowbits(a.rep, k); }
 
 inline long SetBit(ZZ& x, long p)
 // returns original value of p-th bit of |a|, and replaces
 // p-th bit of a by 1 if it was zero;
 // error if p < 0 
 
-   { return _ntl_gsetbit(&x.rep, p); }
+   { return _kctsb_gsetbit(&x.rep, p); }
 
 inline long SwitchBit(ZZ& x, long p)
 // returns original value of p-th bit of |a|, and switches
@@ -923,22 +923,22 @@ inline long SwitchBit(ZZ& x, long p)
 // p starts counting at 0;
 //   error if p < 0
 
-   { return _ntl_gswitchbit(&x.rep, p); }
+   { return _kctsb_gswitchbit(&x.rep, p); }
 
 inline long weight(long a)
 // returns Hamming weight of |a|
 
-   { return _ntl_gweights(a); }
+   { return _kctsb_gweights(a); }
 
 inline long weight(const ZZ& a)
 // returns Hamming weight of |a|
 
-   { return _ntl_gweight(a.rep); }
+   { return _kctsb_gweight(a.rep); }
 
 inline void bit_and(ZZ& x, const ZZ& a, const ZZ& b)
 // x = |a| AND |b|
 
-   { _ntl_gand(a.rep, b.rep, &x.rep); }
+   { _kctsb_gand(a.rep, b.rep, &x.rep); }
 
 void bit_and(ZZ& x, const ZZ& a, long b);
 inline void bit_and(ZZ& x, long a, const ZZ& b)
@@ -948,7 +948,7 @@ inline void bit_and(ZZ& x, long a, const ZZ& b)
 inline void bit_or(ZZ& x, const ZZ& a, const ZZ& b)
 // x = |a| OR |b|
 
-   { _ntl_gor(a.rep, b.rep, &x.rep); }
+   { _kctsb_gor(a.rep, b.rep, &x.rep); }
 
 void bit_or(ZZ& x, const ZZ& a, long b);
 inline void bit_or(ZZ& x, long a, const ZZ& b)
@@ -957,7 +957,7 @@ inline void bit_or(ZZ& x, long a, const ZZ& b)
 inline void bit_xor(ZZ& x, const ZZ& a, const ZZ& b)
 // x = |a| XOR |b|
 
-   { _ntl_gxor(a.rep, b.rep, &x.rep); }
+   { _kctsb_gxor(a.rep, b.rep, &x.rep); }
 
 void bit_xor(ZZ& x, const ZZ& a, long b);
 inline void bit_xor(ZZ& x, long a, const ZZ& b)
@@ -965,31 +965,31 @@ inline void bit_xor(ZZ& x, long a, const ZZ& b)
 
 
 inline ZZ operator&(const ZZ& a, const ZZ& b)
-   { ZZ x; bit_and(x, a, b); NTL_OPT_RETURN(ZZ, x); }
+   { ZZ x; bit_and(x, a, b); KCTSB_OPT_RETURN(ZZ, x); }
 
 inline ZZ operator&(const ZZ& a, long b)
-   { ZZ x; bit_and(x, a, b); NTL_OPT_RETURN(ZZ, x); }
+   { ZZ x; bit_and(x, a, b); KCTSB_OPT_RETURN(ZZ, x); }
 
 inline ZZ operator&(long a, const ZZ& b)
-   { ZZ x; bit_and(x, a, b); NTL_OPT_RETURN(ZZ, x); }
+   { ZZ x; bit_and(x, a, b); KCTSB_OPT_RETURN(ZZ, x); }
 
 inline ZZ operator|(const ZZ& a, const ZZ& b)
-   { ZZ x; bit_or(x, a, b); NTL_OPT_RETURN(ZZ, x); }
+   { ZZ x; bit_or(x, a, b); KCTSB_OPT_RETURN(ZZ, x); }
 
 inline ZZ operator|(const ZZ& a, long b)
-   { ZZ x; bit_or(x, a, b); NTL_OPT_RETURN(ZZ, x); }
+   { ZZ x; bit_or(x, a, b); KCTSB_OPT_RETURN(ZZ, x); }
 
 inline ZZ operator|(long a, const ZZ& b)
-   { ZZ x; bit_or(x, a, b); NTL_OPT_RETURN(ZZ, x); }
+   { ZZ x; bit_or(x, a, b); KCTSB_OPT_RETURN(ZZ, x); }
 
 inline ZZ operator^(const ZZ& a, const ZZ& b)
-   { ZZ x; bit_xor(x, a, b); NTL_OPT_RETURN(ZZ, x); }
+   { ZZ x; bit_xor(x, a, b); KCTSB_OPT_RETURN(ZZ, x); }
 
 inline ZZ operator^(const ZZ& a, long b)
-   { ZZ x; bit_xor(x, a, b); NTL_OPT_RETURN(ZZ, x); }
+   { ZZ x; bit_xor(x, a, b); KCTSB_OPT_RETURN(ZZ, x); }
 
 inline ZZ operator^(long a, const ZZ& b)
-   { ZZ x; bit_xor(x, a, b); NTL_OPT_RETURN(ZZ, x); }
+   { ZZ x; bit_xor(x, a, b); KCTSB_OPT_RETURN(ZZ, x); }
 
 inline ZZ& operator&=(ZZ& x, const ZZ& b) 
    { bit_and(x, x, b); return x; }
@@ -1013,7 +1013,7 @@ inline ZZ& operator^=(ZZ& x, long b)
 
 inline
 long NumBits(long a)
-   { return _ntl_g2logs(a); }
+   { return _kctsb_g2logs(a); }
 
 long bit(long a, long k);
 
@@ -1038,19 +1038,19 @@ long NumBytes(long a)
 
 
 inline long ZZ_BlockConstructAlloc(ZZ& x, long d, long n)
-   { return _ntl_gblock_construct_alloc(&x.rep, d, n); }
+   { return _kctsb_gblock_construct_alloc(&x.rep, d, n); }
 
 inline void ZZ_BlockConstructSet(ZZ& x, ZZ& y, long i)
-   { _ntl_gblock_construct_set(x.rep, &y.rep, i); }
+   { _kctsb_gblock_construct_set(x.rep, &y.rep, i); }
 
 inline long ZZ_BlockDestroy(ZZ& x)
-   { return _ntl_gblock_destroy(x.rep);  }
+   { return _kctsb_gblock_destroy(x.rep);  }
 
 inline long ZZ_storage(long d)
-   { return _ntl_gblock_storage(d); }
+   { return _kctsb_gblock_storage(d); }
 
 inline long ZZ_RoundCorrection(const ZZ& a, long k, long residual)
-   { return _ntl_ground_correction(a.rep, k, residual); }
+   { return _kctsb_ground_correction(a.rep, k, residual); }
 
 
 /***********************************************************
@@ -1073,7 +1073,7 @@ void DeriveKey(unsigned char *key, long klen,
 
 // Low-level chacha stuff
 
-#define NTL_PRG_KEYLEN (32)
+#define KCTSB_PRG_KEYLEN (32)
 
 
 struct RandomStream_impl;
@@ -1174,10 +1174,10 @@ public:
 
 // this is the number of bits we can pass through the set_nonce
 // interface
-#if (NTL_BITS_PER_LONG > 64)
-#define NTL_BITS_PER_NONCE (64)
+#if (KCTSB_BITS_PER_LONG > 64)
+#define KCTSB_BITS_PER_NONCE (64)
 #else
-#define NTL_BITS_PER_NONCE NTL_BITS_PER_LONG
+#define KCTSB_BITS_PER_NONCE KCTSB_BITS_PER_LONG
 #endif
 
 
@@ -1186,7 +1186,7 @@ public:
 
 class old_RandomStream {
 private:
-   _ntl_uint32 state[16];
+   _kctsb_uint32 state[16];
    unsigned char buf[64];
    long pos;
 
@@ -1255,7 +1255,7 @@ void RandomBnd(ZZ& x, const ZZ& n);
 // x = "random number" in the range 0..n-1, or 0  if n <= 0
 
 inline ZZ RandomBnd(const ZZ& n)
-   { ZZ x; RandomBnd(x, n); NTL_OPT_RETURN(ZZ, x); }
+   { ZZ x; RandomBnd(x, n); KCTSB_OPT_RETURN(ZZ, x); }
 
 
 void RandomLen(ZZ& x, long NumBits);
@@ -1263,14 +1263,14 @@ void RandomLen(ZZ& x, long NumBits);
 
 
 inline ZZ RandomLen_ZZ(long NumBits)
-   { ZZ x; RandomLen(x, NumBits); NTL_OPT_RETURN(ZZ, x); }
+   { ZZ x; RandomLen(x, NumBits); KCTSB_OPT_RETURN(ZZ, x); }
 
 
 void RandomBits(ZZ& x, long NumBits);
 // x = "random number", 0 <= x < 2^NumBits 
 
 inline ZZ RandomBits_ZZ(long NumBits)
-   { ZZ x; RandomBits(x, NumBits); NTL_OPT_RETURN(ZZ, x); }
+   { ZZ x; RandomBits(x, NumBits); KCTSB_OPT_RETURN(ZZ, x); }
 
 
 // single-precision version of the above
@@ -1321,7 +1321,7 @@ struct RandomBndGenerator {
 
    long next()
    {
-      unsigned char buf[NTL_BITS_PER_LONG/8];
+      unsigned char buf[KCTSB_BITS_PER_LONG/8];
       long tmp;
 
       do {
@@ -1369,7 +1369,7 @@ long CRT(ZZ& a, ZZ& p, long A, long P);
 //   has changed, otherwise 0
 
 inline long CRTInRange(const ZZ& gg, const ZZ& aa)
-   { return _ntl_gcrtinrange(gg.rep, aa.rep); }
+   { return _kctsb_gcrtinrange(gg.rep, aa.rep); }
 
 // an auxilliary routine used by newer CRT routines to maintain
 // backward compatability.
@@ -1390,7 +1390,7 @@ inline
 long ReconstructRational(ZZ& a, ZZ& b, const ZZ& u, const ZZ& m, 
                          const ZZ& a_bound, const ZZ& b_bound)
 {
-   return _ntl_gxxratrecon(u.rep, m.rep, a_bound.rep, b_bound.rep, &a.rep, &b.rep);
+   return _kctsb_gxxratrecon(u.rep, m.rep, a_bound.rep, b_bound.rep, &a.rep, &b.rep);
 
 }
 
@@ -1406,7 +1406,7 @@ long ReconstructRational(ZZ& a, ZZ& b, const ZZ& u, const ZZ& m,
 
 void GenPrime(ZZ& n, long l, long err = 80);
 inline ZZ GenPrime_ZZ(long l, long err = 80) 
-{ ZZ x; GenPrime(x, l, err); NTL_OPT_RETURN(ZZ, x); }
+{ ZZ x; GenPrime(x, l, err); KCTSB_OPT_RETURN(ZZ, x); }
 
 long GenPrime_long(long l, long err = 80);
 // This generates a random prime n of length l so that the
@@ -1414,7 +1414,7 @@ long GenPrime_long(long l, long err = 80);
 
 void GenGermainPrime(ZZ& n, long l, long err = 80);
 inline ZZ GenGermainPrime_ZZ(long l, long err = 80) 
-{ ZZ x; GenGermainPrime(x, l, err); NTL_OPT_RETURN(ZZ, x); }
+{ ZZ x; GenGermainPrime(x, l, err); KCTSB_OPT_RETURN(ZZ, x); }
 
 long GenGermainPrime_long(long l, long err = 80);
 // This generates a random prime n of length l so that the
@@ -1433,13 +1433,13 @@ void RandomPrime(ZZ& n, long l, long NumTrials=10);
 // n =  random l-bit prime
 
 inline ZZ RandomPrime_ZZ(long l, long NumTrials=10)
-   { ZZ x; RandomPrime(x, l, NumTrials); NTL_OPT_RETURN(ZZ, x); }
+   { ZZ x; RandomPrime(x, l, NumTrials); KCTSB_OPT_RETURN(ZZ, x); }
 
 void NextPrime(ZZ& n, const ZZ& m, long NumTrials=10);
 // n = smallest prime >= m.
 
 inline ZZ NextPrime(const ZZ& m, long NumTrials=10)
-   { ZZ x; NextPrime(x, m, NumTrials); NTL_OPT_RETURN(ZZ, x); }
+   { ZZ x; NextPrime(x, m, NumTrials); KCTSB_OPT_RETURN(ZZ, x); }
 
 // single-precision versions
 
@@ -1458,23 +1458,23 @@ long NextPrime(long l, long NumTrials=10);
 *************************************************************/
 
 inline void power(ZZ& x, const ZZ& a, long e)
-   { _ntl_gexp(a.rep, e, &x.rep); }
+   { _kctsb_gexp(a.rep, e, &x.rep); }
 
 inline ZZ power(const ZZ& a, long e)
-   { ZZ x; power(x, a, e); NTL_OPT_RETURN(ZZ, x); }
+   { ZZ x; power(x, a, e); KCTSB_OPT_RETURN(ZZ, x); }
 
 inline void power(ZZ& x, long a, long e)
-   {  _ntl_gexps(a, e, &x.rep); }
+   {  _kctsb_gexps(a, e, &x.rep); }
 
 inline ZZ power_ZZ(long a, long e)
-   { ZZ x; power(x, a, e); NTL_OPT_RETURN(ZZ, x); }
+   { ZZ x; power(x, a, e); KCTSB_OPT_RETURN(ZZ, x); }
 
 long power_long(long a, long e); 
 
 void power2(ZZ& x, long e);
 
 inline ZZ power2_ZZ(long e)
-   { ZZ x; power2(x, e); NTL_OPT_RETURN(ZZ, x); }
+   { ZZ x; power2(x, e); KCTSB_OPT_RETURN(ZZ, x); }
 
 
 
@@ -1493,14 +1493,14 @@ inline void SqrRoot(ZZ& x, const ZZ& a)
 // x = [a^{1/2}], a >= 0
 
 {
-   _ntl_gsqrt(a.rep, &x.rep);
+   _kctsb_gsqrt(a.rep, &x.rep);
 }
 
 inline ZZ SqrRoot(const ZZ& a)
-   { ZZ x; SqrRoot(x, a); NTL_OPT_RETURN(ZZ, x); }
+   { ZZ x; SqrRoot(x, a); KCTSB_OPT_RETURN(ZZ, x); }
 
 
-inline long SqrRoot(long a) { return _ntl_gsqrts(a); }
+inline long SqrRoot(long a) { return _kctsb_gsqrts(a); }
 // single-precision version
 
 
@@ -1518,104 +1518,104 @@ inline long SqrRoot(long a) { return _ntl_gsqrts(a); }
 
 inline void AddMod(ZZ& x, const ZZ& a, const ZZ& b, const ZZ& n)
 // x = (a+b)%n
-   { _ntl_gaddmod(a.rep, b.rep, n.rep, &x.rep); }
+   { _kctsb_gaddmod(a.rep, b.rep, n.rep, &x.rep); }
    
 
 inline ZZ AddMod(const ZZ& a, const ZZ& b, const ZZ& n)
-   { ZZ x; AddMod(x, a, b, n); NTL_OPT_RETURN(ZZ, x); }
+   { ZZ x; AddMod(x, a, b, n); KCTSB_OPT_RETURN(ZZ, x); }
 
 inline void SubMod(ZZ& x, const ZZ& a, const ZZ& b, const ZZ& n)
 // x = (a-b)%n
 
-   { _ntl_gsubmod(a.rep, b.rep, n.rep, &x.rep); }
+   { _kctsb_gsubmod(a.rep, b.rep, n.rep, &x.rep); }
 
 inline ZZ SubMod(const ZZ& a, const ZZ& b, const ZZ& n)
-   { ZZ x; SubMod(x, a, b, n); NTL_OPT_RETURN(ZZ, x); }
+   { ZZ x; SubMod(x, a, b, n); KCTSB_OPT_RETURN(ZZ, x); }
 
 inline void NegateMod(ZZ& x, const ZZ& a, const ZZ& n)
 // x = -a % n
 
-   { _ntl_gsubmod(0, a.rep, n.rep, &x.rep); }
+   { _kctsb_gsubmod(0, a.rep, n.rep, &x.rep); }
 
 inline ZZ NegateMod(const ZZ& a, const ZZ& n)
-   { ZZ x; NegateMod(x, a, n); NTL_OPT_RETURN(ZZ, x); }
+   { ZZ x; NegateMod(x, a, n); KCTSB_OPT_RETURN(ZZ, x); }
 
 void AddMod(ZZ& x, const ZZ& a, long b, const ZZ& n);
 inline ZZ AddMod(const ZZ& a, long b, const ZZ& n)
-   { ZZ x; AddMod(x, a, b, n); NTL_OPT_RETURN(ZZ, x); }
+   { ZZ x; AddMod(x, a, b, n); KCTSB_OPT_RETURN(ZZ, x); }
 
 inline void AddMod(ZZ& x, long a, const ZZ& b, const ZZ& n)
    { AddMod(x, b, a, n); }
 inline ZZ AddMod(long a, const ZZ& b, const ZZ& n)
-   { ZZ x; AddMod(x, a, b, n); NTL_OPT_RETURN(ZZ, x); }
+   { ZZ x; AddMod(x, a, b, n); KCTSB_OPT_RETURN(ZZ, x); }
 
 void SubMod(ZZ& x, const ZZ& a, long b, const ZZ& n);
 inline ZZ SubMod(const ZZ& a, long b, const ZZ& n)
-   { ZZ x; SubMod(x, a, b, n); NTL_OPT_RETURN(ZZ, x); }
+   { ZZ x; SubMod(x, a, b, n); KCTSB_OPT_RETURN(ZZ, x); }
 
 void SubMod(ZZ& x, long a, const ZZ& b, const ZZ& n);
 inline ZZ SubMod(long a, const ZZ& b, const ZZ& n)
-   { ZZ x; SubMod(x, a, b, n); NTL_OPT_RETURN(ZZ, x); }
+   { ZZ x; SubMod(x, a, b, n); KCTSB_OPT_RETURN(ZZ, x); }
 
 inline void MulMod(ZZ& x, const ZZ& a, const ZZ& b, const ZZ& n)
 // x = (a*b)%n
 
-   { _ntl_gmulmod(a.rep, b.rep, n.rep, &x.rep); }
+   { _kctsb_gmulmod(a.rep, b.rep, n.rep, &x.rep); }
 
 inline ZZ MulMod(const ZZ& a, const ZZ& b, const ZZ& n)
-   { ZZ x; MulMod(x, a, b, n); NTL_OPT_RETURN(ZZ, x); }
+   { ZZ x; MulMod(x, a, b, n); KCTSB_OPT_RETURN(ZZ, x); }
 
 inline void MulMod(ZZ& x, const ZZ& a, long b, const ZZ& n)
 // x = (a*b)%n
 
-   { _ntl_gsmulmod(a.rep, b, n.rep, &x.rep); }
+   { _kctsb_gsmulmod(a.rep, b, n.rep, &x.rep); }
 
 inline ZZ MulMod(const ZZ& a, long b, const ZZ& n)
-   { ZZ x; MulMod(x, a, b, n); NTL_OPT_RETURN(ZZ, x); }
+   { ZZ x; MulMod(x, a, b, n); KCTSB_OPT_RETURN(ZZ, x); }
 
 inline void MulMod(ZZ& x, long a, const ZZ& b, const ZZ& n)
    { MulMod(x, b, a, n); }
 
 inline ZZ MulMod(long a, const ZZ& b, const ZZ& n)
-   { ZZ x; MulMod(x, a, b, n); NTL_OPT_RETURN(ZZ, x); }
+   { ZZ x; MulMod(x, a, b, n); KCTSB_OPT_RETURN(ZZ, x); }
 
 
 inline void SqrMod(ZZ& x, const ZZ& a, const ZZ& n)
 // x = a^2 % n
 
-   { _ntl_gsqmod(a.rep, n.rep, &x.rep); }
+   { _kctsb_gsqmod(a.rep, n.rep, &x.rep); }
 
 inline ZZ SqrMod(const ZZ& a, const ZZ& n)
-   {  ZZ x; SqrMod(x, a, n); NTL_OPT_RETURN(ZZ, x); }
+   {  ZZ x; SqrMod(x, a, n); KCTSB_OPT_RETURN(ZZ, x); }
 
 void InvMod(ZZ& x, const ZZ& a, const ZZ& n);
 // defined in ZZ.c in terms of InvModStatus
 
 inline ZZ InvMod(const ZZ& a, const ZZ& n)
-   {  ZZ x; InvMod(x, a, n); NTL_OPT_RETURN(ZZ, x); }
+   {  ZZ x; InvMod(x, a, n); KCTSB_OPT_RETURN(ZZ, x); }
 
 
 inline long InvModStatus(ZZ& x, const ZZ& a, const ZZ& n)
 // if gcd(a,n) = 1, then ReturnValue = 0, x = a^{-1} mod n
 // otherwise, ReturnValue = 1, x = gcd(a, n)
 
-  { return _ntl_ginv(a.rep, n.rep, &x.rep); }
+  { return _kctsb_ginv(a.rep, n.rep, &x.rep); }
 
 
 void PowerMod(ZZ& x, const ZZ& a, const ZZ& e, const ZZ& n);
 // defined in ZZ.c in terms of LowLevelPowerMod
 
 inline void LowLevelPowerMod(ZZ& x, const ZZ& a, const ZZ& e, const ZZ& n)
-   { _ntl_gpowermod(a.rep, e.rep, n.rep, &x.rep); }
+   { _kctsb_gpowermod(a.rep, e.rep, n.rep, &x.rep); }
 
 inline ZZ PowerMod(const ZZ& a, const ZZ& e, const ZZ& n)
-   { ZZ x; PowerMod(x, a, e, n); NTL_OPT_RETURN(ZZ, x); }
+   { ZZ x; PowerMod(x, a, e, n); KCTSB_OPT_RETURN(ZZ, x); }
 
 inline void PowerMod(ZZ& x, const ZZ& a, long e, const ZZ& n)
    { PowerMod(x, a, ZZ_expo(e), n); }
 
 inline ZZ PowerMod(const ZZ& a, long e, const ZZ& n)
-   { ZZ x; PowerMod(x, a, e, n); NTL_OPT_RETURN(ZZ, x); }
+   { ZZ x; PowerMod(x, a, e, n); KCTSB_OPT_RETURN(ZZ, x); }
 
 
 
@@ -1638,7 +1638,7 @@ void SqrRootMod(ZZ& x, const ZZ& a, const ZZ& n);
 //  assumes n is an odd prime, and that a is a square mod n
 
 inline ZZ SqrRootMod(const ZZ& a, const ZZ& n)
-   { ZZ x; SqrRootMod(x, a, n); NTL_OPT_RETURN(ZZ, x); }
+   { ZZ x; SqrRootMod(x, a, n); KCTSB_OPT_RETURN(ZZ, x); }
 
 
 
@@ -1653,12 +1653,12 @@ inline ZZ SqrRootMod(const ZZ& a, const ZZ& n)
 
 
 // primes are generated in sequence, starting at 2, 
-// and up until (2*NTL_PRIME_BND+1)^2, which is less than NTL_SP_BOUND.
+// and up until (2*KCTSB_PRIME_BND+1)^2, which is less than KCTSB_SP_BOUND.
 
-#if (NTL_SP_NBITS > 30)
-#define NTL_PRIME_BND ((1L << 14) - 1)
+#if (KCTSB_SP_NBITS > 30)
+#define KCTSB_PRIME_BND ((1L << 14) - 1)
 #else
-#define NTL_PRIME_BND ((1L << (NTL_SP_NBITS/2-1)) - 1)
+#define KCTSB_PRIME_BND ((1L << (KCTSB_SP_NBITS/2-1)) - 1)
 #endif
 
 
@@ -1703,8 +1703,8 @@ void shift(long);
 
 ***************************************************************/
 
-NTL_SNS istream& operator>>(NTL_SNS istream& s, ZZ& x);  
-NTL_SNS ostream& operator<<(NTL_SNS ostream& s, const ZZ& a); 
+KCTSB_SNS istream& operator>>(KCTSB_SNS istream& s, ZZ& x);  
+KCTSB_SNS ostream& operator<<(KCTSB_SNS ostream& s, const ZZ& a); 
 
 
 
@@ -1725,7 +1725,7 @@ long PowerMod(long a, long e, long n);
 
 // Error handling
 
-#ifdef NTL_EXCEPTIONS
+#ifdef KCTSB_EXCEPTIONS
 
 class InvModErrorObject : public ArithmeticErrorObject {
 private:
@@ -1743,7 +1743,7 @@ public:
 #else
 
 // We need this alt definition to keep pre-C++11 
-// compilers happy (NTL_EXCEPTIONS should only be used
+// compilers happy (KCTSB_EXCEPTIONS should only be used
 // with C++11 compilers).
 
 class InvModErrorObject : public ArithmeticErrorObject {
@@ -1760,7 +1760,7 @@ public:
 
 void InvModError(const char *s, const ZZ& a, const ZZ& n); 
 
-#ifdef NTL_PROVIDES_SS_LIP_IMPL
+#ifdef KCTSB_PROVIDES_SS_LIP_IMPL
 
 inline void 
 LeftRotate_lip_impl(ZZ& a, const ZZ& b, long e, const ZZ& p, long n, ZZ& scratch)
@@ -1768,7 +1768,7 @@ LeftRotate_lip_impl(ZZ& a, const ZZ& b, long e, const ZZ& p, long n, ZZ& scratch
 // a may not alias p
 // scratch may not alias a, b, or p
 {
-   _ntl_leftrotate(&a.rep, &b.rep, e, p.rep, n, &scratch.rep);
+   _kctsb_leftrotate(&a.rep, &b.rep, e, p.rep, n, &scratch.rep);
 }
 
 inline void
@@ -1776,7 +1776,7 @@ SS_AddMod_lip_impl(ZZ& x, const ZZ& a, const ZZ& b, const ZZ& p, long n)
 // x = a + b mod p, where p = 2^n+1,  a, b in [0, p).
 // x may not alias p.
 {
-   _ntl_ss_addmod(&x.rep, &a.rep, &b.rep, p.rep, n);
+   _kctsb_ss_addmod(&x.rep, &a.rep, &b.rep, p.rep, n);
 }
 
 inline void
@@ -1784,7 +1784,7 @@ SS_SubMod_lip_impl(ZZ& x, const ZZ& a, const ZZ& b, const ZZ& p, long n)
 // x = a + b mod p, where p = 2^n+1,  a, b in [0, p).
 // x may not alias b or p.
 {
-   _ntl_ss_submod(&x.rep, &a.rep, &b.rep, p.rep, n);
+   _kctsb_ss_submod(&x.rep, &a.rep, &b.rep, p.rep, n);
 }
 
 #endif
@@ -1793,7 +1793,7 @@ SS_SubMod_lip_impl(ZZ& x, const ZZ& a, const ZZ& b, const ZZ& p, long n)
 
 
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 
 #endif

@@ -1,11 +1,11 @@
+﻿
+#ifndef KCTSB_GF2__H
+#define KCTSB_GF2__H
 
-#ifndef NTL_GF2__H
-#define NTL_GF2__H
+#include <kctsb/math/bignum/ZZ.h>
+#include <kctsb/math/bignum/vector.h>
 
-#include <NTL/ZZ.h>
-#include <NTL/vector.h>
-
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 
 
@@ -89,7 +89,7 @@ void swap(GF2& x) { GF2 t; t = *this; *this = x; x = t; }
 };
 
 
-NTL_DECLARE_RELOCATABLE((GF2*))
+KCTSB_DECLARE_RELOCATABLE((GF2*))
 
 
 
@@ -478,9 +478,9 @@ inline void random(ref_GF2 x)
 
 // I/O...for input, we only provide the ref_GF2 variant 
 
-NTL_SNS ostream& operator<<(NTL_SNS ostream& s, GF2 a);
+KCTSB_SNS ostream& operator<<(KCTSB_SNS ostream& s, GF2 a);
 
-NTL_SNS istream& operator>>(NTL_SNS istream& s, ref_GF2 x);
+KCTSB_SNS istream& operator>>(KCTSB_SNS istream& s, ref_GF2 x);
 
 /* additional legacy conversions for v6 conversion regime */
 
@@ -503,7 +503,7 @@ inline void conv(ref_GF2 x, GF2 a) { x = a; }
 
 template<> class Vec<GF2>;
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 #endif
 

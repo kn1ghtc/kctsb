@@ -1,11 +1,11 @@
+﻿
+#ifndef KCTSB_g_lip__H
+#define KCTSB_g_lip__H
 
-#ifndef NTL_g_lip__H
-#define NTL_g_lip__H
+#include <kctsb/math/bignum/ctools.h>
 
-#include <NTL/ctools.h>
-
-#ifdef NTL_GMP_LIP
-#include <NTL/gmp_aux.h>
+#ifdef KCTSB_GMP_LIP
+#include <kctsb/math/bignum/gmp_aux.h>
 #endif
 
 
@@ -14,159 +14,159 @@
  * but better for debugging.
  */
 
-struct _ntl_gbigint_body {
+struct _kctsb_gbigint_body {
    long alloc_;
    long size_;
 };
 
-typedef _ntl_gbigint_body *_ntl_gbigint;
+typedef _kctsb_gbigint_body *_kctsb_gbigint;
 
 
 
 
-#ifdef NTL_GMP_LIP
+#ifdef KCTSB_GMP_LIP
 
 
-#if (defined(NTL_HAVE_LL_TYPE) && !defined(NTL_LEGACY_SP_MULMOD))
+#if (defined(KCTSB_HAVE_LL_TYPE) && !defined(KCTSB_LEGACY_SP_MULMOD))
 
-#define NTL_LONGLONG_SP_MULMOD
+#define KCTSB_LONGLONG_SP_MULMOD
 
-// on 64 bit machines, hold NTL_SP_NBITS to 60 bits,
+// on 64 bit machines, hold KCTSB_SP_NBITS to 60 bits,
 // as certain operations (in particular, TBL_REM in g_lip_impl.h)
 // are a bit faster
 
 
-#if (!defined(NTL_MAXIMIZE_SP_NBITS) && NTL_BITS_PER_LONG >= 64)
-#define NTL_SP_NBITS (NTL_BITS_PER_LONG-4)
+#if (!defined(KCTSB_MAXIMIZE_SP_NBITS) && KCTSB_BITS_PER_LONG >= 64)
+#define KCTSB_SP_NBITS (KCTSB_BITS_PER_LONG-4)
 #else
-#define NTL_SP_NBITS (NTL_BITS_PER_LONG-2)
+#define KCTSB_SP_NBITS (KCTSB_BITS_PER_LONG-2)
 #endif
 
 
-#if (defined(NTL_ENABLE_AVX_FFT) && (NTL_SP_NBITS > 50))
-#undef NTL_SP_NBITS
-#define NTL_SP_NBITS (50)
+#if (defined(KCTSB_ENABLE_AVX_FFT) && (KCTSB_SP_NBITS > 50))
+#undef KCTSB_SP_NBITS
+#define KCTSB_SP_NBITS (50)
 #endif
 
 
-#elif (NTL_LONGDOUBLE_OK && !defined(NTL_LEGACY_SP_MULMOD) && !defined(NTL_DISABLE_LONGDOUBLE) && !defined(NTL_ENABLE_AVX_FFT))
+#elif (KCTSB_LONGDOUBLE_OK && !defined(KCTSB_LEGACY_SP_MULMOD) && !defined(KCTSB_DISABLE_LONGDOUBLE) && !defined(KCTSB_ENABLE_AVX_FFT))
 
-#define NTL_LONGDOUBLE_SP_MULMOD
+#define KCTSB_LONGDOUBLE_SP_MULMOD
 
-#define NTL_SP_NBITS NTL_WNBITS_MAX
+#define KCTSB_SP_NBITS KCTSB_WNBITS_MAX
 
-// on 64 bit machines, hold NTL_SP_NBITS to 60 bits (see above)
+// on 64 bit machines, hold KCTSB_SP_NBITS to 60 bits (see above)
 
-#if (!defined(NTL_MAXIMIZE_SP_NBITS) && NTL_BITS_PER_LONG >= 64 && NTL_SP_NBITS > NTL_BITS_PER_LONG-4)
-#undef NTL_SP_NBITS
-#define NTL_SP_NBITS (NTL_BITS_PER_LONG-4)
+#if (!defined(KCTSB_MAXIMIZE_SP_NBITS) && KCTSB_BITS_PER_LONG >= 64 && KCTSB_SP_NBITS > KCTSB_BITS_PER_LONG-4)
+#undef KCTSB_SP_NBITS
+#define KCTSB_SP_NBITS (KCTSB_BITS_PER_LONG-4)
 #endif
 
 
 #else
 
 
-#define NTL_SP_NBITS NTL_NBITS_MAX
+#define KCTSB_SP_NBITS KCTSB_NBITS_MAX
 
 
 #endif
 
-#if (NTL_SP_NBITS > NTL_ZZ_NBITS)
-// if nails, we need to ensure NTL_SP_NBITS does not exceed
-// NTL_ZZ_NBITS
+#if (KCTSB_SP_NBITS > KCTSB_ZZ_NBITS)
+// if nails, we need to ensure KCTSB_SP_NBITS does not exceed
+// KCTSB_ZZ_NBITS
 
-#undef NTL_SP_NBITS
-#define NTL_SP_NBITS NTL_ZZ_NBITS
+#undef KCTSB_SP_NBITS
+#define KCTSB_SP_NBITS KCTSB_ZZ_NBITS
 #endif
 
-#define NTL_NSP_NBITS NTL_NBITS_MAX
-#if (NTL_NSP_NBITS > NTL_SP_NBITS)
-#undef NTL_NSP_NBITS
-#define NTL_NSP_NBITS NTL_SP_NBITS
+#define KCTSB_NSP_NBITS KCTSB_NBITS_MAX
+#if (KCTSB_NSP_NBITS > KCTSB_SP_NBITS)
+#undef KCTSB_NSP_NBITS
+#define KCTSB_NSP_NBITS KCTSB_SP_NBITS
 #endif
 
-#define NTL_WSP_NBITS (NTL_BITS_PER_LONG-2)
-#if (NTL_WSP_NBITS > NTL_ZZ_NBITS)
-// if nails, we need to ensure NTL_WSP_NBITS does not exceed
-// NTL_ZZ_NBITS
+#define KCTSB_WSP_NBITS (KCTSB_BITS_PER_LONG-2)
+#if (KCTSB_WSP_NBITS > KCTSB_ZZ_NBITS)
+// if nails, we need to ensure KCTSB_WSP_NBITS does not exceed
+// KCTSB_ZZ_NBITS
 
-#undef NTL_WSP_NBITS
-#define NTL_WSP_NBITS NTL_ZZ_NBITS
+#undef KCTSB_WSP_NBITS
+#define KCTSB_WSP_NBITS KCTSB_ZZ_NBITS
 #endif
 
-// NTL_SP_BOUND, NTL_NSP_BOUND, NTL_WSP_BOUND
-// With NTL_BITS_PER_LONG=32 on Windows, NTL_SP_NBITS<=30, so 1L is safe
-#define NTL_SP_BOUND (1L << NTL_SP_NBITS)
-#define NTL_NSP_BOUND (1L << NTL_NSP_NBITS)
-#define NTL_WSP_BOUND (1L << NTL_WSP_NBITS)
+// KCTSB_SP_BOUND, KCTSB_NSP_BOUND, KCTSB_WSP_BOUND
+// With KCTSB_BITS_PER_LONG=32 on Windows, KCTSB_SP_NBITS<=30, so 1L is safe
+#define KCTSB_SP_BOUND (1L << KCTSB_SP_NBITS)
+#define KCTSB_NSP_BOUND (1L << KCTSB_NSP_NBITS)
+#define KCTSB_WSP_BOUND (1L << KCTSB_WSP_NBITS)
 
 /* define the following so an error is raised */
 
-#define NTL_RADIX ......
-#define NTL_NBITSH ......
-#define NTL_RADIXM ......
-#define NTL_RADIXROOT ......
-#define NTL_RADIXROOTM ......
-#define NTL_FRADIX_INV ......
+#define KCTSB_RADIX ......
+#define KCTSB_NBITSH ......
+#define KCTSB_RADIXM ......
+#define KCTSB_RADIXROOT ......
+#define KCTSB_RADIXROOTM ......
+#define KCTSB_FRADIX_INV ......
 
 
 
 
 #else
 
-#define NTL_NBITS NTL_NBITS_MAX
+#define KCTSB_NBITS KCTSB_NBITS_MAX
 
 
-#define NTL_RADIX           (1L<<NTL_NBITS)
-#define NTL_NBITSH          (NTL_NBITS>>1)
-#define NTL_RADIXM          (NTL_RADIX-1)
-#define NTL_RADIXROOT       (1L<<NTL_NBITSH)
-#define NTL_RADIXROOTM      (NTL_RADIXROOT-1)
+#define KCTSB_RADIX           (1L<<KCTSB_NBITS)
+#define KCTSB_NBITSH          (KCTSB_NBITS>>1)
+#define KCTSB_RADIXM          (KCTSB_RADIX-1)
+#define KCTSB_RADIXROOT       (1L<<KCTSB_NBITSH)
+#define KCTSB_RADIXROOTM      (KCTSB_RADIXROOT-1)
 
-#define NTL_FRADIX ((double) NTL_RADIX)
-#define NTL_FRADIX_INV  (((double) 1.0)/((double) NTL_RADIX))
+#define KCTSB_FRADIX ((double) KCTSB_RADIX)
+#define KCTSB_FRADIX_INV  (((double) 1.0)/((double) KCTSB_RADIX))
 
 
-#define NTL_BITS_PER_LIMB_T NTL_BITS_PER_LONG
-#define NTL_ZZ_NBITS NTL_NBITS
-#define NTL_ZZ_FRADIX ((double) (1L << NTL_NBITS))
-#define NTL_ZZ_WIDE_FRADIX ((double) (1L << NTL_NBITS))
+#define KCTSB_BITS_PER_LIMB_T KCTSB_BITS_PER_LONG
+#define KCTSB_ZZ_NBITS KCTSB_NBITS
+#define KCTSB_ZZ_FRADIX ((double) (1L << KCTSB_NBITS))
+#define KCTSB_ZZ_WIDE_FRADIX ((double) (1L << KCTSB_NBITS))
 
-#define NTL_SP_NBITS NTL_NBITS
-#define NTL_SP_BOUND (1L << NTL_SP_NBITS)
+#define KCTSB_SP_NBITS KCTSB_NBITS
+#define KCTSB_SP_BOUND (1L << KCTSB_SP_NBITS)
 
-#define NTL_NSP_NBITS NTL_NBITS
-#define NTL_NSP_BOUND (1L << NTL_NSP_NBITS)
+#define KCTSB_NSP_NBITS KCTSB_NBITS
+#define KCTSB_NSP_BOUND (1L << KCTSB_NSP_NBITS)
 
-#define NTL_WSP_NBITS NTL_ZZ_NBITS
-#define NTL_WSP_BOUND (1L << NTL_WSP_NBITS)
+#define KCTSB_WSP_NBITS KCTSB_ZZ_NBITS
+#define KCTSB_WSP_BOUND (1L << KCTSB_WSP_NBITS)
 
 
 
 // Legacy function
-long _ntl_gdigit(_ntl_gbigint a, long i);
+long _kctsb_gdigit(_kctsb_gbigint a, long i);
 
 #endif
 
 
-// Some sanity checks on NTL_SP_NBITS...
+// Some sanity checks on KCTSB_SP_NBITS...
 
-// First check that NTL_SP_NBITS >= 30, as the documentation
+// First check that KCTSB_SP_NBITS >= 30, as the documentation
 // guarantees this.  This should only be a problem if GMP
 // uses some really funny nail bits.
 
-#if (NTL_SP_NBITS < 30)
-#error "NTL_SP_NBITS too small"
+#if (KCTSB_SP_NBITS < 30)
+#error "KCTSB_SP_NBITS too small"
 #endif
 
-// Second, check that NTL_BITS_PER_LONG-NTL_SP_NBITS == 2 or 
-// NTL_BITS_PER_LONG-NTL_SP_NBITS >= 4.
+// Second, check that KCTSB_BITS_PER_LONG-KCTSB_SP_NBITS == 2 or 
+// KCTSB_BITS_PER_LONG-KCTSB_SP_NBITS >= 4.
 // Some code in sp_arith.h seems to rely on this assumption.
 // Again, this should only be a problem if GMP
 // uses some really funny nail bits.
 
-#if (NTL_BITS_PER_LONG-NTL_SP_NBITS != 2 && NTL_BITS_PER_LONG-NTL_SP_NBITS < 4)
-#error "NTL_SP_NBITS is invalid"
+#if (KCTSB_BITS_PER_LONG-KCTSB_SP_NBITS != 2 && KCTSB_BITS_PER_LONG-KCTSB_SP_NBITS < 4)
+#error "KCTSB_SP_NBITS is invalid"
 #endif
 
 
@@ -176,19 +176,19 @@ long _ntl_gdigit(_ntl_gbigint a, long i);
 
 // DIRT: These are copied from lip.cpp file
 
-inline long& _ntl_ALLOC(_ntl_gbigint p)
+inline long& _kctsb_ALLOC(_kctsb_gbigint p)
    { return p->alloc_; }
 
-inline long& _ntl_SIZE(_ntl_gbigint p)
+inline long& _kctsb_SIZE(_kctsb_gbigint p)
    { return p->size_; }
 
-inline long _ntl_ZEROP(_ntl_gbigint p)
+inline long _kctsb_ZEROP(_kctsb_gbigint p)
 {
-   return !p || !_ntl_SIZE(p);
+   return !p || !_kctsb_SIZE(p);
 }
 
-inline long _ntl_PINNED(_ntl_gbigint p)
-  { return p && (_ntl_ALLOC(p) & 1); }
+inline long _kctsb_PINNED(_kctsb_gbigint p)
+  { return p && (_kctsb_ALLOC(p) & 1); }
 
 
 /***********************************************************************
@@ -199,62 +199,62 @@ inline long _ntl_PINNED(_ntl_gbigint p)
     
 
 
-    void _ntl_gsadd(_ntl_gbigint a, long d, _ntl_gbigint *b);
+    void _kctsb_gsadd(_kctsb_gbigint a, long d, _kctsb_gbigint *b);
        /* *b = a + d */
 
-    void _ntl_gssub(_ntl_gbigint a, long d, _ntl_gbigint *b);
+    void _kctsb_gssub(_kctsb_gbigint a, long d, _kctsb_gbigint *b);
        /* *b = a - d */
 
-    void _ntl_gadd(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *c);
+    void _kctsb_gadd(_kctsb_gbigint a, _kctsb_gbigint b, _kctsb_gbigint *c);
        /*  *c = a + b */
 
-    void _ntl_gsub(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *c);
+    void _kctsb_gsub(_kctsb_gbigint a, _kctsb_gbigint b, _kctsb_gbigint *c);
        /* *c = a - b */
 
-    void _ntl_gsubpos(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *c);
+    void _kctsb_gsubpos(_kctsb_gbigint a, _kctsb_gbigint b, _kctsb_gbigint *c);
        /* *c = a - b; assumes a >= b >= 0 */
 
-    void _ntl_gsmul(_ntl_gbigint a, long d, _ntl_gbigint *b);
+    void _kctsb_gsmul(_kctsb_gbigint a, long d, _kctsb_gbigint *b);
        /* *b = d * a */
 
-    void _ntl_gmul(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *c);
+    void _kctsb_gmul(_kctsb_gbigint a, _kctsb_gbigint b, _kctsb_gbigint *c);
        /* *c = a * b */
 
-    void _ntl_gsq(_ntl_gbigint a, _ntl_gbigint *c);
+    void _kctsb_gsq(_kctsb_gbigint a, _kctsb_gbigint *c);
        /* *c = a * a */
 
-    long _ntl_gsdiv(_ntl_gbigint a, long b, _ntl_gbigint *q);
+    long _kctsb_gsdiv(_kctsb_gbigint a, long b, _kctsb_gbigint *q);
        /* (*q) = floor(a/b) and a - floor(a/b)*(*q) is returned;
           error is raised if b == 0;
           if b does not divide a, then sign(*q) == sign(b) */
 
-    void _ntl_gdiv(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *q, _ntl_gbigint *r);
+    void _kctsb_gdiv(_kctsb_gbigint a, _kctsb_gbigint b, _kctsb_gbigint *q, _kctsb_gbigint *r);
        /* (*q) = floor(a/b) and (*r) = a - floor(a/b)*(*q);
           error is raised if b == 0;
           if b does not divide a, then sign(*q) == sign(b) */
 
-    void _ntl_gmod(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *r);
-       /* same as _ntl_gdiv, but only remainder is computed */
+    void _kctsb_gmod(_kctsb_gbigint a, _kctsb_gbigint b, _kctsb_gbigint *r);
+       /* same as _kctsb_gdiv, but only remainder is computed */
 
-    long _ntl_gsmod(_ntl_gbigint a, long d);
-       /* same as _ntl_gsdiv, but only remainder is computed */
+    long _kctsb_gsmod(_kctsb_gbigint a, long d);
+       /* same as _kctsb_gsdiv, but only remainder is computed */
 
-    void _ntl_gquickmod(_ntl_gbigint *r, _ntl_gbigint b);
+    void _kctsb_gquickmod(_kctsb_gbigint *r, _kctsb_gbigint b);
        /* *r = *r % b; 
 	  The division is performed in place (but may sometimes
 	  assumes b > 0 and *r >= 0;
           cause *r to grow by one digit) */
 
-    void _ntl_gsaddmul(_ntl_gbigint x, long y,  _ntl_gbigint *ww);
+    void _kctsb_gsaddmul(_kctsb_gbigint x, long y,  _kctsb_gbigint *ww);
       /* *ww += x*y */
 
-    void _ntl_gaddmul(_ntl_gbigint x, _ntl_gbigint y,  _ntl_gbigint *ww);
+    void _kctsb_gaddmul(_kctsb_gbigint x, _kctsb_gbigint y,  _kctsb_gbigint *ww);
       /* *ww += x*y */
 
-    void _ntl_gssubmul(_ntl_gbigint x, long y,  _ntl_gbigint *ww);
+    void _kctsb_gssubmul(_kctsb_gbigint x, long y,  _kctsb_gbigint *ww);
       /* *ww -= x*y */
 
-    void _ntl_gsubmul(_ntl_gbigint x, _ntl_gbigint y,  _ntl_gbigint *ww);
+    void _kctsb_gsubmul(_kctsb_gbigint x, _kctsb_gbigint y,  _kctsb_gbigint *ww);
       /* *ww -= x*y */
 
 
@@ -268,15 +268,15 @@ inline long _ntl_PINNED(_ntl_gbigint p)
 *********************************************************************/
 
 
-    void _ntl_glshift(_ntl_gbigint n, long k, _ntl_gbigint *a);
+    void _kctsb_glshift(_kctsb_gbigint n, long k, _kctsb_gbigint *a);
        /* *a = sign(n) * (|n| << k);
           shift is in reverse direction for negative k */
 
-    void _ntl_grshift(_ntl_gbigint n, long k, _ntl_gbigint *a);
+    void _kctsb_grshift(_kctsb_gbigint n, long k, _kctsb_gbigint *a);
        /* *a = sign(n) * (|n| >> k);
           shift is in reverse direction for negative k */
     
-    long _ntl_gmakeodd(_ntl_gbigint *n);
+    long _kctsb_gmakeodd(_kctsb_gbigint *n);
        /*
           if (n != 0)
               *n = m;
@@ -285,47 +285,47 @@ inline long _ntl_PINNED(_ntl_gbigint p)
               return (0); 
         */
 
-    long _ntl_gnumtwos(_ntl_gbigint n);
+    long _kctsb_gnumtwos(_kctsb_gbigint n);
         /* return largest e such that 2^e divides n, or zero if n is zero */
 
-    long _ntl_godd(_ntl_gbigint a);
+    long _kctsb_godd(_kctsb_gbigint a);
        /* returns 1 if n is odd and 0 if it is even */
 
-    long _ntl_gbit(_ntl_gbigint a, long p);
+    long _kctsb_gbit(_kctsb_gbigint a, long p);
        /* returns p-th bit of a, where the low order bit is indexed by 0;
           p out of range returns 0 */
 
-    long _ntl_gsetbit(_ntl_gbigint *a, long p);
+    long _kctsb_gsetbit(_kctsb_gbigint *a, long p);
        /* returns original value of p-th bit of |a|, and replaces
           p-th bit of a by 1 if it was zero;
           error if p < 0 */
 
-    long _ntl_gswitchbit(_ntl_gbigint *a, long p);
+    long _kctsb_gswitchbit(_kctsb_gbigint *a, long p);
        /* returns original value of p-th bit of |a|, and switches
           the value of p-th bit of a;
           p starts counting at 0;
           error if p < 0 */
 
 
-     void _ntl_glowbits(_ntl_gbigint a, long k, _ntl_gbigint *b);
+     void _kctsb_glowbits(_kctsb_gbigint a, long k, _kctsb_gbigint *b);
         /* places k low order bits of |a| in b */ 
 
-     long _ntl_gslowbits(_ntl_gbigint a, long k);
+     long _kctsb_gslowbits(_kctsb_gbigint a, long k);
         /* returns k low order bits of |a| */
 
-    long _ntl_gweights(long a);
+    long _kctsb_gweights(long a);
         /* returns Hamming weight of |a| */
 
-    long _ntl_gweight(_ntl_gbigint a);
+    long _kctsb_gweight(_kctsb_gbigint a);
         /* returns Hamming weight of |a| */
 
-    void _ntl_gand(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *c);
+    void _kctsb_gand(_kctsb_gbigint a, _kctsb_gbigint b, _kctsb_gbigint *c);
         /* c gets bit pattern `bits of |a|` and `bits of |b|` */
 
-    void _ntl_gor(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *c);
+    void _kctsb_gor(_kctsb_gbigint a, _kctsb_gbigint b, _kctsb_gbigint *c);
         /* c gets bit pattern `bits of |a|` inclusive or `bits of |b|` */
 
-    void _ntl_gxor(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *c);
+    void _kctsb_gxor(_kctsb_gbigint a, _kctsb_gbigint b, _kctsb_gbigint *c);
         /* c gets bit pattern `bits of |a|` exclusive or `bits of |b|` */
 
 
@@ -337,7 +337,7 @@ inline long _ntl_PINNED(_ntl_gbigint p)
 
 *************************************************************************/
 
-    long _ntl_gcompare(_ntl_gbigint a, _ntl_gbigint b);
+    long _kctsb_gcompare(_kctsb_gbigint a, _kctsb_gbigint b);
        /*
           if (a > b)
               return (1);
@@ -347,25 +347,25 @@ inline long _ntl_PINNED(_ntl_gbigint p)
               return (-1);
          */
 
-    long _ntl_gscompare(_ntl_gbigint a, long b);
+    long _kctsb_gscompare(_kctsb_gbigint a, long b);
        /* single-precision version of the above */
 
     inline
-    long _ntl_giszero (_ntl_gbigint a)
+    long _kctsb_giszero (_kctsb_gbigint a)
     {
-      return _ntl_ZEROP(a);
+      return _kctsb_ZEROP(a);
     }
        /* test for 0 */
 
 
     inline
-    long _ntl_gsign(_ntl_gbigint a)
+    long _kctsb_gsign(_kctsb_gbigint a)
     {
        long sa;
 
        if (!a) return 0;
 
-       sa = _ntl_SIZE(a);
+       sa = _kctsb_SIZE(a);
        if (sa > 0) return 1;
        if (sa == 0) return 0;
        return -1;
@@ -379,27 +379,27 @@ inline long _ntl_PINNED(_ntl_gbigint p)
               return (-1);
         */
 
-    void _ntl_gabs(_ntl_gbigint *a);
+    void _kctsb_gabs(_kctsb_gbigint *a);
        /* *a = |a| */
 
-    void _ntl_gnegate(_ntl_gbigint *a);
+    void _kctsb_gnegate(_kctsb_gbigint *a);
        /* *a = -a */
 
-    void _ntl_gcopy(_ntl_gbigint a, _ntl_gbigint *b);
+    void _kctsb_gcopy(_kctsb_gbigint a, _kctsb_gbigint *b);
        /* *b = a;  */
 
-    void _ntl_gswap(_ntl_gbigint *a, _ntl_gbigint *b);
+    void _kctsb_gswap(_kctsb_gbigint *a, _kctsb_gbigint *b);
        /* swap a and b (by swaping pointers) */
 
-    long _ntl_g2log(_ntl_gbigint a);
+    long _kctsb_g2log(_kctsb_gbigint a);
        /* number of bits in |a|; returns 0 if a = 0 */
 
     inline
-    long _ntl_g2logs(long a)
+    long _kctsb_g2logs(long a)
         /* single-precision version of the above */
     {
        unsigned long aa = a >= 0 ? a : - ((unsigned long) a);
-       return _ntl_count_bits(aa);
+       return _kctsb_count_bits(aa);
     }
 
 
@@ -409,34 +409,34 @@ inline long _ntl_PINNED(_ntl_gbigint p)
 
 *********************************************************************/
         
-    void _ntl_gzero(_ntl_gbigint *a);
+    void _kctsb_gzero(_kctsb_gbigint *a);
        /* *a = 0;  */
 
-    void _ntl_gone(_ntl_gbigint *a);
+    void _kctsb_gone(_kctsb_gbigint *a);
        /* *a = 1 */
 
-    void _ntl_gintoz(long d, _ntl_gbigint *a);
+    void _kctsb_gintoz(long d, _kctsb_gbigint *a);
        /* *a = d;  */
 
 
-    void _ntl_guintoz(unsigned long d, _ntl_gbigint *a);
+    void _kctsb_guintoz(unsigned long d, _kctsb_gbigint *a);
        /* *a = d;  space is allocated  */
 
-    long _ntl_gtoint(_ntl_gbigint a);
+    long _kctsb_gtoint(_kctsb_gbigint a);
        /* converts a to a long;  overflow results in value
-          mod 2^{NTL_BITS_PER_LONG}. */
+          mod 2^{KCTSB_BITS_PER_LONG}. */
 
-    unsigned long _ntl_gtouint(_ntl_gbigint a);
+    unsigned long _kctsb_gtouint(_kctsb_gbigint a);
        /* converts a to a long;  overflow results in value
-          mod 2^{NTL_BITS_PER_LONG}. */
+          mod 2^{KCTSB_BITS_PER_LONG}. */
 
    
 
 
-    double _ntl_gdoub(_ntl_gbigint n);
+    double _kctsb_gdoub(_kctsb_gbigint n);
        /* converts a to a double;  no overflow check */
 
-    long _ntl_ground_correction(_ntl_gbigint a, long k, long residual);
+    long _kctsb_ground_correction(_kctsb_gbigint a, long k, long residual);
        /* k >= 1, |a| >= 2^k, and residual is 0, 1, or -1.
           The result is what we should add to (a >> k) to round
           x = a/2^k to the nearest integer using IEEE-like rounding rules
@@ -447,10 +447,10 @@ inline long _ntl_PINNED(_ntl_gbigint p)
           This can be used to break ties when x is exactly
           half way between two integers. */
 
-    double _ntl_glog(_ntl_gbigint a);
+    double _kctsb_glog(_kctsb_gbigint a);
        /* computes log(a), protecting against overflow */
 
-    void _ntl_gdoubtoz(double a, _ntl_gbigint *x);
+    void _kctsb_gdoubtoz(double a, _kctsb_gbigint *x);
        /* x = floor(a);  */
     
 
@@ -463,10 +463,10 @@ inline long _ntl_PINNED(_ntl_gbigint p)
 *************************************************************************/
 
 
-    long _ntl_gsqrts(long n);
+    long _kctsb_gsqrts(long n);
        /* return floor(sqrt(n));  error raised in n < 0 */
 
-    void _ntl_gsqrt(_ntl_gbigint n, _ntl_gbigint *r);
+    void _kctsb_gsqrt(_kctsb_gbigint n, _kctsb_gbigint *r);
        /* *r =  floor(sqrt(n));  error raised in n < 0 */
 
 /*********************************************************************
@@ -475,10 +475,10 @@ inline long _ntl_PINNED(_ntl_gbigint p)
  
 **********************************************************************/
 
-   void _ntl_gexp(_ntl_gbigint a, long e, _ntl_gbigint *b);
+   void _kctsb_gexp(_kctsb_gbigint a, long e, _kctsb_gbigint *b);
        /* *b = a^e;  error raised if e < 0 */
 
-   void _ntl_gexps(long a, long e, _ntl_gbigint *b);
+   void _kctsb_gexps(long a, long e, _kctsb_gbigint *b);
        /* *b = a^e;  error raised if e < 0 */
        
 
@@ -495,26 +495,26 @@ inline long _ntl_PINNED(_ntl_gbigint p)
 
 ***********************************************************************/
 
-    void _ntl_gaddmod(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint n, _ntl_gbigint *c);
+    void _kctsb_gaddmod(_kctsb_gbigint a, _kctsb_gbigint b, _kctsb_gbigint n, _kctsb_gbigint *c);
        /* *c = (a + b) % n */
 
-    void _ntl_gsubmod(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint n, _ntl_gbigint *c);
+    void _kctsb_gsubmod(_kctsb_gbigint a, _kctsb_gbigint b, _kctsb_gbigint n, _kctsb_gbigint *c);
        /* *c = (a - b) % n */
 
-    void _ntl_gsmulmod(_ntl_gbigint a, long b, _ntl_gbigint n, _ntl_gbigint *c);
+    void _kctsb_gsmulmod(_kctsb_gbigint a, long b, _kctsb_gbigint n, _kctsb_gbigint *c);
        /* *c = (a * b) % n */
 
-    void _ntl_gmulmod(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint n, _ntl_gbigint *c);
+    void _kctsb_gmulmod(_kctsb_gbigint a, _kctsb_gbigint b, _kctsb_gbigint n, _kctsb_gbigint *c);
        /* *c = (a * b) % n */
 
-    void _ntl_gsqmod(_ntl_gbigint a, _ntl_gbigint n, _ntl_gbigint *c);
+    void _kctsb_gsqmod(_kctsb_gbigint a, _kctsb_gbigint n, _kctsb_gbigint *c);
        /* *c = (a ^ 2) % n */
 
-    void _ntl_ginvmod(_ntl_gbigint a, _ntl_gbigint n, _ntl_gbigint *c);
+    void _kctsb_ginvmod(_kctsb_gbigint a, _kctsb_gbigint n, _kctsb_gbigint *c);
        /* *c = (1 / a) % n; error raised if gcd(b, n) != 1 */
 
-    void _ntl_gpowermod(_ntl_gbigint g, _ntl_gbigint e, _ntl_gbigint F,
-                        _ntl_gbigint *h);
+    void _kctsb_gpowermod(_kctsb_gbigint g, _kctsb_gbigint e, _kctsb_gbigint F,
+                        _kctsb_gbigint *h);
 
        /* *b = (a ^ e) % n; */
 
@@ -526,25 +526,25 @@ inline long _ntl_PINNED(_ntl_gbigint p)
    Euclidean Algorithms
 
 ***************************************************************************/
-    void _ntl_ggcd(_ntl_gbigint m1, _ntl_gbigint m2, _ntl_gbigint *r);
+    void _kctsb_ggcd(_kctsb_gbigint m1, _kctsb_gbigint m2, _kctsb_gbigint *r);
        /* *r = greatest common divisor of m1 and m2;  */
 
-    void _ntl_ggcd_alt(_ntl_gbigint m1, _ntl_gbigint m2, _ntl_gbigint *r);
+    void _kctsb_ggcd_alt(_kctsb_gbigint m1, _kctsb_gbigint m2, _kctsb_gbigint *r);
        /* *r = greatest common divisor of m1 and m2;  
           a simpler algorithm used for validation
         */
 
 
-    void _ntl_gexteucl(_ntl_gbigint a, _ntl_gbigint *xa,
-                 _ntl_gbigint b, _ntl_gbigint *xb,
-                 _ntl_gbigint *d);
+    void _kctsb_gexteucl(_kctsb_gbigint a, _kctsb_gbigint *xa,
+                 _kctsb_gbigint b, _kctsb_gbigint *xb,
+                 _kctsb_gbigint *d);
        /*
           *d = a * *xa + b * *xb = gcd(a, b);
           sets *d, *xa and *xb given a and b;
         */
 
 
-    long _ntl_ginv(_ntl_gbigint a, _ntl_gbigint b, _ntl_gbigint *c);
+    long _kctsb_ginv(_kctsb_gbigint a, _kctsb_gbigint b, _kctsb_gbigint *c);
        /*
           if (a and b coprime)
           {
@@ -561,9 +561,9 @@ inline long _ntl_PINNED(_ntl_gbigint p)
           error raised if a < 0 or b <= 0
         */
 
-     long _ntl_gxxratrecon(_ntl_gbigint x, _ntl_gbigint m,  
-                      _ntl_gbigint a_bound, _ntl_gbigint b_bound,
-                      _ntl_gbigint *a, _ntl_gbigint *b);
+     long _kctsb_gxxratrecon(_kctsb_gbigint x, _kctsb_gbigint m,  
+                      _kctsb_gbigint a_bound, _kctsb_gbigint b_bound,
+                      _kctsb_gbigint *a, _kctsb_gbigint *b);
 
         /* rational reconstruction: see doc in ZZ.txt */
 
@@ -578,24 +578,24 @@ inline long _ntl_PINNED(_ntl_gbigint p)
 ***********************************************************************/
 
     inline
-    long _ntl_gmaxalloc(_ntl_gbigint x)
+    long _kctsb_gmaxalloc(_kctsb_gbigint x)
     {
       if (!x)
          return 0;
       else
-         return _ntl_ALLOC(x) >> 2;
+         return _kctsb_ALLOC(x) >> 2;
     }
 
     // DIRT: see lip.c for more info on ALLOC 
 
-    void _ntl_gsetlength(_ntl_gbigint *v, long len);
+    void _kctsb_gsetlength(_kctsb_gbigint *v, long len);
        /* Allocates enough space to hold a len-digit number,
-          where each digit has NTL_NBITS bits.
+          where each digit has KCTSB_NBITS bits.
           If space must be allocated, space for one extra digit
           is always allocated. if (exact) then no rounding
           occurs. */
 
-    void _ntl_gfree(_ntl_gbigint x);
+    void _kctsb_gfree(_kctsb_gbigint x);
        /* Free's space held by x. */
 
 
@@ -606,121 +606,121 @@ inline long _ntl_PINNED(_ntl_gbigint p)
 ********************************************************************/
 
 inline
-long _ntl_gsize(_ntl_gbigint rep)
+long _kctsb_gsize(_kctsb_gbigint rep)
 {
   if (!rep)
       return 0;
-   else if (_ntl_SIZE(rep) < 0)
-      return -_ntl_SIZE(rep);
+   else if (_kctsb_SIZE(rep) < 0)
+      return -_kctsb_SIZE(rep);
    else
-      return _ntl_SIZE(rep);
+      return _kctsb_SIZE(rep);
 }
 
-long _ntl_gisone(_ntl_gbigint n);
+long _kctsb_gisone(_kctsb_gbigint n);
 
-long _ntl_gsptest(_ntl_gbigint a);
-long _ntl_gwsptest(_ntl_gbigint a);
-long _ntl_gcrtinrange(_ntl_gbigint g, _ntl_gbigint a);
+long _kctsb_gsptest(_kctsb_gbigint a);
+long _kctsb_gwsptest(_kctsb_gbigint a);
+long _kctsb_gcrtinrange(_kctsb_gbigint g, _kctsb_gbigint a);
 
-void _ntl_gfrombytes(_ntl_gbigint *x, const unsigned char *p, long n);
-void _ntl_gbytesfromz(unsigned char *p, _ntl_gbigint a, long nn);
+void _kctsb_gfrombytes(_kctsb_gbigint *x, const unsigned char *p, long n);
+void _kctsb_gbytesfromz(unsigned char *p, _kctsb_gbigint a, long nn);
 
 
-long _ntl_gblock_construct_alloc(_ntl_gbigint *x, long d, long n);
-void _ntl_gblock_construct_set(_ntl_gbigint x, _ntl_gbigint *y, long i);
-long _ntl_gblock_destroy(_ntl_gbigint x);
-long _ntl_gblock_storage(long d);
+long _kctsb_gblock_construct_alloc(_kctsb_gbigint *x, long d, long n);
+void _kctsb_gblock_construct_set(_kctsb_gbigint x, _kctsb_gbigint *y, long i);
+long _kctsb_gblock_destroy(_kctsb_gbigint x);
+long _kctsb_gblock_storage(long d);
 
 
 
 // These are common to both implementations
 
-class _ntl_tmp_vec {
+class _kctsb_tmp_vec {
 public:
-   virtual ~_ntl_tmp_vec() { }
+   virtual ~_kctsb_tmp_vec() { }
 };
 
-class _ntl_crt_struct {
+class _kctsb_crt_struct {
 public:
-   virtual ~_ntl_crt_struct() { }
+   virtual ~_kctsb_crt_struct() { }
    virtual bool special() = 0;
-   virtual void insert(long i, _ntl_gbigint m) = 0;
-   virtual _ntl_tmp_vec *extract() = 0;
-   virtual _ntl_tmp_vec *fetch() = 0;
-   virtual void eval(_ntl_gbigint *x, const long *b, 
-                     _ntl_tmp_vec *tmp_vec) = 0;
+   virtual void insert(long i, _kctsb_gbigint m) = 0;
+   virtual _kctsb_tmp_vec *extract() = 0;
+   virtual _kctsb_tmp_vec *fetch() = 0;
+   virtual void eval(_kctsb_gbigint *x, const long *b, 
+                     _kctsb_tmp_vec *tmp_vec) = 0;
 };
 
-_ntl_crt_struct * 
-_ntl_crt_struct_build(long n, _ntl_gbigint p, long (*primes)(long));
+_kctsb_crt_struct * 
+_kctsb_crt_struct_build(long n, _kctsb_gbigint p, long (*primes)(long));
 
-class _ntl_rem_struct {
+class _kctsb_rem_struct {
 public:
-   virtual ~_ntl_rem_struct() { }
-   virtual void eval(long *x, _ntl_gbigint a, _ntl_tmp_vec *tmp_vec) = 0;
-   virtual _ntl_tmp_vec *fetch() = 0;
+   virtual ~_kctsb_rem_struct() { }
+   virtual void eval(long *x, _kctsb_gbigint a, _kctsb_tmp_vec *tmp_vec) = 0;
+   virtual _kctsb_tmp_vec *fetch() = 0;
 };
 
-_ntl_rem_struct *
-_ntl_rem_struct_build(long n, _ntl_gbigint modulus, long (*p)(long));
+_kctsb_rem_struct *
+_kctsb_rem_struct_build(long n, _kctsb_gbigint modulus, long (*p)(long));
 
 
 // montgomery
-class _ntl_reduce_struct {
+class _kctsb_reduce_struct {
 public:
-   virtual ~_ntl_reduce_struct() { }
-   virtual void eval(_ntl_gbigint *x, _ntl_gbigint *a) = 0;
-   virtual void adjust(_ntl_gbigint *x) = 0;
+   virtual ~_kctsb_reduce_struct() { }
+   virtual void eval(_kctsb_gbigint *x, _kctsb_gbigint *a) = 0;
+   virtual void adjust(_kctsb_gbigint *x) = 0;
 };
 
-_ntl_reduce_struct *
-_ntl_reduce_struct_build(_ntl_gbigint modulus, _ntl_gbigint excess);
+_kctsb_reduce_struct *
+_kctsb_reduce_struct_build(_kctsb_gbigint modulus, _kctsb_gbigint excess);
 
 
 // faster reduction with preconditioning -- general usage, single modulus
 
-struct _ntl_general_rem_one_struct;
+struct _kctsb_general_rem_one_struct;
 
-_ntl_general_rem_one_struct *
-_ntl_general_rem_one_struct_build(long p);
+_kctsb_general_rem_one_struct *
+_kctsb_general_rem_one_struct_build(long p);
 
 long 
-_ntl_general_rem_one_struct_apply(_ntl_gbigint a, long p, _ntl_general_rem_one_struct *pinfo);
+_kctsb_general_rem_one_struct_apply(_kctsb_gbigint a, long p, _kctsb_general_rem_one_struct *pinfo);
 
 void
-_ntl_general_rem_one_struct_delete(_ntl_general_rem_one_struct *pinfo);
+_kctsb_general_rem_one_struct_delete(_kctsb_general_rem_one_struct *pinfo);
 
-long _ntl_gvalidate(_ntl_gbigint a);
+long _kctsb_gvalidate(_kctsb_gbigint a);
 
 
 // special-purpose routines for accumulating CRT-like summations
 void
-_ntl_quick_accum_begin(_ntl_gbigint *xp, long sz);
+_kctsb_quick_accum_begin(_kctsb_gbigint *xp, long sz);
 
 void
-_ntl_quick_accum_muladd(_ntl_gbigint x, _ntl_gbigint y, long b);
+_kctsb_quick_accum_muladd(_kctsb_gbigint x, _kctsb_gbigint y, long b);
 
 void
-_ntl_quick_accum_end(_ntl_gbigint x);
+_kctsb_quick_accum_end(_kctsb_gbigint x);
 
 // special-purpose routines for SSMul in ZZX
 
-#if (defined(NTL_GMP_LIP) && (NTL_ZZ_NBITS & (NTL_ZZ_NBITS-1)) == 0)
-// NOTE: the test (NTL_ZZ_NBITS & (NTL_ZZ_NBITS-1)) == 0
-// effectively checks that NTL_ZZ_NBITS is a power of two
+#if (defined(KCTSB_GMP_LIP) && (KCTSB_ZZ_NBITS & (KCTSB_ZZ_NBITS-1)) == 0)
+// NOTE: the test (KCTSB_ZZ_NBITS & (KCTSB_ZZ_NBITS-1)) == 0
+// effectively checks that KCTSB_ZZ_NBITS is a power of two
 
-#define NTL_PROVIDES_SS_LIP_IMPL
+#define KCTSB_PROVIDES_SS_LIP_IMPL
 
 void
-_ntl_leftrotate(_ntl_gbigint *a, const _ntl_gbigint *b, long e,
-                _ntl_gbigint p, long n, _ntl_gbigint *scratch);
+_kctsb_leftrotate(_kctsb_gbigint *a, const _kctsb_gbigint *b, long e,
+                _kctsb_gbigint p, long n, _kctsb_gbigint *scratch);
 
 void 
-_ntl_ss_addmod(_ntl_gbigint *x, const _ntl_gbigint *a,
-               const _ntl_gbigint *b, _ntl_gbigint p, long n);
+_kctsb_ss_addmod(_kctsb_gbigint *x, const _kctsb_gbigint *a,
+               const _kctsb_gbigint *b, _kctsb_gbigint p, long n);
 void 
-_ntl_ss_submod(_ntl_gbigint *x, const _ntl_gbigint *a,
-               const _ntl_gbigint *b, _ntl_gbigint p, long n);
+_kctsb_ss_submod(_kctsb_gbigint *x, const _kctsb_gbigint *a,
+               const _kctsb_gbigint *b, _kctsb_gbigint p, long n);
 #endif
 
 

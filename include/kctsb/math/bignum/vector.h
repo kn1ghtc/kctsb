@@ -1,53 +1,53 @@
+﻿
+#ifndef KCTSB_vector__H
+#define KCTSB_vector__H
 
-#ifndef NTL_vector__H
-#define NTL_vector__H
-
-#include <NTL/tools.h>
+#include <kctsb/math/bignum/tools.h>
 #include <new>
 
 
 
-struct _ntl_VectorHeader {
+struct _kctsb_VectorHeader {
    long length;
    long alloc;
    long init;
    long fixed;
 };
 
-union _ntl_AlignedVectorHeader {
-   _ntl_VectorHeader h;
+union _kctsb_AlignedVectorHeader {
+   _kctsb_VectorHeader h;
    double x1;
    long x2;
    char *x3;
    long double x4;
 };
 
-#define NTL_VECTOR_HEADER_SIZE (sizeof(_ntl_AlignedVectorHeader))
+#define KCTSB_VECTOR_HEADER_SIZE (sizeof(_kctsb_AlignedVectorHeader))
 
-#define NTL_VEC_HEAD(p) (& (((_ntl_AlignedVectorHeader *) (p.rep))[-1].h))
+#define KCTSB_VEC_HEAD(p) (& (((_kctsb_AlignedVectorHeader *) (p.rep))[-1].h))
 
 
-#ifndef NTL_RANGE_CHECK
-#define NTL_RANGE_CHECK_CODE(i) 
+#ifndef KCTSB_RANGE_CHECK
+#define KCTSB_RANGE_CHECK_CODE(i) 
 #else
-#define NTL_RANGE_CHECK_CODE(i) if ((i) < 0 || !_vec__rep || (i) >= NTL_VEC_HEAD(_vec__rep)->length) LogicError("index out of range in Vec");
+#define KCTSB_RANGE_CHECK_CODE(i) if ((i) < 0 || !_vec__rep || (i) >= KCTSB_VEC_HEAD(_vec__rep)->length) LogicError("index out of range in Vec");
 
 #endif
 
 // vectors are allocated in chunks of this size
 
-#ifndef NTL_VectorMinAlloc
-#define NTL_VectorMinAlloc (4)
+#ifndef KCTSB_VectorMinAlloc
+#define KCTSB_VectorMinAlloc (4)
 #endif
 
 // controls initialization during input
 
-#ifndef NTL_VectorInputBlock
-#define NTL_VectorInputBlock 50
+#ifndef KCTSB_VectorInputBlock
+#define KCTSB_VectorInputBlock 50
 #endif
 
 
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
   
 
@@ -73,7 +73,7 @@ void default_BlockConstruct(T* p, long n)
 {  
    long i;
 
-   NTL_SCOPE(guard) { default_BlockDestroy(p, i); };
+   KCTSB_SCOPE(guard) { default_BlockDestroy(p, i); };
 
    for (i = 0; i < n; i++)  
       (void) new(&p[i]) T;  
@@ -99,7 +99,7 @@ void default_BlockConstructFromVec(T* p, long n, const T* q)
 {  
    long i;
 
-   NTL_SCOPE(guard) { default_BlockDestroy(p, i); };
+   KCTSB_SCOPE(guard) { default_BlockDestroy(p, i); };
 
    for (i = 0; i < n; i++)  
       (void) new(&p[i]) T(q[i]);  
@@ -118,7 +118,7 @@ void default_BlockConstructFromObj(T* p, long n, const T& q)
 {  
    long i;
 
-   NTL_SCOPE(guard) { default_BlockDestroy(p, i); };
+   KCTSB_SCOPE(guard) { default_BlockDestroy(p, i); };
 
    for (i = 0; i < n; i++)  
       (void) new(&p[i]) T(q);  
@@ -192,21 +192,21 @@ class Vec {
 private:
 
 static void BlockDestroy(T* p, long n) 
-{ VecStrategy<NTL_RELOC_TAG>::do_BlockDestroy(p, n); }  
+{ VecStrategy<KCTSB_RELOC_TAG>::do_BlockDestroy(p, n); }  
 
 static void BlockConstruct(T* p, long n) 
-{ VecStrategy<NTL_RELOC_TAG>::do_BlockConstruct(p, n); } 
+{ VecStrategy<KCTSB_RELOC_TAG>::do_BlockConstruct(p, n); } 
 
 static void BlockConstructFromVec(T* p, long n, const T* q) 
-{ VecStrategy<NTL_RELOC_TAG>::do_BlockConstructFromVec(p, n, q); }
+{ VecStrategy<KCTSB_RELOC_TAG>::do_BlockConstructFromVec(p, n, q); }
 
 static void BlockConstructFromObj(T* p, long n, const T& q) 
-{ VecStrategy<NTL_RELOC_TAG>::do_BlockConstructFromObj(p, n, q); }
+{ VecStrategy<KCTSB_RELOC_TAG>::do_BlockConstructFromObj(p, n, q); }
 
 
 public:  
 
-#ifdef NTL_SAFE_VECTORS
+#ifdef KCTSB_SAFE_VECTORS
 
    static constexpr bool relocatable = DeclareRelocatableType((T*)0);
    static constexpr bool copyable = Relocate_aux_has_any_copy((T*)0);
@@ -218,7 +218,7 @@ public:
       static void apply(T* p) 
       { 
          // WrappedPtr only calls this when p is non-null
-         NTL_SNS free(((char *) p) - sizeof(_ntl_AlignedVectorHeader));
+         KCTSB_SNS free(((char *) p) - sizeof(_kctsb_AlignedVectorHeader));
       }
    };
 
@@ -243,9 +243,9 @@ public:
 
    Vec& operator=(const Vec& a);  
 
-#if (NTL_CXX_STANDARD >= 2011 && !defined(NTL_DISABLE_MOVE))
+#if (KCTSB_CXX_STANDARD >= 2011 && !defined(KCTSB_DISABLE_MOVE))
 
-   Vec(Vec&& a)  NTL_FAKE_NOEXCEPT
+   Vec(Vec&& a)  KCTSB_FAKE_NOEXCEPT
    {  
       if (a.fixed()) {
 	 long src_len = a.length();
@@ -259,8 +259,8 @@ public:
       }
    }     
 
-#ifndef NTL_DISABLE_MOVE_ASSIGN
-   Vec& operator=(Vec&& a)  NTL_FAKE_NOEXCEPT
+#ifndef KCTSB_DISABLE_MOVE_ASSIGN
+   Vec& operator=(Vec&& a)  KCTSB_FAKE_NOEXCEPT
    {
       if(fixed() || a.fixed()) {
          *this = a;
@@ -280,7 +280,7 @@ public:
    ~Vec()
    {  
       if (!_vec__rep) return;  
-      BlockDestroy(_vec__rep.rep, NTL_VEC_HEAD(_vec__rep)->init); 
+      BlockDestroy(_vec__rep.rep, KCTSB_VEC_HEAD(_vec__rep)->init); 
    }  
 
    void kill(); 
@@ -288,29 +288,29 @@ public:
    void SetMaxLength(long n); 
    void FixLength(long n); 
    void FixAtCurrentLength();
-   void QuickSetLength(long n) { NTL_VEC_HEAD(_vec__rep)->length = n; } 
+   void QuickSetLength(long n) { KCTSB_VEC_HEAD(_vec__rep)->length = n; } 
 
    void SetLength(long n) {
-      if (_vec__rep && !NTL_VEC_HEAD(_vec__rep)->fixed &&
-          n >= 0 && n <= NTL_VEC_HEAD(_vec__rep)->init)
-         NTL_VEC_HEAD(_vec__rep)->length = n;
+      if (_vec__rep && !KCTSB_VEC_HEAD(_vec__rep)->fixed &&
+          n >= 0 && n <= KCTSB_VEC_HEAD(_vec__rep)->init)
+         KCTSB_VEC_HEAD(_vec__rep)->length = n;
       else 
          DoSetLength(n);
    }
 
    void SetLength(long n, const T& a) {
-      if (_vec__rep && !NTL_VEC_HEAD(_vec__rep)->fixed &&
-          n >= 0 && n <= NTL_VEC_HEAD(_vec__rep)->init)
-         NTL_VEC_HEAD(_vec__rep)->length = n;
+      if (_vec__rep && !KCTSB_VEC_HEAD(_vec__rep)->fixed &&
+          n >= 0 && n <= KCTSB_VEC_HEAD(_vec__rep)->init)
+         KCTSB_VEC_HEAD(_vec__rep)->length = n;
       else 
          DoSetLength(n, a);
    }
 
    template<class F>
    void SetLengthAndApply(long n, F f) {
-      if (_vec__rep && !NTL_VEC_HEAD(_vec__rep)->fixed &&
-          n >= 0 && n <= NTL_VEC_HEAD(_vec__rep)->init)
-         NTL_VEC_HEAD(_vec__rep)->length = n;
+      if (_vec__rep && !KCTSB_VEC_HEAD(_vec__rep)->fixed &&
+          n >= 0 && n <= KCTSB_VEC_HEAD(_vec__rep)->init)
+         KCTSB_VEC_HEAD(_vec__rep)->length = n;
       else 
          DoSetLengthAndApply(n, f);
    }
@@ -318,26 +318,26 @@ public:
 
 
    long length() const 
-   { return (!_vec__rep) ?  0 : NTL_VEC_HEAD(_vec__rep)->length; }  
+   { return (!_vec__rep) ?  0 : KCTSB_VEC_HEAD(_vec__rep)->length; }  
 
    long MaxLength() const 
-   { return (!_vec__rep) ?  0 : NTL_VEC_HEAD(_vec__rep)->init; } 
+   { return (!_vec__rep) ?  0 : KCTSB_VEC_HEAD(_vec__rep)->init; } 
 
    long allocated() const 
-   { return (!_vec__rep) ?  0 : NTL_VEC_HEAD(_vec__rep)->alloc; } 
+   { return (!_vec__rep) ?  0 : KCTSB_VEC_HEAD(_vec__rep)->alloc; } 
 
    long fixed() const 
-   { return _vec__rep && NTL_VEC_HEAD(_vec__rep)->fixed; } 
+   { return _vec__rep && KCTSB_VEC_HEAD(_vec__rep)->fixed; } 
   
    T& operator[](long i)   
    {  
-      NTL_RANGE_CHECK_CODE(i)  
+      KCTSB_RANGE_CHECK_CODE(i)  
       return _vec__rep[i];  
    }  
   
    const T& operator[](long i) const 
    {  
-      NTL_RANGE_CHECK_CODE(i)  
+      KCTSB_RANGE_CHECK_CODE(i)  
       return _vec__rep[i];  
    }  
   
@@ -408,13 +408,13 @@ public:
    }
 
    T& at(long i) {
-      if ((i) < 0 || !_vec__rep || (i) >= NTL_VEC_HEAD(_vec__rep)->length)  
+      if ((i) < 0 || !_vec__rep || (i) >= KCTSB_VEC_HEAD(_vec__rep)->length)  
          LogicError("index out of range in Vec");
       return _vec__rep[i];  
    }
 
    const T& at(long i) const {
-      if ((i) < 0 || !_vec__rep || (i) >= NTL_VEC_HEAD(_vec__rep)->length)  
+      if ((i) < 0 || !_vec__rep || (i) >= KCTSB_VEC_HEAD(_vec__rep)->length)  
          LogicError("index out of range in Vec");
       return _vec__rep[i];  
    }
@@ -427,7 +427,7 @@ public:
 
       ~Watcher() 
       { 
-         if (watched.MaxLength() > NTL_RELEASE_THRESH) watched.kill();
+         if (watched.MaxLength() > KCTSB_RELEASE_THRESH) watched.kill();
       }
    };
 
@@ -438,9 +438,9 @@ private:
    template<class F>
    void DoSetLengthAndApply(long n, F& f);
 
-   void AdjustLength(long n) { if (_vec__rep) NTL_VEC_HEAD(_vec__rep)->length = n; }
-   void AdjustAlloc(long n) { if (_vec__rep) NTL_VEC_HEAD(_vec__rep)->alloc = n; }
-   void AdjustMaxLength(long n) { if (_vec__rep) NTL_VEC_HEAD(_vec__rep)->init = n; }
+   void AdjustLength(long n) { if (_vec__rep) KCTSB_VEC_HEAD(_vec__rep)->length = n; }
+   void AdjustAlloc(long n) { if (_vec__rep) KCTSB_VEC_HEAD(_vec__rep)->alloc = n; }
+   void AdjustMaxLength(long n) { if (_vec__rep) KCTSB_VEC_HEAD(_vec__rep)->init = n; }
 
    void ReAllocate(long n, VecStrategy<true>);
 
@@ -449,7 +449,7 @@ private:
    void Init(long n, const T* src); // same, but use src
    void Init(long n, const T& src); // same, but use src
 
-#ifdef NTL_SAFE_VECTORS
+#ifdef KCTSB_SAFE_VECTORS
    void ReAllocate(long n, VecStrategy<false>);
    void InitMove(long n, T* src, std::true_type); 
    void InitMove(long n, T* src, std::false_type); 
@@ -462,7 +462,7 @@ private:
 };  
 
 
-template <class T> NTL_DECLARE_RELOCATABLE((Vec<T>*))
+template <class T> KCTSB_DECLARE_RELOCATABLE((Vec<T>*))
 
 
 
@@ -470,14 +470,14 @@ template <class T> NTL_DECLARE_RELOCATABLE((Vec<T>*))
 
 
 
-#if (!defined(NTL_CLEAN_PTR))
+#if (!defined(KCTSB_CLEAN_PTR))
 
 template<class T>
 long Vec<T>::position(const T& a) const  
 {  
    if (!_vec__rep) return -1;  
-   long num_alloc = NTL_VEC_HEAD(_vec__rep)->alloc;  
-   long num_init = NTL_VEC_HEAD(_vec__rep)->init;  
+   long num_alloc = KCTSB_VEC_HEAD(_vec__rep)->alloc;  
+   long num_init = KCTSB_VEC_HEAD(_vec__rep)->init;  
    if (&a < _vec__rep || &a >= _vec__rep + num_alloc) return -1;  
    long res = (&a) - _vec__rep;  
    
@@ -493,7 +493,7 @@ template<class T>
 long Vec<T>::position1(const T& a) const  
 {  
    if (!_vec__rep) return -1;  
-   long len = NTL_VEC_HEAD(_vec__rep)->length;  
+   long len = KCTSB_VEC_HEAD(_vec__rep)->length;  
    if (&a < _vec__rep || &a >= _vec__rep + len) return -1;  
    long res = (&a) - _vec__rep;  
    
@@ -510,8 +510,8 @@ template<class T>
 long Vec<T>::position(const T& a) const  
 {  
    if (!_vec__rep) return -1;  
-   long num_alloc = NTL_VEC_HEAD(_vec__rep)->alloc;  
-   long num_init = NTL_VEC_HEAD(_vec__rep)->init;  
+   long num_alloc = KCTSB_VEC_HEAD(_vec__rep)->alloc;  
+   long num_init = KCTSB_VEC_HEAD(_vec__rep)->init;  
    long res;  
    res = 0;  
    while (res < num_alloc && _vec__rep + res != &a)  res++;  
@@ -525,7 +525,7 @@ template<class T>
 long Vec<T>::position1(const T& a) const  
 {  
    if (!_vec__rep) return -1;  
-   long len = NTL_VEC_HEAD(_vec__rep)->length;  
+   long len = KCTSB_VEC_HEAD(_vec__rep)->length;  
    long res;  
    res = 0;  
    while (res < len && _vec__rep + res != &a)  res++;  
@@ -541,16 +541,16 @@ void Vec<T>::ReAllocate(long m, VecStrategy<true>)
 {
    //std::cerr << "ReAllocate\n";
 
-   char *p = ((char *) _vec__rep.rep) - sizeof(_ntl_AlignedVectorHeader); 
-   p = (char *) NTL_SNS_REALLOC(p, m, sizeof(T), sizeof(_ntl_AlignedVectorHeader)); 
+   char *p = ((char *) _vec__rep.rep) - sizeof(_kctsb_AlignedVectorHeader); 
+   p = (char *) KCTSB_SNS_REALLOC(p, m, sizeof(T), sizeof(_kctsb_AlignedVectorHeader)); 
    if (!p) {  
       MemoryError();  
    }  
-   _vec__rep = (T *) (p + sizeof(_ntl_AlignedVectorHeader)); 
-   NTL_VEC_HEAD(_vec__rep)->alloc = m;  
+   _vec__rep = (T *) (p + sizeof(_kctsb_AlignedVectorHeader)); 
+   KCTSB_VEC_HEAD(_vec__rep)->alloc = m;  
 }
 
-#ifdef NTL_SAFE_VECTORS
+#ifdef KCTSB_SAFE_VECTORS
 
 template<class T>
 void Vec<T>::InitMove(long n, T *src, std::true_type) 
@@ -605,16 +605,16 @@ void Vec<T>::ReAllocate(long m, VecStrategy<false>)
    long src_init = MaxLength();
    T *src = elts();
 
-   char *p = (char *) NTL_SNS_MALLOC(m, sizeof(T), sizeof(_ntl_AlignedVectorHeader)); 
+   char *p = (char *) KCTSB_SNS_MALLOC(m, sizeof(T), sizeof(_kctsb_AlignedVectorHeader)); 
    if (!p) {  
       MemoryError();  
    }  
-   tmp._vec__rep = (T *) (p + sizeof(_ntl_AlignedVectorHeader)); 
+   tmp._vec__rep = (T *) (p + sizeof(_kctsb_AlignedVectorHeader)); 
 
-   NTL_VEC_HEAD(tmp._vec__rep)->length = 0;  
-   NTL_VEC_HEAD(tmp._vec__rep)->alloc = m;  
-   NTL_VEC_HEAD(tmp._vec__rep)->init = 0;  
-   NTL_VEC_HEAD(tmp._vec__rep)->fixed = 0;  
+   KCTSB_VEC_HEAD(tmp._vec__rep)->length = 0;  
+   KCTSB_VEC_HEAD(tmp._vec__rep)->alloc = m;  
+   KCTSB_VEC_HEAD(tmp._vec__rep)->init = 0;  
+   KCTSB_VEC_HEAD(tmp._vec__rep)->fixed = 0;  
 
    typedef std::is_nothrow_move_constructible<T> move_it;
    
@@ -634,11 +634,11 @@ void Vec<T>::AllocateTo(long n)
    if (n < 0) {  
       LogicError("negative length in vector::SetLength");  
    }  
-   if (NTL_OVERFLOW(n, sizeof(T), 0))  
+   if (KCTSB_OVERFLOW(n, sizeof(T), 0))  
       ResourceError("excessive length in vector::SetLength"); 
       
-   if (_vec__rep && NTL_VEC_HEAD(_vec__rep)->fixed) {
-      if (NTL_VEC_HEAD(_vec__rep)->length == n) 
+   if (_vec__rep && KCTSB_VEC_HEAD(_vec__rep)->fixed) {
+      if (KCTSB_VEC_HEAD(_vec__rep)->length == n) 
          return; 
       else 
          LogicError("SetLength: can't change this vector's length"); 
@@ -649,23 +649,23 @@ void Vec<T>::AllocateTo(long n)
    }  
   
    if (!_vec__rep) {  
-      m = ((n+NTL_VectorMinAlloc-1)/NTL_VectorMinAlloc) * NTL_VectorMinAlloc; 
-      char *p = (char *) NTL_SNS_MALLOC(m, sizeof(T), sizeof(_ntl_AlignedVectorHeader)); 
+      m = ((n+KCTSB_VectorMinAlloc-1)/KCTSB_VectorMinAlloc) * KCTSB_VectorMinAlloc; 
+      char *p = (char *) KCTSB_SNS_MALLOC(m, sizeof(T), sizeof(_kctsb_AlignedVectorHeader)); 
       if (!p) {  
 	 MemoryError();  
       }  
-      _vec__rep = (T *) (p + sizeof(_ntl_AlignedVectorHeader)); 
+      _vec__rep = (T *) (p + sizeof(_kctsb_AlignedVectorHeader)); 
   
-      NTL_VEC_HEAD(_vec__rep)->length = 0;  
-      NTL_VEC_HEAD(_vec__rep)->alloc = m;  
-      NTL_VEC_HEAD(_vec__rep)->init = 0;  
-      NTL_VEC_HEAD(_vec__rep)->fixed = 0;  
+      KCTSB_VEC_HEAD(_vec__rep)->length = 0;  
+      KCTSB_VEC_HEAD(_vec__rep)->alloc = m;  
+      KCTSB_VEC_HEAD(_vec__rep)->init = 0;  
+      KCTSB_VEC_HEAD(_vec__rep)->fixed = 0;  
    }  
-   else if (n > NTL_VEC_HEAD(_vec__rep)->alloc) {  
-      m = max(n, _ntl_vec_grow(NTL_VEC_HEAD(_vec__rep)->alloc));  
-      m = ((m+NTL_VectorMinAlloc-1)/NTL_VectorMinAlloc) * NTL_VectorMinAlloc; 
+   else if (n > KCTSB_VEC_HEAD(_vec__rep)->alloc) {  
+      m = max(n, _kctsb_vec_grow(KCTSB_VEC_HEAD(_vec__rep)->alloc));  
+      m = ((m+KCTSB_VectorMinAlloc-1)/KCTSB_VectorMinAlloc) * KCTSB_VectorMinAlloc; 
 
-      ReAllocate(m, VecStrategy<NTL_RELOC_TAG>());
+      ReAllocate(m, VecStrategy<KCTSB_RELOC_TAG>());
    }  
 }  
 
@@ -708,7 +708,7 @@ void Vec<T>::InitAndApply(long n, F& f)
 
    BlockConstruct(_vec__rep + num_init, n-num_init);
 
-   NTL_SCOPE(guard) { BlockDestroy(_vec__rep + num_init, n - num_init); };
+   KCTSB_SCOPE(guard) { BlockDestroy(_vec__rep + num_init, n - num_init); };
 
    long i;
    for (i = num_init; i < n; i++)
@@ -766,22 +766,22 @@ void Vec<T>::FixLength(long n)
    if (_vec__rep) LogicError("FixLength: can't fix this vector"); 
    if (n < 0) LogicError("FixLength: negative length"); 
 
-   NTL_SCOPE(guard) { _vec__rep.kill(); };
+   KCTSB_SCOPE(guard) { _vec__rep.kill(); };
 
    if (n > 0) 
       SetLength(n); 
    else { 
-      char *p = (char *) NTL_SNS_MALLOC(0, sizeof(T), sizeof(_ntl_AlignedVectorHeader)); 
+      char *p = (char *) KCTSB_SNS_MALLOC(0, sizeof(T), sizeof(_kctsb_AlignedVectorHeader)); 
       if (!p) {  
 	 MemoryError();  
       }  
-      _vec__rep = (T *) (p + sizeof(_ntl_AlignedVectorHeader)); 
+      _vec__rep = (T *) (p + sizeof(_kctsb_AlignedVectorHeader)); 
   
-      NTL_VEC_HEAD(_vec__rep)->length = 0;  
-      NTL_VEC_HEAD(_vec__rep)->init = 0;  
-      NTL_VEC_HEAD(_vec__rep)->alloc = 0;  
+      KCTSB_VEC_HEAD(_vec__rep)->length = 0;  
+      KCTSB_VEC_HEAD(_vec__rep)->init = 0;  
+      KCTSB_VEC_HEAD(_vec__rep)->alloc = 0;  
    } 
-   NTL_VEC_HEAD(_vec__rep)->fixed = 1; 
+   KCTSB_VEC_HEAD(_vec__rep)->fixed = 1; 
 
    guard.relax();
 } 
@@ -794,7 +794,7 @@ void Vec<T>::FixAtCurrentLength()
       LogicError("FixAtCurrentLength: can't fix this vector");
 
    if (_vec__rep)
-      NTL_VEC_HEAD(_vec__rep)->fixed = 1;
+      KCTSB_VEC_HEAD(_vec__rep)->fixed = 1;
    else
       FixLength(0);
 }
@@ -848,7 +848,7 @@ void Vec<T>::swap(Vec& y)
    long xf = fixed();  
    long yf = y.fixed();  
    if (xf != yf ||   
-       (xf && NTL_VEC_HEAD(_vec__rep)->length != NTL_VEC_HEAD(y._vec__rep)->length))  
+       (xf && KCTSB_VEC_HEAD(_vec__rep)->length != KCTSB_VEC_HEAD(y._vec__rep)->length))  
       LogicError("swap: can't swap these vectors");  
 
    _vec__rep.swap(y._vec__rep);
@@ -956,12 +956,12 @@ void append(Vec<T>& v, const Vec<T>& w)
 
 
 template<class T>
-NTL_SNS istream & operator>>(NTL_SNS istream& s, Vec<T>& a)   
+KCTSB_SNS istream & operator>>(KCTSB_SNS istream& s, Vec<T>& a)   
 {   
    Vec<T> ibuf;  
    long c;   
    long n;   
-   if (!s) NTL_INPUT_ERROR(s, "bad vector input"); 
+   if (!s) KCTSB_INPUT_ERROR(s, "bad vector input"); 
    
    c = s.peek();  
    while (IsWhiteSpace(c)) {  
@@ -969,7 +969,7 @@ NTL_SNS istream & operator>>(NTL_SNS istream& s, Vec<T>& a)
       c = s.peek();  
    }  
    if (c != '[') {  
-      NTL_INPUT_ERROR(s, "bad vector input");  
+      KCTSB_INPUT_ERROR(s, "bad vector input");  
    }  
    
    n = 0;   
@@ -982,10 +982,10 @@ NTL_SNS istream & operator>>(NTL_SNS istream& s, Vec<T>& a)
       c = s.peek();  
    }  
    while (c != ']' && !IsEOFChar(c)) {   
-      if (n % NTL_VectorInputBlock == 0) ibuf.SetMaxLength(n + NTL_VectorInputBlock); 
+      if (n % KCTSB_VectorInputBlock == 0) ibuf.SetMaxLength(n + KCTSB_VectorInputBlock); 
       n++;   
       ibuf.SetLength(n);   
-      if (!(s >> ibuf[n-1])) NTL_INPUT_ERROR(s, "bad vector input");   
+      if (!(s >> ibuf[n-1])) KCTSB_INPUT_ERROR(s, "bad vector input");   
       c = s.peek();  
       while (IsWhiteSpace(c)) {  
          s.get();  
@@ -993,7 +993,7 @@ NTL_SNS istream & operator>>(NTL_SNS istream& s, Vec<T>& a)
       }  
    }   
 
-   if (IsEOFChar(c)) NTL_INPUT_ERROR(s, "bad vector input");  
+   if (IsEOFChar(c)) KCTSB_INPUT_ERROR(s, "bad vector input");  
    s.get(); 
    
    a = ibuf; 
@@ -1002,7 +1002,7 @@ NTL_SNS istream & operator>>(NTL_SNS istream& s, Vec<T>& a)
    
    
 template<class T>
-NTL_SNS ostream& operator<<(NTL_SNS ostream& s, const Vec<T>& a)   
+KCTSB_SNS ostream& operator<<(KCTSB_SNS ostream& s, const Vec<T>& a)   
 {   
    long i, n;   
   
@@ -1054,7 +1054,7 @@ void conv(Vec<T>& x, const Vec<S>& a)
 }
 
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 
 

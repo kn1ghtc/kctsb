@@ -1,11 +1,11 @@
+﻿
+#include <kctsb/math/bignum/mat_GF2E.h>
+#include <kctsb/math/bignum/vec_GF2XVec.h>
+#include <kctsb/math/bignum/vec_long.h>
+#include <kctsb/math/bignum/BasicThreadPool.h>
 
-#include <NTL/mat_GF2E.h>
-#include <NTL/vec_GF2XVec.h>
-#include <NTL/vec_long.h>
-#include <NTL/BasicThreadPool.h>
 
-
-NTL_START_IMPL
+KCTSB_START_IMPL
 
 //===========================================================
 
@@ -41,10 +41,10 @@ void mul_aux(Mat<GF2E>& X, const Mat<GF2E>& A, const Mat<GF2E>& B)
 
    bool seq = (double(n)*double(l)*double(m)*sz*sz < PAR_THRESH);
 
-   NTL_GEXEC_RANGE(seq, m, first, last)
-   NTL_IMPORT(n)
-   NTL_IMPORT(l)
-   NTL_IMPORT(m)
+   KCTSB_GEXEC_RANGE(seq, m, first, last)
+   KCTSB_IMPORT(n)
+   KCTSB_IMPORT(l)
+   KCTSB_IMPORT(m)
 
    GF2_context.restore();
    GF2E_context.restore();
@@ -68,7 +68,7 @@ void mul_aux(Mat<GF2E>& X, const Mat<GF2E>& A, const Mat<GF2E>& B)
       }
    }
 
-   NTL_GEXEC_RANGE_END
+   KCTSB_GEXEC_RANGE_END
 }  
 
 
@@ -166,9 +166,9 @@ void inv(GF2E& d, Mat<GF2E>& X, const Mat<GF2E>& A)
          }
 
 
-         NTL_GEXEC_RANGE(seq, n, first, last)  
-         NTL_IMPORT(n)
-         NTL_IMPORT(k)
+         KCTSB_GEXEC_RANGE(seq, n, first, last)  
+         KCTSB_IMPORT(n)
+         KCTSB_IMPORT(k)
 
          GF2_context.restore();
 
@@ -190,7 +190,7 @@ void inv(GF2E& d, Mat<GF2E>& X, const Mat<GF2E>& A)
                add(x[j], x[j], t2);
             }
          }
-         NTL_GEXEC_RANGE_END
+         KCTSB_GEXEC_RANGE_END
       }
       else {
          clear(d);
@@ -293,9 +293,9 @@ void solve_impl(GF2E& d, Vec<GF2E>& X,
          bool seq =
             double(n-(k+1))*(n-(k+1))*sz*sz < PAR_THRESH;
 
-         NTL_GEXEC_RANGE(seq, n-(k+1), first, last)
-         NTL_IMPORT(n)
-         NTL_IMPORT(k)
+         KCTSB_GEXEC_RANGE(seq, n-(k+1), first, last)
+         KCTSB_IMPORT(n)
+         KCTSB_IMPORT(k)
 
          GF2_context.restore();
 
@@ -319,7 +319,7 @@ void solve_impl(GF2E& d, Vec<GF2E>& X,
             }
          }
 
-         NTL_GEXEC_RANGE_END
+         KCTSB_GEXEC_RANGE_END
 
       }
       else {
@@ -409,10 +409,10 @@ long gauss(Mat<GF2E>& M_in, long w)
          bool seq =
             double(n-(l+1))*double(m-(k+1))*sz*sz < PAR_THRESH;
 
-         NTL_GEXEC_RANGE(seq, n-(l+1), first, last)
-         NTL_IMPORT(m)
-         NTL_IMPORT(k)
-         NTL_IMPORT(l)
+         KCTSB_GEXEC_RANGE(seq, n-(l+1), first, last)
+         KCTSB_IMPORT(m)
+         KCTSB_IMPORT(k)
+         KCTSB_IMPORT(l)
 
          GF2_context.restore();
 
@@ -440,7 +440,7 @@ long gauss(Mat<GF2E>& M_in, long w)
             }
          }
 
-         NTL_GEXEC_RANGE_END
+         KCTSB_GEXEC_RANGE_END
 
          l++;
       }
@@ -517,9 +517,9 @@ void kernel(Mat<GF2E>& X, const Mat<GF2E>& A)
    bool seq = 
       double(m-r)*double(r)*double(r)*sz*sz < PAR_THRESH;
 
-   NTL_GEXEC_RANGE(seq, m-r, first, last)
-   NTL_IMPORT(m)
-   NTL_IMPORT(r)
+   KCTSB_GEXEC_RANGE(seq, m-r, first, last)
+   KCTSB_IMPORT(m)
+   KCTSB_IMPORT(r)
 
    GF2_context.restore();
    GF2E_context.restore();
@@ -555,7 +555,7 @@ void kernel(Mat<GF2E>& X, const Mat<GF2E>& A)
       }
    }
 
-   NTL_GEXEC_RANGE_END
+   KCTSB_GEXEC_RANGE_END
 }
 
 
@@ -624,9 +624,9 @@ void determinant(GF2E& d, const Mat<GF2E>& M_in)
          bool seq =
             double(n-(k+1))*(n-(k+1))*sz*sz < PAR_THRESH;
 
-         NTL_GEXEC_RANGE(seq, n-(k+1), first, last)
-         NTL_IMPORT(n)
-         NTL_IMPORT(k)
+         KCTSB_GEXEC_RANGE(seq, n-(k+1), first, last)
+         KCTSB_IMPORT(n)
+         KCTSB_IMPORT(k)
 
          GF2_context.restore();
 
@@ -650,7 +650,7 @@ void determinant(GF2E& d, const Mat<GF2E>& M_in)
             }
          }
 
-         NTL_GEXEC_RANGE_END
+         KCTSB_GEXEC_RANGE_END
 
       }
       else {
@@ -907,21 +907,21 @@ mat_GF2E operator+(const mat_GF2E& a, const mat_GF2E& b)
 {
    mat_GF2E res;
    add(res, a, b);
-   NTL_OPT_RETURN(mat_GF2E, res);
+   KCTSB_OPT_RETURN(mat_GF2E, res);
 }
 
 mat_GF2E operator*(const mat_GF2E& a, const mat_GF2E& b)
 {
    mat_GF2E res;
    mul_aux(res, a, b);
-   NTL_OPT_RETURN(mat_GF2E, res);
+   KCTSB_OPT_RETURN(mat_GF2E, res);
 }
 
 mat_GF2E operator-(const mat_GF2E& a, const mat_GF2E& b)
 {
    mat_GF2E res;
    sub(res, a, b);
-   NTL_OPT_RETURN(mat_GF2E, res);
+   KCTSB_OPT_RETURN(mat_GF2E, res);
 }
 
 
@@ -929,7 +929,7 @@ mat_GF2E operator-(const mat_GF2E& a)
 {
    mat_GF2E res;
    negate(res, a);
-   NTL_OPT_RETURN(mat_GF2E, res);
+   KCTSB_OPT_RETURN(mat_GF2E, res);
 }
 
 
@@ -937,14 +937,14 @@ vec_GF2E operator*(const mat_GF2E& a, const vec_GF2E& b)
 {
    vec_GF2E res;
    mul_aux(res, a, b);
-   NTL_OPT_RETURN(vec_GF2E, res);
+   KCTSB_OPT_RETURN(vec_GF2E, res);
 }
 
 vec_GF2E operator*(const vec_GF2E& a, const mat_GF2E& b)
 {
    vec_GF2E res;
    mul_aux(res, a, b);
-   NTL_OPT_RETURN(vec_GF2E, res);
+   KCTSB_OPT_RETURN(vec_GF2E, res);
 }
 
 
@@ -990,4 +990,4 @@ void random(mat_GF2E& x, long n, long m)
    for (long i = 0; i < n; i++) random(x[i], m);
 }
 
-NTL_END_IMPL
+KCTSB_END_IMPL

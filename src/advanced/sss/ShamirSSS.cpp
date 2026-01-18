@@ -1,4 +1,4 @@
-////
+﻿////
 ////  ShamirSSS.cpp
 ////  kcalg
 ////
@@ -19,7 +19,7 @@
 //m_vPolynom(k)
 //{
 //
-//    m_bnPrimeNr = NTL::GenPrime_ZZ(16, 100);
+//    m_bnPrimeNr = kctsb::GenPrime_ZZ(16, 100);
 //    //m_bnPrimeNr = 11;
 //    GeneratePolynom();
 //    CalculateSharingParts();
@@ -42,7 +42,7 @@
 //    for (UInt i = 0; i < m_nK; i++)
 //    {
 //
-//        NTL::RandomBnd(m_vPolynom[i], m_bnPrimeNr);
+//        kctsb::RandomBnd(m_vPolynom[i], m_bnPrimeNr);
 //        //cout << "pol[" << i << "] = " << m_vPolynom[i] << '\n';
 //
 //    }
@@ -64,7 +64,7 @@
 //        for (UInt j = 0; j < m_nK; j++)
 //        {
 //
-//            NTL::PowerMod(aux, NTL::to_ZZ(i + 1), j, m_bnPrimeNr);
+//            kctsb::PowerMod(aux, kctsb::to_ZZ(i + 1), j, m_bnPrimeNr);
 //            m_vSharingParts[i] = (m_vSharingParts[i] + m_vPolynom[j] * aux) % m_bnPrimeNr;
 //
 //        }

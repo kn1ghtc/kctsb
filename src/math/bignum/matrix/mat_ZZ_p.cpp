@@ -1,26 +1,26 @@
-
-#include <NTL/mat_ZZ_p.h>
-#include <NTL/vec_ZZVec.h>
-#include <NTL/vec_long.h>
-#include <NTL/BasicThreadPool.h>
+﻿
+#include <kctsb/math/bignum/mat_ZZ_p.h>
+#include <kctsb/math/bignum/vec_ZZVec.h>
+#include <kctsb/math/bignum/vec_long.h>
+#include <kctsb/math/bignum/BasicThreadPool.h>
 
 
 // FIXME: only needed if we use multi-modular MM
-#include <NTL/MatPrime.h>
-#include <NTL/mat_lzz_p.h>
+#include <kctsb/math/bignum/MatPrime.h>
+#include <kctsb/math/bignum/mat_lzz_p.h>
 
 
 
-NTL_START_IMPL
+KCTSB_START_IMPL
 
 
 
 // ******************** Matrix Multiplication ************************
 
-#ifdef NTL_HAVE_LL_TYPE
-#define NTL_USE_MM_MATMUL (1)
+#ifdef KCTSB_HAVE_LL_TYPE
+#define KCTSB_USE_MM_MATMUL (1)
 #else
-#define NTL_USE_MM_MATMUL (0)
+#define KCTSB_USE_MM_MATMUL (0)
 #endif
 
 #define PAR_THRESH (40000.0)
@@ -47,10 +47,10 @@ void plain_mul_aux(mat_ZZ_p& X, const mat_ZZ_p& A, const mat_ZZ_p& B)
    long sz = ZZ_p::ModulusSize();
    bool seq = (double(n)*double(l)*double(m)*double(sz)*double(sz) < PAR_THRESH);
   
-   NTL_GEXEC_RANGE(seq, m, first, last)
-   NTL_IMPORT(n)
-   NTL_IMPORT(l)
-   NTL_IMPORT(m)
+   KCTSB_GEXEC_RANGE(seq, m, first, last)
+   KCTSB_IMPORT(n)
+   KCTSB_IMPORT(l)
+   KCTSB_IMPORT(m)
 
    context.restore();
 
@@ -73,7 +73,7 @@ void plain_mul_aux(mat_ZZ_p& X, const mat_ZZ_p& A, const mat_ZZ_p& B)
       }
    }
 
-   NTL_GEXEC_RANGE_END
+   KCTSB_GEXEC_RANGE_END
 }  
   
   
@@ -107,10 +107,10 @@ void plain_mul_transpose_aux(mat_ZZ_p& X, const mat_ZZ_p& A, const mat_ZZ_p& B)
    long sz = ZZ_p::ModulusSize();
    bool seq = (double(n)*double(l)*double(m)*double(sz)*double(sz) < PAR_THRESH);
   
-   NTL_GEXEC_RANGE(seq, m, first, last)
-   NTL_IMPORT(n)
-   NTL_IMPORT(l)
-   NTL_IMPORT(m)
+   KCTSB_GEXEC_RANGE(seq, m, first, last)
+   KCTSB_IMPORT(n)
+   KCTSB_IMPORT(l)
+   KCTSB_IMPORT(m)
 
    context.restore();
 
@@ -130,7 +130,7 @@ void plain_mul_transpose_aux(mat_ZZ_p& X, const mat_ZZ_p& A, const mat_ZZ_p& B)
       }
    }
 
-   NTL_GEXEC_RANGE_END
+   KCTSB_GEXEC_RANGE_END
 }  
   
   
@@ -227,7 +227,7 @@ void to_mat_ZZ_p_crt_rep(mat_ZZ_p_crt_rep& X, const mat_ZZ_p& A)
    const MatPrime_crt_helper& H = get_MatPrime_crt_helper_info();
    long nprimes = H.GetNumPrimes();
 
-   if (NTL_OVERFLOW(nprimes, CRT_BLK, 0))
+   if (KCTSB_OVERFLOW(nprimes, CRT_BLK, 0))
       ResourceError("overflow"); // this is pretty academic
 
    X.rep.SetLength(nprimes);
@@ -241,10 +241,10 @@ void to_mat_ZZ_p_crt_rep(mat_ZZ_p_crt_rep& X, const mat_ZZ_p& A)
 
    // FIXME: right now, we just partition the rows, but if
    // #cols > #rows, we should perhaps partition the cols
-   NTL_GEXEC_RANGE(seq, n, first, last)
-   NTL_IMPORT(n)
-   NTL_IMPORT(m)
-   NTL_IMPORT(nprimes)
+   KCTSB_GEXEC_RANGE(seq, n, first, last)
+   KCTSB_IMPORT(n)
+   KCTSB_IMPORT(m)
+   KCTSB_IMPORT(nprimes)
 
    context.restore();
 
@@ -277,7 +277,7 @@ void to_mat_ZZ_p_crt_rep(mat_ZZ_p_crt_rep& X, const mat_ZZ_p& A)
       }
    }
 
-   NTL_GEXEC_RANGE_END
+   KCTSB_GEXEC_RANGE_END
 }
 
 void from_mat_ZZ_p_crt_rep(const mat_ZZ_p_crt_rep& X, mat_ZZ_p& A)
@@ -288,7 +288,7 @@ void from_mat_ZZ_p_crt_rep(const mat_ZZ_p_crt_rep& X, mat_ZZ_p& A)
    const MatPrime_crt_helper& H = get_MatPrime_crt_helper_info();
    long nprimes = H.GetNumPrimes();
 
-   if (NTL_OVERFLOW(nprimes, CRT_BLK, 0))
+   if (KCTSB_OVERFLOW(nprimes, CRT_BLK, 0))
       ResourceError("overflow"); // this is pretty academic
 
    A.SetDims(n, m);
@@ -300,10 +300,10 @@ void from_mat_ZZ_p_crt_rep(const mat_ZZ_p_crt_rep& X, mat_ZZ_p& A)
 
    // FIXME: right now, we just partition the rows, but if
    // #cols > #rows, we should perhaps partition the cols
-   NTL_GEXEC_RANGE(seq, n, first, last)
-   NTL_IMPORT(n)
-   NTL_IMPORT(m)
-   NTL_IMPORT(nprimes)
+   KCTSB_GEXEC_RANGE(seq, n, first, last)
+   KCTSB_IMPORT(n)
+   KCTSB_IMPORT(m)
+   KCTSB_IMPORT(nprimes)
 
    context.restore();
 
@@ -336,7 +336,7 @@ void from_mat_ZZ_p_crt_rep(const mat_ZZ_p_crt_rep& X, mat_ZZ_p& A)
       }
    }
 
-   NTL_GEXEC_RANGE_END
+   KCTSB_GEXEC_RANGE_END
 }
 
 void mul(mat_ZZ_p_crt_rep& X, const mat_ZZ_p_crt_rep& A, const mat_ZZ_p_crt_rep& B)
@@ -353,10 +353,10 @@ void mul(mat_ZZ_p_crt_rep& X, const mat_ZZ_p_crt_rep& A, const mat_ZZ_p_crt_rep&
    bool seq = (double(n)*double(l)*double(m)*double(nprimes) < PAR_THRESH);
 
 
-   NTL_GEXEC_RANGE(seq, nprimes, first, last)
-   NTL_IMPORT(n)
-   NTL_IMPORT(l)
-   NTL_IMPORT(m)
+   KCTSB_GEXEC_RANGE(seq, nprimes, first, last)
+   KCTSB_IMPORT(n)
+   KCTSB_IMPORT(l)
+   KCTSB_IMPORT(m)
 
    zz_pPush push;
 
@@ -373,7 +373,7 @@ void mul(mat_ZZ_p_crt_rep& X, const mat_ZZ_p_crt_rep& A, const mat_ZZ_p_crt_rep&
       RawConvert(X.rep[k], x);
    }
 
-   NTL_GEXEC_RANGE_END
+   KCTSB_GEXEC_RANGE_END
 }
 
 
@@ -391,10 +391,10 @@ void mul_transpose(mat_ZZ_p_crt_rep& X, const mat_ZZ_p_crt_rep& A, const mat_ZZ_
 
    bool seq = (double(n)*double(l)*double(m)*double(nprimes) < PAR_THRESH);
 
-   NTL_GEXEC_RANGE(seq, nprimes, first, last)
-   NTL_IMPORT(n)
-   NTL_IMPORT(l)
-   NTL_IMPORT(m)
+   KCTSB_GEXEC_RANGE(seq, nprimes, first, last)
+   KCTSB_IMPORT(n)
+   KCTSB_IMPORT(l)
+   KCTSB_IMPORT(m)
 
    zz_pPush push;
 
@@ -411,7 +411,7 @@ void mul_transpose(mat_ZZ_p_crt_rep& X, const mat_ZZ_p_crt_rep& A, const mat_ZZ_
       RawConvert(X.rep[k], x);
    }
 
-   NTL_GEXEC_RANGE_END
+   KCTSB_GEXEC_RANGE_END
 }
 
 
@@ -422,7 +422,7 @@ void multi_modular_mul(mat_ZZ_p& X, const mat_ZZ_p& A, const mat_ZZ_p& B)
    if (l != B.NumRows())
       LogicError("matrix mul: dimension mismatch");  
 
-   if (l > NTL_MatPrimeLimit)
+   if (l > KCTSB_MatPrimeLimit)
       ResourceError("matrix mul: dimension too large");
 
    mat_ZZ_p_crt_rep x, a, b;
@@ -440,7 +440,7 @@ void multi_modular_mul(mat_ZZ_p& X, const mat_ZZ_p& A, const mat_ZZ_p_crt_rep& B
    if (l != B.rep[0].NumRows())
       LogicError("matrix mul: dimension mismatch");  
 
-   if (l > NTL_MatPrimeLimit)
+   if (l > KCTSB_MatPrimeLimit)
       ResourceError("matrix mul: dimension too large");
 
    mat_ZZ_p_crt_rep x, a;
@@ -457,7 +457,7 @@ void multi_modular_mul_transpose(mat_ZZ_p& X, const mat_ZZ_p& A, const mat_ZZ_p_
    if (l != B.rep[0].NumCols())
       LogicError("matrix mul: dimension mismatch");  
 
-   if (l > NTL_MatPrimeLimit)
+   if (l > KCTSB_MatPrimeLimit)
       ResourceError("matrix mul: dimension too large");
 
    mat_ZZ_p_crt_rep x, a;
@@ -540,7 +540,7 @@ struct mat_ZZ_p_opaque_body_plain : mat_ZZ_p_opaque_body {
 
 mat_ZZ_p_opaque_body *mat_ZZ_p_opaque_body_move(mat_ZZ_p& A)
 {
-   if (NTL_USE_MM_MATMUL && A.NumRows() >= 16 && A.NumCols() >= 16) {
+   if (KCTSB_USE_MM_MATMUL && A.NumRows() >= 16 && A.NumCols() >= 16) {
       UniquePtr<mat_ZZ_p_opaque_body_crt> tmp;
       tmp.make();
       to_mat_ZZ_p_crt_rep(tmp->body, A);
@@ -569,7 +569,7 @@ void mul(mat_ZZ_p& X, const mat_ZZ_p& A, const mat_ZZ_p& B)
 
    if (l != B.NumRows()) LogicError("matrix mul: dimension mismatch");
 
-   if (NTL_USE_MM_MATMUL && n >= 24 && l >= 24 && m >= 24) 
+   if (KCTSB_USE_MM_MATMUL && n >= 24 && l >= 24 && m >= 24) 
       multi_modular_mul(X, A, B);
    else
       plain_mul(X, A, B);
@@ -778,9 +778,9 @@ void determinant(ZZ_p& d, const mat_ZZ_p& M_in)
 
          bool seq =
             double(n-(k+1))*(n-(k+1))*double(p.size())*double(p.size()) < PAR_THRESH;
-         NTL_GEXEC_RANGE(seq, n-(k+1), first, last)
-         NTL_IMPORT(n)
-         NTL_IMPORT(k)
+         KCTSB_GEXEC_RANGE(seq, n-(k+1), first, last)
+         KCTSB_IMPORT(n)
+         KCTSB_IMPORT(k)
 
          ZZ t1, t2;
 
@@ -802,7 +802,7 @@ void determinant(ZZ_p& d, const mat_ZZ_p& M_in)
             }
          }
 
-         NTL_GEXEC_RANGE_END
+         KCTSB_GEXEC_RANGE_END
 
       }
       else {
@@ -940,9 +940,9 @@ void solve_impl(ZZ_p& d, vec_ZZ_p& X, const mat_ZZ_p& A, const vec_ZZ_p& b, bool
 
          bool seq =
             double(n-(k+1))*(n-(k+1))*double(p.size())*double(p.size()) < PAR_THRESH;
-         NTL_GEXEC_RANGE(seq, n-(k+1), first, last)
-         NTL_IMPORT(n)
-         NTL_IMPORT(k)
+         KCTSB_GEXEC_RANGE(seq, n-(k+1), first, last)
+         KCTSB_IMPORT(n)
+         KCTSB_IMPORT(k)
 
          ZZ t1, t2;
 
@@ -964,7 +964,7 @@ void solve_impl(ZZ_p& d, vec_ZZ_p& X, const mat_ZZ_p& A, const vec_ZZ_p& b, bool
             }
          }
 
-         NTL_GEXEC_RANGE_END
+         KCTSB_GEXEC_RANGE_END
 
       }
       else {
@@ -1079,9 +1079,9 @@ void inv(ZZ_p& d, mat_ZZ_p& X, const mat_ZZ_p& A)
          }
 
 
-         NTL_GEXEC_RANGE(seq, n, first, last)  
-         NTL_IMPORT(n)
-         NTL_IMPORT(k)
+         KCTSB_GEXEC_RANGE(seq, n, first, last)  
+         KCTSB_IMPORT(n)
+         KCTSB_IMPORT(k)
 
          ZZ *y = &M[k][0]; 
          ZZ t1, t2;
@@ -1101,7 +1101,7 @@ void inv(ZZ_p& d, mat_ZZ_p& X, const mat_ZZ_p& A)
                add(x[j], x[j], t2);
             }
          }
-         NTL_GEXEC_RANGE_END
+         KCTSB_GEXEC_RANGE_END
       }
       else {
          clear(d);
@@ -1183,10 +1183,10 @@ long gauss(mat_ZZ_p& M_in, long w)
          bool seq =
             double(n-(l+1))*double(m-(k+1))*double(p.size())*double(p.size()) < PAR_THRESH;
 
-         NTL_GEXEC_RANGE(seq, n-(l+1), first, last)
-         NTL_IMPORT(m)
-         NTL_IMPORT(k)
-         NTL_IMPORT(l)
+         KCTSB_GEXEC_RANGE(seq, n-(l+1), first, last)
+         KCTSB_IMPORT(m)
+         KCTSB_IMPORT(k)
+         KCTSB_IMPORT(l)
 
          ZZ t1, t2;
 
@@ -1212,7 +1212,7 @@ long gauss(mat_ZZ_p& M_in, long w)
             }
          }
 
-         NTL_GEXEC_RANGE_END
+         KCTSB_GEXEC_RANGE_END
 
          l++;
       }
@@ -1288,9 +1288,9 @@ void kernel(mat_ZZ_p& X, const mat_ZZ_p& A)
    bool seq = 
       double(m-r)*double(r)*double(r)*double(p.size())*double(p.size()) < PAR_THRESH;
 
-   NTL_GEXEC_RANGE(seq, m-r, first, last)
-   NTL_IMPORT(m)
-   NTL_IMPORT(r)
+   KCTSB_GEXEC_RANGE(seq, m-r, first, last)
+   KCTSB_IMPORT(m)
+   KCTSB_IMPORT(r)
 
    ZZ t1, t2;
    ZZ_p T3;
@@ -1323,13 +1323,13 @@ void kernel(mat_ZZ_p& X, const mat_ZZ_p& A)
       }
    }
 
-   NTL_GEXEC_RANGE_END
+   KCTSB_GEXEC_RANGE_END
 }
 
    
 void mul(mat_ZZ_p& X, const mat_ZZ_p& A, const ZZ_p& b_in)
 {
-   NTL_ZZ_pRegister(b);
+   KCTSB_ZZ_pRegister(b);
    b = b_in;
    long n = A.NumRows();
    long m = A.NumCols();
@@ -1344,7 +1344,7 @@ void mul(mat_ZZ_p& X, const mat_ZZ_p& A, const ZZ_p& b_in)
    
 void mul(mat_ZZ_p& X, const mat_ZZ_p& A, long b_in)
 {
-   NTL_ZZ_pRegister(b);
+   KCTSB_ZZ_pRegister(b);
    b = b_in;
    long n = A.NumRows();
    long m = A.NumCols();
@@ -1416,21 +1416,21 @@ mat_ZZ_p operator+(const mat_ZZ_p& a, const mat_ZZ_p& b)
 {
    mat_ZZ_p res;
    add(res, a, b);
-   NTL_OPT_RETURN(mat_ZZ_p, res);
+   KCTSB_OPT_RETURN(mat_ZZ_p, res);
 }
 
 mat_ZZ_p operator*(const mat_ZZ_p& a, const mat_ZZ_p& b)
 {
    mat_ZZ_p res;
    mul(res, a, b);
-   NTL_OPT_RETURN(mat_ZZ_p, res);
+   KCTSB_OPT_RETURN(mat_ZZ_p, res);
 }
 
 mat_ZZ_p operator-(const mat_ZZ_p& a, const mat_ZZ_p& b)
 {
    mat_ZZ_p res;
    sub(res, a, b);
-   NTL_OPT_RETURN(mat_ZZ_p, res);
+   KCTSB_OPT_RETURN(mat_ZZ_p, res);
 }
 
 
@@ -1438,7 +1438,7 @@ mat_ZZ_p operator-(const mat_ZZ_p& a)
 {
    mat_ZZ_p res;
    negate(res, a);
-   NTL_OPT_RETURN(mat_ZZ_p, res);
+   KCTSB_OPT_RETURN(mat_ZZ_p, res);
 }
 
 
@@ -1446,14 +1446,14 @@ vec_ZZ_p operator*(const mat_ZZ_p& a, const vec_ZZ_p& b)
 {
    vec_ZZ_p res;
    mul_aux(res, a, b);
-   NTL_OPT_RETURN(vec_ZZ_p, res);
+   KCTSB_OPT_RETURN(vec_ZZ_p, res);
 }
 
 vec_ZZ_p operator*(const vec_ZZ_p& a, const mat_ZZ_p& b)
 {
    vec_ZZ_p res;
    mul_aux(res, a, b);
-   NTL_OPT_RETURN(vec_ZZ_p, res);
+   KCTSB_OPT_RETURN(vec_ZZ_p, res);
 }
 
 void inv(mat_ZZ_p& X, const mat_ZZ_p& A)
@@ -1498,4 +1498,4 @@ void random(mat_ZZ_p& x, long n, long m)
    for (long i = 0; i < n; i++) random(x[i], m);
 }
 
-NTL_END_IMPL
+KCTSB_END_IMPL

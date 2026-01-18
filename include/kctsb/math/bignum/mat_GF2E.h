@@ -1,11 +1,11 @@
+﻿
+#ifndef KCTSB_mat_GF2E__H
+#define KCTSB_mat_GF2E__H
 
-#ifndef NTL_mat_GF2E__H
-#define NTL_mat_GF2E__H
+#include <kctsb/math/bignum/matrix.h>
+#include <kctsb/math/bignum/vec_vec_GF2E.h>
 
-#include <NTL/matrix.h>
-#include <NTL/vec_vec_GF2E.h>
-
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 typedef Mat<GF2E> mat_GF2E;
 
@@ -33,11 +33,11 @@ inline void mul(mat_GF2E& X, long a, const mat_GF2E& B)
 
 void ident(mat_GF2E& X, long n); 
 inline mat_GF2E ident_mat_GF2E(long n)
-   { mat_GF2E X; ident(X, n); NTL_OPT_RETURN(mat_GF2E, X); }
+   { mat_GF2E X; ident(X, n); KCTSB_OPT_RETURN(mat_GF2E, X); }
 
 void random(mat_GF2E& x, long n, long m);
 inline mat_GF2E random_mat_GF2E(long n, long m)
-   { mat_GF2E x; random(x, n, m); NTL_OPT_RETURN(mat_GF2E, x); }
+   { mat_GF2E x; random(x, n, m); KCTSB_OPT_RETURN(mat_GF2E, x); }
 
 
 void determinant(GF2E& d, const mat_GF2E& A);
@@ -51,26 +51,26 @@ inline void sqr(mat_GF2E& X, const mat_GF2E& A)
    { mul(X, A, A); }
 
 inline mat_GF2E sqr(const mat_GF2E& A)
-   { mat_GF2E X; sqr(X, A); NTL_OPT_RETURN(mat_GF2E, X); }
+   { mat_GF2E X; sqr(X, A); KCTSB_OPT_RETURN(mat_GF2E, X); }
 
 void inv(mat_GF2E& X, const mat_GF2E& A);
 
 inline mat_GF2E inv(const mat_GF2E& A)
-   { mat_GF2E X; inv(X, A); NTL_OPT_RETURN(mat_GF2E, X); }
+   { mat_GF2E X; inv(X, A); KCTSB_OPT_RETURN(mat_GF2E, X); }
 
 void power(mat_GF2E& X, const mat_GF2E& A, const ZZ& e);
 inline mat_GF2E power(const mat_GF2E& A, const ZZ& e)
-   { mat_GF2E X; power(X, A, e); NTL_OPT_RETURN(mat_GF2E, X); }
+   { mat_GF2E X; power(X, A, e); KCTSB_OPT_RETURN(mat_GF2E, X); }
 
 inline void power(mat_GF2E& X, const mat_GF2E& A, long e)
    { power(X, A, ZZ_expo(e)); }
 inline mat_GF2E power(const mat_GF2E& A, long e)
-   { mat_GF2E X; power(X, A, e); NTL_OPT_RETURN(mat_GF2E, X); }
+   { mat_GF2E X; power(X, A, e); KCTSB_OPT_RETURN(mat_GF2E, X); }
 
 
 void diag(mat_GF2E& X, long n, const GF2E& d);
 inline mat_GF2E diag(long n, const GF2E& d)
-   { mat_GF2E X; diag(X, n, d); NTL_OPT_RETURN(mat_GF2E, X); }
+   { mat_GF2E X; diag(X, n, d); KCTSB_OPT_RETURN(mat_GF2E, X); }
 
 
 long IsDiag(const mat_GF2E& A, long n, const GF2E& d);
@@ -90,7 +90,7 @@ inline GF2E determinant(const mat_GF2E& a)
 // functional variant of determinant
 
 inline mat_GF2E transpose(const mat_GF2E& a)
-   { mat_GF2E x; transpose(x, a); NTL_OPT_RETURN(mat_GF2E, x); }
+   { mat_GF2E x; transpose(x, a); KCTSB_OPT_RETURN(mat_GF2E, x); }
 
 void clear(mat_GF2E& a);
 // x = 0 (dimension unchanged)
@@ -111,22 +111,22 @@ mat_GF2E operator-(const mat_GF2E& a);
 // matrix/scalar multiplication:
 
 inline mat_GF2E operator*(const mat_GF2E& a, const GF2E& b)
-   { mat_GF2E x; mul(x, a, b); NTL_OPT_RETURN(mat_GF2E, x); }
+   { mat_GF2E x; mul(x, a, b); KCTSB_OPT_RETURN(mat_GF2E, x); }
 
 inline mat_GF2E operator*(const mat_GF2E& a, GF2 b)
-   { mat_GF2E x; mul(x, a, b); NTL_OPT_RETURN(mat_GF2E, x); }
+   { mat_GF2E x; mul(x, a, b); KCTSB_OPT_RETURN(mat_GF2E, x); }
 
 inline mat_GF2E operator*(const mat_GF2E& a, long b)
-   { mat_GF2E x; mul(x, a, b); NTL_OPT_RETURN(mat_GF2E, x); }
+   { mat_GF2E x; mul(x, a, b); KCTSB_OPT_RETURN(mat_GF2E, x); }
 
 inline mat_GF2E operator*(const GF2E& a, const mat_GF2E& b)
-   { mat_GF2E x; mul(x, a, b); NTL_OPT_RETURN(mat_GF2E, x); }
+   { mat_GF2E x; mul(x, a, b); KCTSB_OPT_RETURN(mat_GF2E, x); }
 
 inline mat_GF2E operator*(GF2 a, const mat_GF2E& b)
-   { mat_GF2E x; mul(x, a, b); NTL_OPT_RETURN(mat_GF2E, x); }
+   { mat_GF2E x; mul(x, a, b); KCTSB_OPT_RETURN(mat_GF2E, x); }
 
 inline mat_GF2E operator*(long a, const mat_GF2E& b)
-   { mat_GF2E x; mul(x, a, b); NTL_OPT_RETURN(mat_GF2E, x); }
+   { mat_GF2E x; mul(x, a, b); KCTSB_OPT_RETURN(mat_GF2E, x); }
 
 
 // matrix/vector multiplication:
@@ -185,7 +185,7 @@ inline vec_GF2E& operator*=(vec_GF2E& x, const mat_GF2E& a)
 }   
 
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 
 

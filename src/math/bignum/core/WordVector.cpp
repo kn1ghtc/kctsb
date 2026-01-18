@@ -1,9 +1,9 @@
-
-#include <NTL/WordVector.h>
+﻿
+#include <kctsb/math/bignum/WordVector.h>
 
 //#include <cstdio>
 
-NTL_START_IMPL
+KCTSB_START_IMPL
 
 
 
@@ -15,7 +15,7 @@ void WordVector::DoSetLength(long n)
       LogicError("negative length in vector::SetLength");  
    }  
 
-   if (NTL_OVERFLOW(n, NTL_BITS_PER_LONG, 0)) 
+   if (KCTSB_OVERFLOW(n, KCTSB_BITS_PER_LONG, 0)) 
       ResourceError("length too big in vector::SetLength");
       
    if (n == 0) {  
@@ -24,13 +24,13 @@ void WordVector::DoSetLength(long n)
    }  
   
    if (!rep) {  
-      m = ((n+NTL_WordVectorMinAlloc-1)/NTL_WordVectorMinAlloc) * NTL_WordVectorMinAlloc; 
+      m = ((n+KCTSB_WordVectorMinAlloc-1)/KCTSB_WordVectorMinAlloc) * KCTSB_WordVectorMinAlloc; 
 
-      if (NTL_OVERFLOW(m, NTL_BITS_PER_LONG, 0))
+      if (KCTSB_OVERFLOW(m, KCTSB_BITS_PER_LONG, 0))
          ResourceError("length too big in vector::SetLength");
 
-      _ntl_ulong *p = (_ntl_ulong *) 
-                      NTL_SNS_MALLOC(m, sizeof(_ntl_ulong), 2*sizeof(_ntl_ulong));
+      _kctsb_ulong *p = (_kctsb_ulong *) 
+                      KCTSB_SNS_MALLOC(m, sizeof(_kctsb_ulong), 2*sizeof(_kctsb_ulong));
 
       if (!p) {  
 	 MemoryError();  
@@ -55,16 +55,16 @@ void WordVector::DoSetLength(long n)
 
    if (frozen) LogicError("Cannot grow this WordVector");
       
-   m = max(n, _ntl_vec_grow(max_length));
+   m = max(n, _kctsb_vec_grow(max_length));
 
-   m = ((m+NTL_WordVectorMinAlloc-1)/NTL_WordVectorMinAlloc)*NTL_WordVectorMinAlloc; 
-   _ntl_ulong *p = rep - 2;
+   m = ((m+KCTSB_WordVectorMinAlloc-1)/KCTSB_WordVectorMinAlloc)*KCTSB_WordVectorMinAlloc; 
+   _kctsb_ulong *p = rep - 2;
 
-   if (NTL_OVERFLOW(m, NTL_BITS_PER_LONG, 0))
+   if (KCTSB_OVERFLOW(m, KCTSB_BITS_PER_LONG, 0))
       ResourceError("length too big in vector::SetLength");
 
-   p = (_ntl_ulong *) 
-       NTL_SNS_REALLOC(p, m, sizeof(_ntl_ulong), 2*sizeof(_ntl_ulong)); 
+   p = (_kctsb_ulong *) 
+       KCTSB_SNS_REALLOC(p, m, sizeof(_kctsb_ulong), 2*sizeof(_kctsb_ulong)); 
 
    if (!p) {  
       MemoryError();  
@@ -88,8 +88,8 @@ void WordVector::SetMaxLength(long n)
 WordVector& WordVector::operator=(const WordVector& a)  
 {  
    long i, n;  
-   _ntl_ulong *p;  
-   const _ntl_ulong *ap;  
+   _kctsb_ulong *p;  
+   const _kctsb_ulong *ap;  
   
    if (this == &a) return *this;  
   
@@ -123,7 +123,7 @@ void WordVector::kill()
   
 void CopySwap(WordVector& x, WordVector& y)
 {
-   NTL_TLS_LOCAL(WordVector, t);
+   KCTSB_TLS_LOCAL(WordVector, t);
    WordVectorWatcher watch_t(t);
 
    long sz_x = x.length();
@@ -148,10 +148,10 @@ void WordVector::swap(WordVector& y)
       return;
    }
 
-   _ntl_swap(this->rep, y.rep);
+   _kctsb_swap(this->rep, y.rep);
 } 
  
-void WordVector::append(_ntl_ulong a)  
+void WordVector::append(_kctsb_ulong a)  
 {  
    long l = this->length();
    this->SetLength(l+1);  
@@ -174,7 +174,7 @@ istream & operator>>(istream& s, WordVector& a)
    WordVector ibuf;  
    long c;   
    long n;   
-   if (!s) NTL_INPUT_ERROR(s, "bad vector input"); 
+   if (!s) KCTSB_INPUT_ERROR(s, "bad vector input"); 
    
    c = s.peek();  
    while (IsWhiteSpace(c)) {  
@@ -182,7 +182,7 @@ istream & operator>>(istream& s, WordVector& a)
       c = s.peek();  
    }  
    if (c != '[') {  
-      NTL_INPUT_ERROR(s, "bad vector input");  
+      KCTSB_INPUT_ERROR(s, "bad vector input");  
    }  
  
    n = 0;   
@@ -195,17 +195,17 @@ istream & operator>>(istream& s, WordVector& a)
       c = s.peek();  
    }  
    while (c != ']' && c != EOF) {   
-      if (n % NTL_WordVectorInputBlock == 0) ibuf.SetMaxLength(n + NTL_WordVectorInputBlock); 
+      if (n % KCTSB_WordVectorInputBlock == 0) ibuf.SetMaxLength(n + KCTSB_WordVectorInputBlock); 
       n++;   
       ibuf.SetLength(n);   
-      if (!(s >> ibuf[n-1])) NTL_INPUT_ERROR(s, "bad vector input");   
+      if (!(s >> ibuf[n-1])) KCTSB_INPUT_ERROR(s, "bad vector input");   
       c = s.peek();  
       while (IsWhiteSpace(c)) {  
          s.get();  
          c = s.peek();  
       }  
    }   
-   if (c == EOF) NTL_INPUT_ERROR(s, "bad vector input");  
+   if (c == EOF) KCTSB_INPUT_ERROR(s, "bad vector input");  
    s.get(); 
    
    a = ibuf; 
@@ -235,8 +235,8 @@ long operator==(const WordVector& a, const WordVector& b)
 {  
    long n = a.length();  
    if (b.length() != n) return 0;  
-   const _ntl_ulong* ap = a.elts(); 
-   const _ntl_ulong* bp = b.elts(); 
+   const _kctsb_ulong* ap = a.elts(); 
+   const _kctsb_ulong* bp = b.elts(); 
    long i;  
    for (i = 0; i < n; i++) if (ap[i] != bp[i]) return 0;  
    return 1;  
@@ -252,24 +252,24 @@ long operator!=(const WordVector& a, const WordVector& b)
 long InnerProduct(const WordVector& a, const WordVector& b)
 {
    long n = min(a.length(), b.length());
-   const _ntl_ulong *ap = a.elts();
-   const _ntl_ulong *bp = b.elts();
+   const _kctsb_ulong *ap = a.elts();
+   const _kctsb_ulong *bp = b.elts();
 
-   _ntl_ulong acc;
+   _kctsb_ulong acc;
    long i;
 
    acc = 0;
    for (i = 0; i < n; i++)
       acc ^= ap[i] & bp[i];
 
-#if (NTL_BITS_PER_LONG == 32)
+#if (KCTSB_BITS_PER_LONG == 32)
    acc ^= acc >> 16;
    acc ^= acc >> 8;
    acc ^= acc >> 4;
    acc ^= acc >> 2;
    acc ^= acc >> 1;
    acc &= 1;
-#elif (NTL_BITS_PER_LONG == 64)
+#elif (KCTSB_BITS_PER_LONG == 64)
    acc ^= acc >> 32;
    acc ^= acc >> 16;
    acc ^= acc >> 8;
@@ -278,7 +278,7 @@ long InnerProduct(const WordVector& a, const WordVector& b)
    acc ^= acc >> 1;
    acc &= 1;
 #else
-   _ntl_ulong t = acc;
+   _kctsb_ulong t = acc;
    while (t) {
       t = t >> 8;
       acc ^= t;
@@ -294,25 +294,25 @@ long InnerProduct(const WordVector& a, const WordVector& b)
 }
 
 
-void ShiftAdd(_ntl_ulong *cp, const _ntl_ulong* ap, long sa, long n)
+void ShiftAdd(_kctsb_ulong *cp, const _kctsb_ulong* ap, long sa, long n)
 // c = c + (a << n)
 {
    if (sa == 0) return;
 
    long i;
 
-   long wn = n/NTL_BITS_PER_LONG;
-   long bn = n - wn*NTL_BITS_PER_LONG;
+   long wn = n/KCTSB_BITS_PER_LONG;
+   long bn = n - wn*KCTSB_BITS_PER_LONG;
 
    if (bn == 0) {
       for (i = sa+wn-1; i >= wn; i--)
          cp[i] ^= ap[i-wn];
    }
    else {
-      _ntl_ulong t = ap[sa-1] >> (NTL_BITS_PER_LONG-bn);
+      _kctsb_ulong t = ap[sa-1] >> (KCTSB_BITS_PER_LONG-bn);
       if (t) cp[sa+wn] ^= t;
       for (i = sa+wn-1; i >= wn+1; i--)
-         cp[i] ^= (ap[i-wn] << bn) | (ap[i-wn-1] >> (NTL_BITS_PER_LONG-bn));
+         cp[i] ^= (ap[i-wn] << bn) | (ap[i-wn-1] >> (KCTSB_BITS_PER_LONG-bn));
       cp[wn] ^= ap[0] << bn;
    }
 }
@@ -320,7 +320,7 @@ void ShiftAdd(_ntl_ulong *cp, const _ntl_ulong* ap, long sa, long n)
 long WV_BlockConstructAlloc(WordVector& x, long d, long n)
 {
    long nwords, nbytes, AllocAmt, m, j; 
-   _ntl_ulong *p, *q;
+   _kctsb_ulong *p, *q;
 
 
    /* check n value */
@@ -333,14 +333,14 @@ long WV_BlockConstructAlloc(WordVector& x, long d, long n)
    if (d <= 0) 
       LogicError("block construct: d must be positive");
 
-   if (NTL_OVERFLOW(d, NTL_BITS_PER_LONG, 0) || 
-       NTL_OVERFLOW(d, sizeof(_ntl_ulong), 2*sizeof(_ntl_ulong)))
+   if (KCTSB_OVERFLOW(d, KCTSB_BITS_PER_LONG, 0) || 
+       KCTSB_OVERFLOW(d, sizeof(_kctsb_ulong), 2*sizeof(_kctsb_ulong)))
       ResourceError("block construct: d too large");
 
    nwords = d + 2;
-   nbytes = nwords*sizeof(_ntl_ulong);
+   nbytes = nwords*sizeof(_kctsb_ulong);
    
-   AllocAmt = (NTL_MAX_ALLOC_BLOCK - sizeof(_ntl_ulong)) / nbytes;
+   AllocAmt = (KCTSB_MAX_ALLOC_BLOCK - sizeof(_kctsb_ulong)) / nbytes;
    if (AllocAmt == 0) AllocAmt = 1;
 
    if (AllocAmt < n)
@@ -348,7 +348,7 @@ long WV_BlockConstructAlloc(WordVector& x, long d, long n)
    else
       m = n;
 
-   p = (_ntl_ulong *) NTL_SNS_MALLOC(m, nbytes, sizeof(_ntl_ulong));
+   p = (_kctsb_ulong *) KCTSB_SNS_MALLOC(m, nbytes, sizeof(_kctsb_ulong));
    if (!p) MemoryError();
 
    *p = m;
@@ -378,7 +378,7 @@ void WV_BlockConstructSet(WordVector& x, WordVector& y, long i)
 long WV_BlockDestroy(WordVector& x)
 {
    long m;
-   _ntl_ulong *p;
+   _kctsb_ulong *p;
  
    p = x.rep - 3;
    m = (long) *p;
@@ -388,10 +388,10 @@ long WV_BlockDestroy(WordVector& x)
 
 long WV_storage(long d)
 {
-   return (d + 2)*sizeof(_ntl_ulong) + sizeof(WordVector);
+   return (d + 2)*sizeof(_kctsb_ulong) + sizeof(WordVector);
 }
 
 
 
 
-NTL_END_IMPL
+KCTSB_END_IMPL

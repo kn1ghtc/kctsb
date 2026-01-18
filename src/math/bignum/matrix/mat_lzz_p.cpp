@@ -1,23 +1,23 @@
-
-#include <NTL/mat_lzz_p.h>
-#include <NTL/vec_long.h>
-
-
-#include <NTL/BasicThreadPool.h>
+﻿
+#include <kctsb/math/bignum/mat_lzz_p.h>
+#include <kctsb/math/bignum/vec_long.h>
 
 
+#include <kctsb/math/bignum/BasicThreadPool.h>
 
-#ifdef NTL_HAVE_AVX
-#include <NTL/simde_avx.h>
+
+
+#ifdef KCTSB_HAVE_AVX
+#include <kctsb/math/bignum/simde_avx.h>
 #endif
 
 
-#ifdef NTL_HAVE_FMA
-#include <NTL/simde_fma.h>
+#ifdef KCTSB_HAVE_FMA
+#include <kctsb/math/bignum/simde_fma.h>
 #endif
 
 
-NTL_START_IMPL
+KCTSB_START_IMPL
 
 
 #define PAR_THRESH_SQ (200)
@@ -428,7 +428,7 @@ void mul(vec_zz_p& x, const vec_zz_p& a, const mat_zz_p& B)
       long p = zz_p::modulus();
       mulmod_t pinv = zz_p::ModulusInverse();
 
-      NTL_TLS_LOCAL(vec_long, mul_aux_vec);
+      KCTSB_TLS_LOCAL(vec_long, mul_aux_vec);
       vec_long::Watcher watch_mul_aux_vec(mul_aux_vec);
       mul_aux_vec.SetLength(m);
       long *acc = mul_aux_vec.elts();
@@ -439,7 +439,7 @@ void mul(vec_zz_p& x, const vec_zz_p& a, const mat_zz_p& B)
 
       const bool seq = double(l)*double(m) < PAR_THRESH;
 
-      NTL_GEXEC_RANGE(seq, m, first, last) {
+      KCTSB_GEXEC_RANGE(seq, m, first, last) {
 
          for (long k = 0;  k < l; k++) {
             long aa = rep(ap[k]);
@@ -455,7 +455,7 @@ void mul(vec_zz_p& x, const vec_zz_p& a, const mat_zz_p& B)
             } 
          }
 
-      } NTL_GEXEC_RANGE_END
+      } KCTSB_GEXEC_RANGE_END
 
       x.SetLength(m);
       zz_p *xp = x.elts();
@@ -482,31 +482,31 @@ void mul_aux(vec_zz_p& x, const mat_zz_p& A, const vec_zz_p& b)
    const bool seq = double(n)*double(l) < PAR_THRESH;
 
 
-#ifdef NTL_HAVE_LL_TYPE
+#ifdef KCTSB_HAVE_LL_TYPE
 
    if (InnerProd_L_viable(l, p)) {
 
       sp_reduce_struct red_struct = zz_p::red_struct();
       long bound = InnerProd_L_bound(p);
 
-      NTL_GEXEC_RANGE(seq, n, first, last) {
+      KCTSB_GEXEC_RANGE(seq, n, first, last) {
 
          for (long i = first; i < last; i++) {
             xp[i].LoopHole() = InnerProd_L(A[i].elts(), bp, l, p, red_struct, bound);
          }
 
-      } NTL_GEXEC_RANGE_END
+      } KCTSB_GEXEC_RANGE_END
    }
    else {
       sp_ll_reduce_struct ll_red_struct = zz_p::ll_red_struct();
 
-      NTL_GEXEC_RANGE(seq, n, first, last) {
+      KCTSB_GEXEC_RANGE(seq, n, first, last) {
 
          for (long i = first; i < last; i++) {
             xp[i].LoopHole() = InnerProd_LL(A[i].elts(), bp, l, p, ll_red_struct);
          }
 
-      } NTL_GEXEC_RANGE_END
+      } KCTSB_GEXEC_RANGE_END
 
    }
 
@@ -531,7 +531,7 @@ void mul_aux(vec_zz_p& x, const mat_zz_p& A, const vec_zz_p& b)
    }
    else {
 
-      NTL_TLS_LOCAL(Vec<mulmod_precon_t>, precon_vec);
+      KCTSB_TLS_LOCAL(Vec<mulmod_precon_t>, precon_vec);
       Vec<mulmod_precon_t>::Watcher watch_precon_vec(precon_vec);
       precon_vec.SetLength(l);
       mulmod_precon_t *bpinv = precon_vec.elts();
@@ -540,7 +540,7 @@ void mul_aux(vec_zz_p& x, const mat_zz_p& A, const vec_zz_p& b)
          bpinv[k] = PrepMulModPrecon(rep(bp[k]), p, pinv);
 
       
-      NTL_GEXEC_RANGE(seq, n, first, last) {
+      KCTSB_GEXEC_RANGE(seq, n, first, last) {
          for (long i = first; i < last; i++) {
             long acc = 0;
             const zz_p* ap = A[i].elts();
@@ -552,7 +552,7 @@ void mul_aux(vec_zz_p& x, const mat_zz_p& A, const vec_zz_p& b)
            
             xp[i].LoopHole() = acc;
          } 
-      } NTL_GEXEC_RANGE_END
+      } KCTSB_GEXEC_RANGE_END
 
    }
 
@@ -597,7 +597,7 @@ void mul(mat_zz_p& X, const mat_zz_p& A, zz_p b)
 
       const bool seq = double(n)*double(m) < PAR_THRESH;
       
-      NTL_GEXEC_RANGE(seq, n, first, last) 
+      KCTSB_GEXEC_RANGE(seq, n, first, last) 
       long i, j;
       for (i = first; i < last; i++) {
          const zz_p *ap = A[i].elts();
@@ -606,7 +606,7 @@ void mul(mat_zz_p& X, const mat_zz_p& A, zz_p b)
          for (j = 0; j < m; j++)
             xp[j].LoopHole() = MulModPrecon(rep(ap[j]), bb, p, bpinv);
       }
-      NTL_GEXEC_RANGE_END
+      KCTSB_GEXEC_RANGE_END
 
 
    }
@@ -626,48 +626,48 @@ void mul(mat_zz_p& X, const mat_zz_p& A, long b_in)
 //
 // ******************************************************************
 
-//#undef NTL_HAVE_AVX
-//#undef NTL_HAVE_FMA
-//#undef NTL_HAVE_AVX512F
+//#undef KCTSB_HAVE_AVX
+//#undef KCTSB_HAVE_FMA
+//#undef KCTSB_HAVE_AVX512F
 // for testing purposes
 
-#if (defined(NTL_HAVE_AVX512F) && defined(NTL_AVOID_AVX512))
-#undef NTL_HAVE_AVX512F
+#if (defined(KCTSB_HAVE_AVX512F) && defined(KCTSB_AVOID_AVX512))
+#undef KCTSB_HAVE_AVX512F
 #endif
 
 #define MAT_BLK_SZ (32)
 
 
-#ifdef NTL_HAVE_LL_TYPE
+#ifdef KCTSB_HAVE_LL_TYPE
 
-#ifdef NTL_HAVE_AVX
+#ifdef KCTSB_HAVE_AVX
 
-#define MAX_DBL_INT ((1L << NTL_DOUBLE_PRECISION)-1)
+#define MAX_DBL_INT ((1L << KCTSB_DOUBLE_PRECISION)-1)
 // max int representable exactly as a double
-// this assumes NTL_DBL_PRECISION <= NTL_BITS_PER_LONG-2, which is
+// this assumes KCTSB_DBL_PRECISION <= KCTSB_BITS_PER_LONG-2, which is
 // checked in the code that tests for HAVE_AVX, but we check it here as
 // well
 
-#if (NTL_DBL_PRECISION > NTL_BITS_PER_LONG-2)
-#error "NTL_DBL_PRECISION > NTL_BITS_PER_LONG-2"
+#if (KCTSB_DBL_PRECISION > KCTSB_BITS_PER_LONG-2)
+#error "KCTSB_DBL_PRECISION > KCTSB_BITS_PER_LONG-2"
 #endif
 
 
 // MUL_ADD(a, b, c): a += b*c
-#ifdef NTL_HAVE_FMA
+#ifdef KCTSB_HAVE_FMA
 #define MUL_ADD(a, b, c) a = _mm256_fmadd_pd(b, c, a) 
 #else
 #define MUL_ADD(a, b, c) a = _mm256_add_pd(a, _mm256_mul_pd(b, c))
 #endif
 
 
-#ifdef NTL_HAVE_AVX512F
+#ifdef KCTSB_HAVE_AVX512F
 #define MUL_ADD512(a, b, c) a = _mm512_fmadd_pd(b, c, a) 
 #endif
 
 
 
-#ifdef NTL_HAVE_AVX512F
+#ifdef KCTSB_HAVE_AVX512F
 
 static
 void muladd1_by_32(double *x, const double *a, const double *b, long n)
@@ -1299,7 +1299,7 @@ static inline
 void muladd_all_by_32(long first, long last, double *x, const double *a, const double *b, long n)
 {
    long i = first;
-#if (defined(NTL_HAVE_FMA) || defined(NTL_HAVE_AVX512F))
+#if (defined(KCTSB_HAVE_FMA) || defined(KCTSB_HAVE_AVX512F))
    // process three rows at a time
    for (; i <= last-3; i+=3)
       muladd3_by_32(x + i*MAT_BLK_SZ, a + i*MAT_BLK_SZ, b, n);
@@ -1319,7 +1319,7 @@ static inline
 void muladd_all_by_16(long first, long last, double *x, const double *a, const double *b, long n)
 {
    long i = first;
-#if (defined(NTL_HAVE_FMA) || defined(NTL_HAVE_AVX512F))
+#if (defined(KCTSB_HAVE_FMA) || defined(KCTSB_HAVE_AVX512F))
    // processing three rows at a time is faster
    for (; i <= last-3; i+=3)
       muladd3_by_16(x + i*MAT_BLK_SZ, a + i*MAT_BLK_SZ, b, n);
@@ -1350,7 +1350,7 @@ void muladd_all_by_32_width(long first, long last, double *x, const double *a, c
 
 // this assumes n is a multiple of 16
 static inline
-void muladd_interval(double * NTL_RESTRICT x, double * NTL_RESTRICT y, double c, long n)
+void muladd_interval(double * KCTSB_RESTRICT x, double * KCTSB_RESTRICT y, double c, long n)
 {
    __m256d xvec0, xvec1, xvec2, xvec3;
    __m256d yvec0, yvec1, yvec2, yvec3;
@@ -1383,7 +1383,7 @@ void muladd_interval(double * NTL_RESTRICT x, double * NTL_RESTRICT y, double c,
 // this one is more general: does not assume that n is a
 // multiple of 16
 static inline
-void muladd_interval1(double * NTL_RESTRICT x, double * NTL_RESTRICT y, double c, long n)
+void muladd_interval1(double * KCTSB_RESTRICT x, double * KCTSB_RESTRICT y, double c, long n)
 {
 
    __m256d xvec0, xvec1, xvec2, xvec3;
@@ -1441,7 +1441,7 @@ DO_MUL(unsigned long a, unsigned long b)
 
 
 static
-inline void muladd_interval(unsigned long * NTL_RESTRICT x, unsigned long * NTL_RESTRICT y, 
+inline void muladd_interval(unsigned long * KCTSB_RESTRICT x, unsigned long * KCTSB_RESTRICT y, 
                      unsigned long c, long n)
 {
    for (long i = 0; i < n; i++)
@@ -1985,7 +1985,7 @@ void muladd_all_by_32_width(long first, long last, unsigned long *x, const unsig
    }
 }
 
-#if (!defined(__INTEL_COMPILER) && (NTL_BITS_PER_INT >= NTL_BITS_PER_LONG/2))
+#if (!defined(__INTEL_COMPILER) && (KCTSB_BITS_PER_INT >= KCTSB_BITS_PER_LONG/2))
 // Something goes wrong with the Intel ICC (version 16.0.3) compiler 
 // in this case.
 // It goes away with -O1, so I suspect it is a compiler bug.
@@ -2002,10 +2002,10 @@ typedef unsigned long uhlong;
 
 
 // NOTE: the following code is hardcoded for MAT_BLK_SZ == 32.
-// Also, we special case NTL_BITS_PER_LONG-NTL_SP_NBITS > 2, which
+// Also, we special case KCTSB_BITS_PER_LONG-KCTSB_SP_NBITS > 2, which
 // allows us to accumulate all 32 products without additional carries.
 
-#if (NTL_BITS_PER_LONG-NTL_SP_NBITS > 2)
+#if (KCTSB_BITS_PER_LONG-KCTSB_SP_NBITS > 2)
 
 static
 void muladd1_by_32(long *x, const long *a, const long *b, 
@@ -2042,7 +2042,7 @@ void muladd1_by_32(long *x, const long *a, const long *b,
 
       long res;
       
-      if (ll_red_struct.nbits == NTL_SP_NBITS) 
+      if (ll_red_struct.nbits == KCTSB_SP_NBITS) 
          res = sp_ll_red_31_normalized(0, sum1, sum0, p, ll_red_struct);
       else
          res =  sp_ll_red_31(0, sum1, sum0, p, ll_red_struct);
@@ -2088,7 +2088,7 @@ void muladd1_by_32_width(long *x, const long *a, const long *b,
 
       long res;
       
-      if (ll_red_struct.nbits == NTL_SP_NBITS) 
+      if (ll_red_struct.nbits == KCTSB_SP_NBITS) 
          res = sp_ll_red_31_normalized(0, sum1, sum0, p, ll_red_struct);
       else
          res =  sp_ll_red_31(0, sum1, sum0, p, ll_red_struct);
@@ -2147,7 +2147,7 @@ void muladd1_by_32_full(long *x, const long *a, const long *b,
 
       long res;
       
-      if (ll_red_struct.nbits == NTL_SP_NBITS) 
+      if (ll_red_struct.nbits == KCTSB_SP_NBITS) 
          res = sp_ll_red_31_normalized(0, sum1, sum0, p, ll_red_struct);
       else
          res =  sp_ll_red_31(0, sum1, sum0, p, ll_red_struct);
@@ -2205,7 +2205,7 @@ void muladd1_by_32_full_width(long *x, const long *a, const long *b,
 
       long res;
       
-      if (ll_red_struct.nbits == NTL_SP_NBITS) 
+      if (ll_red_struct.nbits == KCTSB_SP_NBITS) 
          res = sp_ll_red_31_normalized(0, sum1, sum0, p, ll_red_struct);
       else
          res =  sp_ll_red_31(0, sum1, sum0, p, ll_red_struct);
@@ -2288,7 +2288,7 @@ void muladd1_by_32_full(long *x, const long *a, const long *b,
       unsigned long sum0_3 = ll_get_lo(sum_3);
       unsigned long sum1_3 = ll_get_hi(sum_3);
       
-      if (ll_red_struct.nbits == NTL_SP_NBITS) {
+      if (ll_red_struct.nbits == KCTSB_SP_NBITS) {
          x[j] = sp_ll_red_31_normalized(0, sum1, sum0, p, ll_red_struct);
          x[j+1] = sp_ll_red_31_normalized(0, sum1_1, sum0_1, p, ll_red_struct);
          x[j+2] = sp_ll_red_31_normalized(0, sum1_2, sum0_2, p, ll_red_struct);
@@ -2367,7 +2367,7 @@ void muladd1_by_32_full_width(long *x, const long *a, const long *b,
       unsigned long sum0_3 = ll_get_lo(sum_3);
       unsigned long sum1_3 = ll_get_hi(sum_3);
       
-      if (ll_red_struct.nbits == NTL_SP_NBITS) {
+      if (ll_red_struct.nbits == KCTSB_SP_NBITS) {
          x[j] = sp_ll_red_31_normalized(0, sum1, sum0, p, ll_red_struct);
          x[j+1] = sp_ll_red_31_normalized(0, sum1_1, sum0_1, p, ll_red_struct);
          x[j+2] = sp_ll_red_31_normalized(0, sum1_2, sum0_2, p, ll_red_struct);
@@ -2427,7 +2427,7 @@ void muladd1_by_32_full_width(long *x, const long *a, const long *b,
 
       long res;
       
-      if (ll_red_struct.nbits == NTL_SP_NBITS) 
+      if (ll_red_struct.nbits == KCTSB_SP_NBITS) 
          res = sp_ll_red_31_normalized(0, sum1, sum0, p, ll_red_struct);
       else
          res =  sp_ll_red_31(0, sum1, sum0, p, ll_red_struct);
@@ -2471,7 +2471,7 @@ void muladd1_by_32(long *x, const long *a, const long *b,
 
       long res;
       
-      if (ll_red_struct.nbits == NTL_SP_NBITS) 
+      if (ll_red_struct.nbits == KCTSB_SP_NBITS) 
          res = sp_ll_red_31_normalized(ll_get_hi(acc21), ll_get_lo(acc21), acc0, p, ll_red_struct);
       else
          res = sp_ll_red_31(ll_get_hi(acc21), ll_get_lo(acc21), acc0, p, ll_red_struct);
@@ -2507,7 +2507,7 @@ void muladd1_by_32_width(long *x, const long *a, const long *b,
 
       long res;
       
-      if (ll_red_struct.nbits == NTL_SP_NBITS) 
+      if (ll_red_struct.nbits == KCTSB_SP_NBITS) 
          res = sp_ll_red_31_normalized(ll_get_hi(acc21), ll_get_lo(acc21), acc0, p, ll_red_struct);
       else
          res = sp_ll_red_31(ll_get_hi(acc21), ll_get_lo(acc21), acc0, p, ll_red_struct);
@@ -2570,7 +2570,7 @@ void muladd1_by_32_full(long *x, const long *a, const long *b,
 
       long res;
       
-      if (ll_red_struct.nbits == NTL_SP_NBITS) 
+      if (ll_red_struct.nbits == KCTSB_SP_NBITS) 
          res = sp_ll_red_31_normalized(ll_get_hi(acc21), ll_get_lo(acc21), acc0, p, ll_red_struct);
       else
          res = sp_ll_red_31(ll_get_hi(acc21), ll_get_lo(acc21), acc0, p, ll_red_struct);
@@ -2633,7 +2633,7 @@ void muladd1_by_32_full_width(long *x, const long *a, const long *b,
 
       long res;
       
-      if (ll_red_struct.nbits == NTL_SP_NBITS) 
+      if (ll_red_struct.nbits == KCTSB_SP_NBITS) 
          res = sp_ll_red_31_normalized(ll_get_hi(acc21), ll_get_lo(acc21), acc0, p, ll_red_struct);
       else
          res = sp_ll_red_31(ll_get_hi(acc21), ll_get_lo(acc21), acc0, p, ll_red_struct);
@@ -2747,7 +2747,7 @@ void muladd1_by_32_half2_width(long *x, const long *a, const long *b,
 
 // NOTE: oddly, this is slightly faster than the half2 routine, which
 // I would have thought would be faster
-// DIRT: this assumes MAT_BLK_SZ < (1L << NTL_BITS_PER_LONG/2),
+// DIRT: this assumes MAT_BLK_SZ < (1L << KCTSB_BITS_PER_LONG/2),
 // which will hold unconditionally for MAT_BLK_SZ < 2^16.
 
 static
@@ -2820,7 +2820,7 @@ static inline
 void muladd_all_by_32(long first, long last, long *x, const long *a, const long *b, long n,
                       long p, sp_ll_reduce_struct ll_red_struct)
 {
-   if ((p-1) >= (1L << ((NTL_BITS_PER_LONG/2)-1))) {
+   if ((p-1) >= (1L << ((KCTSB_BITS_PER_LONG/2)-1))) {
       if (n == MAT_BLK_SZ) {
 	 for (long i = first; i < last; i++)
 	    muladd1_by_32_full(x + i*MAT_BLK_SZ, a + i*MAT_BLK_SZ, b, p, ll_red_struct);
@@ -2841,7 +2841,7 @@ void muladd_all_by_32_width(long first, long last, long *x, const long *a, const
                       long p, sp_ll_reduce_struct ll_red_struct, long width)
 {
    if (width == MAT_BLK_SZ) {
-      if ((p-1) >= (1L << ((NTL_BITS_PER_LONG/2)-1))) {
+      if ((p-1) >= (1L << ((KCTSB_BITS_PER_LONG/2)-1))) {
 	 if (n == MAT_BLK_SZ) {
 	    for (long i = first; i < last; i++)
 	       muladd1_by_32_full(x + i*MAT_BLK_SZ, a + i*MAT_BLK_SZ, b, p, ll_red_struct);
@@ -2857,7 +2857,7 @@ void muladd_all_by_32_width(long first, long last, long *x, const long *a, const
       }
    }
    else {
-      if ((p-1) >= (1L << ((NTL_BITS_PER_LONG/2)-1))) {
+      if ((p-1) >= (1L << ((KCTSB_BITS_PER_LONG/2)-1))) {
 	 if (n == MAT_BLK_SZ) {
 	    for (long i = first; i < last; i++)
 	       muladd1_by_32_full_width(x + i*MAT_BLK_SZ, a + i*MAT_BLK_SZ, b, p, ll_red_struct, width);
@@ -2880,7 +2880,7 @@ void muladd_all_by_32_width(long first, long last, long *x, const long *a, const
 
 
 static
-inline void muladd_interval(long * NTL_RESTRICT x, long * NTL_RESTRICT y, 
+inline void muladd_interval(long * KCTSB_RESTRICT x, long * KCTSB_RESTRICT y, 
                      long c, long n, long p, mulmod_t pinv)
 {
    mulmod_precon_t cpinv = PrepMulModPrecon(c, p, pinv);
@@ -2914,7 +2914,7 @@ void basic_mul(const mat_window_zz_p& X,
 
    const bool seq = double(n)*double(l)*double(m) < PAR_THRESH;
 
-   NTL_GEXEC_RANGE(seq, n, first, last) {
+   KCTSB_GEXEC_RANGE(seq, n, first, last) {
 
       for (long i = first; i < last; i++) {
          long j, k;
@@ -2938,13 +2938,13 @@ void basic_mul(const mat_window_zz_p& X,
          }
       }
 
-   } NTL_GEXEC_RANGE_END
+   } KCTSB_GEXEC_RANGE_END
 }  
 
 
 
 
-#ifdef NTL_HAVE_LL_TYPE
+#ifdef KCTSB_HAVE_LL_TYPE
 
 static
 void alt_mul_L(const mat_window_zz_p& X, 
@@ -2960,7 +2960,7 @@ void alt_mul_L(const mat_window_zz_p& X,
 
    const bool seq = double(n)*double(l)*double(m) < PAR_THRESH;
 
-   NTL_GEXEC_RANGE(seq, m, first, last) {
+   KCTSB_GEXEC_RANGE(seq, m, first, last) {
 
       Vec<long> B_col;
       B_col.SetLength(l);
@@ -2977,7 +2977,7 @@ void alt_mul_L(const mat_window_zz_p& X,
          }
       }
 
-   } NTL_GEXEC_RANGE_END
+   } KCTSB_GEXEC_RANGE_END
 }  
 
 
@@ -2994,7 +2994,7 @@ void alt_mul_LL(const mat_window_zz_p& X,
 
    const bool seq = double(n)*double(l)*double(m) < PAR_THRESH;
 
-   NTL_GEXEC_RANGE(seq, m, first, last) {
+   KCTSB_GEXEC_RANGE(seq, m, first, last) {
 
       Vec<long> B_col;
       B_col.SetLength(l);
@@ -3011,11 +3011,11 @@ void alt_mul_LL(const mat_window_zz_p& X,
          }
       }
 
-   } NTL_GEXEC_RANGE_END
+   } KCTSB_GEXEC_RANGE_END
 }  
 
 
-#ifdef NTL_HAVE_AVX
+#ifdef KCTSB_HAVE_AVX
 
 static
 void blk_mul_DD(const mat_window_zz_p& X, 
@@ -3053,12 +3053,12 @@ void blk_mul_DD(const mat_window_zz_p& X,
 
    const bool seq = double(n)*double(l)*double(m) < PAR_THRESH;
 
-   NTL_GEXEC_RANGE(seq, nxpanels, first, last) 
-   NTL_IMPORT(n)
-   NTL_IMPORT(l)
-   NTL_IMPORT(m)
-   NTL_IMPORT(p)
-   NTL_IMPORT(red_struct)
+   KCTSB_GEXEC_RANGE(seq, nxpanels, first, last) 
+   KCTSB_IMPORT(n)
+   KCTSB_IMPORT(l)
+   KCTSB_IMPORT(m)
+   KCTSB_IMPORT(p)
+   KCTSB_IMPORT(red_struct)
 
    AlignedArray<double> B_rec;
    B_rec.SetLength(MAT_BLK_SZ*MAT_BLK_SZ);
@@ -3117,7 +3117,7 @@ void blk_mul_DD(const mat_window_zz_p& X,
       }
    }
 
-   NTL_GEXEC_RANGE_END
+   KCTSB_GEXEC_RANGE_END
 }  
 
 #endif
@@ -3162,12 +3162,12 @@ void blk_mul_LL(const mat_window_zz_p& X,
 
    const bool seq = double(n)*double(l)*double(m) < PAR_THRESH;
 
-   NTL_GEXEC_RANGE(seq, nxpanels, first, last) 
-   NTL_IMPORT(n)
-   NTL_IMPORT(l)
-   NTL_IMPORT(m)
-   NTL_IMPORT(p)
-   NTL_IMPORT(ll_red_struct)
+   KCTSB_GEXEC_RANGE(seq, nxpanels, first, last) 
+   KCTSB_IMPORT(n)
+   KCTSB_IMPORT(l)
+   KCTSB_IMPORT(m)
+   KCTSB_IMPORT(p)
+   KCTSB_IMPORT(ll_red_struct)
 
    UniqueArray<long> B_rec;
    B_rec.SetLength(MAT_BLK_SZ*MAT_BLK_SZ);
@@ -3215,7 +3215,7 @@ void blk_mul_LL(const mat_window_zz_p& X,
       }
    }
 
-   NTL_GEXEC_RANGE_END
+   KCTSB_GEXEC_RANGE_END
 }  
 
 
@@ -3258,12 +3258,12 @@ void blk_mul_L(const mat_window_zz_p& X,
 
    const bool seq = double(n)*double(l)*double(m) < PAR_THRESH;
 
-   NTL_GEXEC_RANGE(seq, nxpanels, first, last) 
-   NTL_IMPORT(n)
-   NTL_IMPORT(l)
-   NTL_IMPORT(m)
-   NTL_IMPORT(p)
-   NTL_IMPORT(red_struct)
+   KCTSB_GEXEC_RANGE(seq, nxpanels, first, last) 
+   KCTSB_IMPORT(n)
+   KCTSB_IMPORT(l)
+   KCTSB_IMPORT(m)
+   KCTSB_IMPORT(p)
+   KCTSB_IMPORT(red_struct)
 
    UniqueArray<uhlong> B_rec;
    B_rec.SetLength(MAT_BLK_SZ*MAT_BLK_SZ);
@@ -3289,7 +3289,7 @@ void blk_mul_L(const mat_window_zz_p& X,
          (~(0UL)-cast_unsigned(p-1))/(cast_unsigned(p-1)*cast_unsigned(p-1));
       // NOTE: corner case at p == 2: need unsigned long to prevent overflow
 
-      long red_trigger = min(cast_unsigned(NTL_MAX_LONG), ured_trigger);
+      long red_trigger = min(cast_unsigned(KCTSB_MAX_LONG), ured_trigger);
 
       long red_count = red_trigger;
 
@@ -3328,7 +3328,7 @@ void blk_mul_L(const mat_window_zz_p& X,
       }
    }
 
-   NTL_GEXEC_RANGE_END
+   KCTSB_GEXEC_RANGE_END
 }  
 
 
@@ -3348,7 +3348,7 @@ void mul_base (const mat_window_zz_p& X,
       return;
    }
 
-#ifndef NTL_HAVE_LL_TYPE
+#ifndef KCTSB_HAVE_LL_TYPE
 
    basic_mul(X, A, B);
 
@@ -3357,7 +3357,7 @@ void mul_base (const mat_window_zz_p& X,
    long p = zz_p::modulus();
    long V = MAT_BLK_SZ*4;
 
-#ifdef NTL_HAVE_AVX
+#ifdef KCTSB_HAVE_AVX
 
    // experimentally, blk_mul_DD beats all the alternatives
    // if each dimension is at least 16
@@ -3367,9 +3367,9 @@ void mul_base (const mat_window_zz_p& X,
        V <= (MAX_DBL_INT-(p-1))/(p-1) &&
        V*(p-1) <= (MAX_DBL_INT-(p-1))/(p-1)) 
    {
-      if (NTL_OVERFLOW(n, MAT_BLK_SZ, 0)) ResourceError("number too big");
-      if (NTL_OVERFLOW(l, MAT_BLK_SZ, 0)) ResourceError("number too big");
-      if (NTL_OVERFLOW(m, MAT_BLK_SZ, 0)) ResourceError("number too big");
+      if (KCTSB_OVERFLOW(n, MAT_BLK_SZ, 0)) ResourceError("number too big");
+      if (KCTSB_OVERFLOW(l, MAT_BLK_SZ, 0)) ResourceError("number too big");
+      if (KCTSB_OVERFLOW(m, MAT_BLK_SZ, 0)) ResourceError("number too big");
 
       //cerr << "blk_mul_DD\n";
       blk_mul_DD(X, A, B);
@@ -3396,9 +3396,9 @@ void mul_base (const mat_window_zz_p& X,
       // Experimentally, the block versions are better when all dimensions
       // are at least 32
 
-      if (NTL_OVERFLOW(n, MAT_BLK_SZ, 0)) ResourceError("number too big");
-      if (NTL_OVERFLOW(l, MAT_BLK_SZ, 0)) ResourceError("number too big");
-      if (NTL_OVERFLOW(m, MAT_BLK_SZ, 0)) ResourceError("number too big");
+      if (KCTSB_OVERFLOW(n, MAT_BLK_SZ, 0)) ResourceError("number too big");
+      if (KCTSB_OVERFLOW(l, MAT_BLK_SZ, 0)) ResourceError("number too big");
+      if (KCTSB_OVERFLOW(m, MAT_BLK_SZ, 0)) ResourceError("number too big");
 
 
       if (cast_unsigned(V) <= (~(0UL)-cast_unsigned(p-1))/cast_unsigned(p-1) &&
@@ -3457,7 +3457,7 @@ void mul_strassen(const mat_window_zz_p& C,
     // this code determines if mul_base triggers blk_mul_DD,
     // in which case a higher crossover is used
 
-#if (defined(NTL_HAVE_LL_TYPE) && defined(NTL_HAVE_AVX))
+#if (defined(KCTSB_HAVE_LL_TYPE) && defined(KCTSB_HAVE_AVX))
     {
        long V = MAT_BLK_SZ*4;
        long p = zz_p::modulus();
@@ -3725,10 +3725,10 @@ void basic_inv(zz_p& d, mat_zz_p& X, const mat_zz_p& A, bool relax)
 
 
 
-         NTL_GEXEC_RANGE(seq, n, first, last)  
-         NTL_IMPORT(p)
-         NTL_IMPORT(n)
-         NTL_IMPORT(k)
+         KCTSB_GEXEC_RANGE(seq, n, first, last)  
+         KCTSB_IMPORT(p)
+         KCTSB_IMPORT(n)
+         KCTSB_IMPORT(k)
          long *y = &M[k][0]; 
          for (long i = first; i < last; i++) {
             if (i == k) continue; // skip row k
@@ -3747,7 +3747,7 @@ void basic_inv(zz_p& d, mat_zz_p& X, const mat_zz_p& A, bool relax)
                x[j] = AddMod(x[j], t2, p);
             }
          }
-         NTL_GEXEC_RANGE_END
+         KCTSB_GEXEC_RANGE_END
       }
       else {
          clear(d);
@@ -3763,7 +3763,7 @@ void basic_inv(zz_p& d, mat_zz_p& X, const mat_zz_p& A, bool relax)
 
          for (long k = n-1; k >= 0; k--) {
             long pos = P[k];
-            if (pos != k) _ntl_swap(x[pos], x[k]);
+            if (pos != k) _kctsb_swap(x[pos], x[k]);
          }
       }
    }
@@ -3778,7 +3778,7 @@ void basic_inv(zz_p& d, mat_zz_p& X, const mat_zz_p& A, bool relax)
 
 
 
-#ifdef NTL_HAVE_LL_TYPE
+#ifdef KCTSB_HAVE_LL_TYPE
 
 
 
@@ -3823,7 +3823,7 @@ void alt_inv_L(zz_p& d, mat_zz_p& X, const mat_zz_p& A, bool relax)
       (~(0UL)-cast_unsigned(p-1))/(cast_unsigned(p-1)*cast_unsigned(p-1));
    // NOTE: corner case at p == 2: need unsigned long to prevent overflow
 
-   long red_trigger = min(cast_unsigned(NTL_MAX_LONG), ured_trigger);
+   long red_trigger = min(cast_unsigned(KCTSB_MAX_LONG), ured_trigger);
 
    long red_count = red_trigger;
 
@@ -3876,11 +3876,11 @@ void alt_inv_L(zz_p& d, mat_zz_p& X, const mat_zz_p& A, bool relax)
          }
 
 
-         NTL_GEXEC_RANGE(seq, n, first, last)  
-         NTL_IMPORT(p)
-         NTL_IMPORT(n)
-         NTL_IMPORT(k)
-         NTL_IMPORT(red_struct)
+         KCTSB_GEXEC_RANGE(seq, n, first, last)  
+         KCTSB_IMPORT(p)
+         KCTSB_IMPORT(n)
+         KCTSB_IMPORT(k)
+         KCTSB_IMPORT(red_struct)
          unsigned long *y = &M[k][0]; 
          if (cleanup) {
             for (long i = first; i < last; i++) {
@@ -3923,7 +3923,7 @@ void alt_inv_L(zz_p& d, mat_zz_p& X, const mat_zz_p& A, bool relax)
                x[j] += DO_MUL(y[j], ut1);
             }
          }
-         NTL_GEXEC_RANGE_END
+         KCTSB_GEXEC_RANGE_END
       }
       else {
          clear(d);
@@ -3939,7 +3939,7 @@ void alt_inv_L(zz_p& d, mat_zz_p& X, const mat_zz_p& A, bool relax)
 
          for (long k = n-1; k >= 0; k--) {
             long pos = P[k];
-            if (pos != k) _ntl_swap(x[pos], x[k]);
+            if (pos != k) _kctsb_swap(x[pos], x[k]);
          }
       }
    }
@@ -3956,7 +3956,7 @@ void alt_inv_L(zz_p& d, mat_zz_p& X, const mat_zz_p& A, bool relax)
 
 
 
-#ifdef NTL_HAVE_AVX
+#ifdef KCTSB_HAVE_AVX
 
 static
 void alt_inv_DD(zz_p& d, mat_zz_p& X, const mat_zz_p& A, bool relax)
@@ -4053,11 +4053,11 @@ void alt_inv_DD(zz_p& d, mat_zz_p& X, const mat_zz_p& A, bool relax)
          }
 
 
-         NTL_GEXEC_RANGE(seq, n, first, last)  
-         NTL_IMPORT(p)
-         NTL_IMPORT(n)
-         NTL_IMPORT(k)
-         NTL_IMPORT(red_struct)
+         KCTSB_GEXEC_RANGE(seq, n, first, last)  
+         KCTSB_IMPORT(p)
+         KCTSB_IMPORT(n)
+         KCTSB_IMPORT(k)
+         KCTSB_IMPORT(red_struct)
          double *y = &M[k][0]; 
          if (cleanup) {
             for (long i = first; i < last; i++) {
@@ -4087,7 +4087,7 @@ void alt_inv_DD(zz_p& d, mat_zz_p& X, const mat_zz_p& A, bool relax)
             double ut1 = t1;
             muladd_interval1(x, y, ut1, n);
          }
-         NTL_GEXEC_RANGE_END
+         KCTSB_GEXEC_RANGE_END
       }
       else {
          clear(d);
@@ -4104,7 +4104,7 @@ void alt_inv_DD(zz_p& d, mat_zz_p& X, const mat_zz_p& A, bool relax)
 
          for (long k = n-1; k >= 0; k--) {
             long pos = P[k];
-            if (pos != k) _ntl_swap(x[pos], x[k]);
+            if (pos != k) _kctsb_swap(x[pos], x[k]);
          }
       }
    }
@@ -4124,7 +4124,7 @@ void alt_inv_DD(zz_p& d, mat_zz_p& X, const mat_zz_p& A, bool relax)
 
 
 
-#ifdef NTL_HAVE_AVX
+#ifdef KCTSB_HAVE_AVX
 
 static
 void blk_inv_DD(zz_p& d, mat_zz_p& X, const mat_zz_p& A, bool relax)
@@ -4140,7 +4140,7 @@ void blk_inv_DD(zz_p& d, mat_zz_p& X, const mat_zz_p& A, bool relax)
       return;
    }
 
-   if (NTL_OVERFLOW(n, MAT_BLK_SZ, 0)) ResourceError("dimension too large");
+   if (KCTSB_OVERFLOW(n, MAT_BLK_SZ, 0)) ResourceError("dimension too large");
 
    long npanels = (n+MAT_BLK_SZ-1)/MAT_BLK_SZ;
    
@@ -4231,7 +4231,7 @@ void blk_inv_DD(zz_p& d, mat_zz_p& X, const mat_zz_p& A, bool relax)
          if (k != pos) {
             // swap rows pos and k
             double *x = &kpanelp[pos*MAT_BLK_SZ];
-            for (long j = 0; j < MAT_BLK_SZ; j++) _ntl_swap(x[j], y[j]);
+            for (long j = 0; j < MAT_BLK_SZ; j++) _kctsb_swap(x[j], y[j]);
             
             det = NegateMod(det, p);
             P[k] = pos;
@@ -4280,14 +4280,14 @@ void blk_inv_DD(zz_p& d, mat_zz_p& X, const mat_zz_p& A, bool relax)
          kpanelp[k*MAT_BLK_SZ+(k-kk)] = SubMod((long)kpanelp[k*MAT_BLK_SZ+(k-kk)], 1, p);
 
 
-      NTL_GEXEC_RANGE(seq, npanels, first, last)  
-      NTL_IMPORT(p)
-      NTL_IMPORT(n)
-      NTL_IMPORT(red_struct)
-      NTL_IMPORT(kpanel)
-      NTL_IMPORT(kpanelp)
-      NTL_IMPORT(kk)
-      NTL_IMPORT(k_max)
+      KCTSB_GEXEC_RANGE(seq, npanels, first, last)  
+      KCTSB_IMPORT(p)
+      KCTSB_IMPORT(n)
+      KCTSB_IMPORT(red_struct)
+      KCTSB_IMPORT(kpanel)
+      KCTSB_IMPORT(kpanelp)
+      KCTSB_IMPORT(kk)
+      KCTSB_IMPORT(k_max)
 
 
       AlignedArray<double> buf_store;
@@ -4312,7 +4312,7 @@ void blk_inv_DD(zz_p& d, mat_zz_p& X, const mat_zz_p& A, bool relax)
                double *pos_p = &jpanelp[pos*MAT_BLK_SZ];
                double *k_p = &jpanelp[k*MAT_BLK_SZ];
                for (long j = 0; j < MAT_BLK_SZ; j++)
-                  _ntl_swap(pos_p[j], k_p[j]);
+                  _kctsb_swap(pos_p[j], k_p[j]);
             }
          }
 
@@ -4326,7 +4326,7 @@ void blk_inv_DD(zz_p& d, mat_zz_p& X, const mat_zz_p& A, bool relax)
          muladd_all_by_32(0, n, jpanelp, kpanelp, buf, k_max-kk);
       }
                   
-      NTL_GEXEC_RANGE_END
+      KCTSB_GEXEC_RANGE_END
 
       // special processing: add 1 back to the diangonal
 
@@ -4346,7 +4346,7 @@ void blk_inv_DD(zz_p& d, mat_zz_p& X, const mat_zz_p& A, bool relax)
             double *x = &M[pos / MAT_BLK_SZ][pos % MAT_BLK_SZ];
             double *y = &M[k / MAT_BLK_SZ][k % MAT_BLK_SZ];
             for (long i = 0; i < n; i++) {
-               _ntl_swap(x[i*MAT_BLK_SZ], y[i*MAT_BLK_SZ]);
+               _kctsb_swap(x[i*MAT_BLK_SZ], y[i*MAT_BLK_SZ]);
             }
          }
       }
@@ -4389,7 +4389,7 @@ void blk_inv_L(zz_p& d, mat_zz_p& X, const mat_zz_p& A, bool relax)
       return;
    }
 
-   if (NTL_OVERFLOW(n, MAT_BLK_SZ, 0)) ResourceError("dimension too large");
+   if (KCTSB_OVERFLOW(n, MAT_BLK_SZ, 0)) ResourceError("dimension too large");
 
    long npanels = (n+MAT_BLK_SZ-1)/MAT_BLK_SZ;
 
@@ -4437,7 +4437,7 @@ void blk_inv_L(zz_p& d, mat_zz_p& X, const mat_zz_p& A, bool relax)
       (~(0UL)-cast_unsigned(p-1))/(cast_unsigned(p-1)*cast_unsigned(p-1));
    // NOTE: corner case at p == 2: need unsigned long to prevent overflow
 
-   long red_trigger = min(cast_unsigned(NTL_MAX_LONG), ured_trigger);
+   long red_trigger = min(cast_unsigned(KCTSB_MAX_LONG), ured_trigger);
 
    long red_count = red_trigger;
 
@@ -4484,7 +4484,7 @@ void blk_inv_L(zz_p& d, mat_zz_p& X, const mat_zz_p& A, bool relax)
          if (k != pos) {
             // swap rows pos and k
             unsigned long *x = &kpanelp[pos*MAT_BLK_SZ];
-            for (long j = 0; j < MAT_BLK_SZ; j++) _ntl_swap(x[j], y[j]);
+            for (long j = 0; j < MAT_BLK_SZ; j++) _kctsb_swap(x[j], y[j]);
             
             det = NegateMod(det, p);
             P[k] = pos;
@@ -4533,14 +4533,14 @@ void blk_inv_L(zz_p& d, mat_zz_p& X, const mat_zz_p& A, bool relax)
          kpanelp[k*MAT_BLK_SZ+(k-kk)] = SubMod((long)kpanelp[k*MAT_BLK_SZ+(k-kk)], 1, p);
 
 
-      NTL_GEXEC_RANGE(seq, npanels, first, last)  
-      NTL_IMPORT(p)
-      NTL_IMPORT(n)
-      NTL_IMPORT(red_struct)
-      NTL_IMPORT(kpanel)
-      NTL_IMPORT(kpanelp)
-      NTL_IMPORT(kk)
-      NTL_IMPORT(k_max)
+      KCTSB_GEXEC_RANGE(seq, npanels, first, last)  
+      KCTSB_IMPORT(p)
+      KCTSB_IMPORT(n)
+      KCTSB_IMPORT(red_struct)
+      KCTSB_IMPORT(kpanel)
+      KCTSB_IMPORT(kpanelp)
+      KCTSB_IMPORT(kk)
+      KCTSB_IMPORT(k_max)
 
 
       UniqueArray<unsigned long> buf_store;
@@ -4565,7 +4565,7 @@ void blk_inv_L(zz_p& d, mat_zz_p& X, const mat_zz_p& A, bool relax)
                unsigned long *pos_p = &jpanelp[pos*MAT_BLK_SZ];
                unsigned long *k_p = &jpanelp[k*MAT_BLK_SZ];
                for (long j = 0; j < MAT_BLK_SZ; j++)
-                  _ntl_swap(pos_p[j], k_p[j]);
+                  _kctsb_swap(pos_p[j], k_p[j]);
             }
          }
 
@@ -4582,7 +4582,7 @@ void blk_inv_L(zz_p& d, mat_zz_p& X, const mat_zz_p& A, bool relax)
          muladd_all_by_32(0, n, jpanelp, kpanelp, buf, k_max-kk);
       }
                   
-      NTL_GEXEC_RANGE_END
+      KCTSB_GEXEC_RANGE_END
 
       // special processing: add 1 back to the diangonal
 
@@ -4602,7 +4602,7 @@ void blk_inv_L(zz_p& d, mat_zz_p& X, const mat_zz_p& A, bool relax)
             unsigned long *x = &M[pos / MAT_BLK_SZ][pos % MAT_BLK_SZ];
             unsigned long *y = &M[k / MAT_BLK_SZ][k % MAT_BLK_SZ];
             for (long i = 0; i < n; i++) {
-               _ntl_swap(x[i*MAT_BLK_SZ], y[i*MAT_BLK_SZ]);
+               _kctsb_swap(x[i*MAT_BLK_SZ], y[i*MAT_BLK_SZ]);
             }
          }
       }
@@ -4647,7 +4647,7 @@ void blk_inv_LL(zz_p& d, mat_zz_p& X, const mat_zz_p& A, bool relax)
       return;
    }
 
-   if (NTL_OVERFLOW(n, MAT_BLK_SZ, 0)) ResourceError("dimension too big");
+   if (KCTSB_OVERFLOW(n, MAT_BLK_SZ, 0)) ResourceError("dimension too big");
 
    long npanels = (n+MAT_BLK_SZ-1)/MAT_BLK_SZ;
 
@@ -4723,7 +4723,7 @@ void blk_inv_LL(zz_p& d, mat_zz_p& X, const mat_zz_p& A, bool relax)
          if (k != pos) {
             // swap rows pos and k
             long *x = &kpanelp[pos*MAT_BLK_SZ];
-            for (long j = 0; j < MAT_BLK_SZ; j++) _ntl_swap(x[j], y[j]);
+            for (long j = 0; j < MAT_BLK_SZ; j++) _kctsb_swap(x[j], y[j]);
             
             det = NegateMod(det, p);
             P[k] = pos;
@@ -4768,14 +4768,14 @@ void blk_inv_LL(zz_p& d, mat_zz_p& X, const mat_zz_p& A, bool relax)
          kpanelp[k*MAT_BLK_SZ+(k-kk)] = SubMod(kpanelp[k*MAT_BLK_SZ+(k-kk)], 1, p);
 
 
-      NTL_GEXEC_RANGE(seq, npanels, first, last)  
-      NTL_IMPORT(p)
-      NTL_IMPORT(n)
-      NTL_IMPORT(ll_red_struct)
-      NTL_IMPORT(kpanel)
-      NTL_IMPORT(kpanelp)
-      NTL_IMPORT(kk)
-      NTL_IMPORT(k_max)
+      KCTSB_GEXEC_RANGE(seq, npanels, first, last)  
+      KCTSB_IMPORT(p)
+      KCTSB_IMPORT(n)
+      KCTSB_IMPORT(ll_red_struct)
+      KCTSB_IMPORT(kpanel)
+      KCTSB_IMPORT(kpanelp)
+      KCTSB_IMPORT(kk)
+      KCTSB_IMPORT(k_max)
 
 
       UniqueArray<long> buf_store;
@@ -4795,7 +4795,7 @@ void blk_inv_LL(zz_p& d, mat_zz_p& X, const mat_zz_p& A, bool relax)
                long *pos_p = &jpanelp[pos*MAT_BLK_SZ];
                long *k_p = &jpanelp[k*MAT_BLK_SZ];
                for (long j = 0; j < MAT_BLK_SZ; j++)
-                  _ntl_swap(pos_p[j], k_p[j]);
+                  _kctsb_swap(pos_p[j], k_p[j]);
             }
          }
 
@@ -4813,7 +4813,7 @@ void blk_inv_LL(zz_p& d, mat_zz_p& X, const mat_zz_p& A, bool relax)
          muladd_all_by_32(0, n, jpanelp, kpanelp, buf, k_max-kk, p, ll_red_struct);
       }
                   
-      NTL_GEXEC_RANGE_END
+      KCTSB_GEXEC_RANGE_END
 
       // special processing: add 1 back to the diangonal
 
@@ -4833,7 +4833,7 @@ void blk_inv_LL(zz_p& d, mat_zz_p& X, const mat_zz_p& A, bool relax)
             long *x = &M[pos / MAT_BLK_SZ][pos % MAT_BLK_SZ];
             long *y = &M[k / MAT_BLK_SZ][k % MAT_BLK_SZ];
             for (long i = 0; i < n; i++) {
-               _ntl_swap(x[i*MAT_BLK_SZ], y[i*MAT_BLK_SZ]);
+               _kctsb_swap(x[i*MAT_BLK_SZ], y[i*MAT_BLK_SZ]);
             }
          }
       }
@@ -4870,7 +4870,7 @@ void relaxed_inv(zz_p& d, mat_zz_p& X, const mat_zz_p& A, bool relax)
    if (A.NumCols() != n)
       LogicError("inv: nonsquare matrix");
 
-#ifndef NTL_HAVE_LL_TYPE
+#ifndef KCTSB_HAVE_LL_TYPE
 
    basic_inv(d, X, A, relax);
 
@@ -4885,7 +4885,7 @@ void relaxed_inv(zz_p& d, mat_zz_p& X, const mat_zz_p& A, bool relax)
    else if (n/MAT_BLK_SZ < 4) {
       long V = 64;
 
-#ifdef NTL_HAVE_AVX
+#ifdef KCTSB_HAVE_AVX
       if (p-1 <= MAX_DBL_INT &&
           V <= (MAX_DBL_INT-(p-1))/(p-1) &&
           V*(p-1) <= (MAX_DBL_INT-(p-1))/(p-1)) {
@@ -4911,7 +4911,7 @@ void relaxed_inv(zz_p& d, mat_zz_p& X, const mat_zz_p& A, bool relax)
    else {
       long V = 4*MAT_BLK_SZ;
 
-#ifdef NTL_HAVE_AVX
+#ifdef KCTSB_HAVE_AVX
       if (p-1 <= MAX_DBL_INT &&
           V <= (MAX_DBL_INT-(p-1))/(p-1) &&
           V*(p-1) <= (MAX_DBL_INT-(p-1))/(p-1)) {
@@ -5032,7 +5032,7 @@ void basic_tri(zz_p& d, const mat_zz_p& A, const vec_zz_p *bp,
             pivoting = true;
 
             // adjust
-            if (bp) _ntl_swap(bv[pos], bv[k]);
+            if (bp) _kctsb_swap(bv[pos], bv[k]);
          }
 
          det = MulMod(det, M[k][k], p);
@@ -5056,10 +5056,10 @@ void basic_tri(zz_p& d, const mat_zz_p& A, const vec_zz_p *bp,
 
          // adjust
          bool seq = n-(k+1) < PAR_THRESH_SQ;
-         NTL_GEXEC_RANGE(seq, n-(k+1), first, last)  
-         NTL_IMPORT(p)
-         NTL_IMPORT(n)
-         NTL_IMPORT(k)
+         KCTSB_GEXEC_RANGE(seq, n-(k+1), first, last)  
+         KCTSB_IMPORT(p)
+         KCTSB_IMPORT(n)
+         KCTSB_IMPORT(k)
          long *y = &M[k][0]; 
 
          // adjust
@@ -5088,7 +5088,7 @@ void basic_tri(zz_p& d, const mat_zz_p& A, const vec_zz_p *bp,
                bv[i] = AddMod(bv[i], t2, p);
             }
          }
-         NTL_GEXEC_RANGE_END
+         KCTSB_GEXEC_RANGE_END
       }
       else {
          clear(d);
@@ -5118,7 +5118,7 @@ void basic_tri(zz_p& d, const mat_zz_p& A, const vec_zz_p *bp,
 
 
 
-#ifdef NTL_HAVE_LL_TYPE
+#ifdef KCTSB_HAVE_LL_TYPE
 
 
 
@@ -5181,7 +5181,7 @@ void alt_tri_L(zz_p& d, const mat_zz_p& A, const vec_zz_p *bp,
       (~(0UL)-cast_unsigned(p-1))/(cast_unsigned(p-1)*cast_unsigned(p-1));
    // NOTE: corner case at p == 2: need unsigned long to prevent overflow
 
-   long red_trigger = min(cast_unsigned(NTL_MAX_LONG), ured_trigger);
+   long red_trigger = min(cast_unsigned(KCTSB_MAX_LONG), ured_trigger);
 
    long red_count = red_trigger;
 
@@ -5217,7 +5217,7 @@ void alt_tri_L(zz_p& d, const mat_zz_p& A, const vec_zz_p *bp,
             P[k] = pos;
             pivoting = true;
 
-            if (bp) _ntl_swap(bv[pos], bv[k]);
+            if (bp) _kctsb_swap(bv[pos], bv[k]);
          }
 
          det = MulMod(det, pivot, p);
@@ -5238,11 +5238,11 @@ void alt_tri_L(zz_p& d, const mat_zz_p& A, const vec_zz_p *bp,
 
     
          bool seq = n-(k+1) < PAR_THRESH_SQ;
-         NTL_GEXEC_RANGE(seq, n-(k+1), first, last)  
-         NTL_IMPORT(p)
-         NTL_IMPORT(n)
-         NTL_IMPORT(k)
-         NTL_IMPORT(red_struct)
+         KCTSB_GEXEC_RANGE(seq, n-(k+1), first, last)  
+         KCTSB_IMPORT(p)
+         KCTSB_IMPORT(n)
+         KCTSB_IMPORT(k)
+         KCTSB_IMPORT(red_struct)
          unsigned long *y = &M[k][0]; 
          if (cleanup) {
             for (long ii = first; ii < last; ii++) {
@@ -5287,7 +5287,7 @@ void alt_tri_L(zz_p& d, const mat_zz_p& A, const vec_zz_p *bp,
                bv[i] = AddMod(bv[i], t2, p);
             }
          }
-         NTL_GEXEC_RANGE_END
+         KCTSB_GEXEC_RANGE_END
       }
       else {
          clear(d);
@@ -5318,7 +5318,7 @@ void alt_tri_L(zz_p& d, const mat_zz_p& A, const vec_zz_p *bp,
 
 
 
-#ifdef NTL_HAVE_AVX
+#ifdef KCTSB_HAVE_AVX
 
 static
 void alt_tri_DD(zz_p& d, const mat_zz_p& A, const vec_zz_p *bp, 
@@ -5413,7 +5413,7 @@ void alt_tri_DD(zz_p& d, const mat_zz_p& A, const vec_zz_p *bp,
             P[k] = pos;
             pivoting = true;
 
-            if (bp) _ntl_swap(bv[pos], bv[k]);
+            if (bp) _kctsb_swap(bv[pos], bv[k]);
          }
 
          det = MulMod(det, pivot, p);
@@ -5434,11 +5434,11 @@ void alt_tri_DD(zz_p& d, const mat_zz_p& A, const vec_zz_p *bp,
 
     
          bool seq = n-(k+1) < PAR_THRESH_SQ;
-         NTL_GEXEC_RANGE(seq, n-(k+1), first, last)  
-         NTL_IMPORT(p)
-         NTL_IMPORT(n)
-         NTL_IMPORT(k)
-         NTL_IMPORT(red_struct)
+         KCTSB_GEXEC_RANGE(seq, n-(k+1), first, last)  
+         KCTSB_IMPORT(p)
+         KCTSB_IMPORT(n)
+         KCTSB_IMPORT(k)
+         KCTSB_IMPORT(red_struct)
          double *y = &M[k][0]; 
          if (cleanup) {
             for (long ii = first; ii < last; ii++) {
@@ -5452,7 +5452,7 @@ void alt_tri_DD(zz_p& d, const mat_zz_p& A, const vec_zz_p *bp,
          }
 
          long align_boundary = 
-            min((((k+1)+(NTL_AVX_DBL_ALIGN-1))/NTL_AVX_DBL_ALIGN)*NTL_AVX_DBL_ALIGN, n);
+            min((((k+1)+(KCTSB_AVX_DBL_ALIGN-1))/KCTSB_AVX_DBL_ALIGN)*KCTSB_AVX_DBL_ALIGN, n);
 
 
          for (long ii = first; ii < last; ii++) {
@@ -5474,7 +5474,7 @@ void alt_tri_DD(zz_p& d, const mat_zz_p& A, const vec_zz_p *bp,
                bv[i] = AddMod(bv[i], t2, p);
             }
          }
-         NTL_GEXEC_RANGE_END
+         KCTSB_GEXEC_RANGE_END
       }
       else {
          clear(d);
@@ -5508,7 +5508,7 @@ void alt_tri_DD(zz_p& d, const mat_zz_p& A, const vec_zz_p *bp,
 
 
 
-#ifdef NTL_HAVE_AVX
+#ifdef KCTSB_HAVE_AVX
 
 static
 void blk_tri_DD(zz_p& d, const mat_zz_p& A, const vec_zz_p *bp, 
@@ -5531,7 +5531,7 @@ void blk_tri_DD(zz_p& d, const mat_zz_p& A, const vec_zz_p *bp,
       return;
    }
 
-   if (NTL_OVERFLOW(n, MAT_BLK_SZ, 0)) ResourceError("dimension too large");
+   if (KCTSB_OVERFLOW(n, MAT_BLK_SZ, 0)) ResourceError("dimension too large");
 
    long npanels = (n+MAT_BLK_SZ-1)/MAT_BLK_SZ;
    
@@ -5633,13 +5633,13 @@ void blk_tri_DD(zz_p& d, const mat_zz_p& A, const vec_zz_p *bp,
          if (k != pos) {
             // swap rows pos and k
             double *x = &kpanelp[pos*MAT_BLK_SZ];
-            for (long j = 0; j < MAT_BLK_SZ; j++) _ntl_swap(x[j], y[j]);
+            for (long j = 0; j < MAT_BLK_SZ; j++) _kctsb_swap(x[j], y[j]);
             
             det = NegateMod(det, p);
             P[k] = pos;
             pivoting = true;
 
-            if (bp) _ntl_swap(bv[pos], bv[k]);
+            if (bp) _kctsb_swap(bv[pos], bv[k]);
          }
 
          det = MulMod(det, pivot, p);
@@ -5693,14 +5693,14 @@ void blk_tri_DD(zz_p& d, const mat_zz_p& A, const vec_zz_p *bp,
 
       bool seq = double(npanels-(kpanel+1))*double(n)*double(MAT_BLK_SZ)*double(MAT_BLK_SZ) < PAR_THRESH;
 
-      NTL_GEXEC_RANGE(seq, npanels-(kpanel+1), first, last)  
-      NTL_IMPORT(p)
-      NTL_IMPORT(n)
-      NTL_IMPORT(red_struct)
-      NTL_IMPORT(kpanel)
-      NTL_IMPORT(kpanelp)
-      NTL_IMPORT(kk)
-      NTL_IMPORT(k_max)
+      KCTSB_GEXEC_RANGE(seq, npanels-(kpanel+1), first, last)  
+      KCTSB_IMPORT(p)
+      KCTSB_IMPORT(n)
+      KCTSB_IMPORT(red_struct)
+      KCTSB_IMPORT(kpanel)
+      KCTSB_IMPORT(kpanelp)
+      KCTSB_IMPORT(kk)
+      KCTSB_IMPORT(k_max)
 
 
       AlignedArray<double> buf_store;
@@ -5725,7 +5725,7 @@ void blk_tri_DD(zz_p& d, const mat_zz_p& A, const vec_zz_p *bp,
                double *pos_p = &jpanelp[pos*MAT_BLK_SZ];
                double *k_p = &jpanelp[k*MAT_BLK_SZ];
                for (long j = 0; j < MAT_BLK_SZ; j++)
-                  _ntl_swap(pos_p[j], k_p[j]);
+                  _kctsb_swap(pos_p[j], k_p[j]);
             }
          }
 
@@ -5739,7 +5739,7 @@ void blk_tri_DD(zz_p& d, const mat_zz_p& A, const vec_zz_p *bp,
          muladd_all_by_32(kk, n, jpanelp, kpanelp, buf, k_max-kk);
       }
                   
-      NTL_GEXEC_RANGE_END
+      KCTSB_GEXEC_RANGE_END
 
       // special processing: add 1 back to the diangonal
 
@@ -5797,7 +5797,7 @@ void blk_tri_L(zz_p& d, const mat_zz_p& A, const vec_zz_p *bp,
       return;
    }
 
-   if (NTL_OVERFLOW(n, MAT_BLK_SZ, 0)) ResourceError("dimension too large");
+   if (KCTSB_OVERFLOW(n, MAT_BLK_SZ, 0)) ResourceError("dimension too large");
 
    long npanels = (n+MAT_BLK_SZ-1)/MAT_BLK_SZ;
    
@@ -5857,7 +5857,7 @@ void blk_tri_L(zz_p& d, const mat_zz_p& A, const vec_zz_p *bp,
       (~(0UL)-cast_unsigned(p-1))/(cast_unsigned(p-1)*cast_unsigned(p-1));
    // NOTE: corner case at p == 2: need unsigned long to prevent overflow
 
-   long red_trigger = min(cast_unsigned(NTL_MAX_LONG), ured_trigger);
+   long red_trigger = min(cast_unsigned(KCTSB_MAX_LONG), ured_trigger);
 
    long red_count = red_trigger;
 
@@ -5904,13 +5904,13 @@ void blk_tri_L(zz_p& d, const mat_zz_p& A, const vec_zz_p *bp,
          if (k != pos) {
             // swap rows pos and k
             unsigned long *x = &kpanelp[pos*MAT_BLK_SZ];
-            for (long j = 0; j < MAT_BLK_SZ; j++) _ntl_swap(x[j], y[j]);
+            for (long j = 0; j < MAT_BLK_SZ; j++) _kctsb_swap(x[j], y[j]);
             
             det = NegateMod(det, p);
             P[k] = pos;
             pivoting = true;
 
-            if (bp) _ntl_swap(bv[pos], bv[k]);
+            if (bp) _kctsb_swap(bv[pos], bv[k]);
          }
 
          det = MulMod(det, pivot, p);
@@ -5963,14 +5963,14 @@ void blk_tri_L(zz_p& d, const mat_zz_p& A, const vec_zz_p *bp,
 
 
       bool seq = double(npanels-(kpanel+1))*double(n)*double(MAT_BLK_SZ)*double(MAT_BLK_SZ) < PAR_THRESH;
-      NTL_GEXEC_RANGE(seq, npanels-(kpanel+1), first, last)  
-      NTL_IMPORT(p)
-      NTL_IMPORT(n)
-      NTL_IMPORT(red_struct)
-      NTL_IMPORT(kpanel)
-      NTL_IMPORT(kpanelp)
-      NTL_IMPORT(kk)
-      NTL_IMPORT(k_max)
+      KCTSB_GEXEC_RANGE(seq, npanels-(kpanel+1), first, last)  
+      KCTSB_IMPORT(p)
+      KCTSB_IMPORT(n)
+      KCTSB_IMPORT(red_struct)
+      KCTSB_IMPORT(kpanel)
+      KCTSB_IMPORT(kpanelp)
+      KCTSB_IMPORT(kk)
+      KCTSB_IMPORT(k_max)
 
 
       UniqueArray<unsigned long> buf_store;
@@ -5995,7 +5995,7 @@ void blk_tri_L(zz_p& d, const mat_zz_p& A, const vec_zz_p *bp,
                unsigned long *pos_p = &jpanelp[pos*MAT_BLK_SZ];
                unsigned long *k_p = &jpanelp[k*MAT_BLK_SZ];
                for (long j = 0; j < MAT_BLK_SZ; j++)
-                  _ntl_swap(pos_p[j], k_p[j]);
+                  _kctsb_swap(pos_p[j], k_p[j]);
             }
          }
 
@@ -6012,7 +6012,7 @@ void blk_tri_L(zz_p& d, const mat_zz_p& A, const vec_zz_p *bp,
          muladd_all_by_32(kk, n, jpanelp, kpanelp, buf, k_max-kk);
       }
                   
-      NTL_GEXEC_RANGE_END
+      KCTSB_GEXEC_RANGE_END
 
       // special processing: add 1 back to the diangonal
 
@@ -6068,7 +6068,7 @@ void blk_tri_LL(zz_p& d, const mat_zz_p& A, const vec_zz_p *bp,
       return;
    }
 
-   if (NTL_OVERFLOW(n, MAT_BLK_SZ, 0)) ResourceError("dimension too large");
+   if (KCTSB_OVERFLOW(n, MAT_BLK_SZ, 0)) ResourceError("dimension too large");
 
    long npanels = (n+MAT_BLK_SZ-1)/MAT_BLK_SZ;
    
@@ -6154,13 +6154,13 @@ void blk_tri_LL(zz_p& d, const mat_zz_p& A, const vec_zz_p *bp,
          if (k != pos) {
             // swap rows pos and k
             long *x = &kpanelp[pos*MAT_BLK_SZ];
-            for (long j = 0; j < MAT_BLK_SZ; j++) _ntl_swap(x[j], y[j]);
+            for (long j = 0; j < MAT_BLK_SZ; j++) _kctsb_swap(x[j], y[j]);
             
             det = NegateMod(det, p);
             P[k] = pos;
             pivoting = true;
 
-            if (bp) _ntl_swap(bv[pos], bv[k]);
+            if (bp) _kctsb_swap(bv[pos], bv[k]);
          }
 
          det = MulMod(det, pivot, p);
@@ -6209,14 +6209,14 @@ void blk_tri_LL(zz_p& d, const mat_zz_p& A, const vec_zz_p *bp,
 
 
       bool seq = double(npanels-(kpanel+1))*double(n)*double(MAT_BLK_SZ)*double(MAT_BLK_SZ) < PAR_THRESH;
-      NTL_GEXEC_RANGE(seq, npanels-(kpanel+1), first, last)  
-      NTL_IMPORT(p)
-      NTL_IMPORT(n)
-      NTL_IMPORT(ll_red_struct)
-      NTL_IMPORT(kpanel)
-      NTL_IMPORT(kpanelp)
-      NTL_IMPORT(kk)
-      NTL_IMPORT(k_max)
+      KCTSB_GEXEC_RANGE(seq, npanels-(kpanel+1), first, last)  
+      KCTSB_IMPORT(p)
+      KCTSB_IMPORT(n)
+      KCTSB_IMPORT(ll_red_struct)
+      KCTSB_IMPORT(kpanel)
+      KCTSB_IMPORT(kpanelp)
+      KCTSB_IMPORT(kk)
+      KCTSB_IMPORT(k_max)
 
 
       UniqueArray<long> buf_store;
@@ -6236,7 +6236,7 @@ void blk_tri_LL(zz_p& d, const mat_zz_p& A, const vec_zz_p *bp,
                long *pos_p = &jpanelp[pos*MAT_BLK_SZ];
                long *k_p = &jpanelp[k*MAT_BLK_SZ];
                for (long j = 0; j < MAT_BLK_SZ; j++)
-                  _ntl_swap(pos_p[j], k_p[j]);
+                  _kctsb_swap(pos_p[j], k_p[j]);
             }
          }
 
@@ -6252,7 +6252,7 @@ void blk_tri_LL(zz_p& d, const mat_zz_p& A, const vec_zz_p *bp,
          muladd_all_by_32(kk, n, jpanelp, kpanelp, buf, k_max-kk, p, ll_red_struct);
       }
                   
-      NTL_GEXEC_RANGE_END
+      KCTSB_GEXEC_RANGE_END
 
       // special processing: add 1 back to the diangonal
 
@@ -6307,7 +6307,7 @@ void tri(zz_p& d, const mat_zz_p& A, const vec_zz_p *bp,
    if (bp && !xp)
       LogicError("tri: bad args");
 
-#ifndef NTL_HAVE_LL_TYPE
+#ifndef KCTSB_HAVE_LL_TYPE
 
    basic_tri(d, A, bp, xp, trans, relax);
 
@@ -6322,7 +6322,7 @@ void tri(zz_p& d, const mat_zz_p& A, const vec_zz_p *bp,
    else if (n/MAT_BLK_SZ < 4) {
       long V = 64;
 
-#ifdef NTL_HAVE_AVX
+#ifdef KCTSB_HAVE_AVX
       if (p-1 <= MAX_DBL_INT &&
           V <= (MAX_DBL_INT-(p-1))/(p-1) &&
           V*(p-1) <= (MAX_DBL_INT-(p-1))/(p-1)) {
@@ -6348,7 +6348,7 @@ void tri(zz_p& d, const mat_zz_p& A, const vec_zz_p *bp,
    else {
       long V = 4*MAT_BLK_SZ;
 
-#ifdef NTL_HAVE_AVX
+#ifdef KCTSB_HAVE_AVX
       if (p-1 <= MAX_DBL_INT &&
           V <= (MAX_DBL_INT-(p-1))/(p-1) &&
           V*(p-1) <= (MAX_DBL_INT-(p-1))/(p-1)) {
@@ -6474,11 +6474,11 @@ long elim_basic(const mat_zz_p& A, mat_zz_p *im, mat_zz_p *ker,
 
       bool seq = double(n-r)*double(m-k) < PAR_THRESH;
 
-      NTL_GEXEC_RANGE(seq, n-(r+1), first, last)  
-      NTL_IMPORT(p)
-      NTL_IMPORT(n)
-      NTL_IMPORT(k)
-      NTL_IMPORT(r)
+      KCTSB_GEXEC_RANGE(seq, n-(r+1), first, last)  
+      KCTSB_IMPORT(p)
+      KCTSB_IMPORT(n)
+      KCTSB_IMPORT(k)
+      KCTSB_IMPORT(r)
       long *y = &M[r][0]; 
 
       for (long ii = first; ii < last; ii++) {
@@ -6499,7 +6499,7 @@ long elim_basic(const mat_zz_p& A, mat_zz_p *im, mat_zz_p *ker,
             x[j] = AddMod(x[j], t2, p);
          }
       }
-      NTL_GEXEC_RANGE_END
+      KCTSB_GEXEC_RANGE_END
 
       pcol[r] = k;
       r++;
@@ -6547,9 +6547,9 @@ long elim_basic(const mat_zz_p& A, mat_zz_p *im, mat_zz_p *ker,
 	 X.SetDims(n-r, r);
 
          bool seq = double(n-r)*double(r)*double(r)/2 < PAR_THRESH;
-	 NTL_GEXEC_RANGE(seq, n-r, first, last)
-	 NTL_IMPORT(p)
-	 NTL_IMPORT(r)
+	 KCTSB_GEXEC_RANGE(seq, n-r, first, last)
+	 KCTSB_IMPORT(p)
+	 KCTSB_IMPORT(r)
 
 	 for (long i = first; i < last; i++) {
 	    long *Xi = &X[i][0];
@@ -6566,7 +6566,7 @@ long elim_basic(const mat_zz_p& A, mat_zz_p *im, mat_zz_p *ker,
 
 	 }
 
-	 NTL_GEXEC_RANGE_END
+	 KCTSB_GEXEC_RANGE_END
 
 	 mat_zz_p& Ker = *ker;
 	 Ker.SetDims(n-r, n);
@@ -6592,10 +6592,10 @@ long elim_basic(const mat_zz_p& A, mat_zz_p *im, mat_zz_p *ker,
    return r;
 }
 
-#ifdef NTL_HAVE_LL_TYPE
+#ifdef KCTSB_HAVE_LL_TYPE
 
 
-#ifdef NTL_HAVE_AVX
+#ifdef KCTSB_HAVE_AVX
 
 
 static inline
@@ -6635,7 +6635,7 @@ void SwapOneRow(double *panelp, long i, long pos)
    double *pos_p = &panelp[pos*MAT_BLK_SZ];
    double *i_p = &panelp[i*MAT_BLK_SZ];
    for (long j = 0; j < MAT_BLK_SZ; j++)
-      _ntl_swap(pos_p[j], i_p[j]);
+      _kctsb_swap(pos_p[j], i_p[j]);
 }
 
 static inline
@@ -6684,8 +6684,8 @@ long elim_blk_DD(const mat_zz_p& A, mat_zz_p *im, mat_zz_p *ker,
       return 0;
    }
 
-   if (NTL_OVERFLOW(n, MAT_BLK_SZ, 0)) ResourceError("dimension too large");
-   if (NTL_OVERFLOW(m, MAT_BLK_SZ, 0)) ResourceError("dimension too large");
+   if (KCTSB_OVERFLOW(n, MAT_BLK_SZ, 0)) ResourceError("dimension too large");
+   if (KCTSB_OVERFLOW(m, MAT_BLK_SZ, 0)) ResourceError("dimension too large");
 
    long npanels = (m+MAT_BLK_SZ-1)/MAT_BLK_SZ;
    
@@ -6835,8 +6835,8 @@ long elim_blk_DD(const mat_zz_p& A, mat_zz_p *im, mat_zz_p *ker,
             double *x = &kpanelp[pos*MAT_BLK_SZ];
             double *x1 = &aux_panel[pos*MAT_BLK_SZ];
 
-            for (long j = k-kk; j < MAT_BLK_SZ; j++) _ntl_swap(x[j], y[j]);
-            for (long j = 0; j < r-rr; j++) _ntl_swap(x1[j], y1[j]);
+            for (long j = k-kk; j < MAT_BLK_SZ; j++) _kctsb_swap(x[j], y[j]);
+            for (long j = 0; j < r-rr; j++) _kctsb_swap(x1[j], y1[j]);
             
             P[r] = pos;
             pivoting = true;
@@ -6884,13 +6884,13 @@ long elim_blk_DD(const mat_zz_p& A, mat_zz_p *im, mat_zz_p *ker,
             double(npanels-(kpanel+1))*double(n-rr)*double(r-rr)*double(MAT_BLK_SZ) < PAR_THRESH;
 
          // apply aux_panel to remaining panels: [kpanel+1..npanels)
-         NTL_GEXEC_RANGE(seq, npanels-(kpanel+1), first, last)  
-         NTL_IMPORT(p)
-         NTL_IMPORT(n)
-         NTL_IMPORT(red_struct)
-         NTL_IMPORT(aux_panel)
-         NTL_IMPORT(rr)
-         NTL_IMPORT(r)
+         KCTSB_GEXEC_RANGE(seq, npanels-(kpanel+1), first, last)  
+         KCTSB_IMPORT(p)
+         KCTSB_IMPORT(n)
+         KCTSB_IMPORT(red_struct)
+         KCTSB_IMPORT(aux_panel)
+         KCTSB_IMPORT(rr)
+         KCTSB_IMPORT(r)
 
 
          AlignedArray<double> buf_store;
@@ -6920,7 +6920,7 @@ long elim_blk_DD(const mat_zz_p& A, mat_zz_p *im, mat_zz_p *ker,
             muladd_all_by_32(rr, n, jpanelp, aux_panel, buf, r-rr);
          }
                      
-         NTL_GEXEC_RANGE_END
+         KCTSB_GEXEC_RANGE_END
 
       }
 
@@ -7000,10 +7000,10 @@ long elim_blk_DD(const mat_zz_p& A, mat_zz_p *im, mat_zz_p *ker,
          bool seq = double(n-r)*double(r)*double(r)/2 < PAR_THRESH;
 
 
-	 NTL_GEXEC_RANGE(seq, end_block-start_block, first, last)
-	 NTL_IMPORT(p)
-	 NTL_IMPORT(red_struct)
-	 NTL_IMPORT(hblocks)
+	 KCTSB_GEXEC_RANGE(seq, end_block-start_block, first, last)
+	 KCTSB_IMPORT(p)
+	 KCTSB_IMPORT(red_struct)
+	 KCTSB_IMPORT(hblocks)
 
 	 for (long index = first; index < last; index++) {
 	    long vb = index + start_block;
@@ -7037,7 +7037,7 @@ long elim_blk_DD(const mat_zz_p& A, mat_zz_p *im, mat_zz_p *ker,
 	    }
          }
 
-	 NTL_GEXEC_RANGE_END
+	 KCTSB_GEXEC_RANGE_END
 
          for (long i = r; i < n; i++) {
 
@@ -7118,7 +7118,7 @@ void TransposeBlock(unsigned long *dst_ptr, long dst_blk)
 
    for (long i = 0; i < MAT_BLK_SZ; i++)
       for (long j = 0; j < i; j++)
-         _ntl_swap(dst_ptr[i*MAT_BLK_SZ+j], dst_ptr[i+j*MAT_BLK_SZ]);
+         _kctsb_swap(dst_ptr[i*MAT_BLK_SZ+j], dst_ptr[i+j*MAT_BLK_SZ]);
 }
 
 static inline
@@ -7127,7 +7127,7 @@ void SwapOneRow(unsigned long *panelp, long i, long pos)
    unsigned long *pos_p = &panelp[pos*MAT_BLK_SZ];
    unsigned long *i_p = &panelp[i*MAT_BLK_SZ];
    for (long j = 0; j < MAT_BLK_SZ; j++)
-      _ntl_swap(pos_p[j], i_p[j]);
+      _kctsb_swap(pos_p[j], i_p[j]);
 }
 
 static inline
@@ -7177,8 +7177,8 @@ long elim_blk_L(const mat_zz_p& A, mat_zz_p *im, mat_zz_p *ker,
       return 0;
    }
 
-   if (NTL_OVERFLOW(n, MAT_BLK_SZ, 0)) ResourceError("dimension too large");
-   if (NTL_OVERFLOW(m, MAT_BLK_SZ, 0)) ResourceError("dimension too large");
+   if (KCTSB_OVERFLOW(n, MAT_BLK_SZ, 0)) ResourceError("dimension too large");
+   if (KCTSB_OVERFLOW(m, MAT_BLK_SZ, 0)) ResourceError("dimension too large");
 
    long npanels = (m+MAT_BLK_SZ-1)/MAT_BLK_SZ;
    
@@ -7233,7 +7233,7 @@ long elim_blk_L(const mat_zz_p& A, mat_zz_p *im, mat_zz_p *ker,
       (~(0UL)-cast_unsigned(p-1))/(cast_unsigned(p-1)*cast_unsigned(p-1));
    // NOTE: corner case at p == 2: need unsigned long to prevent overflow
 
-   long red_trigger = min(cast_unsigned(NTL_MAX_LONG), ured_trigger);
+   long red_trigger = min(cast_unsigned(KCTSB_MAX_LONG), ured_trigger);
 
    long red_count = red_trigger;
 
@@ -7335,8 +7335,8 @@ long elim_blk_L(const mat_zz_p& A, mat_zz_p *im, mat_zz_p *ker,
             unsigned long *x = &kpanelp[pos*MAT_BLK_SZ];
             unsigned long *x1 = &aux_panel[pos*MAT_BLK_SZ];
 
-            for (long j = k-kk; j < MAT_BLK_SZ; j++) _ntl_swap(x[j], y[j]);
-            for (long j = 0; j < r-rr; j++) _ntl_swap(x1[j], y1[j]);
+            for (long j = k-kk; j < MAT_BLK_SZ; j++) _kctsb_swap(x[j], y[j]);
+            for (long j = 0; j < r-rr; j++) _kctsb_swap(x1[j], y1[j]);
             
             P[r] = pos;
             pivoting = true;
@@ -7384,13 +7384,13 @@ long elim_blk_L(const mat_zz_p& A, mat_zz_p *im, mat_zz_p *ker,
             double(npanels-(kpanel+1))*double(n-rr)*double(r-rr)*double(MAT_BLK_SZ) < PAR_THRESH;
 
          // apply aux_panel to remaining panels: [kpanel+1..npanels)
-         NTL_GEXEC_RANGE(seq, npanels-(kpanel+1), first, last)  
-         NTL_IMPORT(p)
-         NTL_IMPORT(n)
-         NTL_IMPORT(red_struct)
-         NTL_IMPORT(aux_panel)
-         NTL_IMPORT(rr)
-         NTL_IMPORT(r)
+         KCTSB_GEXEC_RANGE(seq, npanels-(kpanel+1), first, last)  
+         KCTSB_IMPORT(p)
+         KCTSB_IMPORT(n)
+         KCTSB_IMPORT(red_struct)
+         KCTSB_IMPORT(aux_panel)
+         KCTSB_IMPORT(rr)
+         KCTSB_IMPORT(r)
 
 
          UniqueArray<unsigned long> buf_store;
@@ -7422,7 +7422,7 @@ long elim_blk_L(const mat_zz_p& A, mat_zz_p *im, mat_zz_p *ker,
             muladd_all_by_32(rr, n, jpanelp, aux_panel, buf, r-rr);
          }
                      
-         NTL_GEXEC_RANGE_END
+         KCTSB_GEXEC_RANGE_END
 
       }
 
@@ -7504,10 +7504,10 @@ long elim_blk_L(const mat_zz_p& A, mat_zz_p *im, mat_zz_p *ker,
          bool seq = double(n-r)*double(r)*double(r)/2 < PAR_THRESH;
 
 
-	 NTL_GEXEC_RANGE(seq, end_block-start_block, first, last)
-	 NTL_IMPORT(p)
-	 NTL_IMPORT(red_struct)
-	 NTL_IMPORT(hblocks)
+	 KCTSB_GEXEC_RANGE(seq, end_block-start_block, first, last)
+	 KCTSB_IMPORT(p)
+	 KCTSB_IMPORT(red_struct)
+	 KCTSB_IMPORT(hblocks)
 
 	 for (long index = first; index < last; index++) {
 	    long vb = index + start_block;
@@ -7525,7 +7525,7 @@ long elim_blk_L(const mat_zz_p& A, mat_zz_p *im, mat_zz_p *ker,
                   (~(0UL)-cast_unsigned(p-1))/(cast_unsigned(p-1)*cast_unsigned(p-1));
                // NOTE: corner case at p == 2: need unsigned long to prevent overflow
 
-               long red_trigger = min(cast_unsigned(NTL_MAX_LONG), ured_trigger);
+               long red_trigger = min(cast_unsigned(KCTSB_MAX_LONG), ured_trigger);
 	       long red_count = red_trigger;
      
 	       for (long b = hb+1; b < hblocks; b++) { 
@@ -7547,7 +7547,7 @@ long elim_blk_L(const mat_zz_p& A, mat_zz_p *im, mat_zz_p *ker,
 	    }
          }
 
-	 NTL_GEXEC_RANGE_END
+	 KCTSB_GEXEC_RANGE_END
 
          for (long i = r; i < n; i++) {
 
@@ -7625,7 +7625,7 @@ void TransposeBlock(long *dst_ptr, long dst_blk)
 
    for (long i = 0; i < MAT_BLK_SZ; i++)
       for (long j = 0; j < i; j++)
-         _ntl_swap(dst_ptr[i*MAT_BLK_SZ+j], dst_ptr[i+j*MAT_BLK_SZ]);
+         _kctsb_swap(dst_ptr[i*MAT_BLK_SZ+j], dst_ptr[i+j*MAT_BLK_SZ]);
 }
 
 static inline
@@ -7634,7 +7634,7 @@ void SwapOneRow(long *panelp, long i, long pos)
    long *pos_p = &panelp[pos*MAT_BLK_SZ];
    long *i_p = &panelp[i*MAT_BLK_SZ];
    for (long j = 0; j < MAT_BLK_SZ; j++)
-      _ntl_swap(pos_p[j], i_p[j]);
+      _kctsb_swap(pos_p[j], i_p[j]);
 }
 
 static inline
@@ -7686,8 +7686,8 @@ long elim_blk_LL(const mat_zz_p& A, mat_zz_p *im, mat_zz_p *ker,
       return 0;
    }
 
-   if (NTL_OVERFLOW(n, MAT_BLK_SZ, 0)) ResourceError("dimension too large");
-   if (NTL_OVERFLOW(m, MAT_BLK_SZ, 0)) ResourceError("dimension too large");
+   if (KCTSB_OVERFLOW(n, MAT_BLK_SZ, 0)) ResourceError("dimension too large");
+   if (KCTSB_OVERFLOW(m, MAT_BLK_SZ, 0)) ResourceError("dimension too large");
 
    long npanels = (m+MAT_BLK_SZ-1)/MAT_BLK_SZ;
    
@@ -7819,8 +7819,8 @@ long elim_blk_LL(const mat_zz_p& A, mat_zz_p *im, mat_zz_p *ker,
             long *x = &kpanelp[pos*MAT_BLK_SZ];
             long *x1 = &aux_panel[pos*MAT_BLK_SZ];
 
-            for (long j = k-kk; j < MAT_BLK_SZ; j++) _ntl_swap(x[j], y[j]);
-            for (long j = 0; j < r-rr; j++) _ntl_swap(x1[j], y1[j]);
+            for (long j = k-kk; j < MAT_BLK_SZ; j++) _kctsb_swap(x[j], y[j]);
+            for (long j = 0; j < r-rr; j++) _kctsb_swap(x1[j], y1[j]);
             
             P[r] = pos;
             pivoting = true;
@@ -7859,13 +7859,13 @@ long elim_blk_LL(const mat_zz_p& A, mat_zz_p *im, mat_zz_p *ker,
             double(npanels-(kpanel+1))*double(n-rr)*double(r-rr)*double(MAT_BLK_SZ) < PAR_THRESH;
 
          // apply aux_panel to remaining panels: [kpanel+1..npanels)
-         NTL_GEXEC_RANGE(seq, npanels-(kpanel+1), first, last)  
-         NTL_IMPORT(p)
-         NTL_IMPORT(n)
-         NTL_IMPORT(ll_red_struct)
-         NTL_IMPORT(aux_panel)
-         NTL_IMPORT(rr)
-         NTL_IMPORT(r)
+         KCTSB_GEXEC_RANGE(seq, npanels-(kpanel+1), first, last)  
+         KCTSB_IMPORT(p)
+         KCTSB_IMPORT(n)
+         KCTSB_IMPORT(ll_red_struct)
+         KCTSB_IMPORT(aux_panel)
+         KCTSB_IMPORT(rr)
+         KCTSB_IMPORT(r)
 
 
          UniqueArray<long> buf_store;
@@ -7892,7 +7892,7 @@ long elim_blk_LL(const mat_zz_p& A, mat_zz_p *im, mat_zz_p *ker,
             muladd_all_by_32(rr, n, jpanelp, aux_panel, buf, r-rr, p, ll_red_struct);
          }
                      
-         NTL_GEXEC_RANGE_END
+         KCTSB_GEXEC_RANGE_END
 
       }
 
@@ -7974,10 +7974,10 @@ long elim_blk_LL(const mat_zz_p& A, mat_zz_p *im, mat_zz_p *ker,
          bool seq = double(n-r)*double(r)*double(r)/2 < PAR_THRESH;
 
 
-	 NTL_GEXEC_RANGE(seq, end_block-start_block, first, last)
-	 NTL_IMPORT(p)
-	 NTL_IMPORT(ll_red_struct)
-	 NTL_IMPORT(hblocks)
+	 KCTSB_GEXEC_RANGE(seq, end_block-start_block, first, last)
+	 KCTSB_IMPORT(p)
+	 KCTSB_IMPORT(ll_red_struct)
+	 KCTSB_IMPORT(hblocks)
 
 	 for (long index = first; index < last; index++) {
 	    long vb = index + start_block;
@@ -7997,7 +7997,7 @@ long elim_blk_LL(const mat_zz_p& A, mat_zz_p *im, mat_zz_p *ker,
 	    }
          }
 
-	 NTL_GEXEC_RANGE_END
+	 KCTSB_GEXEC_RANGE_END
 
          for (long i = r; i < n; i++) {
 
@@ -8049,7 +8049,7 @@ long elim(const mat_zz_p& A, mat_zz_p *im, mat_zz_p *ker, long w, bool full)
 
    if (w < 0 || w > m) LogicError("elim: bad args");
 
-#ifndef NTL_HAVE_LL_TYPE
+#ifndef KCTSB_HAVE_LL_TYPE
 
    return elim_basic(A, im, ker, w, full);
 
@@ -8063,7 +8063,7 @@ long elim(const mat_zz_p& A, mat_zz_p *im, mat_zz_p *ker, long w, bool full)
    else {
       long V = 4*MAT_BLK_SZ;
 
-#ifdef NTL_HAVE_AVX
+#ifdef KCTSB_HAVE_AVX
       if (p-1 <= MAX_DBL_INT &&
           V <= (MAX_DBL_INT-(p-1))/(p-1) &&
           V*(p-1) <= (MAX_DBL_INT-(p-1))/(p-1)) {
@@ -8135,21 +8135,21 @@ mat_zz_p operator+(const mat_zz_p& a, const mat_zz_p& b)
 {
    mat_zz_p res;
    add(res, a, b);
-   NTL_OPT_RETURN(mat_zz_p, res);
+   KCTSB_OPT_RETURN(mat_zz_p, res);
 }
 
 mat_zz_p operator*(const mat_zz_p& a, const mat_zz_p& b)
 {
    mat_zz_p res;
    mul_aux(res, a, b);
-   NTL_OPT_RETURN(mat_zz_p, res);
+   KCTSB_OPT_RETURN(mat_zz_p, res);
 }
 
 mat_zz_p operator-(const mat_zz_p& a, const mat_zz_p& b)
 {
    mat_zz_p res;
    sub(res, a, b);
-   NTL_OPT_RETURN(mat_zz_p, res);
+   KCTSB_OPT_RETURN(mat_zz_p, res);
 }
 
 
@@ -8157,7 +8157,7 @@ mat_zz_p operator-(const mat_zz_p& a)
 {
    mat_zz_p res;
    negate(res, a);
-   NTL_OPT_RETURN(mat_zz_p, res);
+   KCTSB_OPT_RETURN(mat_zz_p, res);
 }
 
 
@@ -8165,14 +8165,14 @@ vec_zz_p operator*(const mat_zz_p& a, const vec_zz_p& b)
 {
    vec_zz_p res;
    mul_aux(res, a, b);
-   NTL_OPT_RETURN(vec_zz_p, res);
+   KCTSB_OPT_RETURN(vec_zz_p, res);
 }
 
 vec_zz_p operator*(const vec_zz_p& a, const mat_zz_p& b)
 {
    vec_zz_p res;
    mul(res, a, b);
-   NTL_OPT_RETURN(vec_zz_p, res);
+   KCTSB_OPT_RETURN(vec_zz_p, res);
 }
 
 
@@ -8217,4 +8217,4 @@ void random(mat_zz_p& x, long n, long m)
    for (long i = 0; i < n; i++) random(x[i], m);
 }
 
-NTL_END_IMPL
+KCTSB_END_IMPL

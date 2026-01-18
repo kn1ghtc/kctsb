@@ -1,11 +1,11 @@
+﻿
+#include <kctsb/math/bignum/LLL.h>
+#include <kctsb/math/bignum/fileio.h>
+#include <kctsb/math/bignum/vec_double.h>
 
-#include <NTL/LLL.h>
-#include <NTL/fileio.h>
-#include <NTL/vec_double.h>
 
 
-
-NTL_START_IMPL
+KCTSB_START_IMPL
 
 static inline 
 void CheckFinite(double *p)
@@ -28,8 +28,8 @@ static double InnerProduct(double *a, double *b, long n)
 static void RowTransform(vec_ZZ& A, vec_ZZ& B, const ZZ& MU1)
 // x = x - y*MU
 {
-   NTL_ZZRegister(T);
-   NTL_ZZRegister(MU);
+   KCTSB_ZZRegister(T);
+   KCTSB_ZZRegister(MU);
    long k;
 
    long n = A.length();
@@ -53,7 +53,7 @@ static void RowTransform(vec_ZZ& A, vec_ZZ& B, const ZZ& MU1)
 
    if (MU == 0) return;
 
-   if (NumTwos(MU) >= NTL_ZZ_NBITS) 
+   if (NumTwos(MU) >= KCTSB_ZZ_NBITS) 
       k = MakeOdd(MU);
    else
       k = 0;
@@ -90,7 +90,7 @@ static void RowTransform(vec_ZZ& A, vec_ZZ& B, const ZZ& MU1)
 }
 
 
-#define TR_BND (NTL_FDOUBLE_PRECISION/2.0)
+#define TR_BND (KCTSB_FDOUBLE_PRECISION/2.0)
 // Just to be safe!!
 
 static double max_abs(double *v, long n)
@@ -145,8 +145,8 @@ static void RowTransform(vec_ZZ& A, vec_ZZ& B, const ZZ& MU1,
                          double& max_a, double max_b, long& in_float)
 // x = x - y*MU
 {
-   NTL_ZZRegister(T);
-   NTL_ZZRegister(MU);
+   KCTSB_ZZRegister(T);
+   KCTSB_ZZRegister(MU);
    long k;
    double mu;
 
@@ -238,7 +238,7 @@ static void RowTransform(vec_ZZ& A, vec_ZZ& B, const ZZ& MU1,
    double b_bnd = fabs(TR_BND/mu) - 1;
    if (b_bnd < 0) b_bnd = 0; 
 
-   if (NumTwos(MU) >= NTL_ZZ_NBITS) 
+   if (NumTwos(MU) >= KCTSB_ZZ_NBITS) 
       k = MakeOdd(MU);
    else
       k = 0;
@@ -294,8 +294,8 @@ static void RowTransform2(vec_ZZ& A, vec_ZZ& B, const ZZ& MU1)
 // x = x + y*MU
 
 {
-   NTL_ZZRegister(T);
-   NTL_ZZRegister(MU);
+   KCTSB_ZZRegister(T);
+   KCTSB_ZZRegister(MU);
    long k;
 
    long n = A.length();
@@ -319,7 +319,7 @@ static void RowTransform2(vec_ZZ& A, vec_ZZ& B, const ZZ& MU1)
 
    if (MU == 0) return;
 
-   if (NumTwos(MU) >= NTL_ZZ_NBITS) 
+   if (NumTwos(MU) >= KCTSB_ZZ_NBITS) 
       k = MakeOdd(MU);
    else
       k = 0;
@@ -365,9 +365,9 @@ void ComputeGS(mat_ZZ& B, double **B1, double **mu, double *b,
    for (j = st; j <= k-1; j++) {
       s = InnerProduct(B1[k], B1[j], n);
 
-      // test = b[k]*b[j] >= NTL_FDOUBLE_PRECISION^2
+      // test = b[k]*b[j] >= KCTSB_FDOUBLE_PRECISION^2
 
-      test = (b[k]/NTL_FDOUBLE_PRECISION >= NTL_FDOUBLE_PRECISION/b[j]);
+      test = (b[k]/KCTSB_FDOUBLE_PRECISION >= KCTSB_FDOUBLE_PRECISION/b[j]);
 
       // test = test && s^2 <= b[k]*b[j]/bound,
       // but we compute it in a strange way to avoid overflow
@@ -398,7 +398,7 @@ void ComputeGS(mat_ZZ& B, double **B1, double **mu, double *b,
       mu_k[j] = (buf[j] = (s - t1))/c[j];
    }
 
-#if (!NTL_EXT_DOUBLE)
+#if (!KCTSB_EXT_DOUBLE)
 
    // Kahan summation 
 
@@ -425,17 +425,17 @@ void ComputeGS(mat_ZZ& B, double **B1, double **mu, double *b,
    c[k] = b[k] - s;
 }
 
-NTL_CHEAP_THREAD_LOCAL double LLLStatusInterval = 900.0;
-NTL_CHEAP_THREAD_LOCAL char *LLLDumpFile = 0;
+KCTSB_CHEAP_THREAD_LOCAL double LLLStatusInterval = 900.0;
+KCTSB_CHEAP_THREAD_LOCAL char *LLLDumpFile = 0;
 
-static NTL_CHEAP_THREAD_LOCAL double red_fudge = 0;
-static NTL_CHEAP_THREAD_LOCAL long log_red = 0;
-static NTL_CHEAP_THREAD_LOCAL long verbose = 0;
+static KCTSB_CHEAP_THREAD_LOCAL double red_fudge = 0;
+static KCTSB_CHEAP_THREAD_LOCAL long log_red = 0;
+static KCTSB_CHEAP_THREAD_LOCAL long verbose = 0;
 
-static NTL_CHEAP_THREAD_LOCAL unsigned long NumSwaps = 0;
-static NTL_CHEAP_THREAD_LOCAL double RR_GS_time = 0;
-static NTL_CHEAP_THREAD_LOCAL double StartTime = 0;
-static NTL_CHEAP_THREAD_LOCAL double LastTime = 0;
+static KCTSB_CHEAP_THREAD_LOCAL unsigned long NumSwaps = 0;
+static KCTSB_CHEAP_THREAD_LOCAL double RR_GS_time = 0;
+static KCTSB_CHEAP_THREAD_LOCAL double StartTime = 0;
+static KCTSB_CHEAP_THREAD_LOCAL double LastTime = 0;
 
 
 
@@ -485,7 +485,7 @@ static void init_red_fudge()
 {
    long i;
 
-   log_red = long(0.50*NTL_DOUBLE_PRECISION);
+   log_red = long(0.50*KCTSB_DOUBLE_PRECISION);
    red_fudge = 1;
 
    for (i = log_red; i > 0; i--)
@@ -671,7 +671,7 @@ long ll_LLL_FP(mat_ZZ& B, mat_ZZ* U, double delta, long deep,
       // inner products in ComputeGS.
 
       bound = 1;
-      for (i = 2*long(0.15*NTL_DOUBLE_PRECISION); i > 0; i--)
+      for (i = 2*long(0.15*KCTSB_DOUBLE_PRECISION); i > 0; i--)
          bound = bound * 2;
    }
 
@@ -1688,4 +1688,4 @@ long BKZ_FP(mat_ZZ& BB, double delta,
 }
 
 
-NTL_END_IMPL
+KCTSB_END_IMPL

@@ -1,11 +1,11 @@
+﻿
+#ifndef KCTSB_vec_RR__H
+#define KCTSB_vec_RR__H
 
-#ifndef NTL_vec_RR__H
-#define NTL_vec_RR__H
+#include <kctsb/math/bignum/RR.h>
+#include <kctsb/math/bignum/vector.h>
 
-#include <NTL/RR.h>
-#include <NTL/vector.h>
-
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 typedef Vec<RR> vec_RR;
 
@@ -33,7 +33,7 @@ long IsZero(const vec_RR& a);
 
 void VectorCopy(vec_RR& x, const vec_RR& a, long n);
 inline vec_RR VectorCopy(const vec_RR& a, long n)
-   { vec_RR x; VectorCopy(x, a, n); NTL_OPT_RETURN(vec_RR, x); }
+   { vec_RR x; VectorCopy(x, a, n); KCTSB_OPT_RETURN(vec_RR, x); }
  
 
 
@@ -42,16 +42,16 @@ vec_RR operator-(const vec_RR& a, const vec_RR& b);
 vec_RR operator-(const vec_RR& a);
 
 inline vec_RR operator*(const vec_RR& a, const RR& b)
-   { vec_RR x; mul(x, a, b); NTL_OPT_RETURN(vec_RR, x); }
+   { vec_RR x; mul(x, a, b); KCTSB_OPT_RETURN(vec_RR, x); }
 
 inline vec_RR operator*(const vec_RR& a, double b)
-   { vec_RR x; mul(x, a, b); NTL_OPT_RETURN(vec_RR, x); }
+   { vec_RR x; mul(x, a, b); KCTSB_OPT_RETURN(vec_RR, x); }
 
 inline vec_RR operator*(const RR& a, const vec_RR& b)
-   { vec_RR x; mul(x, a, b); NTL_OPT_RETURN(vec_RR, x); }
+   { vec_RR x; mul(x, a, b); KCTSB_OPT_RETURN(vec_RR, x); }
 
 inline vec_RR operator*(double a, const vec_RR& b)
-   { vec_RR x; mul(x, a, b); NTL_OPT_RETURN(vec_RR, x); }
+   { vec_RR x; mul(x, a, b); KCTSB_OPT_RETURN(vec_RR, x); }
 
 RR operator*(const vec_RR& a, const vec_RR& b);
 
@@ -83,6 +83,6 @@ inline vec_RR& operator*=(vec_RR& x, double a)
 }
 
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 #endif

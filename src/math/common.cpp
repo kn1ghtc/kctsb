@@ -1,4 +1,4 @@
-//
+﻿//
 //  common.cpp
 //  kcalg
 //
@@ -10,10 +10,10 @@
 #include <cmath>
 
 #include "kctsb/math/math.h"
-#include <NTL/GF2X.h>
-#include <NTL/ZZX.h>
+#include <kctsb/math/bignum/GF2X.h>
+#include <kctsb/math/bignum/ZZX.h>
 
-// Bignum namespace is now kctsb (was NTL)
+// Bignum namespace is now kctsb (was bignum)
 using namespace kctsb;
 using namespace std;
 

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file kctsb_main.cpp
  * @brief kctsb Command-Line Interface - Main Entry Point
  * 
@@ -92,7 +92,7 @@ void cmd_version() {
     std::cout << "  - ECC (ECDH, ECDSA, secp256k1, P-256)\n";
     std::cout << "\n";
     std::cout << "Dependencies:\n";
-    std::cout << "  - NTL 11.6.0 (Number Theory Library)\n";
+    std::cout << "  - bignum 11.6.0 (bignum module)\n";
     std::cout << "  - GMP 6.3.0 (GNU Multiple Precision Arithmetic)\n";
 #ifdef KCTSB_ENABLE_SEAL
     std::cout << "  - Microsoft SEAL 4.1.2 (Homomorphic Encryption)\n";

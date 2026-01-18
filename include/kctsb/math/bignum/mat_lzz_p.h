@@ -1,11 +1,11 @@
+﻿
+#ifndef KCTSB_mat_zz_p__H
+#define KCTSB_mat_zz_p__H
 
-#ifndef NTL_mat_zz_p__H
-#define NTL_mat_zz_p__H
+#include <kctsb/math/bignum/matrix.h>
+#include <kctsb/math/bignum/vec_vec_lzz_p.h>
 
-#include <NTL/matrix.h>
-#include <NTL/vec_vec_lzz_p.h>
-
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 typedef Mat<zz_p> mat_zz_p;
 
@@ -29,11 +29,11 @@ inline void mul(mat_zz_p& X, long a, const mat_zz_p& B)
 
 void ident(mat_zz_p& X, long n); 
 inline mat_zz_p ident_mat_zz_p(long n)
-   { mat_zz_p X; ident(X, n); NTL_OPT_RETURN(mat_zz_p, X); }
+   { mat_zz_p X; ident(X, n); KCTSB_OPT_RETURN(mat_zz_p, X); }
 
 void random(mat_zz_p& x, long n, long m);
 inline mat_zz_p random_mat_zz_p(long n, long m)
-   { mat_zz_p x; random(x, n, m); NTL_OPT_RETURN(mat_zz_p, x); }
+   { mat_zz_p x; random(x, n, m); KCTSB_OPT_RETURN(mat_zz_p, x); }
 
 
 long IsIdent(const mat_zz_p& A, long n);
@@ -50,7 +50,7 @@ void relaxed_inv(zz_p& d, mat_zz_p& X, const mat_zz_p& A, bool relax=true);
 inline void relaxed_inv(mat_zz_p& X, const mat_zz_p& A, bool relax=true)
    { zz_p d; relaxed_inv(d, X, A, relax); if (d == 0) ArithmeticError("inv: non-invertible matrix"); }
 inline mat_zz_p relaxed_inv(const mat_zz_p& A, bool relax=true)
-   { mat_zz_p X; relaxed_inv(X, A, relax); NTL_OPT_RETURN(mat_zz_p, X); }
+   { mat_zz_p X; relaxed_inv(X, A, relax); KCTSB_OPT_RETURN(mat_zz_p, X); }
 
 void relaxed_determinant(zz_p& d, const mat_zz_p& A, bool relax=true);
 inline zz_p relaxed_determinant(const mat_zz_p& a, bool relax=true)
@@ -58,11 +58,11 @@ inline zz_p relaxed_determinant(const mat_zz_p& a, bool relax=true)
 
 void relaxed_power(mat_zz_p& X, const mat_zz_p& A, const ZZ& e, bool relax=true);
 inline mat_zz_p relaxed_power(const mat_zz_p& A, const ZZ& e, bool relax=true)
-   { mat_zz_p X; relaxed_power(X, A, e, relax); NTL_OPT_RETURN(mat_zz_p, X); }
+   { mat_zz_p X; relaxed_power(X, A, e, relax); KCTSB_OPT_RETURN(mat_zz_p, X); }
 inline void relaxed_power(mat_zz_p& X, const mat_zz_p& A, long e, bool relax=true)
    { relaxed_power(X, A, ZZ_expo(e), relax); }
 inline mat_zz_p relaxed_power(const mat_zz_p& A, long e, bool relax=true)
-   { mat_zz_p X; relaxed_power(X, A, e, relax); NTL_OPT_RETURN(mat_zz_p, X); }
+   { mat_zz_p X; relaxed_power(X, A, e, relax); KCTSB_OPT_RETURN(mat_zz_p, X); }
 
 // ***********************
 
@@ -106,7 +106,7 @@ inline void sqr(mat_zz_p& X, const mat_zz_p& A)
    { mul(X, A, A); }
 
 inline mat_zz_p sqr(const mat_zz_p& A)
-   { mat_zz_p X; sqr(X, A); NTL_OPT_RETURN(mat_zz_p, X); }
+   { mat_zz_p X; sqr(X, A); KCTSB_OPT_RETURN(mat_zz_p, X); }
 
 
 
@@ -114,7 +114,7 @@ inline mat_zz_p sqr(const mat_zz_p& A)
 
 void diag(mat_zz_p& X, long n, zz_p d);
 inline mat_zz_p diag(long n, zz_p d)
-   { mat_zz_p X; diag(X, n, d); NTL_OPT_RETURN(mat_zz_p, X); }
+   { mat_zz_p X; diag(X, n, d); KCTSB_OPT_RETURN(mat_zz_p, X); }
 
 long IsDiag(const mat_zz_p& A, long n, zz_p d);
 
@@ -130,7 +130,7 @@ void kernel(mat_zz_p& X, const mat_zz_p& A);
 
 
 inline mat_zz_p transpose(const mat_zz_p& a)
-   { mat_zz_p x; transpose(x, a); NTL_OPT_RETURN(mat_zz_p, x); }
+   { mat_zz_p x; transpose(x, a); KCTSB_OPT_RETURN(mat_zz_p, x); }
 
 void clear(mat_zz_p& a);
 // x = 0 (dimension unchanged)
@@ -151,16 +151,16 @@ mat_zz_p operator-(const mat_zz_p& a);
 // matrix/scalar multiplication:
 
 inline mat_zz_p operator*(const mat_zz_p& a, zz_p b)
-   { mat_zz_p x; mul(x, a, b); NTL_OPT_RETURN(mat_zz_p, x); }
+   { mat_zz_p x; mul(x, a, b); KCTSB_OPT_RETURN(mat_zz_p, x); }
 
 inline mat_zz_p operator*(const mat_zz_p& a, long b)
-   { mat_zz_p x; mul(x, a, b); NTL_OPT_RETURN(mat_zz_p, x); }
+   { mat_zz_p x; mul(x, a, b); KCTSB_OPT_RETURN(mat_zz_p, x); }
 
 inline mat_zz_p operator*(zz_p a, const mat_zz_p& b)
-   { mat_zz_p x; mul(x, a, b); NTL_OPT_RETURN(mat_zz_p, x); }
+   { mat_zz_p x; mul(x, a, b); KCTSB_OPT_RETURN(mat_zz_p, x); }
 
 inline mat_zz_p operator*(long a, const mat_zz_p& b)
-   { mat_zz_p x; mul(x, a, b); NTL_OPT_RETURN(mat_zz_p, x); }
+   { mat_zz_p x; mul(x, a, b); KCTSB_OPT_RETURN(mat_zz_p, x); }
 
 
 
@@ -215,7 +215,7 @@ inline vec_zz_p& operator*=(vec_zz_p& x, const mat_zz_p& a)
 
 
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 
 #endif

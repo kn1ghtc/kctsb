@@ -1,5 +1,5 @@
-#ifndef NTL_SIMDE_AVX__H
-#define NTL_SIMDE_AVX__H
+#ifndef KCTSB_SIMDE_AVX__H
+#define KCTSB_SIMDE_AVX__H
 
 #if (defined(__GNUC__) && defined(__x86_64__) && defined(__AVX__))
 

@@ -1,8 +1,8 @@
+﻿
+#include <kctsb/math/bignum/GF2.h>
 
-#include <NTL/GF2.h>
 
-
-NTL_START_IMPL
+KCTSB_START_IMPL
 
 
 GF2 power(GF2 a, long e)
@@ -29,12 +29,12 @@ ostream& operator<<(ostream& s, GF2 a)
 
 istream& operator>>(istream& s, ref_GF2 x)
 {
-   NTL_ZZRegister(a);
+   KCTSB_ZZRegister(a);
 
-   NTL_INPUT_CHECK_RET(s, s >> a);
+   KCTSB_INPUT_CHECK_RET(s, s >> a);
 
    conv(x, a);
    return s;
 }
  
-NTL_END_IMPL
+KCTSB_END_IMPL

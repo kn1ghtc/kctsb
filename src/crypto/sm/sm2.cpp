@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file sm2.cpp
  * @brief SM2 Elliptic Curve Cryptography Implementation
  * 
@@ -25,15 +25,15 @@
 #include "kctsb/core/security.h"
 #include "kctsb/core/common.h"
 
-#include <NTL/ZZ.h>
-#include <NTL/ZZ_p.h>
+#include <kctsb/math/bignum/ZZ.h>
+#include <kctsb/math/bignum/ZZ_p.h>
 
 #include <cstring>
 #include <array>
 #include <vector>
 #include <stdexcept>
 
-// Bignum namespace is now kctsb (was NTL)
+// Bignum namespace is now kctsb (was bignum)
 using namespace kctsb;
 
 // ============================================================================
@@ -97,7 +97,7 @@ private:
 // ============================================================================
 
 /**
- * @brief Convert byte array to NTL ZZ (big-endian)
+ * @brief Convert byte array to bignum ZZ (big-endian)
  * @param data Input bytes
  * @param len Length of input
  * @return ZZ value
@@ -112,7 +112,7 @@ ZZ bytes_to_zz(const uint8_t* data, size_t len) {
 }
 
 /**
- * @brief Convert NTL ZZ to byte array (big-endian, fixed length)
+ * @brief Convert bignum ZZ to byte array (big-endian, fixed length)
  * @param z ZZ value
  * @param out Output buffer
  * @param len Output length
@@ -120,7 +120,7 @@ ZZ bytes_to_zz(const uint8_t* data, size_t len) {
 void zz_to_bytes(const ZZ& z, uint8_t* out, size_t len) {
     std::memset(out, 0, len);
     
-    // Get byte representation using NTL's built-in (little-endian)
+    // Get byte representation using bignum's built-in (little-endian)
     std::vector<uint8_t> tmp(len);
     BytesFromZZ(tmp.data(), z, static_cast<long>(len));
     

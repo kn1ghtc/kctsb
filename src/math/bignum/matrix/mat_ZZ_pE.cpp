@@ -1,8 +1,8 @@
-#include <NTL/mat_ZZ_pE.h>
-#include <NTL/BasicThreadPool.h>
+﻿#include <kctsb/math/bignum/mat_ZZ_pE.h>
+#include <kctsb/math/bignum/BasicThreadPool.h>
 
 
-NTL_START_IMPL
+KCTSB_START_IMPL
 
 
 //===================================================
@@ -37,10 +37,10 @@ void mul_aux(Mat<ZZ_pE>& X, const Mat<ZZ_pE>& A, const Mat<ZZ_pE>& B)
 
    bool seq = (double(n)*double(l)*double(m)*sz*sz < PAR_THRESH);
 
-   NTL_GEXEC_RANGE(seq, m, first, last)
-   NTL_IMPORT(n)
-   NTL_IMPORT(l)
-   NTL_IMPORT(m)
+   KCTSB_GEXEC_RANGE(seq, m, first, last)
+   KCTSB_IMPORT(n)
+   KCTSB_IMPORT(l)
+   KCTSB_IMPORT(m)
 
    ZZ_p_context.restore();
    ZZ_pE_context.restore();
@@ -64,7 +64,7 @@ void mul_aux(Mat<ZZ_pE>& X, const Mat<ZZ_pE>& A, const Mat<ZZ_pE>& B)
       }
    }
 
-   NTL_GEXEC_RANGE_END
+   KCTSB_GEXEC_RANGE_END
 }  
 
 
@@ -163,9 +163,9 @@ void inv(ZZ_pE& d, Mat<ZZ_pE>& X, const Mat<ZZ_pE>& A)
          }
 
 
-         NTL_GEXEC_RANGE(seq, n, first, last)  
-         NTL_IMPORT(n)
-         NTL_IMPORT(k)
+         KCTSB_GEXEC_RANGE(seq, n, first, last)  
+         KCTSB_IMPORT(n)
+         KCTSB_IMPORT(k)
 
          ZZ_p_context.restore();
 
@@ -187,7 +187,7 @@ void inv(ZZ_pE& d, Mat<ZZ_pE>& X, const Mat<ZZ_pE>& A)
                add(x[j], x[j], t2);
             }
          }
-         NTL_GEXEC_RANGE_END
+         KCTSB_GEXEC_RANGE_END
       }
       else {
          clear(d);
@@ -291,9 +291,9 @@ void solve_impl(ZZ_pE& d, Vec<ZZ_pE>& X,
          bool seq =
             double(n-(k+1))*(n-(k+1))*sz*sz < PAR_THRESH;
 
-         NTL_GEXEC_RANGE(seq, n-(k+1), first, last)
-         NTL_IMPORT(n)
-         NTL_IMPORT(k)
+         KCTSB_GEXEC_RANGE(seq, n-(k+1), first, last)
+         KCTSB_IMPORT(n)
+         KCTSB_IMPORT(k)
 
          ZZ_p_context.restore();
 
@@ -317,7 +317,7 @@ void solve_impl(ZZ_pE& d, Vec<ZZ_pE>& X,
             }
          }
 
-         NTL_GEXEC_RANGE_END
+         KCTSB_GEXEC_RANGE_END
 
       }
       else {
@@ -408,10 +408,10 @@ long gauss(Mat<ZZ_pE>& M_in, long w)
          bool seq =
             double(n-(l+1))*double(m-(k+1))*sz*sz < PAR_THRESH;
 
-         NTL_GEXEC_RANGE(seq, n-(l+1), first, last)
-         NTL_IMPORT(m)
-         NTL_IMPORT(k)
-         NTL_IMPORT(l)
+         KCTSB_GEXEC_RANGE(seq, n-(l+1), first, last)
+         KCTSB_IMPORT(m)
+         KCTSB_IMPORT(k)
+         KCTSB_IMPORT(l)
 
          ZZ_p_context.restore();
 
@@ -439,7 +439,7 @@ long gauss(Mat<ZZ_pE>& M_in, long w)
             }
          }
 
-         NTL_GEXEC_RANGE_END
+         KCTSB_GEXEC_RANGE_END
 
          l++;
       }
@@ -516,9 +516,9 @@ void kernel(Mat<ZZ_pE>& X, const Mat<ZZ_pE>& A)
    bool seq = 
       double(m-r)*double(r)*double(r)*sz*sz < PAR_THRESH;
 
-   NTL_GEXEC_RANGE(seq, m-r, first, last)
-   NTL_IMPORT(m)
-   NTL_IMPORT(r)
+   KCTSB_GEXEC_RANGE(seq, m-r, first, last)
+   KCTSB_IMPORT(m)
+   KCTSB_IMPORT(r)
 
    ZZ_p_context.restore();
    ZZ_pE_context.restore();
@@ -554,7 +554,7 @@ void kernel(Mat<ZZ_pE>& X, const Mat<ZZ_pE>& A)
       }
    }
 
-   NTL_GEXEC_RANGE_END
+   KCTSB_GEXEC_RANGE_END
 }
 
 
@@ -623,9 +623,9 @@ void determinant(ZZ_pE& d, const Mat<ZZ_pE>& M_in)
          bool seq =
             double(n-(k+1))*(n-(k+1))*sz*sz < PAR_THRESH;
 
-         NTL_GEXEC_RANGE(seq, n-(k+1), first, last)
-         NTL_IMPORT(n)
-         NTL_IMPORT(k)
+         KCTSB_GEXEC_RANGE(seq, n-(k+1), first, last)
+         KCTSB_IMPORT(n)
+         KCTSB_IMPORT(k)
 
          ZZ_p_context.restore();
 
@@ -649,7 +649,7 @@ void determinant(ZZ_pE& d, const Mat<ZZ_pE>& M_in)
             }
          }
 
-         NTL_GEXEC_RANGE_END
+         KCTSB_GEXEC_RANGE_END
 
       }
       else {
@@ -868,7 +868,7 @@ void mul(mat_ZZ_pE& X, const mat_ZZ_pE& A, const ZZ_pE& b_in)
 
 void mul(mat_ZZ_pE& X, const mat_ZZ_pE& A, const ZZ_p& b_in)
 {
-   NTL_ZZ_pRegister(b);
+   KCTSB_ZZ_pRegister(b);
    b = b_in;
    long n = A.NumRows();
    long m = A.NumCols();
@@ -883,7 +883,7 @@ void mul(mat_ZZ_pE& X, const mat_ZZ_pE& A, const ZZ_p& b_in)
 
 void mul(mat_ZZ_pE& X, const mat_ZZ_pE& A, long b_in)
 {
-   NTL_ZZ_pRegister(b);
+   KCTSB_ZZ_pRegister(b);
    b = b_in;
    long n = A.NumRows();
    long m = A.NumCols();
@@ -955,21 +955,21 @@ mat_ZZ_pE operator+(const mat_ZZ_pE& a, const mat_ZZ_pE& b)
 {
    mat_ZZ_pE res;
    add(res, a, b);
-   NTL_OPT_RETURN(mat_ZZ_pE, res);
+   KCTSB_OPT_RETURN(mat_ZZ_pE, res);
 }
 
 mat_ZZ_pE operator*(const mat_ZZ_pE& a, const mat_ZZ_pE& b)
 {
    mat_ZZ_pE res;
    mul_aux(res, a, b);
-   NTL_OPT_RETURN(mat_ZZ_pE, res);
+   KCTSB_OPT_RETURN(mat_ZZ_pE, res);
 }
 
 mat_ZZ_pE operator-(const mat_ZZ_pE& a, const mat_ZZ_pE& b)
 {
    mat_ZZ_pE res;
    sub(res, a, b);
-   NTL_OPT_RETURN(mat_ZZ_pE, res);
+   KCTSB_OPT_RETURN(mat_ZZ_pE, res);
 }
 
 
@@ -977,7 +977,7 @@ mat_ZZ_pE operator-(const mat_ZZ_pE& a)
 {
    mat_ZZ_pE res;
    negate(res, a);
-   NTL_OPT_RETURN(mat_ZZ_pE, res);
+   KCTSB_OPT_RETURN(mat_ZZ_pE, res);
 }
 
 
@@ -985,14 +985,14 @@ vec_ZZ_pE operator*(const mat_ZZ_pE& a, const vec_ZZ_pE& b)
 {
    vec_ZZ_pE res;
    mul_aux(res, a, b);
-   NTL_OPT_RETURN(vec_ZZ_pE, res);
+   KCTSB_OPT_RETURN(vec_ZZ_pE, res);
 }
 
 vec_ZZ_pE operator*(const vec_ZZ_pE& a, const mat_ZZ_pE& b)
 {
    vec_ZZ_pE res;
    mul_aux(res, a, b);
-   NTL_OPT_RETURN(vec_ZZ_pE, res);
+   KCTSB_OPT_RETURN(vec_ZZ_pE, res);
 }
 
 void inv(mat_ZZ_pE& X, const mat_ZZ_pE& A)
@@ -1037,4 +1037,4 @@ void random(mat_ZZ_pE& x, long n, long m)
    for (long i = 0; i < n; i++) random(x[i], m);
 }
 
-NTL_END_IMPL
+KCTSB_END_IMPL

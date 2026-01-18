@@ -333,7 +333,8 @@ if(KCTSB_ENABLE_GF2X)
     if(GF2X_INCLUDE_DIRS AND GF2X_LIBRARY)
         set(GF2X_FOUND TRUE)
         message(STATUS "✓ gf2x found: ${GF2X_LIBRARY}")
-        add_definitions(-DKCTSB_HAS_GF2X -DNTL_GF2X_LIB)
+        # v4.0.1: Define both NTL_GF2X_LIB (legacy) and KCTSB_GF2X_LIB (new)
+        add_definitions(-DKCTSB_HAS_GF2X -DNTL_GF2X_LIB -DKCTSB_GF2X_LIB)
         
         if(NOT TARGET gf2x::gf2x)
             add_library(gf2x::gf2x STATIC IMPORTED)
@@ -468,22 +469,47 @@ add_definitions(-DKCTSB_HAS_BIGNUM_MODULES)
 message(STATUS "✓ RSA/ECC modules enabled (bignum integrated)")
 
 # Existing math sources (non-bignum dependent)
-# v4.0.1: All math sources now included on all platforms
+# v4.0.1: All math sources included - GF2X modules are essential
 file(GLOB KCTSB_EXISTING_MATH_SOURCES ${KCTSB_SRC_DIR}/math/*.cpp)
 
 # ============================================================================
-# Bignum Integrated Sources (v4.0.0, Windows LLP64 fixed in v4.0.1)
+# Bignum Integrated Sources (v4.0.1 Slim - GMP/gf2x wrappers + core algorithms)
 # ============================================================================
 
-# Bignum (high-precision math) sources - now works on all platforms
+# Core sources - only essential GMP/gf2x wrappers
 file(GLOB BIGNUM_CORE_SOURCES ${KCTSB_SRC_DIR}/math/bignum/core/*.cpp)
+# v4.0.1: Exclude unnecessary NTL utilities - use system threading/timing
+list(FILTER BIGNUM_CORE_SOURCES EXCLUDE REGEX "BasicThreadPool\\.cpp$")
+list(FILTER BIGNUM_CORE_SOURCES EXCLUDE REGEX "thread\\.cpp$")
+list(FILTER BIGNUM_CORE_SOURCES EXCLUDE REGEX "subset\\.cpp$")
+list(FILTER BIGNUM_CORE_SOURCES EXCLUDE REGEX "fileio\\.cpp$")
+list(FILTER BIGNUM_CORE_SOURCES EXCLUDE REGEX "newnames\\.cpp$")
+
+# Ring sources - all needed for GF2/ZZ_p arithmetic
 file(GLOB BIGNUM_RING_SOURCES ${KCTSB_SRC_DIR}/math/bignum/ring/*.cpp)
+
+# Vector and Matrix sources - essential for linear algebra
 file(GLOB BIGNUM_VECTOR_SOURCES ${KCTSB_SRC_DIR}/math/bignum/vector/*.cpp)
 file(GLOB BIGNUM_MATRIX_SOURCES ${KCTSB_SRC_DIR}/math/bignum/matrix/*.cpp)
+
+# Polynomial sources - GF2X is essential for security algorithms
 file(GLOB BIGNUM_POLY_SOURCES ${KCTSB_SRC_DIR}/math/bignum/poly/*.cpp)
+
+# FFT sources - needed for efficient polynomial multiplication
 file(GLOB BIGNUM_FFT_SOURCES ${KCTSB_SRC_DIR}/math/bignum/fft/*.cpp)
-file(GLOB BIGNUM_PRECISION_SOURCES ${KCTSB_SRC_DIR}/math/bignum/precision/*.cpp)
+
+# v4.0.1: EXCLUDE precision directory entirely (RR, xdouble, quad_float not needed)
+# These are arbitrary precision real numbers - kctsb uses integer arithmetic only
+set(BIGNUM_PRECISION_SOURCES "")
+message(STATUS "  Note: Precision modules (RR, xdouble, quad_float) excluded - not needed")
+
+# Lattice sources - only basic LLL needed, exclude extended precision variants
 file(GLOB BIGNUM_LATTICE_SOURCES ${KCTSB_SRC_DIR}/math/bignum/lattice/*.cpp)
+# Exclude Givens rotation variants and extended precision LLL
+list(FILTER BIGNUM_LATTICE_SOURCES EXCLUDE REGEX "G_LLL_.*\\.cpp$")
+list(FILTER BIGNUM_LATTICE_SOURCES EXCLUDE REGEX "LLL_QP\\.cpp$")
+list(FILTER BIGNUM_LATTICE_SOURCES EXCLUDE REGEX "LLL_RR\\.cpp$")
+list(FILTER BIGNUM_LATTICE_SOURCES EXCLUDE REGEX "LLL_XD\\.cpp$")
 
 set(BIGNUM_ALL_SOURCES
     ${BIGNUM_CORE_SOURCES}
@@ -566,14 +592,23 @@ endif()
 
 if(KCTSB_BUILD_STATIC)
     add_library(kctsb_static STATIC ${KCTSB_ALL_SOURCES})
-    target_include_directories(kctsb_static PUBLIC
-        $<BUILD_INTERFACE:${KCTSB_INCLUDE_DIR}>
-        $<BUILD_INTERFACE:${KCTSB_INCLUDE_DIR}/kctsb/math/bignum>
-        $<INSTALL_INTERFACE:include>
-    )
+    # v4.0.1: System includes FIRST to avoid Windows case-insensitive conflicts
+    # (e.g., gf2x.h vs GF2X.h - the external gf2x library must take precedence)
     target_include_directories(kctsb_static SYSTEM PUBLIC
         $<BUILD_INTERFACE:${KCTSB_THIRDPARTY_PLATFORM_DIR}/include>
         $<BUILD_INTERFACE:${KCTSB_THIRDPARTY_DIR}/include>
+        $<BUILD_INTERFACE:${GMP_INCLUDE_DIRS}>
+    )
+    # v4.0.1: Add GF2X include directories explicitly (before kctsb headers)
+    if(GF2X_INCLUDE_DIRS)
+        target_include_directories(kctsb_static SYSTEM PUBLIC
+            $<BUILD_INTERFACE:${GF2X_INCLUDE_DIRS}>
+        )
+    endif()
+    # kctsb headers after external libraries
+    target_include_directories(kctsb_static PUBLIC
+        $<BUILD_INTERFACE:${KCTSB_INCLUDE_DIR}>
+        $<INSTALL_INTERFACE:include>
     )
     target_compile_definitions(kctsb_static PRIVATE KCTSB_BUILDING)
     set_target_properties(kctsb_static PROPERTIES OUTPUT_NAME kctsb)
@@ -611,14 +646,22 @@ endif()
 
 if(KCTSB_BUILD_SHARED)
     add_library(kctsb_shared SHARED ${KCTSB_ALL_SOURCES})
-    target_include_directories(kctsb_shared PUBLIC
-        $<BUILD_INTERFACE:${KCTSB_INCLUDE_DIR}>
-        $<BUILD_INTERFACE:${KCTSB_INCLUDE_DIR}/kctsb/math/bignum>
-        $<INSTALL_INTERFACE:include>
-    )
+    # v4.0.1: System includes FIRST to avoid Windows case-insensitive conflicts
     target_include_directories(kctsb_shared SYSTEM PUBLIC
         $<BUILD_INTERFACE:${KCTSB_THIRDPARTY_PLATFORM_DIR}/include>
         $<BUILD_INTERFACE:${KCTSB_THIRDPARTY_DIR}/include>
+        $<BUILD_INTERFACE:${GMP_INCLUDE_DIRS}>
+    )
+    # v4.0.1: Add GF2X include directories explicitly (before kctsb headers)
+    if(GF2X_INCLUDE_DIRS)
+        target_include_directories(kctsb_shared SYSTEM PUBLIC
+            $<BUILD_INTERFACE:${GF2X_INCLUDE_DIRS}>
+        )
+    endif()
+    # kctsb headers after external libraries
+    target_include_directories(kctsb_shared PUBLIC
+        $<BUILD_INTERFACE:${KCTSB_INCLUDE_DIR}>
+        $<INSTALL_INTERFACE:include>
     )
     target_compile_definitions(kctsb_shared PRIVATE KCTSB_BUILDING KCTSB_SHARED_LIBRARY)
     set_target_properties(kctsb_shared PROPERTIES

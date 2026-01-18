@@ -1,6 +1,6 @@
-/**
+﻿/**
  * @file rsa.h
- * @brief RSA Cryptosystem Header - NTL Implementation
+ * @brief RSA Cryptosystem Header - Bignum Implementation
  * 
  * Complete RSA implementation following:
  * - PKCS#1 v2.2 (RSA Cryptography Specifications)
@@ -20,7 +20,7 @@
 #ifndef KCTSB_CRYPTO_RSA_H
 #define KCTSB_CRYPTO_RSA_H
 
-#include <NTL/ZZ.h>
+#include <kctsb/math/bignum/ZZ.h>
 #include <vector>
 #include <cstdint>
 #include <string>

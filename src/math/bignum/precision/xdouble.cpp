@@ -1,21 +1,21 @@
-
-#include <NTL/xdouble.h>
-#include <NTL/RR.h>
-
-
-
-NTL_START_IMPL
+﻿
+#include <kctsb/math/bignum/xdouble.h>
+#include <kctsb/math/bignum/RR.h>
 
 
 
-NTL_CHEAP_THREAD_LOCAL
+KCTSB_START_IMPL
+
+
+
+KCTSB_CHEAP_THREAD_LOCAL
 long xdouble::oprec = 10;
 
 void xdouble::SetOutputPrecision(long p)
 {
    if (p < 1) p = 1;
 
-   if (NTL_OVERFLOW(p, 1, 0)) 
+   if (KCTSB_OVERFLOW(p, 1, 0)) 
       ResourceError("xdouble: output precision too big");
 
    oprec = p;
@@ -26,18 +26,18 @@ void xdouble::normalize()
    if (x == 0) 
       e = 0;
    else if (x > 0) {
-      while (x < NTL_XD_HBOUND_INV) { x *= NTL_XD_BOUND; e--; }
-      while (x > NTL_XD_HBOUND) { x *= NTL_XD_BOUND_INV; e++; }
+      while (x < KCTSB_XD_HBOUND_INV) { x *= KCTSB_XD_BOUND; e--; }
+      while (x > KCTSB_XD_HBOUND) { x *= KCTSB_XD_BOUND_INV; e++; }
    }
    else {
-      while (x > -NTL_XD_HBOUND_INV) { x *= NTL_XD_BOUND; e--; }
-      while (x < -NTL_XD_HBOUND) { x *= NTL_XD_BOUND_INV; e++; }
+      while (x > -KCTSB_XD_HBOUND_INV) { x *= KCTSB_XD_BOUND; e--; }
+      while (x < -KCTSB_XD_HBOUND) { x *= KCTSB_XD_BOUND_INV; e++; }
    }
 
-   if (e >= NTL_OVFBND)
+   if (e >= KCTSB_OVFBND)
       ResourceError("xdouble: overflow");
 
-   if (e <= -NTL_OVFBND)
+   if (e <= -KCTSB_OVFBND)
       ResourceError("xdouble: underflow");
 }
    
@@ -45,8 +45,8 @@ void xdouble::normalize()
 
 xdouble to_xdouble(double a)
 {
-   if (a == 0 || a == 1 || (a > 0 && a >= NTL_XD_HBOUND_INV && a <= NTL_XD_HBOUND)
-       || (a < 0 && a <= -NTL_XD_HBOUND_INV && a >= -NTL_XD_HBOUND)) {
+   if (a == 0 || a == 1 || (a > 0 && a >= KCTSB_XD_HBOUND_INV && a <= KCTSB_XD_HBOUND)
+       || (a < 0 && a <= -KCTSB_XD_HBOUND_INV && a >= -KCTSB_XD_HBOUND)) {
       
       return xdouble(a, 0); 
 
@@ -87,7 +87,7 @@ void conv(double& xx, const xdouble& a)
      e_neg = 1;
    }
 
-   double base = e_neg ? NTL_XD_BOUND_INV :  NTL_XD_BOUND;
+   double base = e_neg ? KCTSB_XD_BOUND_INV :  KCTSB_XD_BOUND;
    // set x = x * base^e
 
    if (e < 4) {
@@ -143,7 +143,7 @@ xdouble operator+(const xdouble& a, const xdouble& b)
       if (a.e > b.e+1)
          return a;
 
-      z.x = a.x + b.x*NTL_XD_BOUND_INV;
+      z.x = a.x + b.x*KCTSB_XD_BOUND_INV;
       z.e = a.e;
       z.normalize();
       return z;
@@ -152,7 +152,7 @@ xdouble operator+(const xdouble& a, const xdouble& b)
       if (b.e > a.e+1)
          return b;
 
-      z.x = a.x*NTL_XD_BOUND_INV + b.x;
+      z.x = a.x*KCTSB_XD_BOUND_INV + b.x;
       z.e = b.e;
       z.normalize();
       return z;
@@ -180,7 +180,7 @@ xdouble operator-(const xdouble& a, const xdouble& b)
       if (a.e > b.e+1)
          return a;
 
-      z.x = a.x - b.x*NTL_XD_BOUND_INV;
+      z.x = a.x - b.x*KCTSB_XD_BOUND_INV;
       z.e = a.e;
       z.normalize();
       return z;
@@ -189,7 +189,7 @@ xdouble operator-(const xdouble& a, const xdouble& b)
       if (b.e > a.e+1)
          return -b;
 
-      z.x = a.x*NTL_XD_BOUND_INV - b.x;
+      z.x = a.x*KCTSB_XD_BOUND_INV - b.x;
       z.e = b.e;
       z.normalize();
       return z;
@@ -312,9 +312,9 @@ xdouble ceil(const xdouble& aa)
 xdouble to_xdouble(const ZZ& a)
 {
    RRPush push;
-   RR::SetPrecision(NTL_DOUBLE_PRECISION);
+   RR::SetPrecision(KCTSB_DOUBLE_PRECISION);
    
-   NTL_TLS_LOCAL(RR, t);
+   KCTSB_TLS_LOCAL(RR, t);
    conv(t, a);
 
    double x;
@@ -335,9 +335,9 @@ void conv(ZZ& x, const xdouble& a)
    xdouble b = floor(a);
 
    RRPush push;
-   RR::SetPrecision(NTL_DOUBLE_PRECISION);
+   RR::SetPrecision(KCTSB_DOUBLE_PRECISION);
 
-   NTL_TLS_LOCAL(RR, t);
+   KCTSB_TLS_LOCAL(RR, t);
    conv(t, b);
    conv(x, t);
 }
@@ -364,7 +364,7 @@ xdouble sqrt(const xdouble& a)
 
    if (a.e & 1) {
       t.e = (a.e - 1)/2;
-      t.x = sqrt(a.x * NTL_XD_BOUND);
+      t.x = sqrt(a.x * KCTSB_XD_BOUND);
    }
    else {
       t.e = a.e/2;
@@ -404,7 +404,7 @@ void power(xdouble& z, const xdouble& a, const ZZ& e)
 
 void power(xdouble& z, const xdouble& a, long e)
 {
-   NTL_ZZRegister(E);
+   KCTSB_ZZRegister(E);
    E = e;
    power(z, a, E);
 }
@@ -415,7 +415,7 @@ void power(xdouble& z, const xdouble& a, long e)
 
 void power2(xdouble& z, long e)
 {
-   long hb = NTL_XD_HBOUND_LOG;
+   long hb = KCTSB_XD_HBOUND_LOG;
    long b = 2*hb;
 
    long q, r;
@@ -433,13 +433,13 @@ void power2(xdouble& z, long e)
       q--;
    }
 
-   if (q >= NTL_OVFBND)
+   if (q >= KCTSB_OVFBND)
       ResourceError("xdouble: overflow");
 
-   if (q <= -NTL_OVFBND)
+   if (q <= -KCTSB_OVFBND)
       ResourceError("xdouble: underflow");
 
-   double x = _ntl_ldexp(1.0, r);
+   double x = _kctsb_ldexp(1.0, r);
 
    z.x = x;
    z.e = q;
@@ -480,7 +480,7 @@ void MulAdd(xdouble& z, const xdouble& a, const xdouble& b, const xdouble& c)
          return;
       }
 
-      z.x = a.x + x*NTL_XD_BOUND_INV;
+      z.x = a.x + x*KCTSB_XD_BOUND_INV;
       z.e = a.e;
       z.normalize();
       return;
@@ -493,7 +493,7 @@ void MulAdd(xdouble& z, const xdouble& a, const xdouble& b, const xdouble& c)
          return;
       }
 
-      z.x = a.x*NTL_XD_BOUND_INV + x;
+      z.x = a.x*KCTSB_XD_BOUND_INV + x;
       z.e = e;
       z.normalize();
       return;
@@ -534,7 +534,7 @@ void MulSub(xdouble& z, const xdouble& a, const xdouble& b, const xdouble& c)
          return;
       }
 
-      z.x = a.x - x*NTL_XD_BOUND_INV;
+      z.x = a.x - x*KCTSB_XD_BOUND_INV;
       z.e = a.e;
       z.normalize();
       return;
@@ -547,7 +547,7 @@ void MulSub(xdouble& z, const xdouble& a, const xdouble& b, const xdouble& c)
          return;
       }
 
-      z.x = a.x*NTL_XD_BOUND_INV - x;
+      z.x = a.x*KCTSB_XD_BOUND_INV - x;
       z.e = e;
       z.normalize();
       return;
@@ -556,7 +556,7 @@ void MulSub(xdouble& z, const xdouble& a, const xdouble& b, const xdouble& c)
 
 double log(const xdouble& a)
 {
-   static const double LogBound = log(NTL_XD_BOUND); // GLOBAL (assumes C++11 thread-safe init)
+   static const double LogBound = log(KCTSB_XD_BOUND); // GLOBAL (assumes C++11 thread-safe init)
    if (a.x <= 0) {
       ArithmeticError("log(xdouble): argument must be positive");
    }
@@ -566,15 +566,15 @@ double log(const xdouble& a)
 
 xdouble xexp(double x)
 {
-   const double LogBound = log(NTL_XD_BOUND);
+   const double LogBound = log(KCTSB_XD_BOUND);
 
    double y = x/LogBound;
    double iy = floor(y+0.5);
 
-   if (iy >= NTL_OVFBND)
+   if (iy >= KCTSB_OVFBND)
       ResourceError("xdouble: overflow");
 
-   if (iy <= -NTL_OVFBND)
+   if (iy <= -KCTSB_OVFBND)
       ResourceError("xdouble: underflow");
 
 
@@ -596,28 +596,28 @@ void ComputeLn10(RR&);
 long ComputeMax10Power()
 {
    RRPush push;
-   RR::SetPrecision(NTL_BITS_PER_LONG);
+   RR::SetPrecision(KCTSB_BITS_PER_LONG);
 
    RR ln2, ln10;
    ComputeLn2(ln2);
    ComputeLn10(ln10);
 
-   long k = to_long( to_RR(NTL_OVFBND/2) * ln2 / ln10 );
+   long k = to_long( to_RR(KCTSB_OVFBND/2) * ln2 / ln10 );
    return k;
 }
 
 
 xdouble PowerOf10(const ZZ& e)
 {
-   static NTL_CHEAP_THREAD_LOCAL long init = 0;
-   static NTL_CHEAP_THREAD_LOCAL long k = 0;
+   static KCTSB_CHEAP_THREAD_LOCAL long init = 0;
+   static KCTSB_CHEAP_THREAD_LOCAL long k = 0;
 
-   NTL_TLS_LOCAL(xdouble, v10k);
+   KCTSB_TLS_LOCAL(xdouble, v10k);
 
    if (!init) {
       k = ComputeMax10Power();
       RRPush push;
-      RR::SetPrecision(NTL_DOUBLE_PRECISION);
+      RR::SetPrecision(KCTSB_DOUBLE_PRECISION);
       v10k = to_xdouble(power(to_RR(10), k)); 
       init = 1;
    }
@@ -640,7 +640,7 @@ xdouble PowerOf10(const ZZ& e)
    r = DivRem(q, e1, k);
 
    RRPush push;
-   RR::SetPrecision(NTL_DOUBLE_PRECISION);
+   RR::SetPrecision(KCTSB_DOUBLE_PRECISION);
    xdouble x1 = to_xdouble(power(to_RR(10), r));
 
    xdouble x2 = power(v10k, q);
@@ -670,7 +670,7 @@ ostream& operator<<(ostream& s, const xdouble& a)
    ComputeLn10(ln10);
    log_2_10 = ln10/ln2;
    ZZ log_10_a = to_ZZ(
-  (to_RR(a.e)*to_RR(2*NTL_XD_HBOUND_LOG) + log(fabs(a.x))/log(2.0))/log_2_10);
+  (to_RR(a.e)*to_RR(2*KCTSB_XD_HBOUND_LOG) + log(fabs(a.x))/log(2.0))/log_2_10);
 
 
    xdouble b;
@@ -785,7 +785,7 @@ istream& operator>>(istream& s, xdouble& x)
    long sign;
    ZZ a, b;
 
-   if (!s) NTL_INPUT_ERROR(s, "bad xdouble input");
+   if (!s) KCTSB_INPUT_ERROR(s, "bad xdouble input");
 
    c = s.peek();
    while (IsWhiteSpace(c)) {
@@ -843,7 +843,7 @@ istream& operator>>(istream& s, xdouble& x)
       }
    }
 
-   if (got_dot && !got1 && !got2)  NTL_INPUT_ERROR(s, "bad xdouble input");
+   if (got_dot && !got1 && !got2)  KCTSB_INPUT_ERROR(s, "bad xdouble input");
 
    ZZ e;
 
@@ -871,7 +871,7 @@ istream& operator>>(istream& s, xdouble& x)
 
       cval = CharToIntVal(c);
 
-      if (cval < 0 || cval > 9) NTL_INPUT_ERROR(s, "bad xdouble input");
+      if (cval < 0 || cval > 9) KCTSB_INPUT_ERROR(s, "bad xdouble input");
 
       e = 0;
       while (cval >= 0 && cval <= 9) {
@@ -883,7 +883,7 @@ istream& operator>>(istream& s, xdouble& x)
       }
    }
 
-   if (!got1 && !got2 && !got_e) NTL_INPUT_ERROR(s, "bad xdouble input");
+   if (!got1 && !got2 && !got_e) KCTSB_INPUT_ERROR(s, "bad xdouble input");
 
    xdouble t1, t2, v;
 
@@ -910,4 +910,4 @@ istream& operator>>(istream& s, xdouble& x)
 
 
 
-NTL_END_IMPL
+KCTSB_END_IMPL

@@ -1,12 +1,12 @@
-#include <NTL/quad_float.h>
-#include <NTL/RR.h>
+﻿#include <kctsb/math/bignum/quad_float.h>
+#include <kctsb/math/bignum/RR.h>
 
 #include <cfloat>
 
-NTL_START_IMPL
+KCTSB_START_IMPL
 
 
-#if (NTL_BITS_PER_LONG >= NTL_DOUBLE_PRECISION)
+#if (KCTSB_BITS_PER_LONG >= KCTSB_DOUBLE_PRECISION)
 
 
 quad_float to_quad_float(long n)
@@ -34,7 +34,7 @@ quad_float to_quad_float(unsigned long n)
 {
    double xhi, xlo, t;
 
-   const double bnd = double(1L << (NTL_BITS_PER_LONG-2))*4.0;
+   const double bnd = double(1L << (KCTSB_BITS_PER_LONG-2))*4.0;
 
    xhi = TrueDouble(n);
    
@@ -54,14 +54,14 @@ quad_float to_quad_float(unsigned long n)
 #endif
 
 
-NTL_CHEAP_THREAD_LOCAL
+KCTSB_CHEAP_THREAD_LOCAL
 long quad_float::oprec = 10;
 
 void quad_float::SetOutputPrecision(long p)
 {
    if (p < 1) p = 1;
 
-   if (NTL_OVERFLOW(p, 1, 0)) 
+   if (KCTSB_OVERFLOW(p, 1, 0)) 
       ResourceError("quad_float: output precision too big");
 
    oprec = p;
@@ -100,7 +100,7 @@ void power(quad_float& z, const quad_float& a, long e)
 
 void power2(quad_float& z, long e)
 {
-   z.hi = _ntl_ldexp(1.0, e);
+   z.hi = _kctsb_ldexp(1.0, e);
    z.lo = 0;
 }
 
@@ -144,7 +144,7 @@ void conv(quad_float& z, const ZZ& a)
       return;
    }
 
-   NTL_ZZRegister(t);
+   KCTSB_ZZRegister(t);
 
    conv(t, xhi);
    sub(t, a, t);
@@ -156,9 +156,9 @@ void conv(quad_float& z, const ZZ& a)
 
 void conv(ZZ& z, const quad_float& x)
 { 
-   NTL_ZZRegister(t1);
-   NTL_ZZRegister(t2);
-   NTL_ZZRegister(t3);
+   KCTSB_ZZRegister(t1);
+   KCTSB_ZZRegister(t2);
+   KCTSB_ZZRegister(t3);
 
    double fhi, flo;
 
@@ -193,7 +193,7 @@ ostream& operator<<(ostream& s, const quad_float& a)
    RR::SetPrecision(long(3.33*quad_float::oprec) + 10);
    RR::SetOutputPrecision(quad_float::oprec);
 
-   NTL_TLS_LOCAL(RR, t);
+   KCTSB_TLS_LOCAL(RR, t);
 
    conv(t, a);
    s << t;
@@ -204,10 +204,10 @@ ostream& operator<<(ostream& s, const quad_float& a)
 istream& operator>>(istream& s, quad_float& x)
 {
    RRPush push;
-   RR::SetPrecision(4*NTL_DOUBLE_PRECISION);
+   RR::SetPrecision(4*KCTSB_DOUBLE_PRECISION);
 
-   NTL_TLS_LOCAL(RR, t);
-   NTL_INPUT_CHECK_RET(s, s >> t);
+   KCTSB_TLS_LOCAL(RR, t);
+   KCTSB_INPUT_CHECK_RET(s, s >> t);
    conv(x, t);
 
    return s;
@@ -216,9 +216,9 @@ istream& operator>>(istream& s, quad_float& x)
 void random(quad_float& x)
 {
    RRPush push;
-   RR::SetPrecision(4*NTL_DOUBLE_PRECISION);
+   RR::SetPrecision(4*KCTSB_DOUBLE_PRECISION);
 
-   NTL_TLS_LOCAL(RR, t);
+   KCTSB_TLS_LOCAL(RR, t);
    random(t);
    conv(x, t);
 }
@@ -284,8 +284,8 @@ quad_float ldexp(const quad_float& x, long exp) { // x*2^exp
    double xhi, xlo;
    quad_float z;
 
-   xhi = _ntl_ldexp(x.hi, exp);
-   xlo = _ntl_ldexp(x.lo, exp);
+   xhi = _kctsb_ldexp(x.hi, exp);
+   xlo = _kctsb_ldexp(x.lo, exp);
 
    quad_float_normalize(z, xhi, xlo);
    return z;
@@ -383,4 +383,4 @@ long operator!=(const quad_float& x, const quad_float& y)
    { return x.hi!=y.hi || x.lo!=y.lo; }
 
 
-NTL_END_IMPL
+KCTSB_END_IMPL

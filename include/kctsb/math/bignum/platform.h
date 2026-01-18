@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file platform.h
  * @brief kctsb Platform-independent type definitions for bignum module
  *
@@ -7,7 +7,7 @@
  * - Linux/macOS x64: sizeof(long) = 8, sizeof(long long) = 8
  *
  * We define kctsb_long_t as a platform-independent 64-bit signed type
- * to be used throughout the bignum module, replacing NTL's long dependencies.
+ * to be used throughout the bignum module, replacing bignum's long dependencies.
  *
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
  * @license Apache License 2.0
@@ -49,7 +49,7 @@ namespace kctsb {
 
 /**
  * @brief Platform-independent signed word type (always 64-bit on 64-bit platforms)
- * Replaces NTL's 'long' which has different sizes on different platforms.
+ * Replaces bignum's 'long' which has different sizes on different platforms.
  */
 #ifdef KCTSB_ARCH_64BIT
 using word_t = std::int64_t;
@@ -78,7 +78,7 @@ using dword_t = std::int64_t;
 using udword_t = std::uint64_t;
 #endif
 
-// Type aliases for backward compatibility with NTL-style code
+// Type aliases for backward compatibility with bignum-style code
 using zz_limb_t = uword_t;  // Limb type for big integers (replaces mp_limb_t)
 
 } // namespace kctsb
@@ -93,7 +93,7 @@ typedef std::int32_t kctsb_sint;     // Signed 32-bit
 typedef std::uint32_t kctsb_uint;    // Unsigned 32-bit
 
 // ============================================================================
-// NTL Compatibility Macros (to be phased out)
+// bignum Compatibility Macros (to be phased out)
 // ============================================================================
 // These macros provide source-level compatibility with existing code
 // while ensuring correct bit widths across platforms.
@@ -121,8 +121,15 @@ typedef std::uint32_t kctsb_uint;    // Unsigned 32-bit
     #define KCTSB_BITS_PER_POINTER 32
 #endif
 
-// size_t bits
-#define KCTSB_BITS_PER_SIZE_T (sizeof(size_t) * CHAR_BIT)
+// size_t bits - use compile-time constant, not sizeof()
+// Note: sizeof() cannot be used in #if preprocessor directives
+#ifndef KCTSB_BITS_PER_SIZE_T
+    #ifdef KCTSB_ARCH_64BIT
+        #define KCTSB_BITS_PER_SIZE_T 64
+    #else
+        #define KCTSB_BITS_PER_SIZE_T 32
+    #endif
+#endif
 
 // ============================================================================
 // Compile-time assertions

@@ -36,7 +36,7 @@ target_include_directories(kctsb_cli PRIVATE
 target_link_libraries(kctsb_cli PRIVATE kctsb_static)
 
 # Link NTL if available (for RSA/ECC)
-if(KCTSB_ENABLE_NTL AND NTL_FOUND)
+if(KCTSB_ENABLE_NTL AND KCTSB_FOUND)
     target_link_libraries(kctsb_cli PRIVATE NTL::NTL)
 endif()
 

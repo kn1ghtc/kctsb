@@ -1,20 +1,20 @@
+﻿
 
-
-#include <NTL/ZZ_p.h>
-#include <NTL/FFT.h>
-
-
-
-NTL_START_IMPL
+#include <kctsb/math/bignum/ZZ_p.h>
+#include <kctsb/math/bignum/FFT.h>
 
 
 
-NTL_TLS_GLOBAL_DECL(SmartPtr<ZZ_pInfoT>, ZZ_pInfo_stg)
-NTL_TLS_GLOBAL_DECL(SmartPtr<ZZ_pTmpSpaceT>, ZZ_pTmpSpace_stg)
+KCTSB_START_IMPL
 
-NTL_CHEAP_THREAD_LOCAL ZZ_pInfoT *ZZ_pInfo = 0;
-NTL_CHEAP_THREAD_LOCAL ZZ_pTmpSpaceT *ZZ_pTmpSpace = 0;
-NTL_CHEAP_THREAD_LOCAL bool ZZ_pInstalled = false;
+
+
+KCTSB_TLS_GLOBAL_DECL(SmartPtr<ZZ_pInfoT>, ZZ_pInfo_stg)
+KCTSB_TLS_GLOBAL_DECL(SmartPtr<ZZ_pTmpSpaceT>, ZZ_pTmpSpace_stg)
+
+KCTSB_CHEAP_THREAD_LOCAL ZZ_pInfoT *ZZ_pInfo = 0;
+KCTSB_CHEAP_THREAD_LOCAL ZZ_pTmpSpaceT *ZZ_pTmpSpace = 0;
+KCTSB_CHEAP_THREAD_LOCAL bool ZZ_pInstalled = false;
 
 
 
@@ -26,7 +26,7 @@ ZZ_pInfoT::ZZ_pInfoT(const ZZ& NewP)
    size = p.size();
 
    ExtendedModulusSize = 2*size + 
-                 (NTL_BITS_PER_LONG + NTL_ZZ_NBITS - 1)/NTL_ZZ_NBITS;
+                 (KCTSB_BITS_PER_LONG + KCTSB_ZZ_NBITS - 1)/KCTSB_ZZ_NBITS;
 
 }
 
@@ -55,7 +55,7 @@ void ZZ_p::DoInstall()
 
       sqr(B, ZZ_pInfo->p);
 
-      LeftShift(B, B, NTL_FFTMaxRoot+NTL_FFTFudge);
+      LeftShift(B, B, KCTSB_FFTMaxRoot+KCTSB_FFTFudge);
 
       // FIXME: the following is quadratic time...would
       // be nice to get a faster solution...
@@ -97,7 +97,7 @@ void ZZ_p::DoInstall()
       // NOTE: the following checks is somewhat academic,
       // but the implementation relies on it
 
-      if (8.0*fn*(fn+48) > NTL_FDOUBLE_PRECISION)
+      if (8.0*fn*(fn+48) > KCTSB_FDOUBLE_PRECISION)
          ResourceError("modulus too big");
 
 
@@ -111,7 +111,7 @@ void ZZ_p::DoInstall()
          FFTInfo->uqinv.SetLength(n);
 
          // montgomery
-         FFTInfo->reduce_struct.init(ZZ_pInfo->p, ZZ(n) << NTL_SP_NBITS);
+         FFTInfo->reduce_struct.init(ZZ_pInfo->p, ZZ(n) << KCTSB_SP_NBITS);
 
          ZZ qq, rr;
 
@@ -164,7 +164,7 @@ void ZZ_p::DoInstall()
       tmps->rem_tmp_vec.fetch(FFTInfo->rem_struct);
    }
 
-   NTL_TLS_GLOBAL_ACCESS(ZZ_pTmpSpace_stg);
+   KCTSB_TLS_GLOBAL_ACCESS(ZZ_pTmpSpace_stg);
    ZZ_pTmpSpace_stg = tmps; 
    ZZ_pTmpSpace = ZZ_pTmpSpace_stg.get();
 }
@@ -181,7 +181,7 @@ void ZZ_p::init(const ZZ& p)
 
 void ZZ_pContext::save() 
 { 
-   NTL_TLS_GLOBAL_ACCESS(ZZ_pInfo_stg);
+   KCTSB_TLS_GLOBAL_ACCESS(ZZ_pInfo_stg);
    ptr = ZZ_pInfo_stg; 
 }
 
@@ -192,11 +192,11 @@ void ZZ_pContext::restore() const
    //    for example, a worker thread re-setting the current modulus
    //    in a multi-threaded build
 
-   NTL_TLS_GLOBAL_ACCESS(ZZ_pInfo_stg);
+   KCTSB_TLS_GLOBAL_ACCESS(ZZ_pInfo_stg);
    ZZ_pInfo_stg = ptr;
    ZZ_pInfo = ZZ_pInfo_stg.get();
 
-   NTL_TLS_GLOBAL_ACCESS(ZZ_pTmpSpace_stg);
+   KCTSB_TLS_GLOBAL_ACCESS(ZZ_pTmpSpace_stg);
    ZZ_pTmpSpace_stg = 0;
    ZZ_pTmpSpace = 0;
 
@@ -230,7 +230,7 @@ const ZZ_p& ZZ_p::zero()
    return z;
 }
 
-NTL_CHEAP_THREAD_LOCAL
+KCTSB_CHEAP_THREAD_LOCAL
 ZZ_p::DivHandlerPtr ZZ_p::DivHandler = 0;
 
    
@@ -253,7 +253,7 @@ void conv(ZZ_p& x, long a)
    else if (a == 1)
       set(x);
    else {
-      NTL_ZZRegister(y);
+      KCTSB_ZZRegister(y);
 
       conv(y, a);
       conv(x, y);
@@ -262,9 +262,9 @@ void conv(ZZ_p& x, long a)
 
 istream& operator>>(istream& s, ZZ_p& x)
 {
-   NTL_ZZRegister(y);
+   KCTSB_ZZRegister(y);
 
-   NTL_INPUT_CHECK_RET(s, s >> y);
+   KCTSB_INPUT_CHECK_RET(s, s >> y);
    conv(x, y);
 
    return s;
@@ -272,7 +272,7 @@ istream& operator>>(istream& s, ZZ_p& x)
 
 void div(ZZ_p& x, const ZZ_p& a, const ZZ_p& b)
 {
-   NTL_ZZ_pRegister(T);
+   KCTSB_ZZ_pRegister(T);
 
    inv(T, b);
    mul(x, a, T);
@@ -280,7 +280,7 @@ void div(ZZ_p& x, const ZZ_p& a, const ZZ_p& b)
 
 void inv(ZZ_p& x, const ZZ_p& a)
 {
-   NTL_ZZRegister(T);
+   KCTSB_ZZRegister(T);
 
    if (InvModStatus(T, a._ZZ_p__rep, ZZ_p::modulus())) {
       if (!IsZero(a._ZZ_p__rep) && ZZ_p::DivHandler)
@@ -301,7 +301,7 @@ long operator==(const ZZ_p& a, long b)
    if (b == 1)
       return IsOne(a);
 
-   NTL_ZZ_pRegister(T);
+   KCTSB_ZZ_pRegister(T);
    conv(T, b);
    return a == T;
 }
@@ -310,35 +310,35 @@ long operator==(const ZZ_p& a, long b)
 
 void add(ZZ_p& x, const ZZ_p& a, long b)
 {
-   NTL_ZZ_pRegister(T);
+   KCTSB_ZZ_pRegister(T);
    conv(T, b);
    add(x, a, T);
 }
 
 void sub(ZZ_p& x, const ZZ_p& a, long b)
 {
-   NTL_ZZ_pRegister(T);
+   KCTSB_ZZ_pRegister(T);
    conv(T, b);
    sub(x, a, T);
 }
 
 void sub(ZZ_p& x, long a, const ZZ_p& b)
 {
-   NTL_ZZ_pRegister(T);
+   KCTSB_ZZ_pRegister(T);
    conv(T, a);
    sub(x, T, b);
 }
 
 void mul(ZZ_p& x, const ZZ_p& a, long b)
 {
-   NTL_ZZ_pRegister(T);
+   KCTSB_ZZ_pRegister(T);
    conv(T, b);
    mul(x, a, T);
 }
 
 void div(ZZ_p& x, const ZZ_p& a, long b)
 {
-   NTL_ZZ_pRegister(T);
+   KCTSB_ZZ_pRegister(T);
    conv(T, b);
    div(x, a, T);
 }
@@ -349,10 +349,10 @@ void div(ZZ_p& x, long a, const ZZ_p& b)
       inv(x, b);
    }
    else {
-      NTL_ZZ_pRegister(T);
+      KCTSB_ZZ_pRegister(T);
       conv(T, a);
       div(x, T, b);
    }
 }
 
-NTL_END_IMPL
+KCTSB_END_IMPL

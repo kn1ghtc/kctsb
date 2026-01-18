@@ -1,10 +1,10 @@
+﻿
+
+#include <kctsb/math/bignum/vec_ZZ_p.h>
+#include <kctsb/math/bignum/BasicThreadPool.h>
 
 
-#include <NTL/vec_ZZ_p.h>
-#include <NTL/BasicThreadPool.h>
-
-
-NTL_START_IMPL
+KCTSB_START_IMPL
 
 #define PAR_THRESH (4000.0)
 
@@ -20,7 +20,7 @@ void BasicBlockConstruct(ZZ_p* x, long n, long d)
 
    long i = 0;
 
-   NTL_SCOPE(guard) { BlockDestroy(x, i); };
+   KCTSB_SCOPE(guard) { BlockDestroy(x, i); };
 
    while (i < n) {
       m = ZZ_BlockConstructAlloc(x[i]._ZZ_p__rep, d, n-i);
@@ -51,7 +51,7 @@ void BlockConstructFromVec(ZZ_p* x, long n, const ZZ_p* y)
    long d = y->_ZZ_p__rep.MaxAlloc() - 1;
    BasicBlockConstruct(x, n, d);
 
-   NTL_SCOPE(guard) { BlockDestroy(x, n); };
+   KCTSB_SCOPE(guard) { BlockDestroy(x, n); };
 
    long i;
    for (i = 0; i < n; i++) x[i] = y[i];
@@ -71,7 +71,7 @@ void BlockConstructFromObj(ZZ_p* x, long n, const ZZ_p& y)
 
    BasicBlockConstruct(x, n, d);
 
-   NTL_SCOPE(guard) { BlockDestroy(x, n); };
+   KCTSB_SCOPE(guard) { BlockDestroy(x, n); };
 
    long i;
    for (i = 0; i < n; i++) x[i] = y;
@@ -99,8 +99,8 @@ void InnerProduct(ZZ_p& x, const vec_ZZ_p& a, const vec_ZZ_p& b)
 {
    long n = min(a.length(), b.length());
    long i;
-   NTL_ZZRegister(accum);
-   NTL_ZZRegister(t);
+   KCTSB_ZZRegister(accum);
+   KCTSB_ZZRegister(t);
 
    clear(accum);
    for (i = 0; i < n; i++) {
@@ -115,13 +115,13 @@ void InnerProduct(ZZ_p& x, const vec_ZZ_p& a, const vec_ZZ_p& b,
                   long offset)
 {
    if (offset < 0) LogicError("InnerProduct: negative offset");
-   if (NTL_OVERFLOW(offset, 1, 0)) 
+   if (KCTSB_OVERFLOW(offset, 1, 0)) 
       ResourceError("InnerProduct: offset too big");
 
    long n = min(a.length(), b.length()+offset);
    long i;
-   NTL_ZZRegister(accum);
-   NTL_ZZRegister(t);
+   KCTSB_ZZRegister(accum);
+   KCTSB_ZZRegister(t);
 
    clear(accum);
    for (i = offset; i < n; i++) {
@@ -134,7 +134,7 @@ void InnerProduct(ZZ_p& x, const vec_ZZ_p& a, const vec_ZZ_p& b,
 
 void mul(vec_ZZ_p& x, const vec_ZZ_p& a, const ZZ_p& b_in)
 {
-   NTL_ZZ_pRegister(b);
+   KCTSB_ZZ_pRegister(b);
    b = b_in;
    long n = a.length();
    x.SetLength(n);
@@ -145,7 +145,7 @@ void mul(vec_ZZ_p& x, const vec_ZZ_p& a, const ZZ_p& b_in)
 
 void mul(vec_ZZ_p& x, const vec_ZZ_p& a, long b_in)
 {
-   NTL_ZZ_pRegister(b);
+   KCTSB_ZZ_pRegister(b);
    b = b_in;
    long n = a.length();
    x.SetLength(n);
@@ -209,14 +209,14 @@ vec_ZZ_p operator+(const vec_ZZ_p& a, const vec_ZZ_p& b)
 {
    vec_ZZ_p res;
    add(res, a, b);
-   NTL_OPT_RETURN(vec_ZZ_p, res);
+   KCTSB_OPT_RETURN(vec_ZZ_p, res);
 }
 
 vec_ZZ_p operator-(const vec_ZZ_p& a, const vec_ZZ_p& b)
 {
    vec_ZZ_p res;
    sub(res, a, b);
-   NTL_OPT_RETURN(vec_ZZ_p, res);
+   KCTSB_OPT_RETURN(vec_ZZ_p, res);
 }
 
 
@@ -224,7 +224,7 @@ vec_ZZ_p operator-(const vec_ZZ_p& a)
 {
    vec_ZZ_p res;
    negate(res, a);
-   NTL_OPT_RETURN(vec_ZZ_p, res);
+   KCTSB_OPT_RETURN(vec_ZZ_p, res);
 }
 
 
@@ -232,14 +232,14 @@ ZZ_p operator*(const vec_ZZ_p& a, const vec_ZZ_p& b)
 {
    ZZ_p res;
    InnerProduct(res, a, b);
-   NTL_OPT_RETURN(ZZ_p, res);
+   KCTSB_OPT_RETURN(ZZ_p, res);
 }
 
 
 void VectorCopy(vec_ZZ_p& x, const vec_ZZ_p& a, long n)
 {
    if (n < 0) LogicError("VectorCopy: negative length");
-   if (NTL_OVERFLOW(n, 1, 0)) ResourceError("overflow in VectorCopy");
+   if (KCTSB_OVERFLOW(n, 1, 0)) ResourceError("overflow in VectorCopy");
 
    long m = min(n, a.length());
 
@@ -278,17 +278,17 @@ void conv(vec_ZZ_p& x, const vec_ZZ& a)
 
    bool seq = BelowThresh(n);
 
-   NTL_GEXEC_RANGE(seq, n, first, last)
-   NTL_IMPORT(ap)
-   NTL_IMPORT(xp)
+   KCTSB_GEXEC_RANGE(seq, n, first, last)
+   KCTSB_IMPORT(ap)
+   KCTSB_IMPORT(xp)
 
       context.restore();
 
       for (long i = first; i < last; i++)
          conv(xp[i], ap[i]);
 
-   NTL_GEXEC_RANGE_END
+   KCTSB_GEXEC_RANGE_END
 
 }
 
-NTL_END_IMPL
+KCTSB_END_IMPL

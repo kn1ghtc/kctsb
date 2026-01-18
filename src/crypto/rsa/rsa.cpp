@@ -1,11 +1,11 @@
-/**
+﻿/**
  * @file rsa.cpp
- * @brief RSA Cryptosystem - NTL Backend Implementation
+ * @brief RSA Cryptosystem - Bignum Backend Implementation
  * 
- * PKCS#1 v2.2 compliant RSA implementation using NTL + GMP.
+ * PKCS#1 v2.2 compliant RSA implementation using bignum + GMP.
  * 
  * Performance Notes:
- * - NTL uses GMP for arbitrary precision arithmetic with hardware acceleration
+ * - bignum uses GMP for arbitrary precision arithmetic with hardware acceleration
  * - CRT optimization provides ~4x speedup for private key operations
  * - PowerMod uses sliding window exponentiation internally
  * 
@@ -18,7 +18,7 @@
 #include <stdexcept>
 #include <random>
 
-// Bignum namespace is now kctsb (was NTL)
+// Bignum namespace is now kctsb (was bignum)
 using namespace kctsb;
 
 namespace kctsb {

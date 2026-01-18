@@ -1,9 +1,9 @@
-/**
+﻿/**
  * @file math.h
  * @brief Unified mathematical utilities header for kctsb library
  * 
  * This header provides compatibility with legacy opentsb code and exposes
- * all mathematical functions including NTL-based high precision arithmetic.
+ * all mathematical functions including bignum-based high precision arithmetic.
  * 
  * @author knightc
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
@@ -22,36 +22,36 @@
 
 #ifdef __cplusplus
 
-// NTL support for high-precision arithmetic
-#ifdef KCTSB_HAS_NTL
-#include <NTL/ZZ.h>
-#include <NTL/ZZX.h>
-#include <NTL/GF2X.h>
-#include <NTL/vec_ZZ.h>
-#include <NTL/mat_ZZ.h>
-#include <NTL/mat_GF2.h>
-#include <NTL/mat_GF2E.h>
-#include <NTL/mat_ZZ_p.h>
+// bignum support for high-precision arithmetic
+#ifdef KCTSB_HAS_BIGNUM_MODULES
+#include <kctsb/math/bignum/ZZ.h>
+#include <kctsb/math/bignum/ZZX.h>
+#include <kctsb/math/bignum/GF2X.h>
+#include <kctsb/math/bignum/vec_ZZ.h>
+#include <kctsb/math/bignum/mat_ZZ.h>
+#include <kctsb/math/bignum/mat_GF2.h>
+#include <kctsb/math/bignum/mat_GF2E.h>
+#include <kctsb/math/bignum/mat_ZZ_p.h>
 #include <vector>
 
 namespace kctsb {
 namespace math {
 
 /**
- * @brief Compute LCM of two NTL big integers
+ * @brief Compute LCM of two bignum big integers
  * @param result Output LCM
  * @param x First operand
  * @param y Second operand
  */
-void lcm(NTL::ZZ& result, const NTL::ZZ& x, const NTL::ZZ& y);
+void lcm(kctsb::ZZ& result, const kctsb::ZZ& x, const kctsb::ZZ& y);
 
 /**
- * @brief Compute LCM or GCD of a vector of NTL big integers
+ * @brief Compute LCM or GCD of a vector of bignum big integers
  * @param v Input vector
  * @param mode 1 for LCM, 2 for GCD
  * @return Vector of intermediate results
  */
-NTL::vec_ZZ lcm_gcd_vec(const NTL::vec_ZZ& v, int mode);
+kctsb::vec_ZZ lcm_gcd_vec(const kctsb::vec_ZZ& v, int mode);
 
 /**
  * @brief Compute LCM or GCD of multiple numbers to single result
@@ -60,17 +60,17 @@ NTL::vec_ZZ lcm_gcd_vec(const NTL::vec_ZZ& v, int mode);
  * @param endlen Output length (will be 1)
  * @return Vector with single result
  */
-NTL::vec_ZZ lcm_gcd_vec(const NTL::vec_ZZ& v, int mode, long endlen);
+kctsb::vec_ZZ lcm_gcd_vec(const kctsb::vec_ZZ& v, int mode, long endlen);
 
 /**
- * @brief Convert C-style array to NTL vector
+ * @brief Convert C-style array to bignum vector
  * @param arr Input array
  * @param v Output vector
  * @param len Array length
  */
-void array_to_vec(const NTL::ZZ arr[], NTL::vec_ZZ& v, long len);
-void array_to_vec(const int arr[], NTL::vec_ZZ& v, long len);
-void array_to_vec(const long arr[], NTL::vec_ZZ& v, long len);
+void array_to_vec(const kctsb::ZZ arr[], kctsb::vec_ZZ& v, long len);
+void array_to_vec(const int arr[], kctsb::vec_ZZ& v, long len);
+void array_to_vec(const long arr[], kctsb::vec_ZZ& v, long len);
 
 /**
  * @brief Polynomial reduction modulo prime
@@ -79,29 +79,29 @@ void array_to_vec(const long arr[], NTL::vec_ZZ& v, long len);
  * @param p Prime modulus
  * @return Reduced polynomial
  */
-NTL::ZZX poly_reduce_mod(const NTL::ZZX& f, const NTL::ZZX& mod, const NTL::ZZ& p);
+kctsb::ZZX poly_reduce_mod(const kctsb::ZZX& f, const kctsb::ZZX& mod, const kctsb::ZZ& p);
 
 } // namespace math
 } // namespace kctsb
 
 // Legacy global function declarations for backward compatibility
-void lcm(NTL::ZZ& k, const NTL::ZZ& x, const NTL::ZZ& y);
-NTL::vec_ZZ lcm_gcd_vec(const NTL::vec_ZZ& v, int typemode);
-NTL::vec_ZZ lcm_gcd_vec(const NTL::vec_ZZ& v, int typemode, long endleng);
-void array_to_vec(const NTL::ZZ arr[], NTL::vec_ZZ& v, long len);
-void array_to_vec(const int arr[], NTL::vec_ZZ& v, long len);
-void array_to_vec(const long arr[], NTL::vec_ZZ& v, long len);
+void lcm(kctsb::ZZ& k, const kctsb::ZZ& x, const kctsb::ZZ& y);
+kctsb::vec_ZZ lcm_gcd_vec(const kctsb::vec_ZZ& v, int typemode);
+kctsb::vec_ZZ lcm_gcd_vec(const kctsb::vec_ZZ& v, int typemode, long endleng);
+void array_to_vec(const kctsb::ZZ arr[], kctsb::vec_ZZ& v, long len);
+void array_to_vec(const int arr[], kctsb::vec_ZZ& v, long len);
+void array_to_vec(const long arr[], kctsb::vec_ZZ& v, long len);
 
 // Matrix conversion utilities
-void array2_to_mat(const std::vector<std::vector<NTL::ZZ>> arr, NTL::mat_ZZ& v);
-void array2_to_mat(const std::vector<std::vector<int>> arr, NTL::mat_ZZ& v);
-void array2_to_mat(const std::vector<std::vector<int>> arr, NTL::mat_GF2& v);
-void array2_to_mat(const std::vector<std::vector<NTL::ZZ>> arr, NTL::mat_GF2& v);
-void array2_to_mat(const std::vector<std::vector<NTL::GF2>> arr, NTL::mat_GF2& v);
-void array2_to_mat(const std::vector<std::vector<int>> arr, NTL::mat_GF2E& v);
-void array2_to_mat(const std::vector<std::vector<int>> arr, NTL::mat_ZZ_p& v);
+void array2_to_mat(const std::vector<std::vector<kctsb::ZZ>> arr, kctsb::mat_ZZ& v);
+void array2_to_mat(const std::vector<std::vector<int>> arr, kctsb::mat_ZZ& v);
+void array2_to_mat(const std::vector<std::vector<int>> arr, kctsb::mat_GF2& v);
+void array2_to_mat(const std::vector<std::vector<kctsb::ZZ>> arr, kctsb::mat_GF2& v);
+void array2_to_mat(const std::vector<std::vector<kctsb::GF2>> arr, kctsb::mat_GF2& v);
+void array2_to_mat(const std::vector<std::vector<int>> arr, kctsb::mat_GF2E& v);
+void array2_to_mat(const std::vector<std::vector<int>> arr, kctsb::mat_ZZ_p& v);
 
-#endif // KCTSB_HAS_NTL
+#endif // KCTSB_HAS_BIGNUM_MODULES
 
 #endif // __cplusplus
 

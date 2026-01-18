@@ -1,6 +1,6 @@
-
-#ifndef NTL_quad_float__H
-#define NTL_quad_float__H
+﻿
+#ifndef KCTSB_quad_float__H
+#define KCTSB_quad_float__H
 
 
 // The quad_float module is derived from the doubledouble
@@ -31,9 +31,9 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
 
 
-#include <NTL/ZZ.h>
+#include <kctsb/math/bignum/ZZ.h>
 
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 
 class quad_float {
@@ -49,7 +49,7 @@ public:
   inline quad_float& operator=(double x);
 
   static 
-  NTL_CHEAP_THREAD_LOCAL 
+  KCTSB_CHEAP_THREAD_LOCAL 
   long oprec;
 
   static void SetOutputPrecision(long p);
@@ -62,12 +62,12 @@ public:
 };  // end class quad_float
 
 
-NTL_DECLARE_RELOCATABLE((quad_float*))
+KCTSB_DECLARE_RELOCATABLE((quad_float*))
 
 
 
 
-#if (NTL_BITS_PER_LONG < NTL_DOUBLE_PRECISION)
+#if (KCTSB_BITS_PER_LONG < KCTSB_DOUBLE_PRECISION)
 
 // FIXME: we could make this <=, and even BPL <= DP+1 for 
 // conversions from signed long...but this is mainly academic
@@ -100,7 +100,7 @@ void quad_float_PrecisionOK(long&, const double&);
 
 
 
-#if (NTL_BITS_PER_INT < NTL_DOUBLE_PRECISION)
+#if (KCTSB_BITS_PER_INT < KCTSB_DOUBLE_PRECISION)
 
 inline quad_float to_quad_float(int n) { return quad_float(n, 0); }
 inline quad_float to_quad_float(unsigned int n) { return quad_float(n, 0); }
@@ -262,8 +262,8 @@ inline long compare(double x, const quad_float& y)
 
 
 
-NTL_SNS istream& operator >> (NTL_SNS istream&, quad_float&);
-NTL_SNS ostream& operator << (NTL_SNS ostream&, const quad_float&);
+KCTSB_SNS istream& operator >> (KCTSB_SNS istream&, quad_float&);
+KCTSB_SNS ostream& operator << (KCTSB_SNS ostream&, const quad_float&);
 
 
 quad_float sqrt(const quad_float&);
@@ -310,7 +310,7 @@ inline quad_float to_quad_float(const ZZ& x)
 
 void conv(ZZ&, const quad_float&);
 inline ZZ to_ZZ(const quad_float& a)
-   { ZZ x; conv(x, a); NTL_OPT_RETURN(ZZ, x); }
+   { ZZ x; conv(x, a); KCTSB_OPT_RETURN(ZZ, x); }
 
 inline void conv(quad_float& x, const quad_float& a)
    { x = a; }
@@ -345,6 +345,6 @@ void random(quad_float& x);
 quad_float random_quad_float();
 
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 #endif

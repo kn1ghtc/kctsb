@@ -1,10 +1,10 @@
+﻿
+
+#include <kctsb/math/bignum/ZZX.h>
+#include <kctsb/math/bignum/BasicThreadPool.h>
 
 
-#include <NTL/ZZX.h>
-#include <NTL/BasicThreadPool.h>
-
-
-NTL_START_IMPL
+KCTSB_START_IMPL
 
 
 
@@ -290,7 +290,7 @@ void HomMul(ZZX& x, const ZZX& a, const ZZX& b)
 
    long nprimes = H.GetNumPrimes();
 
-   if (NTL_OVERFLOW(nprimes, CRT_BLK, 0))
+   if (KCTSB_OVERFLOW(nprimes, CRT_BLK, 0))
       ResourceError("overflow"); // this is pretty academic
 
 
@@ -299,7 +299,7 @@ void HomMul(ZZX& x, const ZZX& a, const ZZX& b)
    A.SetLength(nprimes);
    for (long i = 0; i < nprimes; i++) A[i].SetLength(da+1);
 
-   NTL_EXEC_RANGE(da+1, first, last)
+   KCTSB_EXEC_RANGE(da+1, first, last)
    {
       Vec<long> remainders_store;
       remainders_store.SetLength(nprimes*CRT_BLK); 
@@ -328,12 +328,12 @@ void HomMul(ZZX& x, const ZZX& a, const ZZX& b)
 	 }
       }
    }
-   NTL_EXEC_RANGE_END
+   KCTSB_EXEC_RANGE_END
 
    B.SetLength(nprimes);
    for (long i = 0; i < nprimes; i++) B[i].SetLength(db+1);
 
-   NTL_EXEC_RANGE(db+1, first, last)
+   KCTSB_EXEC_RANGE(db+1, first, last)
    {
       Vec<long> remainders_store;
       remainders_store.SetLength(nprimes*CRT_BLK); 
@@ -362,13 +362,13 @@ void HomMul(ZZX& x, const ZZX& a, const ZZX& b)
 	 }
       }
    }
-   NTL_EXEC_RANGE_END
+   KCTSB_EXEC_RANGE_END
          
 
    C.SetLength(nprimes);
    for (long i = 0; i < nprimes; i++) C[i].SetMaxLength(dc+1);
 
-   NTL_EXEC_RANGE(nprimes, first, last)
+   KCTSB_EXEC_RANGE(nprimes, first, last)
    for (long i = first; i < last; i++) {
       zz_p::FFTInit(i);
       A[i].normalize();
@@ -381,16 +381,16 @@ void HomMul(ZZX& x, const ZZX& a, const ZZX& b)
          for (long j = dci+1; j <= dc; j++) Ci[j] = 0;
       }
    }
-   NTL_EXEC_RANGE_END
+   KCTSB_EXEC_RANGE_END
 
    ZZVec xx;
-   xx.SetSize(dc+1, (bound+NTL_ZZ_NBITS-1)/NTL_ZZ_NBITS);
+   xx.SetSize(dc+1, (bound+KCTSB_ZZ_NBITS-1)/KCTSB_ZZ_NBITS);
    // NOTE: we pre-allocate all the storage we
    // need to collect the result.  Based on my experience,
    // too many calls to malloc in a multi-threaded setting
    // can lead to significant performance degredation
 
-   NTL_EXEC_RANGE(dc+1, first, last)
+   KCTSB_EXEC_RANGE(dc+1, first, last)
    {
       Vec<long> remainders_store;
       remainders_store.SetLength(nprimes*CRT_BLK); 
@@ -419,7 +419,7 @@ void HomMul(ZZX& x, const ZZX& a, const ZZX& b)
 	    H.reconstruct(xx[jj+j], remainders + j*nprimes, scratch);
       }
    }
-   NTL_EXEC_RANGE_END
+   KCTSB_EXEC_RANGE_END
 
    x.SetLength(dc+1);
    for (long j = 0; j <=dc; j++)
@@ -447,7 +447,7 @@ void HomSqr(ZZX& x, const ZZX& a)
 
    long nprimes = H.GetNumPrimes();
 
-   if (NTL_OVERFLOW(nprimes, CRT_BLK, 0))
+   if (KCTSB_OVERFLOW(nprimes, CRT_BLK, 0))
       ResourceError("overflow"); // this is pretty academic
 
 
@@ -456,7 +456,7 @@ void HomSqr(ZZX& x, const ZZX& a)
    A.SetLength(nprimes);
    for (long i = 0; i < nprimes; i++) A[i].SetLength(da+1);
 
-   NTL_EXEC_RANGE(da+1, first, last)
+   KCTSB_EXEC_RANGE(da+1, first, last)
    {
       Vec<long> remainders_store;
       remainders_store.SetLength(nprimes*CRT_BLK); 
@@ -485,13 +485,13 @@ void HomSqr(ZZX& x, const ZZX& a)
 	 }
       }
    }
-   NTL_EXEC_RANGE_END
+   KCTSB_EXEC_RANGE_END
 
 
    C.SetLength(nprimes);
    for (long i = 0; i < nprimes; i++) C[i].SetMaxLength(dc+1);
 
-   NTL_EXEC_RANGE(nprimes, first, last)
+   KCTSB_EXEC_RANGE(nprimes, first, last)
    for (long i = first; i < last; i++) {
       zz_p::FFTInit(i);
       A[i].normalize();
@@ -503,16 +503,16 @@ void HomSqr(ZZX& x, const ZZX& a)
          for (long j = dci+1; j <= dc; j++) Ci[j] = 0;
       }
    }
-   NTL_EXEC_RANGE_END
+   KCTSB_EXEC_RANGE_END
 
    ZZVec xx;
-   xx.SetSize(dc+1, (bound+NTL_ZZ_NBITS-1)/NTL_ZZ_NBITS);
+   xx.SetSize(dc+1, (bound+KCTSB_ZZ_NBITS-1)/KCTSB_ZZ_NBITS);
    // NOTE: we pre-allocate all the storage we
    // need to collect the result.  Based on my experience,
    // too many calls to malloc in a multi-threaded setting
    // can lead to significant performance degredation
 
-   NTL_EXEC_RANGE(dc+1, first, last)
+   KCTSB_EXEC_RANGE(dc+1, first, last)
    {
       Vec<long> remainders_store;
       remainders_store.SetLength(nprimes*CRT_BLK); 
@@ -541,7 +541,7 @@ void HomSqr(ZZX& x, const ZZX& a)
 	    H.reconstruct(xx[jj+j], remainders + j*nprimes, scratch);
       }
    }
-   NTL_EXEC_RANGE_END
+   KCTSB_EXEC_RANGE_END
 
    x.SetLength(dc+1);
    for (long j = 0; j <=dc; j++)
@@ -772,7 +772,7 @@ SS_AddMod(ZZ& x, const ZZ& a, const ZZ& b, const ZZ& p, long n)
 // x = a + b mod p, where p = 2^n+1,  a, b in [0, p).
 // x may not alias p.
 {
-#ifndef NTL_PROVIDES_SS_LIP_IMPL
+#ifndef KCTSB_PROVIDES_SS_LIP_IMPL
    add(x, a, b);
    if (x >= p) {
       x--; SwitchBit(x, n); // x -= p
@@ -787,7 +787,7 @@ SS_SubMod(ZZ& x, const ZZ& a, const ZZ& b, const ZZ& p, long n)
 // x = a - b mod p, where p = 2^n+1,  a, b in [0, p).
 // x may not alias b or p.
 {
-#ifndef NTL_PROVIDES_SS_LIP_IMPL
+#ifndef KCTSB_PROVIDES_SS_LIP_IMPL
    if (a < b) {
       add(x, a, p);
       SubPos(x, x, b);
@@ -808,7 +808,7 @@ SS_SubMod(ZZ& x, const ZZ& a, const ZZ& b, const ZZ& p, long n)
 static void 
 LeftRotate(ZZ& a, const ZZ& b, long e, const ZZ& p, long n, ZZ& scratch)
 {
-#ifndef NTL_PROVIDES_SS_LIP_IMPL
+#ifndef KCTSB_PROVIDES_SS_LIP_IMPL
   if (e == 0) {
     if (&a != &b) {
       a = b;
@@ -1060,7 +1060,7 @@ fft_short(ZZ* xp, long yn, long xn, long lgN,
 
           
           bool seq = SS_BelowThresh(half+yn, p.size());
-          NTL_EXEC_DIVIDE(seq, pool, helper, double(half)/double(half+yn),
+          KCTSB_EXEC_DIVIDE(seq, pool, helper, double(half)/double(half+yn),
 	     fft_short(xp0, half, xn, lgN-1,  r, l, p, n, tmp, helper.subpool(0)),
 	     fft_short(xp1, yn, xn, lgN-1, r, l, p, n, 
                        (helper.concurrent() ? 0 : tmp), helper.subpool(1)))
@@ -1078,7 +1078,7 @@ fft_short(ZZ* xp, long yn, long xn, long lgN,
             Rotate(xp1[j], xp0[j], j, lgN, r, l, p, n, tmp);
 
           bool seq = SS_BelowThresh(half+yn, p.size());
-          NTL_EXEC_DIVIDE(seq, pool, helper, double(half)/double(half+yn),
+          KCTSB_EXEC_DIVIDE(seq, pool, helper, double(half)/double(half+yn),
 	     fft_short(xp0, half, half, lgN-1, r, l, p, n, tmp, helper.subpool(0)),
 	     fft_short(xp1, yn, half, lgN-1, r, l, p, n, 
                        (helper.concurrent() ? 0 : tmp), helper.subpool(1)))
@@ -1107,7 +1107,7 @@ fft_trunc(ZZVec& a, long yn, long xn,
           long r, long l, long l1, const ZZ& p, long n)
 {
    ZZ tmp[SS_NTEMPS];
-   fft_short(&a[0], yn, xn, l, r, l1, p, n, &tmp[0], NTL_INIT_DIVIDE);
+   fft_short(&a[0], yn, xn, l, r, l1, p, n, &tmp[0], KCTSB_INIT_DIVIDE);
 }
 
 static void 
@@ -1118,7 +1118,7 @@ fft_trunc_pair(ZZVec& a_0, ZZVec& a_1, long yn, long xn_0, long xn_1,
    ZZ tmp_0[SS_NTEMPS];
    ZZ tmp_1[SS_NTEMPS];
    bool seq = SS_BelowThresh(yn, p.size());
-   NTL_EXEC_DIVIDE(seq, pool, helper, 0.5,
+   KCTSB_EXEC_DIVIDE(seq, pool, helper, 0.5,
      fft_short(&a_0[0], yn, xn_0, l, r, l1, p, n, &tmp_0[0], helper.subpool(0)),
      fft_short(&a_1[0], yn, xn_1, l, r, l1, p, n, &tmp_1[0], helper.subpool(1)))
 }
@@ -1209,7 +1209,7 @@ ifft_short0(ZZ* xp, long lgN,
   ZZ *xp1 = xp + half;
 
   bool seq = SS_BelowThresh(N, p.size());
-  NTL_EXEC_DIVIDE(seq, pool, helper, 0.5,
+  KCTSB_EXEC_DIVIDE(seq, pool, helper, 0.5,
      ifft_short0(xp0, lgN-1, r, l, p, n, tmp, helper.subpool(0)),
      ifft_short0(xp1, lgN-1, r, l, p, n, 
                  (helper.concurrent() ? 0 : tmp), helper.subpool(1)))
@@ -1351,7 +1351,7 @@ static void
 ifft_trunc(ZZVec& a, long yn, long r, long l, long l1, const ZZ& p, long n)
 {
    ZZ tmp[SS_NTEMPS];
-   ifft_short1(&a[0], yn, l, r, l1, p, n, &tmp[0], NTL_INIT_DIVIDE);
+   ifft_short1(&a[0], yn, l, r, l1, p, n, &tmp[0], KCTSB_INIT_DIVIDE);
 }
 
 
@@ -1449,14 +1449,14 @@ void SSMul(ZZX& c, const ZZX& a, const ZZX& b)
 
   /* N-point FFT's mod p */
   fft_trunc_pair(aa, bb, yn, SS_FFTRoundUp(na+1, l+1), SS_FFTRoundUp(nb+1, l+1),
-                 r, l+1, l1+1, p, mr, NTL_INIT_DIVIDE);
+                 r, l+1, l1+1, p, mr, KCTSB_INIT_DIVIDE);
   //fft_trunc(aa, yn, SS_FFTRoundUp(na+1, l+1), r, l+1, l1+1, p, mr);
   //fft_trunc(bb, yn, SS_FFTRoundUp(nb+1, l+1), r, l+1, l1+1, p, mr);
 
 
   /* Pointwise multiplication aa := aa * bb mod p */
   bool seq = SS_BelowThresh(yn, p.size());
-  NTL_GEXEC_RANGE(seq, yn, first, last)
+  KCTSB_GEXEC_RANGE(seq, yn, first, last)
   ZZ tmp, ai;
   for (long i = first; i < last; i++) {
     mul(ai, aa[i], bb[i]);
@@ -1470,7 +1470,7 @@ void SSMul(ZZX& c, const ZZX& a, const ZZX& b)
     }
     aa[i] = ai;
   }
-  NTL_GEXEC_RANGE_END
+  KCTSB_GEXEC_RANGE_END
 
   ifft_trunc(aa, yn, r, l+1, l1+1, p, mr);
 
@@ -1562,14 +1562,14 @@ void SSMul(ZZ_pX& c, const ZZ_pX& a, const ZZ_pX& b)
 
   /* N-point FFT's mod p */
   fft_trunc_pair(aa, bb, yn, SS_FFTRoundUp(na+1, l+1), SS_FFTRoundUp(nb+1, l+1),
-                 r, l+1, l1+1, p, mr, NTL_INIT_DIVIDE);
+                 r, l+1, l1+1, p, mr, KCTSB_INIT_DIVIDE);
   //fft_trunc(aa, yn, SS_FFTRoundUp(na+1, l+1), r, l+1, l1+1, p, mr);
   //fft_trunc(bb, yn, SS_FFTRoundUp(nb+1, l+1), r, l+1, l1+1, p, mr);
 
 
   /* Pointwise multiplication aa := aa * bb mod p */
   bool seq = SS_BelowThresh(yn, p.size());
-  NTL_GEXEC_RANGE(seq, yn, first, last)
+  KCTSB_GEXEC_RANGE(seq, yn, first, last)
   ZZ tmp, ai;
   for (long i = first; i < last; i++) {
     mul(ai, aa[i], bb[i]);
@@ -1583,7 +1583,7 @@ void SSMul(ZZ_pX& c, const ZZ_pX& a, const ZZ_pX& b)
     }
     aa[i] = ai;
   }
-  NTL_GEXEC_RANGE_END
+  KCTSB_GEXEC_RANGE_END
 
   ifft_trunc(aa, yn, r, l+1, l1+1, p, mr);
 
@@ -1593,7 +1593,7 @@ void SSMul(ZZ_pX& c, const ZZ_pX& a, const ZZ_pX& b)
   bool seq1 = SS_BelowThresh(n+1, p.size());
   ZZ_pContext context;
   context.save();
-  NTL_GEXEC_RANGE(seq1, n+1, first, last)
+  KCTSB_GEXEC_RANGE(seq1, n+1, first, last)
   context.restore();
   ZZ ai, tmp, scratch;
   for (long i = first; i < last; i++) {
@@ -1608,7 +1608,7 @@ void SSMul(ZZ_pX& c, const ZZ_pX& a, const ZZ_pX& b)
     else
        clear(ci);
   }
-  NTL_GEXEC_RANGE_END
+  KCTSB_GEXEC_RANGE_END
 
   c.normalize();
 }
@@ -1666,7 +1666,7 @@ void conv(vec_zz_p& x, const ZZVec& a)
 // Decide to use SSMul.  
 static bool ChooseSS(long da, long maxbitsa, long db, long maxbitsb)
 {
-   long k = ((maxbitsa+maxbitsb+NTL_ZZ_NBITS-1)/NTL_ZZ_NBITS)/2;
+   long k = ((maxbitsa+maxbitsb+KCTSB_ZZ_NBITS-1)/KCTSB_ZZ_NBITS)/2;
    double rat = SSRatio(da, maxbitsa, db, maxbitsb);
 
 #if 1
@@ -1831,7 +1831,7 @@ void SSSqr(ZZX& c, const ZZX& a)
 
   /* Pointwise multiplication aa := aa * bb mod p */
   bool seq = SS_BelowThresh(yn, p.size());
-  NTL_GEXEC_RANGE(seq, yn, first, last)
+  KCTSB_GEXEC_RANGE(seq, yn, first, last)
   ZZ tmp, ai;
   for (long i = first; i < last; i++) {
     sqr(ai, aa[i]);
@@ -1845,7 +1845,7 @@ void SSSqr(ZZX& c, const ZZX& a)
     }
     aa[i] = ai;
   }
-  NTL_GEXEC_RANGE_END
+  KCTSB_GEXEC_RANGE_END
 
   ifft_trunc(aa, yn, r, l+1, l1+1, p, mr);
 
@@ -1926,7 +1926,7 @@ void SSSqr(ZZ_pX& c, const ZZ_pX& a)
 
   /* Pointwise multiplication aa := aa * bb mod p */
   bool seq = SS_BelowThresh(yn, p.size());
-  NTL_GEXEC_RANGE(seq, yn, first, last)
+  KCTSB_GEXEC_RANGE(seq, yn, first, last)
   ZZ tmp, ai;
   for (long i = first; i < last; i++) {
     sqr(ai, aa[i]);
@@ -1940,7 +1940,7 @@ void SSSqr(ZZ_pX& c, const ZZ_pX& a)
     }
     aa[i] = ai;
   }
-  NTL_GEXEC_RANGE_END
+  KCTSB_GEXEC_RANGE_END
 
   ifft_trunc(aa, yn, r, l+1, l1+1, p, mr);
 
@@ -1949,7 +1949,7 @@ void SSSqr(ZZ_pX& c, const ZZ_pX& a)
   bool seq1 = SS_BelowThresh(n+1, p.size());
   ZZ_pContext context;
   context.save();
-  NTL_GEXEC_RANGE(seq1, n+1, first, last)
+  KCTSB_GEXEC_RANGE(seq1, n+1, first, last)
   context.restore();
   ZZ ai, tmp, scratch;
   for (long i = first; i < last; i++) {
@@ -1964,7 +1964,7 @@ void SSSqr(ZZ_pX& c, const ZZ_pX& a)
     else
        clear(ci);
   }
-  NTL_GEXEC_RANGE_END
+  KCTSB_GEXEC_RANGE_END
 
   c.normalize();
 }
@@ -2959,14 +2959,14 @@ void LeftShift(ZZX& x, const ZZX& a, long n)
    }
 
    if (n < 0) {
-      if (n < -NTL_MAX_LONG)  
+      if (n < -KCTSB_MAX_LONG)  
          clear(x);
       else
          RightShift(x, a, -n);
       return;
    }
 
-   if (NTL_OVERFLOW(n, 1, 0))
+   if (KCTSB_OVERFLOW(n, 1, 0))
       ResourceError("overflow in LeftShift");
 
    long m = a.rep.length();
@@ -2990,7 +2990,7 @@ void RightShift(ZZX& x, const ZZX& a, long n)
    }
 
    if (n < 0) {
-      if (n < -NTL_MAX_LONG) ResourceError("overflow in RightShift");
+      if (n < -KCTSB_MAX_LONG) ResourceError("overflow in RightShift");
       LeftShift(x, a, -n);
       return;
    }
@@ -3544,7 +3544,7 @@ void SetCoeff(ZZX& x, long i, long a)
    if (a == 1) 
       SetCoeff(x, i);
    else {
-      NTL_ZZRegister(aa);
+      KCTSB_ZZRegister(aa);
       conv(aa, a);
       SetCoeff(x, i, aa);
    }
@@ -3581,7 +3581,7 @@ void CopyReverse(ZZX& x, const ZZX& a, long hi)
 void reverse(ZZX& x, const ZZX& a, long hi)
 {
    if (hi < 0) { clear(x); return; }
-   if (NTL_OVERFLOW(hi, 1, 0))
+   if (KCTSB_OVERFLOW(hi, 1, 0))
       ResourceError("overflow in reverse");
 
    if (&x == &a) {
@@ -3678,10 +3678,10 @@ void InvTrunc(ZZX& c, const ZZX& a, long e)
       return;
    }
 
-   if (NTL_OVERFLOW(e, 1, 0))
+   if (KCTSB_OVERFLOW(e, 1, 0))
       ResourceError("overflow in InvTrunc");
 
    NewtonInvTrunc(c, a, e);
 }
 
-NTL_END_IMPL
+KCTSB_END_IMPL

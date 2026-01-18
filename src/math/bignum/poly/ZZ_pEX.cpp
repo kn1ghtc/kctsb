@@ -1,12 +1,12 @@
+﻿
 
 
+#include <kctsb/math/bignum/ZZ_pEX.h>
+#include <kctsb/math/bignum/vec_vec_ZZ_p.h>
+#include <kctsb/math/bignum/ZZX.h>
 
-#include <NTL/ZZ_pEX.h>
-#include <NTL/vec_vec_ZZ_p.h>
-#include <NTL/ZZX.h>
 
-
-NTL_START_IMPL
+KCTSB_START_IMPL
 
 
 const ZZ_pEX& ZZ_pEX::zero()
@@ -18,7 +18,7 @@ const ZZ_pEX& ZZ_pEX::zero()
 
 istream& operator>>(istream& s, ZZ_pEX& x)
 {
-   NTL_INPUT_CHECK_RET(s, s >> x.rep);
+   KCTSB_INPUT_CHECK_RET(s, s >> x.rep);
    x.normalize();
    return s;
 }
@@ -67,7 +67,7 @@ long operator==(const ZZ_pEX& a, long b)
 
    if (da > 0) return 0;
 
-   NTL_ZZ_pRegister(bb);
+   KCTSB_ZZ_pRegister(bb);
    bb = b;
 
    if (da < 0)
@@ -112,7 +112,7 @@ void SetCoeff(ZZ_pEX& x, long i, const ZZ_pE& a)
    if (i < 0) 
       LogicError("SetCoeff: negative index");
 
-   if (NTL_OVERFLOW(i, 1, 0))
+   if (KCTSB_OVERFLOW(i, 1, 0))
       ResourceError("overflow in SetCoeff");
 
    m = deg(x);
@@ -151,10 +151,10 @@ void SetCoeff(ZZ_pEX& x, long i, const ZZ_p& aa)
    if (i < 0)
       LogicError("SetCoeff: negative index");
 
-   if (NTL_OVERFLOW(i, 1, 0))
+   if (KCTSB_OVERFLOW(i, 1, 0))
       ResourceError("overflow in SetCoeff");
 
-   NTL_ZZ_pRegister(a);  // watch out for aliases!
+   KCTSB_ZZ_pRegister(a);  // watch out for aliases!
    a = aa;
 
    m = deg(x);
@@ -175,7 +175,7 @@ void SetCoeff(ZZ_pEX& x, long i, long a)
    if (a == 1)
       SetCoeff(x, i);
    else {
-      NTL_ZZ_pRegister(T);
+      KCTSB_ZZ_pRegister(T);
       T = a;
       SetCoeff(x, i, T);
    }
@@ -190,7 +190,7 @@ void SetCoeff(ZZ_pEX& x, long i)
    if (i < 0) 
       LogicError("coefficient index out of range");
 
-   if (NTL_OVERFLOW(i, 1, 0))
+   if (KCTSB_OVERFLOW(i, 1, 0))
       ResourceError("overflow in SetCoeff");
 
    m = deg(x);
@@ -263,7 +263,7 @@ void conv(ZZ_pEX& x, long a)
    else if (a == 1)
       set(x);
    else {
-      NTL_ZZ_pRegister(T);
+      KCTSB_ZZ_pRegister(T);
       T = a;
       conv(x, T);
    }
@@ -271,7 +271,7 @@ void conv(ZZ_pEX& x, long a)
 
 void conv(ZZ_pEX& x, const ZZ& a)
 {
-   NTL_ZZ_pRegister(T);
+   KCTSB_ZZ_pRegister(T);
    conv(T, a);
    conv(x, T);
 }
@@ -561,7 +561,7 @@ void sub(ZZ_pEX& x, const ZZ_pE& b, const ZZ_pEX& a)
 
 void sub(ZZ_pEX& x, const ZZ_p& a, const ZZ_pEX& b)
 {
-   NTL_ZZ_pRegister(T);   // avoids aliasing problems
+   KCTSB_ZZ_pRegister(T);   // avoids aliasing problems
    T = a;
    negate(x, b);
    add(x, x, T);
@@ -569,7 +569,7 @@ void sub(ZZ_pEX& x, const ZZ_p& a, const ZZ_pEX& b)
 
 void sub(ZZ_pEX& x, long a, const ZZ_pEX& b)
 {
-   NTL_ZZ_pRegister(T); 
+   KCTSB_ZZ_pRegister(T); 
    T = a;
    negate(x, b);
    add(x, x, T);
@@ -607,7 +607,7 @@ void mul(ZZ_pEX& c, const ZZ_pEX& a, const ZZ_pEX& b)
    long n = ZZ_pE::degree();
    long n2 = 2*n-1;
 
-   if (NTL_OVERFLOW(da+db+1, n2, 0))
+   if (KCTSB_OVERFLOW(da+db+1, n2, 0))
       ResourceError("overflow in ZZ_pEX mul");
 
    long i, j;
@@ -693,7 +693,7 @@ void mul(ZZ_pEX& x, const ZZ_pEX& a, const ZZ_p& b)
       return;
    }
 
-   NTL_ZZ_pRegister(t);
+   KCTSB_ZZ_pRegister(t);
    t = b;
 
    long i, da;
@@ -715,7 +715,7 @@ void mul(ZZ_pEX& x, const ZZ_pEX& a, const ZZ_p& b)
 
 void mul(ZZ_pEX& x, const ZZ_pEX& a, long b)
 {
-   NTL_ZZ_pRegister(t);
+   KCTSB_ZZ_pRegister(t);
    t = b;
    mul(x, a, t);
 }
@@ -743,7 +743,7 @@ void sqr(ZZ_pEX& c, const ZZ_pEX& a)
    long n = ZZ_pE::degree();
    long n2 = 2*n-1;
 
-   if (NTL_OVERFLOW(2*da+1, n2, 0))
+   if (KCTSB_OVERFLOW(2*da+1, n2, 0))
       ResourceError("overflow in ZZ_pEX sqr");
 
    long i, j;
@@ -1336,7 +1336,7 @@ void RightShift(ZZ_pEX& x, const ZZ_pEX& a, long n)
    }
 
    if (n < 0) {
-      if (n < -NTL_MAX_LONG) ResourceError("overflow in RightShift");
+      if (n < -KCTSB_MAX_LONG) ResourceError("overflow in RightShift");
       LeftShift(x, a, -n);
       return;
    }
@@ -1369,14 +1369,14 @@ void LeftShift(ZZ_pEX& x, const ZZ_pEX& a, long n)
    }
 
    if (n < 0) {
-      if (n < -NTL_MAX_LONG) 
+      if (n < -KCTSB_MAX_LONG) 
          clear(x);
       else
          RightShift(x, a, -n);
       return;
    }
 
-   if (NTL_OVERFLOW(n, 1, 0))
+   if (KCTSB_OVERFLOW(n, 1, 0))
       ResourceError("overflow in LeftShift");
 
    long m = a.rep.length();
@@ -1456,7 +1456,7 @@ void InvTrunc(ZZ_pEX& c, const ZZ_pEX& a, long e)
       return;
    }
 
-   if (NTL_OVERFLOW(e, 1, 0))
+   if (KCTSB_OVERFLOW(e, 1, 0))
       ResourceError("overflow in InvTrunc");
 
    NewtonInv(c, a, e);
@@ -1475,7 +1475,7 @@ void build(ZZ_pEXModulus& F, const ZZ_pEX& f)
 
    if (n <= 0) LogicError("build(ZZ_pEXModulus,ZZ_pEX): deg(f) <= 0");
 
-   if (NTL_OVERFLOW(n, ZZ_pE::degree(), 0))
+   if (KCTSB_OVERFLOW(n, ZZ_pE::degree(), 0))
       ResourceError("build(ZZ_pEXModulus,ZZ_pEX): overflow");
    
 
@@ -1859,14 +1859,14 @@ void div(ZZ_pEX& q, const ZZ_pEX& a, const ZZ_pE& b)
 
 void div(ZZ_pEX& q, const ZZ_pEX& a, const ZZ_p& b)
 {
-   NTL_ZZ_pRegister(T);
+   KCTSB_ZZ_pRegister(T);
    inv(T, b);
    mul(q, a, T);
 }
 
 void div(ZZ_pEX& q, const ZZ_pEX& a, long b)
 {
-   NTL_ZZ_pRegister(T);
+   KCTSB_ZZ_pRegister(T);
    T = b;
    inv(T, T);
    mul(q, a, T);
@@ -1923,24 +1923,24 @@ void PlainGCD(ZZ_pEX& x, const ZZ_pEX& a, const ZZ_pEX& b)
    mul(x, x, t); 
 }
 
-class _NTL_ZZ_pEXMatrix {
+class _KCTSB_ZZ_pEXMatrix {
 private:
 
-   _NTL_ZZ_pEXMatrix(const _NTL_ZZ_pEXMatrix&);  // disable
+   _KCTSB_ZZ_pEXMatrix(const _KCTSB_ZZ_pEXMatrix&);  // disable
    ZZ_pEX elts[2][2];
 
 public:
 
-   _NTL_ZZ_pEXMatrix() { }
-   ~_NTL_ZZ_pEXMatrix() { }
+   _KCTSB_ZZ_pEXMatrix() { }
+   ~_KCTSB_ZZ_pEXMatrix() { }
 
-   void operator=(const _NTL_ZZ_pEXMatrix&);
+   void operator=(const _KCTSB_ZZ_pEXMatrix&);
    ZZ_pEX& operator() (long i, long j) { return elts[i][j]; }
    const ZZ_pEX& operator() (long i, long j) const { return elts[i][j]; }
 };
 
 
-void _NTL_ZZ_pEXMatrix::operator=(const _NTL_ZZ_pEXMatrix& M)
+void _KCTSB_ZZ_pEXMatrix::operator=(const _KCTSB_ZZ_pEXMatrix& M)
 {
    elts[0][0] = M.elts[0][0];
    elts[0][1] = M.elts[0][1];
@@ -1950,7 +1950,7 @@ void _NTL_ZZ_pEXMatrix::operator=(const _NTL_ZZ_pEXMatrix& M)
 
 
 static
-void mul(ZZ_pEX& U, ZZ_pEX& V, const _NTL_ZZ_pEXMatrix& M)
+void mul(ZZ_pEX& U, ZZ_pEX& V, const _KCTSB_ZZ_pEXMatrix& M)
 // (U, V)^T = M*(U, V)^T
 {
    ZZ_pEX t1, t2, t3;
@@ -1966,7 +1966,7 @@ void mul(ZZ_pEX& U, ZZ_pEX& V, const _NTL_ZZ_pEXMatrix& M)
 
 
 static
-void mul(_NTL_ZZ_pEXMatrix& A, _NTL_ZZ_pEXMatrix& B, _NTL_ZZ_pEXMatrix& C)
+void mul(_KCTSB_ZZ_pEXMatrix& A, _KCTSB_ZZ_pEXMatrix& B, _KCTSB_ZZ_pEXMatrix& C)
 // A = B*C, B and C are destroyed
 {
    ZZ_pEX t1, t2;
@@ -1997,7 +1997,7 @@ void mul(_NTL_ZZ_pEXMatrix& A, _NTL_ZZ_pEXMatrix& B, _NTL_ZZ_pEXMatrix& C)
 }
 
 
-void IterHalfGCD(_NTL_ZZ_pEXMatrix& M_out, ZZ_pEX& U, ZZ_pEX& V, long d_red)
+void IterHalfGCD(_KCTSB_ZZ_pEXMatrix& M_out, ZZ_pEX& U, ZZ_pEX& V, long d_red)
 {
    M_out(0,0).SetMaxLength(d_red);
    M_out(0,1).SetMaxLength(d_red);
@@ -2032,11 +2032,11 @@ void IterHalfGCD(_NTL_ZZ_pEXMatrix& M_out, ZZ_pEX& U, ZZ_pEX& V, long d_red)
 
 
 
-#define NTL_ZZ_pEX_HalfGCD_CROSSOVER (25)
-#define NTL_ZZ_pEX_GCD_CROSSOVER (275)
+#define KCTSB_ZZ_pEX_HalfGCD_CROSSOVER (25)
+#define KCTSB_ZZ_pEX_GCD_CROSSOVER (275)
 
 
-void HalfGCD(_NTL_ZZ_pEXMatrix& M_out, const ZZ_pEX& U, const ZZ_pEX& V, long d_red)
+void HalfGCD(_KCTSB_ZZ_pEXMatrix& M_out, const ZZ_pEX& U, const ZZ_pEX& V, long d_red)
 {
    if (IsZero(V) || deg(V) <= deg(U) - d_red) {
       set(M_out(0,0));   clear(M_out(0,1));
@@ -2054,7 +2054,7 @@ void HalfGCD(_NTL_ZZ_pEXMatrix& M_out, const ZZ_pEX& U, const ZZ_pEX& V, long d_
    RightShift(U1, U, n);
    RightShift(V1, V, n);
 
-   if (d_red <= NTL_ZZ_pEX_HalfGCD_CROSSOVER) {
+   if (d_red <= KCTSB_ZZ_pEX_HalfGCD_CROSSOVER) {
       IterHalfGCD(M_out, U1, V1, d_red);
       return;
    }
@@ -2063,7 +2063,7 @@ void HalfGCD(_NTL_ZZ_pEXMatrix& M_out, const ZZ_pEX& U, const ZZ_pEX& V, long d_
    if (d1 < 1) d1 = 1;
    if (d1 >= d_red) d1 = d_red - 1;
 
-   _NTL_ZZ_pEXMatrix M1;
+   _KCTSB_ZZ_pEXMatrix M1;
 
    HalfGCD(M1, U1, V1, d1);
    mul(U1, V1, M1);
@@ -2077,7 +2077,7 @@ void HalfGCD(_NTL_ZZ_pEXMatrix& M_out, const ZZ_pEX& U, const ZZ_pEX& V, long d_
 
 
    ZZ_pEX Q;
-   _NTL_ZZ_pEXMatrix M2;
+   _KCTSB_ZZ_pEXMatrix M2;
 
    DivRem(Q, U1, U1, V1);
    swap(U1, V1);
@@ -2108,7 +2108,7 @@ void HalfGCD(_NTL_ZZ_pEXMatrix& M_out, const ZZ_pEX& U, const ZZ_pEX& V, long d_
 
 
 
-void XHalfGCD(_NTL_ZZ_pEXMatrix& M_out, ZZ_pEX& U, ZZ_pEX& V, long d_red)
+void XHalfGCD(_KCTSB_ZZ_pEXMatrix& M_out, ZZ_pEX& U, ZZ_pEX& V, long d_red)
 {
    if (IsZero(V) || deg(V) <= deg(U) - d_red) {
       set(M_out(0,0));   clear(M_out(0,1));
@@ -2119,7 +2119,7 @@ void XHalfGCD(_NTL_ZZ_pEXMatrix& M_out, ZZ_pEX& U, ZZ_pEX& V, long d_red)
 
    long du = deg(U);
 
-   if (d_red <= NTL_ZZ_pEX_HalfGCD_CROSSOVER) {
+   if (d_red <= KCTSB_ZZ_pEX_HalfGCD_CROSSOVER) {
       IterHalfGCD(M_out, U, V, d_red);
       return;
    }
@@ -2129,7 +2129,7 @@ void XHalfGCD(_NTL_ZZ_pEXMatrix& M_out, ZZ_pEX& U, ZZ_pEX& V, long d_red)
    if (d1 >= d_red) d1 = d_red - 1;
 
    //ZZ_pXMatrix M1;
-   _NTL_ZZ_pEXMatrix M1;
+   _KCTSB_ZZ_pEXMatrix M1;
 
    HalfGCD(M1, U, V, d1);
    mul(U, V, M1);
@@ -2143,7 +2143,7 @@ void XHalfGCD(_NTL_ZZ_pEXMatrix& M_out, ZZ_pEX& U, ZZ_pEX& V, long d_red)
 
 
    ZZ_pEX Q;
-   _NTL_ZZ_pEXMatrix M2;
+   _KCTSB_ZZ_pEXMatrix M2;
 
    DivRem(Q, U, U, V);
    swap(U, V);
@@ -2186,7 +2186,7 @@ void HalfGCD(ZZ_pEX& U, ZZ_pEX& V)
    if (d1 < 1) d1 = 1;
    if (d1 >= d_red) d1 = d_red - 1;
 
-   _NTL_ZZ_pEXMatrix M1;
+   _KCTSB_ZZ_pEXMatrix M1;
 
    HalfGCD(M1, U, V, d1);
    mul(U, V, M1);
@@ -2235,7 +2235,7 @@ void GCD(ZZ_pEX& d, const ZZ_pEX& u, const ZZ_pEX& v)
 
    // deg(u1) > deg(v1)
 
-   while (deg(u1) > NTL_ZZ_pEX_GCD_CROSSOVER && !IsZero(v1)) {
+   while (deg(u1) > KCTSB_ZZ_pEX_GCD_CROSSOVER && !IsZero(v1)) {
       HalfGCD(u1, v1);
 
       if (!IsZero(v1)) {
@@ -2276,7 +2276,7 @@ void XGCD(ZZ_pEX& d, ZZ_pEX& s, ZZ_pEX& t, const ZZ_pEX& a, const ZZ_pEX& b)
       flag = 2;
    }
 
-   _NTL_ZZ_pEXMatrix M;
+   _KCTSB_ZZ_pEXMatrix M;
 
    XHalfGCD(M, U, V, deg(U)+1);
 
@@ -2512,9 +2512,9 @@ void build(ZZ_pEXArgument& A, const ZZ_pEX& h, const ZZ_pEXModulus& F, long m)
    if (ZZ_pEXArgBound > 0) {
       double sz = ZZ_p::storage();
       sz = sz*ZZ_pE::degree();
-      sz = sz + NTL_VECTOR_HEADER_SIZE + sizeof(vec_ZZ_p);
+      sz = sz + KCTSB_VECTOR_HEADER_SIZE + sizeof(vec_ZZ_p);
       sz = sz*F.n;
-      sz = sz + NTL_VECTOR_HEADER_SIZE + sizeof(vec_ZZ_pE);
+      sz = sz + KCTSB_VECTOR_HEADER_SIZE + sizeof(vec_ZZ_pE);
       sz = sz/1024;
       m = min(m, long(ZZ_pEXArgBound/sz));
       m = max(m, 1);
@@ -2529,7 +2529,7 @@ void build(ZZ_pEXArgument& A, const ZZ_pEX& h, const ZZ_pEXModulus& F, long m)
       MulMod(A.H[i], A.H[i-1], h, F);
 }
 
-NTL_CHEAP_THREAD_LOCAL long ZZ_pEXArgBound = 0;
+KCTSB_CHEAP_THREAD_LOCAL long ZZ_pEXArgBound = 0;
 
 
 
@@ -2713,7 +2713,7 @@ void ProjectPowers(vec_ZZ_pE& x, const ZZ_pEX& a, long k,
    if (k < 0 || deg(a) >= F.n) 
       LogicError("ProjectPowers: bad args");
 
-   if (NTL_OVERFLOW(k, 1, 0)) 
+   if (KCTSB_OVERFLOW(k, 1, 0)) 
       ResourceError("ProjectPowers: excessive args");
 
 
@@ -2844,7 +2844,7 @@ void BerlekampMassey(ZZ_pEX& h, const vec_ZZ_pE& a, long m)
 
 void MinPolySeq(ZZ_pEX& h, const vec_ZZ_pE& a, long m)
 {
-   if (m < 0 || NTL_OVERFLOW(m, 1, 0)) LogicError("MinPoly: bad args");
+   if (m < 0 || KCTSB_OVERFLOW(m, 1, 0)) LogicError("MinPoly: bad args");
    if (a.length() < 2*m) LogicError("MinPoly: sequence too short");
 
    BerlekampMassey(h, a, m);
@@ -3220,7 +3220,7 @@ void PowerXMod(ZZ_pEX& hh, const ZZ& e, const ZZ_pEXModulus& F)
 void reverse(ZZ_pEX& x, const ZZ_pEX& a, long hi)
 {
    if (hi < 0) { clear(x); return; }
-   if (NTL_OVERFLOW(hi, 1, 0))
+   if (KCTSB_OVERFLOW(hi, 1, 0))
       ResourceError("overflow in reverse");
 
    if (&x == &a) {
@@ -3256,7 +3256,7 @@ void power(ZZ_pEX& x, const ZZ_pEX& a, long e)
       return;
    }
 
-   if (da > (NTL_MAX_LONG-1)/e)
+   if (da > (KCTSB_MAX_LONG-1)/e)
       ResourceError("overflow in power");
 
    ZZ_pEX res;
@@ -3600,7 +3600,7 @@ void ProjectPowersTower(vec_ZZ_p& x, const vec_ZZ_pE& a, long k,
 
    if (a.length() > n || k < 0) 
       LogicError("ProjectPowers: bad args");
-   if (NTL_OVERFLOW(k, 1, 0)) 
+   if (KCTSB_OVERFLOW(k, 1, 0)) 
       ResourceError("ProjectPowers: excessive args");
 
 
@@ -3761,4 +3761,4 @@ void IrredPolyTower(ZZ_pX& h, const ZZ_pEX& g, const ZZ_pEXModulus& F, long m)
    DoMinPolyTower(h, g, F, m, R, proj);
 }
 
-NTL_END_IMPL
+KCTSB_END_IMPL

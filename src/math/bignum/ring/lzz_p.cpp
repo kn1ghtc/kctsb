@@ -1,13 +1,13 @@
-
-#include <NTL/lzz_p.h>
-
-
-NTL_START_IMPL
+﻿
+#include <kctsb/math/bignum/lzz_p.h>
 
 
-NTL_TLS_GLOBAL_DECL(SmartPtr<zz_pInfoT>, zz_pInfo_stg)
+KCTSB_START_IMPL
 
-NTL_CHEAP_THREAD_LOCAL zz_pInfoT *zz_pInfo = 0;
+
+KCTSB_TLS_GLOBAL_DECL(SmartPtr<zz_pInfoT>, zz_pInfo_stg)
+
+KCTSB_CHEAP_THREAD_LOCAL zz_pInfoT *zz_pInfo = 0;
 
 
 
@@ -22,7 +22,7 @@ zz_pInfoT::zz_pInfoT(long NewP, long maxroot)
    if (maxroot < 0) LogicError("zz_pContext: maxroot may not be negative");
 
    if (NewP <= 1) LogicError("zz_pContext: p must be > 1");
-   if (NumBits(NewP) > NTL_SP_NBITS) ResourceError("zz_pContext: modulus too big");
+   if (NumBits(NewP) > KCTSB_SP_NBITS) ResourceError("zz_pContext: modulus too big");
 
    ZZ P, B, M, M1, MinusM;
    long n, i;
@@ -40,7 +40,7 @@ zz_pInfoT::zz_pInfoT(long NewP, long maxroot)
    conv(P, p);
 
    sqr(B, P);
-   LeftShift(B, B, maxroot+NTL_FFTFudge);
+   LeftShift(B, B, maxroot+KCTSB_FFTFudge);
 
    set(M);
    n = 0;
@@ -120,7 +120,7 @@ zz_pInfoT::zz_pInfoT(INIT_USER_FFT_TYPE, long q)
    p_info = p_info_owner.get();
 
    long bigtab_index = -1;
-#ifdef NTL_FFT_BIGTAB
+#ifdef KCTSB_FFT_BIGTAB
    bigtab_index = 0;
 #endif
    InitFFTPrimeInfo(*p_info, q, w, bigtab_index); 
@@ -172,13 +172,13 @@ zz_pContext::zz_pContext(INIT_USER_FFT_TYPE, long q) :
 
 void zz_pContext::save()
 {
-   NTL_TLS_GLOBAL_ACCESS(zz_pInfo_stg);
+   KCTSB_TLS_GLOBAL_ACCESS(zz_pInfo_stg);
    ptr = zz_pInfo_stg;
 }
 
 void zz_pContext::restore() const
 {
-   NTL_TLS_GLOBAL_ACCESS(zz_pInfo_stg);
+   KCTSB_TLS_GLOBAL_ACCESS(zz_pInfo_stg);
    zz_pInfo_stg = ptr;
    zz_pInfo = zz_pInfo_stg.get();
 }
@@ -211,8 +211,8 @@ void zz_pBak::restore()
 
 istream& operator>>(istream& s, zz_p& x)
 {
-   NTL_ZZRegister(y);
-   NTL_INPUT_CHECK_RET(s, s >> y);
+   KCTSB_ZZRegister(y);
+   KCTSB_INPUT_CHECK_RET(s, s >> y);
    conv(x, y);
 
    return s;
@@ -220,7 +220,7 @@ istream& operator>>(istream& s, zz_p& x)
 
 ostream& operator<<(ostream& s, zz_p a)
 {
-   NTL_ZZRegister(y);
+   KCTSB_ZZRegister(y);
    y = rep(a);
    s << y;
 
@@ -232,7 +232,7 @@ ostream& operator<<(ostream& s, zz_p a)
 // ***********************************************************************
 
 
-#ifdef NTL_HAVE_LL_TYPE
+#ifdef KCTSB_HAVE_LL_TYPE
 
 
 // NOTE: the following code sequence will generate imulq 
@@ -244,7 +244,7 @@ long
 InnerProd_LL(const long *ap, const zz_p *bp, long n, long d, 
           sp_ll_reduce_struct dinv)
 {
-   const long BLKSIZE = (1L << min(20, 2*(NTL_BITS_PER_LONG-NTL_SP_NBITS)));
+   const long BLKSIZE = (1L << min(20, 2*(KCTSB_BITS_PER_LONG-KCTSB_SP_NBITS)));
 
    unsigned long acc0 = 0;
    ll_type acc21;
@@ -290,7 +290,7 @@ InnerProd_LL(const long *ap, const zz_p *bp, long n, long d,
       ll_add(acc21, ll_get_hi(sum));
    }
 
-   if (dinv.nbits == NTL_SP_NBITS) 
+   if (dinv.nbits == KCTSB_SP_NBITS) 
       return sp_ll_red_31_normalized(ll_get_hi(acc21), ll_get_lo(acc21), acc0, d, dinv);
    else
       return sp_ll_red_31(ll_get_hi(acc21), ll_get_lo(acc21), acc0, d, dinv);
@@ -301,7 +301,7 @@ long
 InnerProd_LL(const zz_p *ap, const zz_p *bp, long n, long d, 
           sp_ll_reduce_struct dinv)
 {
-   const long BLKSIZE = (1L << min(20, 2*(NTL_BITS_PER_LONG-NTL_SP_NBITS)));
+   const long BLKSIZE = (1L << min(20, 2*(KCTSB_BITS_PER_LONG-KCTSB_SP_NBITS)));
 
    unsigned long acc0 = 0;
    ll_type acc21;
@@ -347,7 +347,7 @@ InnerProd_LL(const zz_p *ap, const zz_p *bp, long n, long d,
       ll_add(acc21, ll_get_hi(sum));
    }
 
-   if (dinv.nbits == NTL_SP_NBITS) 
+   if (dinv.nbits == KCTSB_SP_NBITS) 
       return sp_ll_red_31_normalized(ll_get_hi(acc21), ll_get_lo(acc21), acc0, d, dinv);
    else
       return sp_ll_red_31(ll_get_hi(acc21), ll_get_lo(acc21), acc0, d, dinv);
@@ -464,4 +464,4 @@ InnerProd_L(const zz_p *ap, const zz_p *bp, long n, long d,
 
 
 
-NTL_END_IMPL
+KCTSB_END_IMPL

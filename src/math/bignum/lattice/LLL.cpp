@@ -1,14 +1,14 @@
+﻿
+#include <kctsb/math/bignum/LLL.h>
 
-#include <NTL/LLL.h>
 
-
-NTL_START_IMPL
+KCTSB_START_IMPL
 
 
 static void ExactDiv(ZZ& qq, const ZZ& a, const ZZ& b)
 {
-   NTL_ZZRegister(q);
-   NTL_ZZRegister(r);
+   KCTSB_ZZRegister(q);
+   KCTSB_ZZRegister(r);
 
    DivRem(q, r, a, b);
    if (!IsZero(r)) {
@@ -26,7 +26,7 @@ static void BalDiv(ZZ& q, const ZZ& a, const ZZ& d)
 //    by rounding towards zero.  Assumes d > 0.
 
 {
-   NTL_ZZRegister(r);
+   KCTSB_ZZRegister(r);
    DivRem(q, r, a, d);
 
 
@@ -45,8 +45,8 @@ static void MulAddDiv(ZZ& c, const ZZ& c1, const ZZ& c2,
 // c = (x*c1 + y*c2)/z
 
 {
-   NTL_ZZRegister(t1);
-   NTL_ZZRegister(t2);
+   KCTSB_ZZRegister(t1);
+   KCTSB_ZZRegister(t2);
 
    mul(t1, x, c1);
    mul(t2, y, c2);
@@ -61,8 +61,8 @@ static void MulSubDiv(ZZ& c, const ZZ& c1, const ZZ& c2,
 // c = (x*c1 - y*c2)/z
 
 {
-   NTL_ZZRegister(t1);
-   NTL_ZZRegister(t2);
+   KCTSB_ZZRegister(t1);
+   KCTSB_ZZRegister(t2);
 
    mul(t1, x, c1);
    mul(t2, y, c2);
@@ -101,10 +101,10 @@ static void RowTransform(vec_ZZ& c1, vec_ZZ& c2,
 {
    long n = c1.length();
    if (c2.length() != n) LogicError("MulSubDiv: length mismatch");
-   NTL_ZZRegister(t1);
-   NTL_ZZRegister(t2);
-   NTL_ZZRegister(t3);
-   NTL_ZZRegister(t4);
+   KCTSB_ZZRegister(t1);
+   KCTSB_ZZRegister(t2);
+   KCTSB_ZZRegister(t3);
+   KCTSB_ZZRegister(t4);
 
    long i;
    for (i = 1; i <= n; i++) {
@@ -127,10 +127,10 @@ static void RowTransform(ZZ& c1, ZZ& c2,
 // (c1, c2) = (x*c1 + y*c2, u*c1 + v*c2)
 
 {
-   NTL_ZZRegister(t1);
-   NTL_ZZRegister(t2);
-   NTL_ZZRegister(t3);
-   NTL_ZZRegister(t4);
+   KCTSB_ZZRegister(t1);
+   KCTSB_ZZRegister(t2);
+   KCTSB_ZZRegister(t3);
+   KCTSB_ZZRegister(t4);
 
    mul(t1, x, c1);
    mul(t2, y, c2);
@@ -182,8 +182,8 @@ static long SwapTest(const ZZ& d0, const ZZ& d1, const ZZ& d2, const ZZ& lam,
 // test if a*d1^2 > b*(d0*d2 + lam^2)
 
 {
-   NTL_ZZRegister(t1);
-   NTL_ZZRegister(t2);
+   KCTSB_ZZRegister(t1);
+   KCTSB_ZZRegister(t2);
 
    mul(t1, d0, d2);
    sqr(t2, lam);
@@ -206,8 +206,8 @@ void reduce(long k, long l,
             mat_ZZ& B, vec_long& P, vec_ZZ& D, 
             vec_vec_ZZ& lam, mat_ZZ* U)
 {
-   NTL_ZZRegister(t1);
-   NTL_ZZRegister(r);
+   KCTSB_ZZRegister(t1);
+   KCTSB_ZZRegister(r);
 
    if (P(l) == 0) return;
    add(t1, lam(k)(P(l)), lam(k)(P(l)));
@@ -262,12 +262,12 @@ long swap(long k, mat_ZZ& B, vec_long& P, vec_ZZ& D,
 
 {
    long i, j;
-   NTL_ZZRegister(t1);
-   NTL_ZZRegister(t2);
-   NTL_ZZRegister(t3);
-   NTL_ZZRegister(e);
-   NTL_ZZRegister(x);
-   NTL_ZZRegister(y);
+   KCTSB_ZZRegister(t1);
+   KCTSB_ZZRegister(t2);
+   KCTSB_ZZRegister(t3);
+   KCTSB_ZZRegister(e);
+   KCTSB_ZZRegister(x);
+   KCTSB_ZZRegister(y);
 
 
    if (P(k) != 0) {
@@ -354,9 +354,9 @@ void IncrementalGS(mat_ZZ& B, vec_long& P, vec_ZZ& D, vec_vec_ZZ& lam,
    long n = B.NumCols();
    long m = B.NumRows();
 
-   NTL_ZZRegister(u);
-   NTL_ZZRegister(t1);
-   NTL_ZZRegister(t2);
+   KCTSB_ZZRegister(u);
+   KCTSB_ZZRegister(t1);
+   KCTSB_ZZRegister(t2);
 
    long i, j;
 
@@ -702,4 +702,4 @@ long LatticeSolve(vec_ZZ& x, const mat_ZZ& A, const vec_ZZ& y, long reduce)
 
 
 
-NTL_END_IMPL
+KCTSB_END_IMPL

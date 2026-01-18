@@ -1,7 +1,7 @@
+﻿
+#include <kctsb/math/bignum/LLL.h>
 
-#include <NTL/LLL.h>
-
-NTL_CLIENT
+KCTSB_CLIENT
 
 long SubsetSumSolution(const vec_ZZ& z)
 {

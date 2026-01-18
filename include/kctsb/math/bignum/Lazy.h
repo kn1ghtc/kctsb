@@ -1,4 +1,4 @@
-
+﻿
 /***************************************************************************
 
 
@@ -74,23 +74,23 @@ public:
 
 ****************************************************************************/
 
-#ifndef NTL_Lazy__H
-#define NTL_Lazy__H
+#ifndef KCTSB_Lazy__H
+#define KCTSB_Lazy__H
 
 
-#include <NTL/tools.h>
-#include <NTL/SmartPtr.h>
-#include <NTL/thread.h>
+#include <kctsb/math/bignum/tools.h>
+#include <kctsb/math/bignum/SmartPtr.h>
+#include <kctsb/math/bignum/thread.h>
 
 
-NTL_OPEN_NNS
+KCTSB_OPEN_NNS
 
 
 
 // NOTE: For more on double-checked locking, see
 // http://preshing.com/20130930/double-checked-locking-is-fixed-in-cpp11/
 
-// NOTE: when compiled with the NTL_THREADS option, the Lazy
+// NOTE: when compiled with the KCTSB_THREADS option, the Lazy
 // class may contain data members from the standard library
 // that may not satisfy the requirements of the Vec class
 // (i.e., relocatability).  One can wrap it in a pointer 
@@ -201,7 +201,7 @@ public:
 // NOTE: Lazy's are non-relocatable
 
 
-NTL_CLOSE_NNS
+KCTSB_CLOSE_NNS
 
 
 #endif

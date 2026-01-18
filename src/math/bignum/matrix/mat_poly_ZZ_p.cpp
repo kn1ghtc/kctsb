@@ -1,7 +1,7 @@
-#include <NTL/mat_poly_ZZ_p.h>
+﻿#include <kctsb/math/bignum/mat_poly_ZZ_p.h>
 
 
-NTL_START_IMPL
+KCTSB_START_IMPL
 
 
 void CharPoly(ZZ_pX& f, const mat_ZZ_p& M)
@@ -84,4 +84,4 @@ void CharPoly(ZZ_pX& f, const mat_ZZ_p& M)
 }
 
 
-NTL_END_IMPL
+KCTSB_END_IMPL
