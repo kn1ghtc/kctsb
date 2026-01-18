@@ -478,12 +478,12 @@ file(GLOB KCTSB_EXISTING_MATH_SOURCES ${KCTSB_SRC_DIR}/math/*.cpp)
 
 # Core sources - only essential GMP/gf2x wrappers
 file(GLOB BIGNUM_CORE_SOURCES ${KCTSB_SRC_DIR}/math/bignum/core/*.cpp)
-# v4.0.1: Exclude unnecessary NTL utilities - use system threading/timing
-list(FILTER BIGNUM_CORE_SOURCES EXCLUDE REGEX "BasicThreadPool\\.cpp$")
-list(FILTER BIGNUM_CORE_SOURCES EXCLUDE REGEX "thread\\.cpp$")
+# v4.0.1: Exclude unnecessary NTL utilities 
 list(FILTER BIGNUM_CORE_SOURCES EXCLUDE REGEX "subset\\.cpp$")
-list(FILTER BIGNUM_CORE_SOURCES EXCLUDE REGEX "fileio\\.cpp$")
 list(FILTER BIGNUM_CORE_SOURCES EXCLUDE REGEX "newnames\\.cpp$")
+# Keep fileio.cpp - provides UniqueID() needed for random seed initialization
+# Keep BasicThreadPool.cpp - provides thread pool used by ZZ/matrix operations
+# Keep thread.cpp - provides CurrentThreadID() needed by fileio.cpp
 
 # Ring sources - all needed for GF2/ZZ_p arithmetic
 file(GLOB BIGNUM_RING_SOURCES ${KCTSB_SRC_DIR}/math/bignum/ring/*.cpp)
@@ -491,6 +491,11 @@ file(GLOB BIGNUM_RING_SOURCES ${KCTSB_SRC_DIR}/math/bignum/ring/*.cpp)
 # Vector and Matrix sources - essential for linear algebra
 file(GLOB BIGNUM_VECTOR_SOURCES ${KCTSB_SRC_DIR}/math/bignum/vector/*.cpp)
 file(GLOB BIGNUM_MATRIX_SOURCES ${KCTSB_SRC_DIR}/math/bignum/matrix/*.cpp)
+# v4.0.1: Exclude RR-dependent vectors and matrices (RR module excluded)
+list(FILTER BIGNUM_VECTOR_SOURCES EXCLUDE REGEX "vec_RR\\.cpp$")
+list(FILTER BIGNUM_VECTOR_SOURCES EXCLUDE REGEX "vec_xdouble\\.cpp$")
+list(FILTER BIGNUM_VECTOR_SOURCES EXCLUDE REGEX "vec_quad_float\\.cpp$")
+list(FILTER BIGNUM_MATRIX_SOURCES EXCLUDE REGEX "mat_RR\\.cpp$")
 
 # Polynomial sources - GF2X is essential for security algorithms
 file(GLOB BIGNUM_POLY_SOURCES ${KCTSB_SRC_DIR}/math/bignum/poly/*.cpp)
@@ -510,6 +515,8 @@ list(FILTER BIGNUM_LATTICE_SOURCES EXCLUDE REGEX "G_LLL_.*\\.cpp$")
 list(FILTER BIGNUM_LATTICE_SOURCES EXCLUDE REGEX "LLL_QP\\.cpp$")
 list(FILTER BIGNUM_LATTICE_SOURCES EXCLUDE REGEX "LLL_RR\\.cpp$")
 list(FILTER BIGNUM_LATTICE_SOURCES EXCLUDE REGEX "LLL_XD\\.cpp$")
+# v4.0.1: Exclude LLL_FP.cpp - depends on RR module which is excluded
+list(FILTER BIGNUM_LATTICE_SOURCES EXCLUDE REGEX "LLL_FP\\.cpp$")
 
 set(BIGNUM_ALL_SOURCES
     ${BIGNUM_CORE_SOURCES}
