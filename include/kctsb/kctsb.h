@@ -34,28 +34,36 @@
 // MAC algorithms
 #include "kctsb/crypto/mac.h"
 
-// Asymmetric encryption
+// Asymmetric encryption (requires NTL integration)
+#ifdef KCTSB_HAS_NTL_MODULES
 #include "kctsb/crypto/rsa/rsa.h"
 #include "kctsb/crypto/ecc/ecc.h"
+#endif
 
 // Chinese National Standards (SM series)
+#ifdef KCTSB_HAS_NTL_MODULES
 #include "kctsb/crypto/sm/sm2.h"
+#endif
 #include "kctsb/crypto/sm/sm3.h"
 #include "kctsb/crypto/sm/sm4.h"
 
 // Advanced cryptographic primitives
 #include "kctsb/advanced/whitebox.h"
 #include "kctsb/advanced/sss.h"
+#ifdef KCTSB_HAS_NTL_MODULES
 #include "kctsb/advanced/zk.h"
 #include "kctsb/advanced/lattice.h"
+#endif
 #include "kctsb/advanced/fuzzy.h"
 #include "kctsb/advanced/fe.h"
 #include "kctsb/advanced/otp.h"
 
 // Mathematical utilities
+#ifdef KCTSB_HAS_NTL_MODULES
 #include "kctsb/math/common.h"
 #include "kctsb/math/polynomials.h"
 #include "kctsb/math/vector.h"
+#endif
 
 // Utility functions
 #include "kctsb/utils/encoding.h"

@@ -17,17 +17,26 @@ if(NOT OPENSSL_FOUND)
     return()
 endif()
 
-# Benchmark executable
-add_executable(kctsb_benchmark
+# Benchmark sources - conditionally include RSA/ECC based on NTL availability
+set(BENCHMARK_SOURCES
     benchmark_main.cpp
     benchmark_aes_gcm.cpp
     benchmark_chacha20.cpp
     benchmark_hash.cpp
     benchmark_mac.cpp
-    benchmark_ecc.cpp
-    benchmark_rsa.cpp
     benchmark_sm.cpp
 )
+
+# Add RSA/ECC benchmarks only when NTL modules are available
+if(NOT WIN32 OR KCTSB_FORCE_NTL_MODULES)
+    list(APPEND BENCHMARK_SOURCES
+        benchmark_ecc.cpp
+        benchmark_rsa.cpp
+    )
+endif()
+
+# Benchmark executable
+add_executable(kctsb_benchmark ${BENCHMARK_SOURCES})
 
 target_include_directories(kctsb_benchmark PRIVATE
     ${CMAKE_SOURCE_DIR}/include
@@ -58,13 +67,17 @@ if(TARGET kctsb_static)
         KCTSB_HAS_CHACHA20_POLY1305=1
         KCTSB_HAS_SHA3=1
         KCTSB_HAS_BLAKE2=1
-        # Enable RSA/ECC/SM implementations for benchmarking
-        KCTSB_HAS_RSA=1
-        KCTSB_HAS_ECC=1
-        KCTSB_HAS_SM2=1
         KCTSB_HAS_SM3=1
         KCTSB_HAS_SM4=1
     )
+    # Enable RSA/ECC/SM2 only when NTL modules are available
+    if(NOT WIN32 OR KCTSB_FORCE_NTL_MODULES)
+        target_compile_definitions(kctsb_benchmark PRIVATE
+            KCTSB_HAS_RSA=1
+            KCTSB_HAS_ECC=1
+            KCTSB_HAS_SM2=1
+        )
+    endif()
 elseif(TARGET kctsb_shared)
     target_link_libraries(kctsb_benchmark PRIVATE kctsb_shared)
     target_compile_definitions(kctsb_benchmark PRIVATE
@@ -73,13 +86,16 @@ elseif(TARGET kctsb_shared)
         KCTSB_HAS_CHACHA20_POLY1305=1
         KCTSB_HAS_SHA3=1
         KCTSB_HAS_BLAKE2=1
-        # Enable RSA/ECC/SM implementations for benchmarking
-        KCTSB_HAS_RSA=1
-        KCTSB_HAS_ECC=1
-        KCTSB_HAS_SM2=1
         KCTSB_HAS_SM3=1
         KCTSB_HAS_SM4=1
     )
+    if(NOT WIN32 OR KCTSB_FORCE_NTL_MODULES)
+        target_compile_definitions(kctsb_benchmark PRIVATE
+            KCTSB_HAS_RSA=1
+            KCTSB_HAS_ECC=1
+            KCTSB_HAS_SM2=1
+        )
+    endif()
 endif()
 
 # Platform-specific: bcrypt.dll loaded at runtime on Windows

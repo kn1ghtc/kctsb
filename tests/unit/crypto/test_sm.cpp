@@ -365,7 +365,10 @@ TEST_F(SMTest, SM4_GCM_AuthFailure) {
 
 // ============================================================================
 // SM2 Elliptic Curve Cryptography Tests (GB/T 32918-2016)
+// Conditionally compiled - SM2 depends on ECC/NTL modules
 // ============================================================================
+
+#ifdef KCTSB_HAS_NTL_MODULES
 
 #include "kctsb/crypto/sm/sm2.h"
 
@@ -694,3 +697,5 @@ TEST_F(SMTest, SM2_DefaultUserId) {
     );
     EXPECT_EQ(result, KCTSB_SUCCESS);
 }
+
+#endif  // KCTSB_HAS_NTL_MODULES - End SM2 tests

@@ -21,16 +21,16 @@
  */
 
 /** Major version number (API breaking changes) */
-#define KCTSB_VERSION_MAJOR 3
+#define KCTSB_VERSION_MAJOR 4
 
 /** Minor version number (new features, backward compatible) */
-#define KCTSB_VERSION_MINOR 4
+#define KCTSB_VERSION_MINOR 0
 
 /** Patch version number (bug fixes) */
-#define KCTSB_VERSION_PATCH 2
+#define KCTSB_VERSION_PATCH 0
 
 /** Full version string "major.minor.patch" */
-#define KCTSB_VERSION_STRING "3.4.2"
+#define KCTSB_VERSION_STRING "4.0.0"
 
 /** Version as single integer: (major * 10000 + minor * 100 + patch) */
 #define KCTSB_VERSION_NUMBER ((KCTSB_VERSION_MAJOR * 10000) + \

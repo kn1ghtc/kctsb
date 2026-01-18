@@ -101,8 +101,22 @@ kctsb_add_test(test_chacha20_poly1305 unit/crypto/test_chacha20_poly1305.cpp "un
 # Random number generation tests
 kctsb_add_test(test_random unit/crypto/test_random.cpp "unit;crypto;random")
 
-# Chinese national standards tests (SM2/SM3/SM4)
-kctsb_add_test(test_sm unit/crypto/test_sm.cpp "unit;crypto;sm")
+# Chinese national standards tests (SM3/SM4)
+# SM2 tests conditionally compiled when NTL modules available
+add_executable(test_sm unit/crypto/test_sm.cpp)
+target_link_libraries(test_sm PRIVATE
+    kctsb_static
+    GTest::gtest_main
+)
+target_include_directories(test_sm PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/src
+)
+# Add NTL modules flag when available
+if(NOT WIN32 OR KCTSB_FORCE_NTL_MODULES)
+    target_compile_definitions(test_sm PRIVATE KCTSB_HAS_NTL_MODULES)
+endif()
+gtest_discover_tests(test_sm PROPERTIES LABELS "unit;crypto;sm")
 
 # Math tests (requires NTL for polynomial operations)
 if(KCTSB_ENABLE_NTL AND NTL_FOUND)

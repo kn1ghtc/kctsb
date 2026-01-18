@@ -48,6 +48,7 @@ build-release/**
 .idea/
 *.xcodeproj/
 *.xcworkspace/
+.cache/
 
 # CMake generated files
 CMakeCache.txt

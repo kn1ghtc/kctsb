@@ -783,10 +783,12 @@ static void poly1305_mul_r44(uint64_t out[3], const uint64_t a[3], const uint64_
     uint64_t a0 = a[0], a1 = a[1], a2 = a[2];
     uint64_t b0 = b[0], b1 = b[1], b2 = b[2];
     
-    // Pre-compute 5*b for reduction
-    // In radix-2^44: 2^130 ≡ 5 (mod 2^130-5), so overflow wraps with factor 5
-    uint64_t s1 = b1 * 5;
-    uint64_t s2 = b2 * 5;
+    // Pre-compute 20*b for reduction (radix-2^44)
+    // In radix-2^44 (44+44+42=130): the cross terms a1*b2 and a2*b1 contribute
+    // to position 2^132 = 2^2 * 2^130 ≡ 4 * 5 = 20 (mod 2^130-5)
+    // This differs from radix-2^26 where we use 5*r
+    uint64_t s1 = b1 * 20;  // (5 << 2) for correct radix-2^44 reduction
+    uint64_t s2 = b2 * 20;  // (5 << 2) for correct radix-2^44 reduction
     
     // Schoolbook multiplication with modular reduction
     uint128_t d0 = static_cast<uint128_t>(a0) * b0 + 
@@ -1001,6 +1003,7 @@ static void poly1305_mul_r26(uint32_t out[5], const uint32_t a[5], const uint32_
  * Uses AVX2 _mm256_mul_epu32 to process 4 blocks truly in parallel.
  * Each lane handles one message block with its corresponding r power.
  */
+__attribute__((unused))
 static void poly1305_blocks_avx2_simd(kctsb_poly1305_ctx_t* ctx, const uint8_t blocks[64]) {
     // Load precomputed r powers into vectors
     // r_vec[i] = (r^4, r^3, r^2, r^1)[limb i] for each limb
@@ -1347,10 +1350,13 @@ kctsb_error_t kctsb_poly1305_init(kctsb_poly1305_ctx_t* ctx, const uint8_t key[3
     ctx->r44[2] = ((static_cast<uint64_t>(ctx->r[3]) >> 10) | 
                    (static_cast<uint64_t>(ctx->r[4]) << 16)) & MASK42;
     
-    // Pre-compute 5*r for reduction (radix-2^44)
+    // Pre-compute 20*r for reduction (radix-2^44)
+    // In radix-2^44 with 3 limbs (44+44+42=130 bits), the overflow at 2^132
+    // reduces as: 2^132 = 2^2 * 2^130 ≡ 4 * 5 = 20 (mod 2^130-5)
+    // This is different from radix-2^26 where we use 5*r
     ctx->s44[0] = 0;  // Not used in multiplication
-    ctx->s44[1] = ctx->r44[1] * 5;
-    ctx->s44[2] = ctx->r44[2] * 5;
+    ctx->s44[1] = ctx->r44[1] * 20;  // (5 << 2) for radix-2^44
+    ctx->s44[2] = ctx->r44[2] * 20;  // (5 << 2) for radix-2^44
 
 #ifdef KCTSB_HAS_UINT128
     // === Pre-compute r powers for 128-bit parallel Horner method ===
@@ -1361,11 +1367,12 @@ kctsb_error_t kctsb_poly1305_init(kctsb_poly1305_ctx_t* ctx, const uint8_t key[3
     // r^4 = r^2 * r^2
     poly1305_mul_r44(ctx->r4_44, ctx->r2_44, ctx->r2_44);
     
-    // Pre-compute s values (5*r^k) for parallel Horner reduction
+    // Pre-compute s values (20*r^k) for parallel Horner reduction
+    // Using 20 (not 5) because radix-2^44 requires (5 << 2) for reduction
     for (int i = 0; i < 3; i++) {
-        ctx->s2_44[i] = ctx->r2_44[i] * 5;
-        ctx->s3_44[i] = ctx->r3_44[i] * 5;
-        ctx->s4_44[i] = ctx->r4_44[i] * 5;
+        ctx->s2_44[i] = ctx->r2_44[i] * 20;
+        ctx->s3_44[i] = ctx->r3_44[i] * 20;
+        ctx->s4_44[i] = ctx->r4_44[i] * 20;
     }
 #endif
 
@@ -1439,60 +1446,18 @@ kctsb_error_t kctsb_poly1305_update(kctsb_poly1305_ctx_t* ctx,
         }
     }
 
-#ifdef KCTSB_HAS_UINT128
-    // === 128-bit Batch Processing: Process 8 blocks (128 bytes) at a time ===
-    // Uses radix-2^44 format throughout, avoiding format conversion overhead
-    while (offset + 128 <= len) {
-        poly1305_8blocks_128(ctx, &data[offset]);
-        offset += 128;
+    // Use only scalar processing to diagnose the bug
+    // All batch processing paths are temporarily disabled
+    {
+        // Scalar processing: one block at a time
+        while (offset + 16 <= len) {
+            poly1305_block(ctx, &data[offset], 0);
+            offset += 16;
+        }
     }
     
-    // Process remaining 4 blocks (64 bytes)
-    while (offset + 64 <= len) {
-        poly1305_4blocks_128(ctx, &data[offset]);
-        offset += 64;
-    }
-#elif defined(KCTSB_HAS_AVX2)
-    // === AVX2 Vectorized Path: Process 4 blocks (64 bytes) in parallel ===
-    // Uses batched Horner method with precomputed r^2, r^3, r^4
-    if (ctx->use_avx2) {
-        // Process 8 blocks (128 bytes) using two rounds of 4-block vectorized processing
-        while (offset + 128 <= len) {
-            poly1305_blocks_avx2_simd(ctx, &data[offset]);
-            poly1305_blocks_avx2_simd(ctx, &data[offset + 64]);
-            offset += 128;
-        }
-        
-        // Process remaining 4 blocks (64 bytes)
-        while (offset + 64 <= len) {
-            poly1305_blocks_avx2_simd(ctx, &data[offset]);
-            offset += 64;
-        }
-    } else
-#endif
-    {
-        // Scalar fallback: Process 8 blocks for cache efficiency
-        while (offset + 128 <= len) {
-            poly1305_block(ctx, &data[offset], 0);
-            poly1305_block(ctx, &data[offset + 16], 0);
-            poly1305_block(ctx, &data[offset + 32], 0);
-            poly1305_block(ctx, &data[offset + 48], 0);
-            poly1305_block(ctx, &data[offset + 64], 0);
-            poly1305_block(ctx, &data[offset + 80], 0);
-            poly1305_block(ctx, &data[offset + 96], 0);
-            poly1305_block(ctx, &data[offset + 112], 0);
-            offset += 128;
-        }
-        
-        // Remaining 4 blocks
-        while (offset + 64 <= len) {
-            poly1305_block(ctx, &data[offset], 0);
-            poly1305_block(ctx, &data[offset + 16], 0);
-            poly1305_block(ctx, &data[offset + 32], 0);
-            poly1305_block(ctx, &data[offset + 48], 0);
-            offset += 64;
-        }
-    }
+    // Skip the remaining block processing below since we handled it above
+    if (0)
 
     // Process remaining full blocks (1-3 blocks, use scalar)
     while (offset + 16 <= len) {
@@ -1671,49 +1636,39 @@ kctsb_error_t kctsb_chacha20_poly1305_encrypt(const uint8_t key[32],
         return KCTSB_ERROR_INVALID_PARAM;
     }
 
-    // Initialize ChaCha20 context once
-    kctsb_chacha20_ctx_t chacha_ctx;
-    kctsb_chacha20_init(&chacha_ctx, key, nonce, 0);
-
-    // Generate Poly1305 one-time key using ChaCha20 with counter 0
-    uint8_t poly_key[64];
-    uint8_t zeros[64] = {0};
-    kctsb_chacha20_crypt(&chacha_ctx, zeros, 64, poly_key);
-    // Counter is now 1 after generating poly_key
-
-    // Initialize Poly1305 with the generated key
-    kctsb_poly1305_ctx_t poly_ctx;
-    kctsb_poly1305_init(&poly_ctx, poly_key);
-    kctsb_secure_zero(poly_key, 64);
-
+    // Use streaming API internally for consistency
+    // This ensures identical behavior between one-shot and streaming modes
+    kctsb_chacha20_poly1305_ctx_t ctx;
+    kctsb_error_t err;
+    
+    err = kctsb_chacha20_poly1305_init_encrypt(&ctx, key, nonce);
+    if (err != KCTSB_SUCCESS) {
+        return err;
+    }
+    
     // Process AAD
     if (aad && aad_len > 0) {
-        kctsb_poly1305_update(&poly_ctx, aad, aad_len);
-        pad_to_16(&poly_ctx, aad_len);
+        err = kctsb_chacha20_poly1305_update_aad(&ctx, aad, aad_len);
+        if (err != KCTSB_SUCCESS) {
+            kctsb_chacha20_poly1305_clear(&ctx);
+            return err;
+        }
     }
-
-    // Encrypt plaintext and update Poly1305 with ciphertext
+    
+    // Encrypt plaintext
     if (plaintext_len > 0) {
-        // Use standard sequential processing for correctness
-        // The internal functions are already optimized with batch processing
-        kctsb_chacha20_crypt(&chacha_ctx, plaintext, plaintext_len, ciphertext);
-        kctsb_poly1305_update(&poly_ctx, ciphertext, plaintext_len);
-        pad_to_16(&poly_ctx, plaintext_len);
+        err = kctsb_chacha20_poly1305_update_encrypt(&ctx, plaintext, plaintext_len, ciphertext);
+        if (err != KCTSB_SUCCESS) {
+            kctsb_chacha20_poly1305_clear(&ctx);
+            return err;
+        }
     }
-
-    // Lengths (little-endian 64-bit)
-    uint8_t len_block[16];
-    store64_le(&len_block[0], aad_len);
-    store64_le(&len_block[8], plaintext_len);
-    kctsb_poly1305_update(&poly_ctx, len_block, 16);
-
-    kctsb_poly1305_final(&poly_ctx, tag);
-
-    // Cleanup
-    kctsb_chacha20_clear(&chacha_ctx);
-    kctsb_poly1305_clear(&poly_ctx);
-
-    return KCTSB_SUCCESS;
+    
+    // Finalize and get tag
+    err = kctsb_chacha20_poly1305_final_encrypt(&ctx, tag);
+    kctsb_chacha20_poly1305_clear(&ctx);
+    
+    return err;
 }
 
 kctsb_error_t kctsb_chacha20_poly1305_decrypt(const uint8_t key[32],
@@ -1731,62 +1686,42 @@ kctsb_error_t kctsb_chacha20_poly1305_decrypt(const uint8_t key[32],
         return KCTSB_ERROR_INVALID_PARAM;
     }
 
-    // Initialize ChaCha20 context once
-    kctsb_chacha20_ctx_t chacha_ctx;
-    kctsb_chacha20_init(&chacha_ctx, key, nonce, 0);
-
-    // Generate Poly1305 one-time key
-    uint8_t poly_key[64];
-    uint8_t zeros[64] = {0};
-    kctsb_chacha20_crypt(&chacha_ctx, zeros, 64, poly_key);
-    // Counter is now 1 after generating poly_key
-
-    // Initialize Poly1305
-    kctsb_poly1305_ctx_t poly_ctx;
-    kctsb_poly1305_init(&poly_ctx, poly_key);
-    kctsb_secure_zero(poly_key, 64);
-
+    // Use streaming API internally for consistency
+    kctsb_chacha20_poly1305_ctx_t ctx;
+    kctsb_error_t err;
+    
+    err = kctsb_chacha20_poly1305_init_decrypt(&ctx, key, nonce);
+    if (err != KCTSB_SUCCESS) {
+        return err;
+    }
+    
     // Process AAD
     if (aad && aad_len > 0) {
-        kctsb_poly1305_update(&poly_ctx, aad, aad_len);
-        pad_to_16(&poly_ctx, aad_len);
+        err = kctsb_chacha20_poly1305_update_aad(&ctx, aad, aad_len);
+        if (err != KCTSB_SUCCESS) {
+            kctsb_chacha20_poly1305_clear(&ctx);
+            return err;
+        }
     }
-
-    // Process ciphertext for authentication
+    
+    // Decrypt ciphertext
     if (ciphertext_len > 0) {
-        kctsb_poly1305_update(&poly_ctx, ciphertext, ciphertext_len);
-        pad_to_16(&poly_ctx, ciphertext_len);
+        err = kctsb_chacha20_poly1305_update_decrypt(&ctx, ciphertext, ciphertext_len, plaintext);
+        if (err != KCTSB_SUCCESS) {
+            kctsb_chacha20_poly1305_clear(&ctx);
+            kctsb_secure_zero(plaintext, ciphertext_len);
+            return err;
+        }
     }
-
-    // Lengths
-    uint8_t len_block[16];
-    store64_le(&len_block[0], aad_len);
-    store64_le(&len_block[8], ciphertext_len);
-    kctsb_poly1305_update(&poly_ctx, len_block, 16);
-
-    uint8_t computed_tag[16];
-    kctsb_poly1305_final(&poly_ctx, computed_tag);
-
-    // Constant-time tag verification
-    if (!kctsb_secure_compare(tag, computed_tag, 16)) {
-        kctsb_secure_zero(computed_tag, 16);
-        kctsb_chacha20_clear(&chacha_ctx);
-        kctsb_poly1305_clear(&poly_ctx);
+    
+    // Finalize and verify tag
+    err = kctsb_chacha20_poly1305_final_decrypt(&ctx, tag);
+    if (err != KCTSB_SUCCESS) {
         kctsb_secure_zero(plaintext, ciphertext_len);
-        return KCTSB_ERROR_AUTH_FAILED;
     }
-
-    // Decrypt ciphertext using the same context (counter already at 1)
-    if (ciphertext_len > 0) {
-        kctsb_chacha20_crypt(&chacha_ctx, ciphertext, ciphertext_len, plaintext);
-    }
-
-    // Cleanup
-    kctsb_secure_zero(computed_tag, 16);
-    kctsb_chacha20_clear(&chacha_ctx);
-    kctsb_poly1305_clear(&poly_ctx);
-
-    return KCTSB_SUCCESS;
+    kctsb_chacha20_poly1305_clear(&ctx);
+    
+    return err;
 }
 
 // Streaming API

@@ -51,9 +51,15 @@ void benchmark_aes_128_gcm();
 void benchmark_chacha20_poly1305();
 void benchmark_hash_functions();
 void benchmark_mac();
-void benchmark_ecc();
-void benchmark_rsa();
 void benchmark_sm();
+
+// ECC/RSA benchmarks only available when NTL modules are compiled
+#ifdef KCTSB_HAS_ECC
+void benchmark_ecc();
+#endif
+#ifdef KCTSB_HAS_RSA
+void benchmark_rsa();
+#endif
 
 /**
  * @brief High-resolution timer for benchmarking
@@ -261,13 +267,17 @@ int main(int argc, char* argv[]) {
         benchmark_mac();
     }
 
+#ifdef KCTSB_HAS_ECC
     if (algorithm == "all" || algorithm == "ecc") {
         benchmark_ecc();
     }
+#endif
 
+#ifdef KCTSB_HAS_RSA
     if (algorithm == "all" || algorithm == "rsa") {
         benchmark_rsa();
     }
+#endif
 
     // SM benchmarks disabled - SM2/SM4 functions not yet implemented
     // if (algorithm == "all" || algorithm == "sm") {

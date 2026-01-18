@@ -222,7 +222,8 @@ $env:PATH="C:\msys64\mingw64\bin;$env:PATH"; cmake --build build-release --paral
 ```
 
 # 运行测试
-ctest --test-dir build --output-on-failure
+$env:PATH="C:\msys64\mingw64\bin;$env:PATH"; ctest --test-dir build --output-on-failure
+$env:PATH="C:\msys64\mingw64\bin;$env:PATH"; ctest --test-dir build-release --output-on-failure
 
 # 使用CLI工具
 ```shell
