@@ -10,12 +10,13 @@
  * - ECB (single block) encryption/decryption
  * - GCM authenticated encryption mode
  * - GHASH with PCLMUL acceleration (when available)
- * - 4-block parallel CTR encryption
+ * - 8-block parallel CTR encryption (optimized for large data)
  *
  * Optimization Hierarchy:
  * 1. PCLMUL-accelerated GHASH (8-block parallel, ~5-8x faster)
- * 2. 4-block parallel CTR mode encryption
- * 3. Software fallback for legacy systems
+ * 2. 8-block parallel CTR mode encryption (128 bytes per batch)
+ * 3. 4-block fallback for remaining data
+ * 4. Software fallback for legacy systems
  *
  * Reference:
  * - GB/T 32907-2016: SM4 Block Cipher Algorithm
@@ -173,6 +174,62 @@ public:
             out[4*i+3] = static_cast<uint8_t>(X[35-i]);
         }
     }
+
+    /**
+     * @brief Encrypt 8 blocks in parallel (software implementation)
+     * 
+     * Optimized for loop overhead reduction and better cache utilization.
+     * Each block is processed independently with interleaved operations.
+     */
+    static void process_8blocks(const uint32_t rk[32],
+                                 const uint8_t in[128], uint8_t out[128]) noexcept {
+        uint32_t X0[36], X1[36], X2[36], X3[36];
+        uint32_t X4[36], X5[36], X6[36], X7[36];
+
+        // Load 8 input blocks
+        #define LOAD_BLOCK(idx) do { \
+            const uint8_t* p = in + (idx) * 16; \
+            X##idx[0] = (static_cast<uint32_t>(p[0]) << 24) | (static_cast<uint32_t>(p[1]) << 16) | \
+                        (static_cast<uint32_t>(p[2]) << 8) | static_cast<uint32_t>(p[3]); \
+            X##idx[1] = (static_cast<uint32_t>(p[4]) << 24) | (static_cast<uint32_t>(p[5]) << 16) | \
+                        (static_cast<uint32_t>(p[6]) << 8) | static_cast<uint32_t>(p[7]); \
+            X##idx[2] = (static_cast<uint32_t>(p[8]) << 24) | (static_cast<uint32_t>(p[9]) << 16) | \
+                        (static_cast<uint32_t>(p[10]) << 8) | static_cast<uint32_t>(p[11]); \
+            X##idx[3] = (static_cast<uint32_t>(p[12]) << 24) | (static_cast<uint32_t>(p[13]) << 16) | \
+                        (static_cast<uint32_t>(p[14]) << 8) | static_cast<uint32_t>(p[15]); \
+        } while(0)
+        
+        LOAD_BLOCK(0); LOAD_BLOCK(1); LOAD_BLOCK(2); LOAD_BLOCK(3);
+        LOAD_BLOCK(4); LOAD_BLOCK(5); LOAD_BLOCK(6); LOAD_BLOCK(7);
+        #undef LOAD_BLOCK
+
+        // 32 rounds - interleave operations for better pipelining
+        for (int i = 0; i < 32; i++) {
+            X0[i+4] = X0[i] ^ sm4_t(X0[i+1] ^ X0[i+2] ^ X0[i+3] ^ rk[i]);
+            X1[i+4] = X1[i] ^ sm4_t(X1[i+1] ^ X1[i+2] ^ X1[i+3] ^ rk[i]);
+            X2[i+4] = X2[i] ^ sm4_t(X2[i+1] ^ X2[i+2] ^ X2[i+3] ^ rk[i]);
+            X3[i+4] = X3[i] ^ sm4_t(X3[i+1] ^ X3[i+2] ^ X3[i+3] ^ rk[i]);
+            X4[i+4] = X4[i] ^ sm4_t(X4[i+1] ^ X4[i+2] ^ X4[i+3] ^ rk[i]);
+            X5[i+4] = X5[i] ^ sm4_t(X5[i+1] ^ X5[i+2] ^ X5[i+3] ^ rk[i]);
+            X6[i+4] = X6[i] ^ sm4_t(X6[i+1] ^ X6[i+2] ^ X6[i+3] ^ rk[i]);
+            X7[i+4] = X7[i] ^ sm4_t(X7[i+1] ^ X7[i+2] ^ X7[i+3] ^ rk[i]);
+        }
+
+        // Store 8 output blocks (reverse order)
+        #define STORE_BLOCK(idx) do { \
+            uint8_t* p = out + (idx) * 16; \
+            for (int j = 0; j < 4; j++) { \
+                p[4*j] = static_cast<uint8_t>(X##idx[35-j] >> 24); \
+                p[4*j+1] = static_cast<uint8_t>(X##idx[35-j] >> 16); \
+                p[4*j+2] = static_cast<uint8_t>(X##idx[35-j] >> 8); \
+                p[4*j+3] = static_cast<uint8_t>(X##idx[35-j]); \
+            } \
+        } while(0)
+        
+        STORE_BLOCK(0); STORE_BLOCK(1); STORE_BLOCK(2); STORE_BLOCK(3);
+        STORE_BLOCK(4); STORE_BLOCK(5); STORE_BLOCK(6); STORE_BLOCK(7);
+        #undef STORE_BLOCK
+    }
 };
 
 // ============================================================================
@@ -213,8 +270,9 @@ static inline void inc_counter(uint8_t* counter) noexcept {
 }
 
 /**
- * @brief GHASH multiply
+ * @brief GHASH multiply (software fallback, unused when PCLMUL available)
  */
+[[maybe_unused]]
 static void ghash_multiply(uint8_t* result, const uint8_t* h) noexcept {
     uint8_t v[16];
     uint8_t z[16] = {0};
@@ -346,8 +404,8 @@ kctsb_error_t kctsb_sm4_gcm_encrypt(kctsb_sm4_gcm_ctx_t* ctx,
     }
 
     alignas(16) uint8_t counter[16];
-    alignas(16) uint8_t keystream[64];  // 4-block buffer for parallel processing
-    alignas(16) uint8_t counters[64];   // 4 counters for parallel encryption
+    alignas(32) uint8_t keystream[128]; // 8-block buffer for parallel processing
+    alignas(32) uint8_t counters[128];  // 8 counters for parallel encryption
 
     // Reset GHASH state
     std::memset(ctx->ghash_state, 0, 16);
@@ -363,10 +421,35 @@ kctsb_error_t kctsb_sm4_gcm_encrypt(kctsb_sm4_gcm_ctx_t* ctx,
     std::memcpy(counter, ctx->j0, 16);
     kctsb::internal::inc_counter(counter);
 
-    // CTR encryption with 4-block parallelization
+    // CTR encryption with 8-block parallelization
     size_t remaining = plaintext_len;
     const uint8_t* in = plaintext;
     uint8_t* out = ciphertext;
+
+    // Process 8 blocks at a time (128 bytes)
+    while (remaining >= 128) {
+        // Prepare 8 counters
+        for (int i = 0; i < 8; i++) {
+            std::memcpy(counters + i * 16, counter, 16);
+            kctsb::internal::inc_counter(counter);
+        }
+
+        // Encrypt 8 blocks using parallel implementation
+        kctsb::internal::SM4Core::process_8blocks(ctx->cipher_ctx.round_keys,
+                                                   counters, keystream);
+
+        // XOR with plaintext using 64-bit operations (16 uint64_t for 128 bytes)
+        auto in64 = reinterpret_cast<const uint64_t*>(in);
+        auto out64 = reinterpret_cast<uint64_t*>(out);
+        auto ks64 = reinterpret_cast<const uint64_t*>(keystream);
+        for (int i = 0; i < 16; i++) {
+            out64[i] = in64[i] ^ ks64[i];
+        }
+
+        in += 128;
+        out += 128;
+        remaining -= 128;
+    }
 
     // Process 4 blocks at a time (64 bytes)
     while (remaining >= 64) {
@@ -380,13 +463,13 @@ kctsb_error_t kctsb_sm4_gcm_encrypt(kctsb_sm4_gcm_ctx_t* ctx,
         std::memcpy(counters + 48, counter, 16);
         kctsb::internal::inc_counter(counter);
 
-        // Encrypt 4 blocks (could be further optimized with SIMD SM4 in future)
+        // Encrypt 4 blocks
         kctsb_sm4_encrypt_block(&ctx->cipher_ctx, counters, keystream);
         kctsb_sm4_encrypt_block(&ctx->cipher_ctx, counters + 16, keystream + 16);
         kctsb_sm4_encrypt_block(&ctx->cipher_ctx, counters + 32, keystream + 32);
         kctsb_sm4_encrypt_block(&ctx->cipher_ctx, counters + 48, keystream + 48);
 
-        // XOR with plaintext using 64-bit operations
+        // XOR with plaintext
         auto in64 = reinterpret_cast<const uint64_t*>(in);
         auto out64 = reinterpret_cast<uint64_t*>(out);
         auto ks64 = reinterpret_cast<const uint64_t*>(keystream);
@@ -451,8 +534,8 @@ kctsb_error_t kctsb_sm4_gcm_decrypt(kctsb_sm4_gcm_ctx_t* ctx,
     }
 
     alignas(16) uint8_t counter[16];
-    alignas(16) uint8_t keystream[64];  // 4-block buffer
-    alignas(16) uint8_t counters[64];   // 4 counters
+    alignas(32) uint8_t keystream[128]; // 8-block buffer
+    alignas(32) uint8_t counters[128];  // 8 counters
     uint8_t computed_tag[16];
 
     // Reset GHASH state
@@ -494,13 +577,38 @@ kctsb_error_t kctsb_sm4_gcm_decrypt(kctsb_sm4_gcm_ctx_t* ctx,
         return KCTSB_ERROR_AUTH_FAILED;
     }
 
-    // CTR decryption with 4-block parallelization
+    // CTR decryption with 8-block parallelization
     std::memcpy(counter, ctx->j0, 16);
     kctsb::internal::inc_counter(counter);
 
     size_t remaining = ciphertext_len;
     const uint8_t* in = ciphertext;
     uint8_t* out = plaintext;
+
+    // Process 8 blocks at a time (128 bytes)
+    while (remaining >= 128) {
+        // Prepare 8 counters
+        for (int i = 0; i < 8; i++) {
+            std::memcpy(counters + i * 16, counter, 16);
+            kctsb::internal::inc_counter(counter);
+        }
+
+        // Encrypt 8 blocks using parallel implementation
+        kctsb::internal::SM4Core::process_8blocks(ctx->cipher_ctx.round_keys,
+                                                   counters, keystream);
+
+        // XOR with ciphertext
+        auto in64 = reinterpret_cast<const uint64_t*>(in);
+        auto out64 = reinterpret_cast<uint64_t*>(out);
+        auto ks64 = reinterpret_cast<const uint64_t*>(keystream);
+        for (int i = 0; i < 16; i++) {
+            out64[i] = in64[i] ^ ks64[i];
+        }
+
+        in += 128;
+        out += 128;
+        remaining -= 128;
+    }
 
     // Process 4 blocks at a time (64 bytes)
     while (remaining >= 64) {
@@ -520,7 +628,7 @@ kctsb_error_t kctsb_sm4_gcm_decrypt(kctsb_sm4_gcm_ctx_t* ctx,
         kctsb_sm4_encrypt_block(&ctx->cipher_ctx, counters + 32, keystream + 32);
         kctsb_sm4_encrypt_block(&ctx->cipher_ctx, counters + 48, keystream + 48);
 
-        // XOR with ciphertext using 64-bit operations
+        // XOR with ciphertext
         auto in64 = reinterpret_cast<const uint64_t*>(in);
         auto out64 = reinterpret_cast<uint64_t*>(out);
         auto ks64 = reinterpret_cast<const uint64_t*>(keystream);

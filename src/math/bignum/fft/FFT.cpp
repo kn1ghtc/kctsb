@@ -1007,7 +1007,7 @@ void ComputeMultipliers(Vec<FFTVectorPair>& v, long k, mint_t q, mulmod_t qinv, 
    }
 
    for (long s = 3; s <= k; s++) {
-      long m = 1L << s;
+      [[maybe_unused]] long m = 1L << s;
       long m_half = 1L << (s-1);
       long m_fourth = 1L << (s-2);
       mint_t* KCTSB_RESTRICT wtab = v[s].wtab_precomp.elts();
@@ -1091,7 +1091,7 @@ void LazyPrecompFFTMultipliers(long k, mint_t q, mulmod_t qinv, const mint_t *ro
          item->wtab_precomp.SetLength(1L << (s-1));
          item->wqinvtab_precomp.SetLength(1L << (s-1));
 
-         long m = 1L << s;
+         [[maybe_unused]] long m = 1L << s;
          long m_half = 1L << (s-1);
          long m_fourth = 1L << (s-2);
 
@@ -2273,7 +2273,7 @@ void new_fft_notab(mint_t* A, const mint_t* a, long k, const FFTPrimeInfo& info,
    KCTSB_TLS_GLOBAL_ACCESS(mul_vec);
    ComputeMultipliers(mul_vec, k-1, q, qinv, root);
 
-   long n = 1L << k;
+   [[maybe_unused]] long n = 1L << k;
 
    const mint_t *wtab[KCTSB_FFTMaxRoot+1];
    for (long s = 1; s <= k-1; s++) wtab[s] = mul_vec[s].wtab_precomp.elts();
@@ -2435,7 +2435,7 @@ void new_ifft_notab(mint_t* A, const mint_t* a, long k, const FFTPrimeInfo& info
    KCTSB_TLS_GLOBAL_ACCESS(mul_vec);
    ComputeMultipliers(mul_vec, k-1, q, qinv, root);
 
-   long n = 1L << k;
+   [[maybe_unused]] long n = 1L << k;
 
    const mint_t *wtab[KCTSB_FFTMaxRoot+1];
    for (long s = 1; s <= k-1; s++) wtab[s] = mul_vec[s].wtab_precomp.elts();
@@ -2610,7 +2610,7 @@ void new_fft(mint_t* A, const mint_t* a, long k, const FFTPrimeInfo& info,
    if (k >= tab.length()) LazyPrecompFFTMultipliers(k, q, qinv, root, tab);
 
 
-   long n = 1L << k;
+   [[maybe_unused]] long n = 1L << k;
 
 
    const mint_t *wtab[KCTSB_FFTMaxRoot+1];
@@ -2779,7 +2779,7 @@ void new_ifft(mint_t* A, const mint_t* a, long k, const FFTPrimeInfo& info,
    if (k >= tab.length()) LazyPrecompFFTMultipliers(k, q, qinv, root, tab);
 
 
-   long n = 1L << k;
+   [[maybe_unused]] long n = 1L << k;
 
 
    const mint_t *wtab[KCTSB_FFTMaxRoot+1];

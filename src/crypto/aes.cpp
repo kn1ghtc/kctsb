@@ -835,24 +835,30 @@ static inline void aes128_encrypt_4blocks_ni(
     b3 = _mm_aesenclast_si128(b3, rk[10]);
 }
 
-// 8-block parallel AES-128 encryption (fully pipelined)
+// 8-block parallel AES-128 encryption (fully pipelined, unrolled)
 static inline void aes128_encrypt_8blocks_ni(
     __m128i& b0, __m128i& b1, __m128i& b2, __m128i& b3,
     __m128i& b4, __m128i& b5, __m128i& b6, __m128i& b7,
     const __m128i* rk)
 {
+    // Initial whitening
     b0 = _mm_xor_si128(b0, rk[0]); b1 = _mm_xor_si128(b1, rk[0]);
     b2 = _mm_xor_si128(b2, rk[0]); b3 = _mm_xor_si128(b3, rk[0]);
     b4 = _mm_xor_si128(b4, rk[0]); b5 = _mm_xor_si128(b5, rk[0]);
     b6 = _mm_xor_si128(b6, rk[0]); b7 = _mm_xor_si128(b7, rk[0]);
 
-    for (int i = 1; i < 10; ++i) {
-        b0 = _mm_aesenc_si128(b0, rk[i]); b1 = _mm_aesenc_si128(b1, rk[i]);
-        b2 = _mm_aesenc_si128(b2, rk[i]); b3 = _mm_aesenc_si128(b3, rk[i]);
-        b4 = _mm_aesenc_si128(b4, rk[i]); b5 = _mm_aesenc_si128(b5, rk[i]);
-        b6 = _mm_aesenc_si128(b6, rk[i]); b7 = _mm_aesenc_si128(b7, rk[i]);
-    }
+    // Rounds 1-9 (fully unrolled for AES-128)
+    #define ROUND8_128(r) \
+        b0 = _mm_aesenc_si128(b0, rk[r]); b1 = _mm_aesenc_si128(b1, rk[r]); \
+        b2 = _mm_aesenc_si128(b2, rk[r]); b3 = _mm_aesenc_si128(b3, rk[r]); \
+        b4 = _mm_aesenc_si128(b4, rk[r]); b5 = _mm_aesenc_si128(b5, rk[r]); \
+        b6 = _mm_aesenc_si128(b6, rk[r]); b7 = _mm_aesenc_si128(b7, rk[r])
+    
+    ROUND8_128(1); ROUND8_128(2); ROUND8_128(3); ROUND8_128(4); ROUND8_128(5);
+    ROUND8_128(6); ROUND8_128(7); ROUND8_128(8); ROUND8_128(9);
+    #undef ROUND8_128
 
+    // Final round
     b0 = _mm_aesenclast_si128(b0, rk[10]); b1 = _mm_aesenclast_si128(b1, rk[10]);
     b2 = _mm_aesenclast_si128(b2, rk[10]); b3 = _mm_aesenclast_si128(b3, rk[10]);
     b4 = _mm_aesenclast_si128(b4, rk[10]); b5 = _mm_aesenclast_si128(b5, rk[10]);
@@ -882,24 +888,32 @@ static inline void aes256_encrypt_4blocks_ni(
     b3 = _mm_aesenclast_si128(b3, rk[14]);
 }
 
-// 8-block parallel AES-256 encryption (fully pipelined)
+// 8-block parallel AES-256 encryption (fully pipelined, unrolled)
+// Manually unroll to help compiler pipeline and improve ILP
 static inline void aes256_encrypt_8blocks_ni(
     __m128i& b0, __m128i& b1, __m128i& b2, __m128i& b3,
     __m128i& b4, __m128i& b5, __m128i& b6, __m128i& b7,
     const __m128i* rk)
 {
+    // Initial whitening
     b0 = _mm_xor_si128(b0, rk[0]); b1 = _mm_xor_si128(b1, rk[0]);
     b2 = _mm_xor_si128(b2, rk[0]); b3 = _mm_xor_si128(b3, rk[0]);
     b4 = _mm_xor_si128(b4, rk[0]); b5 = _mm_xor_si128(b5, rk[0]);
     b6 = _mm_xor_si128(b6, rk[0]); b7 = _mm_xor_si128(b7, rk[0]);
 
-    for (int i = 1; i < 14; ++i) {
-        b0 = _mm_aesenc_si128(b0, rk[i]); b1 = _mm_aesenc_si128(b1, rk[i]);
-        b2 = _mm_aesenc_si128(b2, rk[i]); b3 = _mm_aesenc_si128(b3, rk[i]);
-        b4 = _mm_aesenc_si128(b4, rk[i]); b5 = _mm_aesenc_si128(b5, rk[i]);
-        b6 = _mm_aesenc_si128(b6, rk[i]); b7 = _mm_aesenc_si128(b7, rk[i]);
-    }
+    // Rounds 1-13 (fully unrolled for AES-256)
+    #define ROUND8(r) \
+        b0 = _mm_aesenc_si128(b0, rk[r]); b1 = _mm_aesenc_si128(b1, rk[r]); \
+        b2 = _mm_aesenc_si128(b2, rk[r]); b3 = _mm_aesenc_si128(b3, rk[r]); \
+        b4 = _mm_aesenc_si128(b4, rk[r]); b5 = _mm_aesenc_si128(b5, rk[r]); \
+        b6 = _mm_aesenc_si128(b6, rk[r]); b7 = _mm_aesenc_si128(b7, rk[r])
+    
+    ROUND8(1);  ROUND8(2);  ROUND8(3);  ROUND8(4);  ROUND8(5);
+    ROUND8(6);  ROUND8(7);  ROUND8(8);  ROUND8(9);  ROUND8(10);
+    ROUND8(11); ROUND8(12); ROUND8(13);
+    #undef ROUND8
 
+    // Final round
     b0 = _mm_aesenclast_si128(b0, rk[14]); b1 = _mm_aesenclast_si128(b1, rk[14]);
     b2 = _mm_aesenclast_si128(b2, rk[14]); b3 = _mm_aesenclast_si128(b3, rk[14]);
     b4 = _mm_aesenclast_si128(b4, rk[14]); b5 = _mm_aesenclast_si128(b5, rk[14]);
@@ -1011,30 +1025,60 @@ static kctsb_error_t aes_gcm_encrypt_aesni(
         // Fused CTR + GHASH: encrypt then immediately hash while data is hot
         size_t offset = 0;
         
-        // Pipeline approach: GHASH batch N while encrypting batch N+1
-        // First batch: just encrypt, no GHASH yet
+        // Pipeline approach: process first batch separately, then main loop without branch
         __m128i prev_ct0, prev_ct1, prev_ct2, prev_ct3;
         __m128i prev_ct4, prev_ct5, prev_ct6, prev_ct7;
-        bool have_prev = false;
         
-        // 8-block pipelined CTR + GHASH
-        while (offset + 128 <= input_len) {
-            // Prefetch next batch
-            if (offset + 256 <= input_len) {
-                _mm_prefetch(reinterpret_cast<const char*>(input + offset + 128), _MM_HINT_T0);
-                _mm_prefetch(reinterpret_cast<const char*>(input + offset + 192), _MM_HINT_T0);
+        // === First batch: just encrypt, no GHASH yet ===
+        if (offset + 128 <= input_len) {
+            // Prefetch ahead
+            if (offset + 384 <= input_len) {
+                _mm_prefetch(reinterpret_cast<const char*>(input + offset + 256), _MM_HINT_T0);
+                _mm_prefetch(reinterpret_cast<const char*>(input + offset + 320), _MM_HINT_T0);
             }
             
-            // Generate counters
+            __m128i p0 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset));
+            __m128i p1 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 16));
+            __m128i p2 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 32));
+            __m128i p3 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 48));
+            __m128i p4 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 64));
+            __m128i p5 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 80));
+            __m128i p6 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 96));
+            __m128i p7 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 112));
+            
             __m128i c0, c1, c2, c3, c4, c5, c6, c7;
             gen_8_counters_fast(counter, c0, c1, c2, c3, c4, c5, c6, c7);
             counter = add_counter_be32(counter, 8);
             
-            // AES encryption
             if (is_aes256) {
                 aes256_encrypt_8blocks_ni(c0, c1, c2, c3, c4, c5, c6, c7, rk);
             } else {
                 aes128_encrypt_8blocks_ni(c0, c1, c2, c3, c4, c5, c6, c7, rk);
+            }
+            
+            prev_ct0 = _mm_xor_si128(p0, c0); prev_ct1 = _mm_xor_si128(p1, c1);
+            prev_ct2 = _mm_xor_si128(p2, c2); prev_ct3 = _mm_xor_si128(p3, c3);
+            prev_ct4 = _mm_xor_si128(p4, c4); prev_ct5 = _mm_xor_si128(p5, c5);
+            prev_ct6 = _mm_xor_si128(p6, c6); prev_ct7 = _mm_xor_si128(p7, c7);
+            
+            _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset), prev_ct0);
+            _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset + 16), prev_ct1);
+            _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset + 32), prev_ct2);
+            _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset + 48), prev_ct3);
+            _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset + 64), prev_ct4);
+            _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset + 80), prev_ct5);
+            _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset + 96), prev_ct6);
+            _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset + 112), prev_ct7);
+            
+            offset += 128;
+        }
+        
+        // === Main loop: no branch for GHASH (always have prev data) ===
+        while (offset + 128 <= input_len) {
+            // Prefetch 2 batches ahead
+            if (offset + 384 <= input_len) {
+                _mm_prefetch(reinterpret_cast<const char*>(input + offset + 256), _MM_HINT_T0);
+                _mm_prefetch(reinterpret_cast<const char*>(input + offset + 320), _MM_HINT_T0);
             }
             
             // Load plaintext
@@ -1046,6 +1090,32 @@ static kctsb_error_t aes_gcm_encrypt_aesni(
             __m128i p5 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 80));
             __m128i p6 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 96));
             __m128i p7 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(input + offset + 112));
+            
+            // Generate counters
+            __m128i c0, c1, c2, c3, c4, c5, c6, c7;
+            gen_8_counters_fast(counter, c0, c1, c2, c3, c4, c5, c6, c7);
+            counter = add_counter_be32(counter, 8);
+            
+            // GHASH previous batch (while counters being generated)
+            __m128i X0 = _mm_shuffle_epi8(prev_ct0, bswap);
+            __m128i X1 = _mm_shuffle_epi8(prev_ct1, bswap);
+            __m128i X2 = _mm_shuffle_epi8(prev_ct2, bswap);
+            __m128i X3 = _mm_shuffle_epi8(prev_ct3, bswap);
+            __m128i X4 = _mm_shuffle_epi8(prev_ct4, bswap);
+            __m128i X5 = _mm_shuffle_epi8(prev_ct5, bswap);
+            __m128i X6 = _mm_shuffle_epi8(prev_ct6, bswap);
+            __m128i X7 = _mm_shuffle_epi8(prev_ct7, bswap);
+            
+            // AES encryption (can execute in parallel with GHASH due to ILP)
+            if (is_aes256) {
+                aes256_encrypt_8blocks_ni(c0, c1, c2, c3, c4, c5, c6, c7, rk);
+            } else {
+                aes128_encrypt_8blocks_ni(c0, c1, c2, c3, c4, c5, c6, c7, rk);
+            }
+            
+            // Complete GHASH
+            Y = ghash_8blocks_parallel(Y, X0, X1, X2, X3, X4, X5, X6, X7,
+                                        H8, H7, H6, H5, H4, H3, H2, Hg);
             
             // XOR with keystream
             __m128i ct0 = _mm_xor_si128(p0, c0);
@@ -1067,30 +1137,15 @@ static kctsb_error_t aes_gcm_encrypt_aesni(
             _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset + 96), ct6);
             _mm_storeu_si128(reinterpret_cast<__m128i*>(output + offset + 112), ct7);
             
-            // GHASH on previous batch (if any)
-            if (have_prev) {
-                __m128i X0 = _mm_shuffle_epi8(prev_ct0, bswap);
-                __m128i X1 = _mm_shuffle_epi8(prev_ct1, bswap);
-                __m128i X2 = _mm_shuffle_epi8(prev_ct2, bswap);
-                __m128i X3 = _mm_shuffle_epi8(prev_ct3, bswap);
-                __m128i X4 = _mm_shuffle_epi8(prev_ct4, bswap);
-                __m128i X5 = _mm_shuffle_epi8(prev_ct5, bswap);
-                __m128i X6 = _mm_shuffle_epi8(prev_ct6, bswap);
-                __m128i X7 = _mm_shuffle_epi8(prev_ct7, bswap);
-                Y = ghash_8blocks_parallel(Y, X0, X1, X2, X3, X4, X5, X6, X7,
-                                            H8, H7, H6, H5, H4, H3, H2, Hg);
-            }
-            
-            // Save current batch for next iteration's GHASH
+            // Save for next iteration
             prev_ct0 = ct0; prev_ct1 = ct1; prev_ct2 = ct2; prev_ct3 = ct3;
             prev_ct4 = ct4; prev_ct5 = ct5; prev_ct6 = ct6; prev_ct7 = ct7;
-            have_prev = true;
             
             offset += 128;
         }
         
-        // GHASH the last 8-block batch
-        if (have_prev) {
+        // GHASH the last 8-block batch (if we processed at least one batch)
+        if (offset > 0) {
             __m128i X0 = _mm_shuffle_epi8(prev_ct0, bswap);
             __m128i X1 = _mm_shuffle_epi8(prev_ct1, bswap);
             __m128i X2 = _mm_shuffle_epi8(prev_ct2, bswap);
@@ -1476,12 +1531,12 @@ static kctsb_error_t aes_gcm_decrypt_aesni(
 
     size_t offset = 0;
     
-    // Process 8 blocks at a time (128 bytes) with prefetching
+    // Process 8 blocks at a time (128 bytes) with optimized prefetching
     while (offset + 128 <= input_len) {
-        // Prefetch next 256 bytes for better memory bandwidth
-        if (offset + 256 <= input_len) {
-            _mm_prefetch(reinterpret_cast<const char*>(input + offset + 128), _MM_HINT_T0);
-            _mm_prefetch(reinterpret_cast<const char*>(input + offset + 192), _MM_HINT_T0);
+        // Prefetch 2 batches ahead for better memory bandwidth
+        if (offset + 384 <= input_len) {
+            _mm_prefetch(reinterpret_cast<const char*>(input + offset + 256), _MM_HINT_T0);
+            _mm_prefetch(reinterpret_cast<const char*>(input + offset + 320), _MM_HINT_T0);
         }
         
         // Load 8 ciphertext blocks FIRST (before AES to hide latency)

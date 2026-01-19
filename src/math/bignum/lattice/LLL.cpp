@@ -351,8 +351,8 @@ static
 void IncrementalGS(mat_ZZ& B, vec_long& P, vec_ZZ& D, vec_vec_ZZ& lam, 
                    long& s, long k)
 {
-   long n = B.NumCols();
-   long m = B.NumRows();
+   [[maybe_unused]] long n = B.NumCols();
+   [[maybe_unused]] long m = B.NumRows();
 
    KCTSB_ZZRegister(u);
    KCTSB_ZZRegister(t1);
@@ -400,7 +400,7 @@ static
 long LLL(vec_ZZ& D, mat_ZZ& B, mat_ZZ* U, long a, long b, long verbose)
 {
    long m = B.NumRows();
-   long n = B.NumCols();
+   [[maybe_unused]] long n = B.NumCols();
 
    long force_reduce = 1;
 
@@ -464,7 +464,7 @@ static
 long image(ZZ& det, mat_ZZ& B, mat_ZZ* U, long verbose)
 {
    long m = B.NumRows();
-   long n = B.NumCols();
+   [[maybe_unused]] long n = B.NumCols();
 
    long force_reduce = 1;
 

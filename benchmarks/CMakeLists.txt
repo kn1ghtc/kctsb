@@ -106,6 +106,20 @@ set_target_properties(kctsb_benchmark PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
 )
 
+# Windows: Copy OpenSSL 3.6.0 DLLs to ensure correct version is loaded at runtime
+# This prevents loading older OpenSSL from System32 or other PATH locations
+if(WIN32 AND EXISTS "D:/vcpkg/installed/x64-windows/bin")
+    add_custom_command(TARGET kctsb_benchmark POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "D:/vcpkg/installed/x64-windows/bin/libcrypto-3-x64.dll"
+            "$<TARGET_FILE_DIR:kctsb_benchmark>"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "D:/vcpkg/installed/x64-windows/bin/libssl-3-x64.dll"
+            "$<TARGET_FILE_DIR:kctsb_benchmark>"
+        COMMENT "Copying OpenSSL 3.6.0 DLLs for benchmark runtime"
+    )
+endif()
+
 # Compiler flags for performance
 if(MSVC)
     target_compile_options(kctsb_benchmark PRIVATE /O2 /fp:fast /utf-8)

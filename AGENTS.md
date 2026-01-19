@@ -214,6 +214,44 @@ set(CMAKE_CXX_EXTENSIONS OFF)  # 禁用 GNU 扩展，保证跨平台一致性
 | **禁用 RTTI** | `-fno-rtti` 去掉虚函数表指针，减少对象大小 |
 | **禁用异常** | `-fno-exceptions`，通过 C ABI 返回错误码 |
 
+#### 64位架构与SIMD优化规范
+
+> **核心原则：本库仅支持64位操作系统和硬件，所有优化默认使用64位操作和8-block并行处理。**
+
+| 规范项 | 要求 | 说明 |
+|--------|------|------|
+| **目标架构** | 仅支持 x86_64/ARM64 | 不支持32位系统，无需32位兼容代码 |
+| **整数类型** | 优先使用 `uint64_t` | 64位操作在64位CPU上性能最优 |
+| **SIMD并行度** | 默认 8-block 并行 | CTR模式、ECB模式等使用8块并行处理 |
+| **寄存器利用** | 充分利用64位寄存器 | AVX2: 16个256位寄存器 |
+| **内存操作** | 64位对齐加载/存储 | `alignas(32)` 或 `alignas(64)` |
+
+**SIMD并行处理标准**：
+
+```cpp
+// ✅ 正确: 8-block 并行 (默认标准)
+static constexpr size_t PARALLEL_BLOCKS = 8;
+for (size_t i = 0; i + PARALLEL_BLOCKS * BLOCK_SIZE <= len; i += PARALLEL_BLOCKS * BLOCK_SIZE) {
+    // 8块并行处理 - 最大化流水线利用率
+    process_8_blocks(data + i, out + i);
+}
+
+// ❌ 禁止: 4-block 并行 (低于标准)
+// static constexpr size_t PARALLEL_BLOCKS = 4;  // 不符合规范
+```
+
+**64位整数优化**：
+
+```cpp
+// ✅ 正确: 使用64位操作
+uint64_t counter = static_cast<uint64_t>(nonce_low) | 
+                   (static_cast<uint64_t>(nonce_high) << 32);
+counter += 8;  // 8-block增量
+
+// ❌ 避免: 32位操作 (在64位系统上浪费性能)
+// uint32_t counter_lo, counter_hi;  // 不推荐
+```
+
 ---
 
 ### 🥉 第三原则：单文件单算法 + 禁止额外封装层
