@@ -17,7 +17,8 @@ if(NOT OPENSSL_FOUND)
     return()
 endif()
 
-# Benchmark sources - conditionally include RSA/ECC based on NTL availability
+# Benchmark sources - all algorithms (RSA/ECC/SM2 bignum modules are always built)
+# Note: v4.1+ integrates NTL/GMP source code, so bignum modules are always available
 set(BENCHMARK_SOURCES
     benchmark_main.cpp
     benchmark_aes_gcm.cpp
@@ -25,15 +26,9 @@ set(BENCHMARK_SOURCES
     benchmark_hash.cpp
     benchmark_mac.cpp
     benchmark_sm.cpp
+    benchmark_ecc.cpp
+    benchmark_rsa.cpp
 )
-
-# Add RSA/ECC benchmarks only when bignum modules are available
-if(NOT WIN32 OR KCTSB_FORCE_BIGNUM_MODULES)
-    list(APPEND BENCHMARK_SOURCES
-        benchmark_ecc.cpp
-        benchmark_rsa.cpp
-    )
-endif()
 
 # Benchmark executable
 add_executable(kctsb_benchmark ${BENCHMARK_SOURCES})
@@ -61,6 +56,7 @@ target_link_libraries(kctsb_benchmark PRIVATE
 if(TARGET kctsb_static)
     target_link_libraries(kctsb_benchmark PRIVATE kctsb_static)
     # Define macros to enable kctsb implementations in benchmarks
+    # v4.1+ integrates bignum source code, all modules are always available
     target_compile_definitions(kctsb_benchmark PRIVATE
         KCTSB_HAS_AES_GCM=1
         KCTSB_HAS_AES_128=1
@@ -69,15 +65,10 @@ if(TARGET kctsb_static)
         KCTSB_HAS_BLAKE2=1
         KCTSB_HAS_SM3=1
         KCTSB_HAS_SM4=1
+        KCTSB_HAS_RSA=1
+        KCTSB_HAS_ECC=1
+        KCTSB_HAS_SM2=1
     )
-    # Enable RSA/ECC/SM2 only when bignum modules are available
-    if(NOT WIN32 OR KCTSB_FORCE_BIGNUM_MODULES)
-        target_compile_definitions(kctsb_benchmark PRIVATE
-            KCTSB_HAS_RSA=1
-            KCTSB_HAS_ECC=1
-            KCTSB_HAS_SM2=1
-        )
-    endif()
 elseif(TARGET kctsb_shared)
     target_link_libraries(kctsb_benchmark PRIVATE kctsb_shared)
     target_compile_definitions(kctsb_benchmark PRIVATE
@@ -88,14 +79,10 @@ elseif(TARGET kctsb_shared)
         KCTSB_HAS_BLAKE2=1
         KCTSB_HAS_SM3=1
         KCTSB_HAS_SM4=1
+        KCTSB_HAS_RSA=1
+        KCTSB_HAS_ECC=1
+        KCTSB_HAS_SM2=1
     )
-    if(NOT WIN32 OR KCTSB_FORCE_BIGNUM_MODULES)
-        target_compile_definitions(kctsb_benchmark PRIVATE
-            KCTSB_HAS_RSA=1
-            KCTSB_HAS_ECC=1
-            KCTSB_HAS_SM2=1
-        )
-    endif()
 endif()
 
 # Platform-specific: bcrypt.dll loaded at runtime on Windows
