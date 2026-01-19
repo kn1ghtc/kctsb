@@ -90,6 +90,11 @@ static double calculate_throughput(double bytes, double ms) {
 
 /**
  * @brief Run benchmark and collect statistics
+ * @param name Operation name
+ * @param impl Implementation name (OpenSSL/kctsb)
+ * @param benchmark_func Function returning time in ms
+ * @param show_throughput If true, show MB/s; if false, show op/s
+ * @param data_size Data size for throughput calculation (bytes, 0 for op/s mode)
  * @return Average execution time in milliseconds
  */
 static double run_benchmark(
@@ -116,6 +121,9 @@ static double run_benchmark(
     double avg = std::accumulate(times.begin(), times.end(), 0.0) /
                  static_cast<double>(times.size());
     double min_val = *std::min_element(times.begin(), times.end());
+    
+    // Calculate operations per second (1000ms / avg_ms)
+    double ops_per_sec = 1000.0 / avg;
 
     // Print result
     std::cout << std::left << std::setw(25) << name
@@ -125,8 +133,12 @@ static double run_benchmark(
               << std::setw(12) << min_val << " ms";
 
     if (show_throughput && data_size > 0) {
+        // Show MB/s for data-oriented operations
         double throughput = calculate_throughput(static_cast<double>(data_size), avg);
         std::cout << std::setw(12) << std::setprecision(2) << throughput << " MB/s";
+    } else {
+        // Show op/s for time-oriented operations (SM2, ECC, RSA)
+        std::cout << std::setw(12) << std::setprecision(2) << ops_per_sec << " op/s";
     }
     std::cout << std::endl;
     
@@ -134,7 +146,7 @@ static double run_benchmark(
 }
 
 /**
- * @brief Print section header
+ * @brief Print section header for operation-based benchmarks (op/s)
  */
 static void print_header(const std::string& title) {
     std::cout << "\n  " << title << std::endl;
@@ -145,7 +157,7 @@ static void print_header(const std::string& title) {
               << std::setw(12) << "Min"
               << std::setw(15) << "Throughput"
               << std::endl;
-    std::cout << std::string(75, '-') << std::endl;
+    std::cout << std::string(80, '-') << std::endl;
 }
 
 // ============================================================================

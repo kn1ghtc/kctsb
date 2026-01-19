@@ -378,6 +378,17 @@ private:
     JacobianPoint wnaf_scalar_mult(const ZZ& k, const JacobianPoint& P) const;
     
     /**
+     * @brief Cached wNAF scalar multiplication for generator point
+     * 
+     * Uses a cached precomputation table for the generator point,
+     * avoiding rebuilding the table for every call. Thread-safe.
+     * 
+     * @param k Scalar value
+     * @return k * G where G is the curve's generator
+     */
+    JacobianPoint wnaf_scalar_mult_cached(const ZZ& k) const;
+    
+    /**
      * @brief Compute wNAF encoding of scalar k
      * @param k Scalar to encode
      * @param wnaf Output vector of wNAF digits

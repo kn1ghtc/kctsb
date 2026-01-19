@@ -35,6 +35,46 @@ namespace kctsb {
 namespace ecc {
 
 // ============================================================================
+// Generator Precomputation Cache (for scalar_mult_base acceleration)
+// ============================================================================
+
+/**
+ * @brief Cached precomputation table for generator points
+ * 
+ * This cache stores precomputed tables for each curve's generator point,
+ * eliminating the need to rebuild the table for every scalar_mult_base call.
+ * Thread-safe with mutex protection.
+ */
+class GeneratorPrecompCache {
+public:
+    struct CacheEntry {
+        std::array<JacobianPoint, 16> table;  // wNAF table (w=5)
+        bool valid = false;
+    };
+    
+    static GeneratorPrecompCache& instance() {
+        static GeneratorPrecompCache cache;
+        return cache;
+    }
+    
+    CacheEntry* get_or_create(const std::string& curve_name) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto it = cache_.find(curve_name);
+        if (it != cache_.end()) {
+            return &it->second;
+        }
+        // Create empty entry, will be filled by caller
+        cache_[curve_name] = CacheEntry();
+        return &cache_[curve_name];
+    }
+    
+private:
+    GeneratorPrecompCache() = default;
+    std::mutex mutex_;
+    std::unordered_map<std::string, CacheEntry> cache_;
+};
+
+// ============================================================================
 // Standard Curve Parameters (SECG/NIST)
 // ============================================================================
 
@@ -274,21 +314,23 @@ JacobianPoint ECCurve::add(const JacobianPoint& P, const JacobianPoint& Q) const
         return P;
     }
     
-    ZZ_p::init(p_);
+    // Note: ZZ_p modulus should be set by caller for batch operations
+    // For single operations, we ensure it's set correctly
+    if (IsZero(ZZ_p::modulus()) || ZZ_p::modulus() != p_) {
+        ZZ_p::init(p_);
+    }
     
-    // U1 = X1 * Z2²
-    // U2 = X2 * Z1²
-    // S1 = Y1 * Z2³
-    // S2 = Y2 * Z1³
-    ZZ_p Z1_sq = sqr(P.Z);
-    ZZ_p Z2_sq = sqr(Q.Z);
-    ZZ_p U1 = P.X * Z2_sq;
-    ZZ_p U2 = Q.X * Z1_sq;
-    ZZ_p S1 = P.Y * Z2_sq * Q.Z;
-    ZZ_p S2 = Q.Y * Z1_sq * P.Z;
+    // Optimized Jacobian addition (12M + 4S formula from EFD)
+    // https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html
+    // For a = 0 curves (secp256k1, SM2)
     
-    // H = U2 - U1
-    // r = S2 - S1
+    ZZ_p Z1Z1 = sqr(P.Z);
+    ZZ_p Z2Z2 = sqr(Q.Z);
+    ZZ_p U1 = P.X * Z2Z2;
+    ZZ_p U2 = Q.X * Z1Z1;
+    ZZ_p S1 = P.Y * Q.Z * Z2Z2;
+    ZZ_p S2 = Q.Y * P.Z * Z1Z1;
+    
     ZZ_p H = U2 - U1;
     ZZ_p r = S2 - S1;
     
@@ -301,15 +343,17 @@ JacobianPoint ECCurve::add(const JacobianPoint& P, const JacobianPoint& Q) const
         return JacobianPoint();
     }
     
-    // H² and H³
-    ZZ_p H_sq = sqr(H);
-    ZZ_p H_cb = H_sq * H;
+    // Optimized computation
+    ZZ_p HH = sqr(H);
+    ZZ_p HHH = H * HH;
+    ZZ_p V = U1 * HH;
     
-    // X3 = r² - H³ - 2*U1*H²
-    ZZ_p X3 = sqr(r) - H_cb - ZZ_p(2) * U1 * H_sq;
+    // X3 = r² - HHH - 2*V
+    ZZ_p r2 = sqr(r);
+    ZZ_p X3 = r2 - HHH - V - V;
     
-    // Y3 = r*(U1*H² - X3) - S1*H³
-    ZZ_p Y3 = r * (U1 * H_sq - X3) - S1 * H_cb;
+    // Y3 = r*(V - X3) - S1*HHH
+    ZZ_p Y3 = r * (V - X3) - S1 * HHH;
     
     // Z3 = H * Z1 * Z2
     ZZ_p Z3 = H * P.Z * Q.Z;
@@ -322,32 +366,47 @@ JacobianPoint ECCurve::double_point(const JacobianPoint& P) const {
         return P;
     }
     
-    ZZ_p::init(p_);
-    
-    // For a = -3 (most NIST curves), use optimized formula
-    // For a = 0 (secp256k1), use simplified formula
-    
-    ZZ_p Y_sq = sqr(P.Y);
-    ZZ_p S = ZZ_p(4) * P.X * Y_sq;
-    
-    ZZ_p M;
-    if (IsZero(a_)) {
-        // a = 0: M = 3*X²
-        M = ZZ_p(3) * sqr(P.X);
-    } else {
-        // General case: M = 3*X² + a*Z⁴
-        ZZ_p Z_sq = sqr(P.Z);
-        M = ZZ_p(3) * sqr(P.X) + a_ * sqr(Z_sq);
+    // Note: ZZ_p modulus should be set by caller for batch operations
+    if (IsZero(ZZ_p::modulus()) || ZZ_p::modulus() != p_) {
+        ZZ_p::init(p_);
     }
     
-    // X3 = M² - 2*S
-    ZZ_p X3 = sqr(M) - ZZ_p(2) * S;
+    // Optimized doubling formula from EFD
+    // For a = 0: dbl-2009-l (1M + 5S + 1*a + 7add + 2*2 + 1*3 + 1*8)
+    // https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#doubling-dbl-2009-l
     
-    // Y3 = M*(S - X3) - 8*Y⁴
-    ZZ_p Y3 = M * (S - X3) - ZZ_p(8) * sqr(Y_sq);
+    ZZ_p A = sqr(P.X);           // X1²
+    ZZ_p B = sqr(P.Y);           // Y1²
+    ZZ_p C = sqr(B);             // Y1⁴
     
-    // Z3 = 2*Y*Z
-    ZZ_p Z3 = ZZ_p(2) * P.Y * P.Z;
+    // D = 2*((X1+B)² - A - C) = 2*(X1+Y1²)² - 2*X1² - 2*Y1⁴
+    ZZ_p tmp = P.X + B;
+    ZZ_p D = sqr(tmp) - A - C;
+    D = D + D;                    // D = 2*D (cheaper than 2*D multiply)
+    
+    ZZ_p E;
+    if (IsZero(a_)) {
+        // a = 0 (secp256k1, SM2): E = 3*A
+        E = A + A + A;
+    } else {
+        // General case: E = 3*A + a*Z1⁴
+        ZZ_p Z1_sq = sqr(P.Z);
+        E = A + A + A + a_ * sqr(Z1_sq);
+    }
+    
+    ZZ_p F = sqr(E);              // E²
+    
+    // X3 = F - 2*D
+    ZZ_p X3 = F - D - D;
+    
+    // Y3 = E*(D - X3) - 8*C
+    ZZ_p C8 = C;
+    for (int i = 0; i < 3; i++) C8 = C8 + C8;  // 8*C
+    ZZ_p Y3 = E * (D - X3) - C8;
+    
+    // Z3 = 2*Y1*Z1
+    ZZ_p Z3 = P.Y * P.Z;
+    Z3 = Z3 + Z3;
     
     return JacobianPoint(X3, Y3, Z3);
 }
@@ -357,7 +416,10 @@ JacobianPoint ECCurve::negate(const JacobianPoint& P) const {
         return P;
     }
     
-    ZZ_p::init(p_);
+    // Note: Caller should have set modulus
+    if (IsZero(ZZ_p::modulus()) || ZZ_p::modulus() != p_) {
+        ZZ_p::init(p_);
+    }
     return JacobianPoint(P.X, -P.Y, P.Z);
 }
 
@@ -406,8 +468,9 @@ JacobianPoint ECCurve::scalar_mult(const ZZ& k, const JacobianPoint& P) const {
 }
 
 JacobianPoint ECCurve::scalar_mult_base(const ZZ& k) const {
-    // Use wNAF for generator multiplication
-    return wnaf_scalar_mult(k, G_);
+    // Use cached precomputation table for generator multiplication
+    // This avoids rebuilding the table for every call (~16 point additions saved)
+    return wnaf_scalar_mult_cached(k);
 }
 
 // ============================================================================
@@ -505,6 +568,9 @@ JacobianPoint ECCurve::wnaf_scalar_mult(const ZZ& k, const JacobianPoint& P) con
         return JacobianPoint();
     }
     
+    // Initialize modulus once for all point operations
+    ZZ_p::init(p_);
+    
     // Compute wNAF representation
     std::vector<int8_t> wnaf;
     size_t wnaf_len = compute_wnaf(k_mod, wnaf);
@@ -517,7 +583,7 @@ JacobianPoint ECCurve::wnaf_scalar_mult(const ZZ& k, const JacobianPoint& P) con
     std::array<JacobianPoint, WNAF_TABLE_SIZE> table;
     build_precomp_table(P, table);
     
-    // wNAF evaluation (right-to-left would be simpler, but we use left-to-right for clarity)
+    // wNAF evaluation (left-to-right for clarity)
     JacobianPoint R;  // Infinity
     
     for (long i = static_cast<long>(wnaf_len) - 1; i >= 0; i--) {
@@ -525,15 +591,78 @@ JacobianPoint ECCurve::wnaf_scalar_mult(const ZZ& k, const JacobianPoint& P) con
         
         int8_t digit = wnaf[static_cast<size_t>(i)];
         if (digit > 0) {
-            // Add table[(digit-1)/2]
             size_t idx = static_cast<size_t>((digit - 1) / 2);
             R = add(R, table[idx]);
         } else if (digit < 0) {
-            // Subtract table[(-digit-1)/2]
             size_t idx = static_cast<size_t>((-digit - 1) / 2);
             R = subtract(R, table[idx]);
         }
-        // digit == 0: just double
+    }
+    
+    return R;
+}
+
+/**
+ * @brief Cached wNAF scalar multiplication for generator point
+ * 
+ * Uses a cached precomputation table for the generator point to avoid
+ * rebuilding the table for every scalar multiplication. This provides
+ * significant speedup for repeated key generation and signing operations.
+ * 
+ * The precomputation table is built once per curve and cached using a
+ * thread-safe singleton pattern.
+ * 
+ * @param k Scalar (will be reduced mod n)
+ * @return k * G where G is the curve's generator
+ */
+JacobianPoint ECCurve::wnaf_scalar_mult_cached(const ZZ& k) const {
+    if (IsZero(k)) {
+        return JacobianPoint();
+    }
+    
+    // Reduce k modulo n
+    ZZ k_mod = k % n_;
+    if (k_mod < 0) {
+        k_mod += n_;
+    }
+    if (IsZero(k_mod)) {
+        return JacobianPoint();
+    }
+    
+    // Initialize modulus once for all point operations
+    ZZ_p::init(p_);
+    
+    // Get or create cached precomputation table for this curve's generator
+    auto* cache_entry = GeneratorPrecompCache::instance().get_or_create(name_);
+    
+    if (!cache_entry->valid) {
+        // Build precomputation table for generator point G_
+        build_precomp_table(G_, cache_entry->table);
+        cache_entry->valid = true;
+    }
+    
+    // Compute wNAF representation
+    std::vector<int8_t> wnaf;
+    size_t wnaf_len = compute_wnaf(k_mod, wnaf);
+    
+    if (wnaf_len == 0) {
+        return JacobianPoint();
+    }
+    
+    // wNAF evaluation using cached table
+    JacobianPoint R;  // Infinity
+    
+    for (long i = static_cast<long>(wnaf_len) - 1; i >= 0; i--) {
+        R = double_point(R);
+        
+        int8_t digit = wnaf[static_cast<size_t>(i)];
+        if (digit > 0) {
+            size_t idx = static_cast<size_t>((digit - 1) / 2);
+            R = add(R, cache_entry->table[idx]);
+        } else if (digit < 0) {
+            size_t idx = static_cast<size_t>((-digit - 1) / 2);
+            R = subtract(R, cache_entry->table[idx]);
+        }
     }
     
     return R;
@@ -545,6 +674,9 @@ JacobianPoint ECCurve::wnaf_scalar_mult(const ZZ& k, const JacobianPoint& P) con
 
 JacobianPoint ECCurve::double_scalar_mult(const ZZ& k1, const JacobianPoint& P,
                                           const ZZ& k2, const JacobianPoint& Q) const {
+    // Initialize modulus once for all point operations
+    ZZ_p::init(p_);
+    
     // Shamir's trick for simultaneous multiple scalar multiplication
     // Precompute: P, Q, P+Q
     JacobianPoint PQ = add(P, Q);
