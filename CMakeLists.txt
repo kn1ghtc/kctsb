@@ -522,12 +522,11 @@ set(KCTSB_HASH_SOURCES
 )
 # SM2 depends on ECC which requires bignum math
 # v4.0.1: Fixed Windows LLP64 compatibility, bignum now works on all platforms
-# v4.2.0: Added SM2 wNAF optimization for ~3x performance improvement
+# v4.4.0: Consolidated SM2 optimization into single file with wNAF in ecc_curve.cpp
 set(KCTSB_SM_SOURCES
     ${KCTSB_SRC_DIR}/crypto/sm/sm3.cpp
     ${KCTSB_SRC_DIR}/crypto/sm/sm4.cpp
     ${KCTSB_SRC_DIR}/crypto/sm/sm2.cpp
-    ${KCTSB_SRC_DIR}/crypto/sm/sm2_optimized.cpp
     ${KCTSB_SRC_DIR}/crypto/sm/zuc.cpp
 )
 set(KCTSB_WHITEBOX_SOURCES ${KCTSB_SRC_DIR}/advanced/whitebox/whitebox_aes.c)
@@ -544,10 +543,10 @@ set(KCTSB_CRYPTO_SOURCES
 
 # RSA and ECC sources (depend on integrated bignum math)
 # v4.0.1: Windows LLP64 compatibility fixed - bignum works on all platforms
+# v4.4.0: wNAF optimization consolidated into ecc_curve.cpp
 file(GLOB KCTSB_RSA_SOURCES ${KCTSB_SRC_DIR}/crypto/rsa/*.cpp)
 set(KCTSB_ECC_SOURCES
     ${KCTSB_SRC_DIR}/crypto/ecc/ecc_curve.cpp
-    ${KCTSB_SRC_DIR}/crypto/ecc/ecc_optimized.cpp
     ${KCTSB_SRC_DIR}/crypto/ecc/ecdh.cpp
     ${KCTSB_SRC_DIR}/crypto/ecc/ecdsa.cpp
     ${KCTSB_SRC_DIR}/crypto/ecc/ecies.cpp

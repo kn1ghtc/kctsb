@@ -9,17 +9,16 @@
  * 
  * Security features:
  * - Public key validation to prevent small subgroup attacks
- * - wNAF optimized scalar multiplication (~3.5x faster)
+ * - Montgomery ladder scalar multiplication (constant-time)
  * - Secure key derivation using HKDF
  * 
- * v4.2.0: Integrated wNAF optimization for scalar multiplication
+ * v4.4.0: Consolidated to use ecc_curve.cpp Montgomery ladder
  * 
  * @author knightc
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
  */
 
 #include "kctsb/crypto/ecc/ecdh.h"
-#include "kctsb/crypto/ecc/ecc_optimized.h"  // wNAF optimization
 #include <cstring>
 #include <stdexcept>
 #include <random>
@@ -120,8 +119,8 @@ ECDHKeyPair ECDH::keypair_from_private(const ZZ& private_key) const {
         throw std::invalid_argument("Invalid private key");
     }
     
-    // Use wNAF optimized scalar multiplication for ~3.5x speedup
-    JacobianPoint public_key = fast_scalar_mult_base(curve_, private_key);
+    // Use constant-time Montgomery ladder
+    JacobianPoint public_key = curve_.scalar_mult_base(private_key);
     return ECDHKeyPair(private_key, public_key);
 }
 
@@ -152,8 +151,8 @@ std::vector<uint8_t> ECDH::compute_shared_secret(
         throw std::invalid_argument("Invalid peer public key");
     }
     
-    // Use wNAF optimized scalar multiplication for ~3.5x speedup
-    JacobianPoint S = wnaf_scalar_mult(curve_, private_key, peer_public_key);
+    // Use constant-time Montgomery ladder
+    JacobianPoint S = curve_.scalar_mult(private_key, peer_public_key);
     
     if (S.is_infinity()) {
         throw std::runtime_error("ECDH computation resulted in point at infinity");

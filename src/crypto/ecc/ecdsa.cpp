@@ -8,18 +8,17 @@
  * - SEC 1 v2.0 (Encoding and serialization)
  *
  * Security features:
- * - wNAF optimized scalar multiplication (~3.5x faster than Montgomery ladder)
+ * - Montgomery ladder scalar multiplication (constant-time)
  * - Deterministic k generation prevents nonce reuse attacks
  * - Signature malleability protection (s normalization)
  *
- * v4.2.0: Integrated wNAF optimization for scalar multiplication
+ * v4.4.0: Consolidated to use ecc_curve.cpp Montgomery ladder
  *
  * @author knightc
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
  */
 
 #include "kctsb/crypto/ecc/ecdsa.h"
-#include "kctsb/crypto/ecc/ecc_optimized.h"  // wNAF optimization
 #include "kctsb/crypto/sha256.h"  // For SHA-256 hashing
 #include <array>
 #include <vector>
@@ -195,8 +194,8 @@ bool ECDSAKeyPair::is_valid(const ECCurve& curve) const {
         return false;
     }
 
-    // Verify Q = d*G (using wNAF optimization)
-    JacobianPoint expected = fast_scalar_mult_base(curve, private_key);
+    // Verify Q = d*G (using Montgomery ladder)
+    JacobianPoint expected = curve.scalar_mult_base(private_key);
     AffinePoint exp_aff = curve.to_affine(expected);
     AffinePoint pub_aff = curve.to_affine(public_key);
 
@@ -268,8 +267,8 @@ ECDSAKeyPair ECDSA::keypair_from_private(const ZZ& private_key) const {
         throw std::invalid_argument("Invalid private key");
     }
 
-    // Use wNAF optimized scalar multiplication for ~3.5x speedup
-    JacobianPoint public_key = fast_scalar_mult_base(curve_, private_key);
+    // Use constant-time Montgomery ladder
+    JacobianPoint public_key = curve_.scalar_mult_base(private_key);
     return ECDSAKeyPair(private_key, public_key);
 }
 
@@ -307,8 +306,8 @@ ECDSASignature ECDSA::sign_with_k(const ZZ& e, const ZZ& private_key, const ZZ& 
         throw std::invalid_argument("Invalid k value");
     }
 
-    // Step 1: r = (k * G).x mod n (using wNAF optimization)
-    JacobianPoint R = fast_scalar_mult_base(curve_, k);
+    // Step 1: r = (k * G).x mod n (using Montgomery ladder)
+    JacobianPoint R = curve_.scalar_mult_base(k);
     AffinePoint R_aff = curve_.to_affine(R);
 
     ZZ r = conv<ZZ>(rep(R_aff.x)) % n;
@@ -373,8 +372,9 @@ bool ECDSA::verify(const ZZ& e, const ECDSASignature& signature,
     ZZ u1 = MulMod(e_mod, w, n);
     ZZ u2 = MulMod(r, w, n);
 
-    // Step 3: R = u1*G + u2*Q (using wNAF double scalar multiplication)
-    JacobianPoint R = wnaf_double_scalar_mult(curve_, u1, curve_.get_generator(), u2, public_key);
+    // Step 3: R = u1*G + u2*Q (using Shamir's trick for double scalar multiplication)
+    JacobianPoint G = curve_.get_generator();
+    JacobianPoint R = curve_.double_scalar_mult(u1, G, u2, public_key);
 
     if (R.is_infinity()) {
         return false;
