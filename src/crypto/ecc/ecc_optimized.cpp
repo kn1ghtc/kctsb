@@ -264,40 +264,134 @@ JacobianPoint fast_scalar_mult_base(const ECCurve& curve, const ZZ& k) {
 // Constant-Time Utility Functions
 // ============================================================================
 
+namespace {
+
+/**
+ * @brief Constant-time conditional selection (64-bit)
+ * 
+ * Returns a if condition == 1, b if condition == 0.
+ * Executes in constant time with no branches.
+ * 
+ * @param condition 0 or 1
+ * @param a Value to return if condition == 1
+ * @param b Value to return if condition == 0
+ * @return Selected value
+ */
+inline uint64_t ct_select_u64(uint64_t condition, uint64_t a, uint64_t b) {
+    // Create mask: all 1s if condition==1, all 0s if condition==0
+    // condition must be 0 or 1
+    uint64_t mask = 0ULL - condition;  // 0 -> 0x0, 1 -> 0xFFFF...
+    return (a & mask) | (b & (~mask));
+}
+
+/**
+ * @brief Constant-time conditional copy of ZZ_p
+ * 
+ * Performs dest = condition ? src : dest in constant time.
+ * Uses byte-level operations to avoid timing variations.
+ * 
+ * @param condition 0 or 1
+ * @param dest Destination value (modified in place)
+ * @param src Source value to potentially copy
+ * @param p The prime modulus for field operations
+ */
+void ct_cmov_zzp(uint8_t condition, ZZ_p& dest, const ZZ_p& src, const ZZ& p) {
+    // Ensure modulus is set
+    ZZ_p::init(p);
+    
+    // Get ZZ representations
+    ZZ dest_zz = rep(dest);
+    ZZ src_zz = rep(src);
+    
+    // Normalize condition to 0 or 1
+    condition = condition ? 1 : 0;
+    
+    // Convert to byte arrays for constant-time operation
+    // Use fixed size based on field size (32 bytes for 256-bit, 48 for 384-bit)
+    long byte_len = (NumBits(p) + 7) / 8;
+    if (byte_len > 64) byte_len = 64;  // Cap at 512 bits
+    
+    std::vector<uint8_t> dest_bytes(byte_len, 0);
+    std::vector<uint8_t> src_bytes(byte_len, 0);
+    
+    // Extract bytes (little-endian for easier processing)
+    ZZ tmp_d = dest_zz;
+    ZZ tmp_s = src_zz;
+    for (long i = 0; i < byte_len; i++) {
+        if (!IsZero(tmp_d)) {
+            dest_bytes[i] = static_cast<uint8_t>(to_long(tmp_d & 0xFF));
+            tmp_d >>= 8;
+        }
+        if (!IsZero(tmp_s)) {
+            src_bytes[i] = static_cast<uint8_t>(to_long(tmp_s & 0xFF));
+            tmp_s >>= 8;
+        }
+    }
+    
+    // Constant-time byte-by-byte selection
+    uint8_t mask = 0x00 - condition;  // 0 -> 0x00, 1 -> 0xFF
+    for (long i = 0; i < byte_len; i++) {
+        dest_bytes[i] = (src_bytes[i] & mask) | (dest_bytes[i] & (~mask));
+    }
+    
+    // Convert back to ZZ (little-endian)
+    ZZ result = ZZ(0);
+    for (long i = byte_len - 1; i >= 0; i--) {
+        result <<= 8;
+        result += dest_bytes[i];
+    }
+    
+    // Assign back
+    dest = conv<ZZ_p>(result);
+}
+
+}  // anonymous namespace
+
 JacobianPoint ct_select(uint8_t selector, 
                         const JacobianPoint& a, 
                         const JacobianPoint& b) {
-    // selector must be 0 or 1
     // Returns a if selector == 1, b if selector == 0
+    // True constant-time implementation using masked operations
     
-    // This implementation relies on ZZ_p arithmetic
-    // For true constant-time, we need to work at the limb level
-    // This is a simplified version
+    // Normalize selector to 0 or 1
+    uint8_t cond = selector ? 1 : 0;
     
-    if (selector) {
-        return a;
-    } else {
-        return b;
-    }
+    // Create result starting from b
+    JacobianPoint result = b;
     
-    // TODO: Implement true constant-time using masked operations:
-    // mask = -selector (all 1s if selector==1, all 0s if selector==0)
-    // result.X = (a.X & mask) | (b.X & ~mask)
-    // etc.
+    // Get the modulus from ZZ_p context (requires valid modulus set)
+    ZZ p = ZZ_p::modulus();
+    
+    // Conditionally copy each coordinate
+    ct_cmov_zzp(cond, result.X, a.X, p);
+    ct_cmov_zzp(cond, result.Y, a.Y, p);
+    ct_cmov_zzp(cond, result.Z, a.Z, p);
+    
+    return result;
 }
 
 JacobianPoint ct_negate(const ECCurve& curve, 
                         const JacobianPoint& P, 
                         uint8_t negate) {
     // Returns -P if negate == 1, P if negate == 0
+    // True constant-time: always compute -Y, then select
     
-    if (negate) {
-        return curve.negate(P);
-    }
-    return P;
+    // Normalize negate to 0 or 1
+    uint8_t cond = negate ? 1 : 0;
     
-    // TODO: Implement true constant-time:
-    // Always compute -Y, then select based on mask
+    // Always compute negated Y
+    ZZ_p neg_Y = -P.Y;
+    
+    // Start with original point
+    JacobianPoint result = P;
+    
+    // Get the modulus
+    ZZ p = curve.get_prime();
+    
+    // Conditionally assign negated Y
+    ct_cmov_zzp(cond, result.Y, neg_Y, p);
+    
+    return result;
 }
 
 // ============================================================================

@@ -155,6 +155,7 @@ static void print_header(const std::string& title) {
 /**
  * @brief SM2 benchmark suite with OpenSSL comparison
  * Tests: Key Generation, Encrypt, Decrypt, Sign, Verify
+ * v4.0.2: Added ratio comparison for each operation (like RSA benchmark)
  */
 void benchmark_sm2() {
     std::cout << "\n" << std::string(80, '=') << std::endl;
@@ -175,6 +176,13 @@ void benchmark_sm2() {
 
     print_header("SM2 Key Generation + Sign/Verify + Encrypt/Decrypt");
 
+    // Variables to store OpenSSL times for ratio comparison
+    double openssl_keygen_time = 0, kctsb_keygen_time = 0;
+    double openssl_sign_time = 0, kctsb_sign_time = 0;
+    double openssl_verify_time = 0, kctsb_verify_time = 0;
+    double openssl_encrypt_time = 0, kctsb_encrypt_time = 0;
+    double openssl_decrypt_time = 0, kctsb_decrypt_time = 0;
+
     // ========================================================================
     // OpenSSL SM2 Operations
     // ========================================================================
@@ -186,7 +194,7 @@ void benchmark_sm2() {
     {
         EVP_PKEY_CTX* pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_SM2, nullptr);
         if (pctx && EVP_PKEY_keygen_init(pctx) > 0) {
-            run_benchmark(
+            openssl_keygen_time = run_benchmark(
                 "SM2 KeyGen",
                 "OpenSSL",
                 [&]() {
@@ -211,9 +219,28 @@ void benchmark_sm2() {
         if (pctx) EVP_PKEY_CTX_free(pctx);
     }
 
+    // kctsb SM2 Key Generation
+    kctsb_sm2_keypair_t keypair;
+    kctsb_sm2_generate_keypair(&keypair);
+    kctsb_keygen_time = run_benchmark(
+        "SM2 KeyGen",
+        "kctsb",
+        [&]() {
+            kctsb_sm2_keypair_t kp;
+            auto start = Clock::now();
+            auto status = kctsb_sm2_generate_keypair(&kp);
+            auto end = Clock::now();
+            Duration elapsed = end - start;
+            return (status == KCTSB_SUCCESS) ? elapsed.count() : -1.0;
+        }
+    );
+    if (openssl_keygen_time > 0 && kctsb_keygen_time > 0) {
+        kctsb_bench::print_time_ratio(kctsb_keygen_time, openssl_keygen_time);
+    }
+
     // OpenSSL SM2 Sign
     if (openssl_keypair) {
-        run_benchmark(
+        openssl_sign_time = run_benchmark(
             "SM2 Sign",
             "OpenSSL",
             [&]() {
@@ -242,9 +269,35 @@ void benchmark_sm2() {
         );
     }
 
+    // kctsb SM2 Sign
+    kctsb_sm2_signature_t kctsb_signature;
+    kctsb_sign_time = run_benchmark(
+        "SM2 Sign",
+        "kctsb",
+        [&]() {
+            auto start = Clock::now();
+            auto status = kctsb_sm2_sign(
+                keypair.private_key, keypair.public_key,
+                user_id, user_id_len,
+                message, sizeof(message),
+                &kctsb_signature
+            );
+            auto end = Clock::now();
+            Duration elapsed = end - start;
+            return (status == KCTSB_SUCCESS) ? elapsed.count() : -1.0;
+        }
+    );
+    if (openssl_sign_time > 0 && kctsb_sign_time > 0) {
+        kctsb_bench::print_time_ratio(kctsb_sign_time, openssl_sign_time);
+    }
+
+    // Generate signature for verify
+    kctsb_sm2_sign(keypair.private_key, keypair.public_key,
+                   user_id, user_id_len, message, sizeof(message), &kctsb_signature);
+
     // OpenSSL SM2 Verify
     if (openssl_keypair && !openssl_signature.empty()) {
-        run_benchmark(
+        openssl_verify_time = run_benchmark(
             "SM2 Verify",
             "OpenSSL",
             [&]() {
@@ -270,9 +323,30 @@ void benchmark_sm2() {
         );
     }
 
+    // kctsb SM2 Verify
+    kctsb_verify_time = run_benchmark(
+        "SM2 Verify",
+        "kctsb",
+        [&]() {
+            auto start = Clock::now();
+            auto status = kctsb_sm2_verify(
+                keypair.public_key,
+                user_id, user_id_len,
+                message, sizeof(message),
+                &kctsb_signature
+            );
+            auto end = Clock::now();
+            Duration elapsed = end - start;
+            return (status == KCTSB_SUCCESS) ? elapsed.count() : -1.0;
+        }
+    );
+    if (openssl_verify_time > 0 && kctsb_verify_time > 0) {
+        kctsb_bench::print_time_ratio(kctsb_verify_time, openssl_verify_time);
+    }
+
     // OpenSSL SM2 Encrypt
     if (openssl_keypair) {
-        run_benchmark(
+        openssl_encrypt_time = run_benchmark(
             "SM2 Encrypt",
             "OpenSSL",
             [&]() {
@@ -294,9 +368,37 @@ void benchmark_sm2() {
         );
     }
 
+    // kctsb SM2 Encrypt
+    std::vector<uint8_t> kctsb_ciphertext(256);
+    size_t kctsb_ct_len = kctsb_ciphertext.size();
+    kctsb_encrypt_time = run_benchmark(
+        "SM2 Encrypt",
+        "kctsb",
+        [&]() {
+            auto start = Clock::now();
+            kctsb_ct_len = kctsb_ciphertext.size();
+            auto status = kctsb_sm2_encrypt(
+                keypair.public_key,
+                plaintext, sizeof(plaintext),
+                kctsb_ciphertext.data(), &kctsb_ct_len
+            );
+            auto end = Clock::now();
+            Duration elapsed = end - start;
+            return (status == KCTSB_SUCCESS) ? elapsed.count() : -1.0;
+        }
+    );
+    if (openssl_encrypt_time > 0 && kctsb_encrypt_time > 0) {
+        kctsb_bench::print_time_ratio(kctsb_encrypt_time, openssl_encrypt_time);
+    }
+
+    // Generate ciphertext for decrypt
+    kctsb_ct_len = kctsb_ciphertext.size();
+    kctsb_sm2_encrypt(keypair.public_key, plaintext, sizeof(plaintext),
+                      kctsb_ciphertext.data(), &kctsb_ct_len);
+
     // OpenSSL SM2 Decrypt
     if (openssl_keypair && !openssl_ciphertext.empty()) {
-        run_benchmark(
+        openssl_decrypt_time = run_benchmark(
             "SM2 Decrypt",
             "OpenSSL",
             [&]() {
@@ -317,96 +419,10 @@ void benchmark_sm2() {
         );
     }
 
-    // ========================================================================
-    // kctsb SM2 Operations
-    // ========================================================================
-    kctsb_sm2_keypair_t keypair;
-    kctsb_sm2_generate_keypair(&keypair);
-    kctsb_sm2_signature_t kctsb_signature;
-    std::vector<uint8_t> kctsb_ciphertext(256);
-    size_t kctsb_ct_len = 0;
-
-    // kctsb SM2 Key Generation
-    run_benchmark(
-        "SM2 KeyGen",
-        "kctsb",
-        [&]() {
-            kctsb_sm2_keypair_t kp;
-            auto start = Clock::now();
-            auto status = kctsb_sm2_generate_keypair(&kp);
-            auto end = Clock::now();
-            Duration elapsed = end - start;
-            return (status == KCTSB_SUCCESS) ? elapsed.count() : -1.0;
-        }
-    );
-
-    // kctsb SM2 Sign
-    run_benchmark(
-        "SM2 Sign",
-        "kctsb",
-        [&]() {
-            auto start = Clock::now();
-            auto status = kctsb_sm2_sign(
-                keypair.private_key, keypair.public_key,
-                user_id, user_id_len,
-                message, sizeof(message),
-                &kctsb_signature
-            );
-            auto end = Clock::now();
-            Duration elapsed = end - start;
-            return (status == KCTSB_SUCCESS) ? elapsed.count() : -1.0;
-        }
-    );
-
-    // Generate signature for verify
-    kctsb_sm2_sign(keypair.private_key, keypair.public_key,
-                   user_id, user_id_len, message, sizeof(message), &kctsb_signature);
-
-    // kctsb SM2 Verify
-    run_benchmark(
-        "SM2 Verify",
-        "kctsb",
-        [&]() {
-            auto start = Clock::now();
-            auto status = kctsb_sm2_verify(
-                keypair.public_key,
-                user_id, user_id_len,
-                message, sizeof(message),
-                &kctsb_signature
-            );
-            auto end = Clock::now();
-            Duration elapsed = end - start;
-            return (status == KCTSB_SUCCESS) ? elapsed.count() : -1.0;
-        }
-    );
-
-    // kctsb SM2 Encrypt
-    run_benchmark(
-        "SM2 Encrypt",
-        "kctsb",
-        [&]() {
-            auto start = Clock::now();
-            kctsb_ct_len = kctsb_ciphertext.size();
-            auto status = kctsb_sm2_encrypt(
-                keypair.public_key,
-                plaintext, sizeof(plaintext),
-                kctsb_ciphertext.data(), &kctsb_ct_len
-            );
-            auto end = Clock::now();
-            Duration elapsed = end - start;
-            return (status == KCTSB_SUCCESS) ? elapsed.count() : -1.0;
-        }
-    );
-
-    // Generate ciphertext for decrypt
-    kctsb_ct_len = kctsb_ciphertext.size();
-    kctsb_sm2_encrypt(keypair.public_key, plaintext, sizeof(plaintext),
-                      kctsb_ciphertext.data(), &kctsb_ct_len);
-
     // kctsb SM2 Decrypt
     std::vector<uint8_t> kctsb_decrypted(256);
     size_t kctsb_dec_len = 0;
-    run_benchmark(
+    kctsb_decrypt_time = run_benchmark(
         "SM2 Decrypt",
         "kctsb",
         [&]() {
@@ -422,6 +438,9 @@ void benchmark_sm2() {
             return (status == KCTSB_SUCCESS) ? elapsed.count() : -1.0;
         }
     );
+    if (openssl_decrypt_time > 0 && kctsb_decrypt_time > 0) {
+        kctsb_bench::print_time_ratio(kctsb_decrypt_time, openssl_decrypt_time);
+    }
 
     // Cleanup
     if (openssl_keypair) {
@@ -430,7 +449,7 @@ void benchmark_sm2() {
 
     std::cout << "\n  Note: SM2 follows GB/T 32918.1-5 specifications.\n";
     std::cout << "  kctsb uses NTL-based implementation; OpenSSL uses optimized ASM.\n";
-    std::cout << "  Expected kctsb SM2 performance: 15-25% of OpenSSL (optimization pending).\n";
+    std::cout << "  Ratio shows percentage of OpenSSL performance (higher = faster).\n";
 #else
     std::cout << "\n  SM2 benchmarks skipped (KCTSB_HAS_SM2 not defined)\n";
 #endif
@@ -523,6 +542,7 @@ void benchmark_sm3() {
  * @brief SM4 benchmark suite
  * - kctsb: GCM mode (AEAD, secure)
  * - OpenSSL: CBC mode for reference (GCM not available)
+ * v4.0.2: Added ratio output for throughput comparison
  */
 void benchmark_sm4() {
     std::cout << "\n" << std::string(80, '=') << std::endl;
@@ -561,13 +581,17 @@ void benchmark_sm4() {
         // AAD for GCM
         uint8_t aad[16] = "benchmark_aad__";
 
+        // Variables to store OpenSSL times for ratio comparison
+        double openssl_cbc_encrypt_time = 0, kctsb_gcm_encrypt_time = 0;
+        double openssl_cbc_decrypt_time = 0, kctsb_gcm_decrypt_time = 0;
+
         // ====================================================================
         // OpenSSL SM4-CBC (both encrypt and decrypt)
         // ====================================================================
         const EVP_CIPHER* sm4_cbc = EVP_sm4_cbc();
         if (sm4_cbc) {
             // OpenSSL SM4-CBC Encrypt
-            run_benchmark(
+            openssl_cbc_encrypt_time = run_benchmark(
                 "SM4-CBC Encrypt (ref)",
                 "OpenSSL",
                 [&]() {
@@ -588,7 +612,7 @@ void benchmark_sm4() {
             );
 
             // OpenSSL SM4-CBC Decrypt
-            run_benchmark(
+            openssl_cbc_decrypt_time = run_benchmark(
                 "SM4-CBC Decrypt (ref)",
                 "OpenSSL",
                 [&]() {
@@ -618,7 +642,7 @@ void benchmark_sm4() {
         // ====================================================================
 
         // kctsb SM4-GCM Encrypt
-        run_benchmark(
+        kctsb_gcm_encrypt_time = run_benchmark(
             "SM4-GCM Encrypt",
             "kctsb",
             [&]() {
@@ -632,9 +656,12 @@ void benchmark_sm4() {
             },
             true, data_size
         );
+        if (openssl_cbc_encrypt_time > 0 && kctsb_gcm_encrypt_time > 0) {
+            kctsb_bench::print_time_ratio(kctsb_gcm_encrypt_time, openssl_cbc_encrypt_time);
+        }
 
         // kctsb SM4-GCM Decrypt
-        run_benchmark(
+        kctsb_gcm_decrypt_time = run_benchmark(
             "SM4-GCM Decrypt",
             "kctsb",
             [&]() {
@@ -648,11 +675,15 @@ void benchmark_sm4() {
             },
             true, data_size
         );
+        if (openssl_cbc_decrypt_time > 0 && kctsb_gcm_decrypt_time > 0) {
+            kctsb_bench::print_time_ratio(kctsb_gcm_decrypt_time, openssl_cbc_decrypt_time);
+        }
     }
 
     std::cout << "\n  Note: OpenSSL 3.x does NOT support SM4-GCM mode.\n";
     std::cout << "  SM4-CBC is used as reference for throughput comparison.\n";
     std::cout << "  kctsb SM4-GCM provides authenticated encryption (AEAD).\n";
+    std::cout << "  Ratio shows kctsb GCM vs OpenSSL CBC (>100% = GCM faster than CBC).\n";
 #else
     std::cout << "\n  SM4 benchmarks skipped (KCTSB_HAS_SM4 not defined)\n";
 #endif
