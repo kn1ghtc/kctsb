@@ -2,7 +2,9 @@
 #define KCTSB_LLL__H
 
 #include <kctsb/math/bignum/mat_ZZ.h>
-#include <kctsb/math/bignum/mat_RR.h>
+// Note: RR-based functions (LLL_RR, BKZ_RR, G_LLL_RR, G_BKZ_RR, ComputeGS)
+// require mat_RR.h which is excluded in kctsb v4.1.0
+// Use LLL_FP or LLL_XD for double/extended precision instead
 
 KCTSB_OPEN_NNS
 
@@ -72,6 +74,9 @@ long BKZ_QP1(mat_ZZ& BB, double delta=0.99, long BlockSize=10, long prune=0,
 long BKZ_QP1(mat_ZZ& BB, mat_ZZ& U, double delta=0.99,
          long BlockSize=10, long prune=0, LLLCheckFct check = 0, long verbose = 0);
 
+// RR-based functions excluded in kctsb v4.1.0 (requires arbitrary precision)
+// Use LLL_FP (double) or LLL_XD (extended double) instead
+#if 0
 long LLL_RR(mat_ZZ& B, double delta = 0.99, long deep = 0,
            LLLCheckFct check = 0, long verbose = 0);
 long LLL_RR(mat_ZZ& B, mat_ZZ& U, double delta = 0.99, 
@@ -83,6 +88,7 @@ long BKZ_RR(mat_ZZ& BB, double delta=0.99, long BlockSize=10,
 
 long BKZ_RR(mat_ZZ& BB, mat_ZZ& U, double delta=0.99, 
             long BlockSize=10, long prune=0, LLLCheckFct check = 0, long verbose = 0);
+#endif
 
 
 // Givens rotations versions
@@ -127,6 +133,8 @@ long G_BKZ_QP1(mat_ZZ& BB, double delta=0.99, long BlockSize=10, long prune=0,
 long G_BKZ_QP1(mat_ZZ& BB, mat_ZZ& U, double delta=0.99,
          long BlockSize=10, long prune=0, LLLCheckFct check = 0, long verbose = 0);
 
+// G_LLL_RR and G_BKZ_RR excluded in kctsb v4.1.0
+#if 0
 long G_LLL_RR(mat_ZZ& B, double delta = 0.99, long deep = 0,
            LLLCheckFct check = 0, long verbose = 0);
 long G_LLL_RR(mat_ZZ& B, mat_ZZ& U, double delta = 0.99, 
@@ -140,6 +148,7 @@ long G_BKZ_RR(mat_ZZ& BB, mat_ZZ& U, double delta=0.99,
             long BlockSize=10, long prune=0, LLLCheckFct check = 0, long verbose = 0);
 
 void ComputeGS(const mat_ZZ& B, mat_RR& mu, vec_RR& c);
+#endif
 
 
 void NearVector(vec_ZZ& ww, const mat_ZZ& BB, const vec_ZZ& a);

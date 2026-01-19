@@ -1,115 +1,55 @@
-﻿/**
+/**
  * @file mach_desc.h
- * @brief Machine description for kctsb bignum module
- *
- * This provides compile-time platform detection for the bignum module.
+ * @brief Machine description header - compile-time platform detection
  * 
- * CRITICAL: Windows LLP64 Data Model Handling
- * - Windows x64: sizeof(long) = 4 bytes (32-bit)
- * - Linux/macOS x64 (LP64): sizeof(long) = 8 bytes (64-bit)
+ * This file replaces NTL's configure-generated mach_desc.h with
+ * compile-time detection that works across Windows/Linux/macOS.
  * 
- * The bignum module uses KCTSB_BITS_PER_LONG to determine word size.
- * On Windows x64, we MUST set this to 32 to match actual long size,
- * or use KCTSB_USE_LONGLONG to switch to 64-bit long long operations.
- *
+ * Key constants defined:
+ * - KCTSB_BITS_PER_LONG: sizeof(long) in bits (32 on Windows x64 LLP64)
+ * - KCTSB_BITS_PER_INT: sizeof(int) in bits
+ * - KCTSB_BITS_PER_SIZE_T: sizeof(size_t) in bits
+ * - KCTSB_ZZ_NBITS: Internal ZZ representation bits (matches GMP when GMP_LIP)
+ * - KCTSB_ZZ_FRADIX: Floating-point radix constant
+ * 
+ * @note NTL compatibility aliases are provided via NTL_* macros.
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
  * @license Apache License 2.0
  */
 
-#ifndef KCTSB_BIGNUM_MACH_DESC_H
-#define KCTSB_BIGNUM_MACH_DESC_H
+#ifndef KCTSB_MACH_DESC_H
+#define KCTSB_MACH_DESC_H
 
-// Include kctsb platform definitions first
-#include <kctsb/math/bignum/platform.h>
+// Include base config first for platform detection
+#include <kctsb/math/bignum/kctsb_bignum_config.h>
 
 // ============================================================================
-// Platform Detection
+// CRITICAL: Windows LLP64 Data Model
 // ============================================================================
+// On Windows x64, sizeof(long) = 4 bytes (32-bit), NOT 64-bit!
+// This is different from Linux/macOS LP64 where long is 64-bit.
+// The bignum code uses 'long' type directly, so KCTSB_BITS_PER_LONG
+// MUST match the actual sizeof(long) on the platform.
 
-#if defined(_WIN32) || defined(_WIN64)
-    #ifndef KCTSB_WINPACK
-    #define KCTSB_WINPACK 1
+// These should already be defined in kctsb_bignum_config.h, but provide fallbacks:
+
+#ifndef KCTSB_BITS_PER_LONG
+    #if defined(_WIN32) || defined(_WIN64)
+        // Windows LLP64: long is always 32-bit
+        #define KCTSB_BITS_PER_LONG 32
+    #elif defined(__LP64__) || defined(__x86_64__) || defined(__aarch64__)
+        // Unix LP64: long is 64-bit on 64-bit platforms
+        #define KCTSB_BITS_PER_LONG 64
+    #else
+        // Default 32-bit
+        #define KCTSB_BITS_PER_LONG 32
     #endif
 #endif
 
-// ============================================================================
-// Type Size Detection - Handle Windows LLP64 Data Model
-// ============================================================================
-// 
-// IMPORTANT: KCTSB_BITS_PER_LONG MUST match the actual sizeof(long) on the platform
-// because bignum code uses `long` type directly for arithmetic operations.
-// 
-// On Windows x64 (LLP64): sizeof(long) = 4 bytes (32-bit)
-// On Linux/macOS x64 (LP64): sizeof(long) = 8 bytes (64-bit)
-//
-// Strategy for Windows LLP64:
-// - Set KCTSB_BITS_PER_LONG to 32 (matches actual long size)
-// - Use KCTSB_ZZ_NBITS = 30 (32-bit word operations)
-// - Enable KCTSB_HAVE_LL_TYPE for double-word arithmetic
-// - Use GMP backend for efficient big integer operations
-//
-// This means Windows builds will use 32-bit single-precision arithmetic
-// (slightly slower) but still have efficient GMP-backed ZZ operations.
-
-#if defined(_WIN32) || defined(_WIN64)
-    // Windows LLP64: long is ALWAYS 32-bit
-    #ifndef KCTSB_BITS_PER_LONG
-    #define KCTSB_BITS_PER_LONG 32
-    #endif
-    // Enable long long for double-word arithmetic
-    #ifndef KCTSB_HAVE_LL_TYPE
-    #define KCTSB_HAVE_LL_TYPE 1
-    #endif
-    #ifndef KCTSB_WINPACK
-    #define KCTSB_WINPACK 1
-    #endif
-    // CRITICAL: Force LEGACY_SP_MULMOD on Windows LLP64
-    // The LONGLONG_SP_MULMOD path assumes sizeof(long) == 8, which is false on Windows.
-    // LEGACY mode uses double-precision floating-point arithmetic instead,
-    // which is safe and works correctly on Windows.
-    #ifndef KCTSB_LEGACY_SP_MULMOD
-    #define KCTSB_LEGACY_SP_MULMOD 1
-    #endif
-#elif defined(__LP64__) || defined(__x86_64__) || defined(__aarch64__) || defined(_M_ARM64)
-    // Unix-like 64-bit (LP64): long is 64-bit
-    #ifndef KCTSB_BITS_PER_LONG
-    #define KCTSB_BITS_PER_LONG 64
-    #endif
-    #ifndef KCTSB_HAVE_LL_TYPE
-    #define KCTSB_HAVE_LL_TYPE 1
-    #endif
-#elif defined(__i386__) || defined(_M_IX86)
-    // 32-bit platforms
-    #ifndef KCTSB_BITS_PER_LONG
-    #define KCTSB_BITS_PER_LONG 32
-    #endif
-#else
-    // Fallback: detect at compile time
-    #ifndef KCTSB_BITS_PER_LONG
-        #if ULONG_MAX == 0xFFFFFFFFUL
-            #define KCTSB_BITS_PER_LONG 32
-        #elif ULONG_MAX == 0xFFFFFFFFFFFFFFFFUL
-            #define KCTSB_BITS_PER_LONG 64
-        #else
-            #error "Cannot determine KCTSB_BITS_PER_LONG"
-        #endif
-    #endif
-#endif
-
-// KCTSB_BITS_PER_INT is always 32 on modern platforms
 #ifndef KCTSB_BITS_PER_INT
-#define KCTSB_BITS_PER_INT 32
+    #define KCTSB_BITS_PER_INT 32
 #endif
 
-#ifndef KCTSB_ARITH_RIGHT_SHIFT
-#define KCTSB_ARITH_RIGHT_SHIFT 1
-#endif
-
-#ifndef KCTSB_DOUBLE_PRECISION
-#define KCTSB_DOUBLE_PRECISION 53
-#endif
-
-// SIZE_T bits - always match pointer size, not long size
 #ifndef KCTSB_BITS_PER_SIZE_T
     #if defined(__x86_64__) || defined(_M_X64) || defined(__aarch64__) || defined(_M_ARM64)
         #define KCTSB_BITS_PER_SIZE_T 64
@@ -119,154 +59,152 @@
 #endif
 
 // ============================================================================
-// GMP Limb Configuration - Always 64-bit on 64-bit platforms
+// ZZ Internal Representation
 // ============================================================================
-
-#ifndef KCTSB_BITS_PER_LIMB_T
-    #if defined(__x86_64__) || defined(_M_X64) || defined(__aarch64__) || defined(_M_ARM64)
-        #define KCTSB_BITS_PER_LIMB_T 64
-    #else
-        #define KCTSB_BITS_PER_LIMB_T 32
-    #endif
-#endif
-
-// ============================================================================
-// ZZ Configuration - Match GMP's actual numb bits
-// ============================================================================
-// KCTSB_ZZ_NBITS defines the number of bits used per word in ZZ operations.
-// 
-// CRITICAL: When using GMP backend (KCTSB_GMP_LIP), this MUST match GMP_NUMB_BITS!
-// - GMP typically uses GMP_NUMB_BITS = GMP_LIMB_BITS (no nail bits, GMP_NAIL_BITS=0)
-// - On 64-bit systems: GMP_NUMB_BITS = 64
-// - On 32-bit systems: GMP_NUMB_BITS = 32
+// When using GMP (KCTSB_GMP_LIP), KCTSB_ZZ_NBITS must match GMP_NUMB_BITS.
+// GMP uses full limb width without nail bits:
+// - 64-bit platforms: 64-bit limbs → ZZ_NBITS = 64
+// - 32-bit platforms: 32-bit limbs → ZZ_NBITS = 32
 //
-// NTL originally used 4 nail bits for carry detection, but GMP does not!
-// Using 60 bits when GMP uses 64 bits causes data corruption (12 bits lost
-// per 256-bit number, causing SM2/ECC failures).
+// When NOT using GMP (native bignum), NTL uses 2 bits less for overflow:
+// - 64-bit: 60 bits (KCTSB_BITS_PER_LONG - 4 on 64-bit with space for carry)
+// - 32-bit: 30 bits (KCTSB_BITS_PER_LONG - 2 on 32-bit)
 
-#if KCTSB_BITS_PER_LIMB_T >= 64
-    // 64-bit limbs (GMP on x64, including Windows LLP64)
-    // Use full 64 bits when GMP backend is used (no nail bits)
-    #ifndef KCTSB_ZZ_NBITS
-        #ifdef KCTSB_GMP_LIP
-            // GMP mode: use full limb width (GMP_NAIL_BITS is typically 0)
+#ifndef KCTSB_ZZ_NBITS
+    #ifdef KCTSB_GMP_LIP
+        // GMP mode: use full limb width (no nail bits)
+        // GMP limb size is typically 64-bit on 64-bit platforms regardless of long size
+        #if defined(__x86_64__) || defined(_M_X64) || defined(__aarch64__) || defined(_M_ARM64)
             #define KCTSB_ZZ_NBITS 64
         #else
-            // Non-GMP mode: use 60 bits (4 nail bits for overflow detection)
-            #define KCTSB_ZZ_NBITS 60
-        #endif
-    #endif
-    #ifndef KCTSB_NBITS_MAX
-    #define KCTSB_NBITS_MAX 62
-    #endif
-#else
-    // 32-bit limbs: use 30 bits per word (2 nail bits)
-    #ifndef KCTSB_ZZ_NBITS
-        #ifdef KCTSB_GMP_LIP
             #define KCTSB_ZZ_NBITS 32
+        #endif
+    #else
+        // Native mode: use KCTSB_BITS_PER_LONG - overhead
+        #if KCTSB_BITS_PER_LONG == 64
+            #define KCTSB_ZZ_NBITS 60
         #else
             #define KCTSB_ZZ_NBITS 30
         #endif
     #endif
-    #ifndef KCTSB_NBITS_MAX
-    #define KCTSB_NBITS_MAX 30
+#endif
+
+// ZZ radix as floating-point (used in RR, xdouble, etc.)
+#ifndef KCTSB_ZZ_FRADIX
+    #if KCTSB_ZZ_NBITS <= 30
+        #define KCTSB_ZZ_FRADIX ((double)(1UL << KCTSB_ZZ_NBITS))
+    #elif KCTSB_ZZ_NBITS <= 60
+        // For 60-bit, we need to be careful about overflow
+        #define KCTSB_ZZ_FRADIX (1152921504606846976.0) // 2^60
+    #else
+        // For 64-bit, use 2^64
+        #define KCTSB_ZZ_FRADIX (18446744073709551616.0) // 2^64
     #endif
 #endif
 
-// Use 64-bit unsigned for ZZ_FRADIX calculation
-// Note: With KCTSB_ZZ_NBITS <= 30 on Windows, 1UL << 30 is safe for 32-bit long
-#ifndef KCTSB_ZZ_FRADIX
-#define KCTSB_ZZ_FRADIX ((double)(1UL << KCTSB_ZZ_NBITS))
-#endif
-
+// Wide radix (same as FRADIX in most cases)
 #ifndef KCTSB_ZZ_WIDE_FRADIX
-#define KCTSB_ZZ_WIDE_FRADIX KCTSB_ZZ_FRADIX
+    #define KCTSB_ZZ_WIDE_FRADIX KCTSB_ZZ_FRADIX
 #endif
 
 // ============================================================================
-// Numeric Limits - Use platform-appropriate values
+// Numeric Limits (int and long type bounds)
 // ============================================================================
 
-#ifndef KCTSB_ULONG_MAX
-#define KCTSB_ULONG_MAX ULONG_MAX
-#endif
+#include <climits>
 
-#ifndef KCTSB_LONG_MAX
-#define KCTSB_LONG_MAX LONG_MAX
-#endif
-
-#ifndef KCTSB_LONG_MIN
-#define KCTSB_LONG_MIN LONG_MIN
-#endif
-
-#ifndef KCTSB_INT_MAX
-#define KCTSB_INT_MAX INT_MAX
-#endif
-
-// Alias: KCTSB_MAX_INT is sometimes used in code
 #ifndef KCTSB_MAX_INT
-#define KCTSB_MAX_INT INT_MAX
-#endif
-
-#ifndef KCTSB_INT_MIN
-#define KCTSB_INT_MIN INT_MIN
+    #define KCTSB_MAX_INT INT_MAX
 #endif
 
 #ifndef KCTSB_MIN_INT
-#define KCTSB_MIN_INT INT_MIN
+    #define KCTSB_MIN_INT INT_MIN
 #endif
 
-#ifndef KCTSB_UINT_MAX
-#define KCTSB_UINT_MAX UINT_MAX
+#ifndef KCTSB_MAX_LONG
+    #define KCTSB_MAX_LONG LONG_MAX
 #endif
 
-// ============================================================================
-// kctsb 64-bit word limits (platform-independent)
-// These are for 64-bit arithmetic on ALL platforms including Windows LLP64
-// ============================================================================
-
-#ifndef KCTSB_WORD_MAX
-#define KCTSB_WORD_MAX INT64_MAX
+#ifndef KCTSB_MIN_LONG
+    #define KCTSB_MIN_LONG LONG_MIN
 #endif
 
-#ifndef KCTSB_UWORD_MAX
-#define KCTSB_UWORD_MAX UINT64_MAX
+// NTL compatibility
+#ifndef NTL_MAX_INT
+    #define NTL_MAX_INT KCTSB_MAX_INT
 #endif
 
-// ============================================================================
-// Pointer size - Always match actual pointer size
-// ============================================================================
+#ifndef NTL_MIN_INT
+    #define NTL_MIN_INT KCTSB_MIN_INT
+#endif
 
-#ifndef KCTSB_BITS_PER_POINTER
-    #if defined(__x86_64__) || defined(_M_X64) || defined(__aarch64__) || defined(_M_ARM64)
-        #define KCTSB_BITS_PER_POINTER 64
-    #else
-        #define KCTSB_BITS_PER_POINTER 32
-    #endif
+#ifndef NTL_MAX_LONG
+    #define NTL_MAX_LONG KCTSB_MAX_LONG
+#endif
+
+#ifndef NTL_MIN_LONG
+    #define NTL_MIN_LONG KCTSB_MIN_LONG
 #endif
 
 // ============================================================================
-// Max allocation block (memory management)
+// Double Precision Configuration
 // ============================================================================
 
-#ifndef KCTSB_MAX_ALLOC_BLOCK
-#define KCTSB_MAX_ALLOC_BLOCK 40000
+#ifndef KCTSB_DOUBLE_PRECISION
+    #define KCTSB_DOUBLE_PRECISION 53
 #endif
 
-#ifndef KCTSB_RELEASE_THRESH
-#define KCTSB_RELEASE_THRESH 128
+#ifndef KCTSB_FDOUBLE_PRECISION
+    #define KCTSB_FDOUBLE_PRECISION ((double)(KCTSB_DOUBLE_PRECISION))
 #endif
 
 // ============================================================================
-// FFT Configuration
+// NTL Compatibility Aliases
 // ============================================================================
+// These allow NTL-originated code to work without modification.
 
-#ifndef KCTSB_FFT_THRESH
-#define KCTSB_FFT_THRESH 16
+#ifndef NTL_BITS_PER_LONG
+    #define NTL_BITS_PER_LONG KCTSB_BITS_PER_LONG
 #endif
 
-#ifndef KCTSB_FFT_BIGTAB_THRESH
-#define KCTSB_FFT_BIGTAB_THRESH 4096
+#ifndef NTL_BITS_PER_INT
+    #define NTL_BITS_PER_INT KCTSB_BITS_PER_INT
 #endif
 
-#endif // KCTSB_BIGNUM_MACH_DESC_H
+#ifndef NTL_BITS_PER_SIZE_T
+    #define NTL_BITS_PER_SIZE_T KCTSB_BITS_PER_SIZE_T
+#endif
+
+#ifndef NTL_ZZ_NBITS
+    #define NTL_ZZ_NBITS KCTSB_ZZ_NBITS
+#endif
+
+#ifndef NTL_ZZ_FRADIX
+    #define NTL_ZZ_FRADIX KCTSB_ZZ_FRADIX
+#endif
+
+#ifndef NTL_ZZ_WIDE_FRADIX
+    #define NTL_ZZ_WIDE_FRADIX KCTSB_ZZ_WIDE_FRADIX
+#endif
+
+#ifndef NTL_DOUBLE_PRECISION
+    #define NTL_DOUBLE_PRECISION KCTSB_DOUBLE_PRECISION
+#endif
+
+#ifndef NTL_FDOUBLE_PRECISION
+    #define NTL_FDOUBLE_PRECISION KCTSB_FDOUBLE_PRECISION
+#endif
+
+// ============================================================================
+// Validation
+// ============================================================================
+// Static assertion to ensure configuration is sane
+
+#if defined(__cplusplus) && __cplusplus >= 201103L
+    static_assert(KCTSB_BITS_PER_LONG == 32 || KCTSB_BITS_PER_LONG == 64,
+                  "KCTSB_BITS_PER_LONG must be 32 or 64");
+    static_assert(KCTSB_ZZ_NBITS >= 30 && KCTSB_ZZ_NBITS <= 64,
+                  "KCTSB_ZZ_NBITS must be between 30 and 64");
+#endif
+
+#endif // KCTSB_MACH_DESC_H

@@ -2,19 +2,25 @@
 # kctsb - Knight's Cryptographic Trusted Security Base
 # Cross-platform cryptographic algorithms library
 #
-# Version: 4.0.0 (defined in include/kctsb/version.h - single source of truth)
+# Version: 4.1.0 (defined in include/kctsb/version.h - single source of truth)
 # Copyright (c) 2019-2026 knightc. All rights reserved.
 # Licensed under Apache License 2.0
 #
-# v4.0.0 Architecture Changes:
-# - Bignum (high-precision math) source code integration
-# - Static linking: GMP, gf2x (bundled into kctsb)
-# - Dynamic linking: SEAL, HElib (shared libraries)
-# - Removed: External math library dependencies
-# - LTO compatibility fixes for integrated bignum code
+# v4.1.0 Architecture Changes:
+# - NTL源码完全集成，去除NTL品牌标识
+# - 动态库编译模式：链接预编译的 GMP/gf2x 共享库
+# - 编译优化：Ninja + 并行8路 + 增量编译
+# - 精简bignum模块：删除浮点精度(RR/xdouble/quad_float)
+# - SEAL/HElib 仅作为 benchmark 对比（动态链接）
 # ============================================================================
 
 cmake_minimum_required(VERSION 3.20)
+
+# ============================================================================
+# Ninja 和并行构建配置
+# ============================================================================
+# 推荐使用 Ninja: cmake -B build -G Ninja
+set(CMAKE_BUILD_PARALLEL_LEVEL 8 CACHE STRING "Default parallel build level")
 
 project(kctsb
     VERSION 4.0.0
@@ -173,25 +179,38 @@ else()
 endif()
 
 # ============================================================================
-# Bignum Source Code Defines (v4.0.0 - Integrated)
+# Bignum Source Code Defines (v4.1.0 - KCTSB Integrated)
 # ============================================================================
 
-# Define bignum configuration macros globally
+# Define bignum configuration macros globally (使用 KCTSB_ 前缀)
 add_definitions(
-    -DNTL_GMP_LIP           # Use GMP for big integers
-    -DNTL_GF2X_LIB          # Use gf2x library
-    -DNTL_THREADS           # Enable threading
-    -DNTL_STD_CXX17         # C++17 standard
-    -DNTL_EXCEPTIONS        # Enable exceptions
+    -DKCTSB_GMP_LIP           # Use GMP for big integers
+    -DKCTSB_GF2X_LIB          # Use gf2x library
+    -DKCTSB_THREADS           # Enable threading
+    -DKCTSB_STD_CXX17         # C++17 standard
+    -DKCTSB_EXCEPTIONS        # Enable exceptions
+    # 兼容层：保持旧宏以支持未迁移代码
+    -DNTL_GMP_LIP
+    -DNTL_GF2X_LIB
+    -DNTL_THREADS
+    -DNTL_STD_CXX17
+    -DNTL_EXCEPTIONS
 )
 
-# Hardware feature defines based on compiler flags
+# Hardware feature defines (编译器自动检测，不需要 HAVE_*.h 文件)
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
     add_definitions(
+        -DKCTSB_HAVE_LL_TYPE
+        -DKCTSB_HAVE_BUILTIN_CLZL
+        -DKCTSB_HAVE_ALIGNED_ARRAY
+        -DKCTSB_HAVE_CHRONO_TIME
+        # 兼容层
         -DNTL_HAVE_LL_TYPE
         -DNTL_HAVE_BUILTIN_CLZL
         -DNTL_HAVE_ALIGNED_ARRAY
         -DNTL_HAVE_COPY_TRAITS1
+        -DNTL_HAVE_COPY_TRAITS2
+        -DNTL_HAVE_CHRONO_TIME
         -DNTL_HAVE_COPY_TRAITS2
         -DNTL_HAVE_CHRONO_TIME
     )
@@ -224,22 +243,25 @@ if(NOT MSVC)
 endif()
 
 # ============================================================================
-# Build Options
+# Build Options (v4.1.0 - 优化默认值)
 # ============================================================================
 
+# 默认构建共享库，不构建静态库（减小体积）
 option(KCTSB_BUILD_SHARED "Build shared library" ON)
-option(KCTSB_BUILD_STATIC "Build static library" ON)
-option(KCTSB_BUILD_TESTS "Build tests" ON)
-option(KCTSB_BUILD_BENCHMARKS "Build benchmarks" ON)
+option(KCTSB_BUILD_STATIC "Build static library" OFF)
+
+# 默认不构建测试（加快编译速度，使用 -DKCTSB_BUILD_TESTS=ON 显式启用）
+option(KCTSB_BUILD_TESTS "Build tests (use -DKCTSB_BUILD_TESTS=ON to enable)" OFF)
+option(KCTSB_BUILD_BENCHMARKS "Build benchmarks" OFF)
 option(KCTSB_BUILD_CLI "Build kctsb.exe CLI tool" ON)
 
-# Core dependencies (required)
+# Core dependencies (required - 动态链接)
 option(KCTSB_ENABLE_GMP "Enable GMP (required)" ON)
 option(KCTSB_ENABLE_GF2X "Enable gf2x (required for GF2X)" ON)
 
-# Optional dependencies (dynamic linking)
-option(KCTSB_ENABLE_SEAL "Enable Microsoft SEAL (dynamic)" OFF)
-option(KCTSB_ENABLE_HELIB "Enable HElib (dynamic)" OFF)
+# Optional dependencies (仅 benchmark 对比使用)
+option(KCTSB_ENABLE_SEAL "Enable Microsoft SEAL (benchmark only)" OFF)
+option(KCTSB_ENABLE_HELIB "Enable HElib (benchmark only)" OFF)
 
 # Benchmark-only dependency
 option(KCTSB_ENABLE_OPENSSL "Enable OpenSSL (benchmarks only)" ON)
@@ -278,7 +300,8 @@ macro(kctsb_find_thirdparty_inc OUT_VAR HEADER_FILE)
 endmacro()
 
 # -----------------------------------------------------------------------------
-# GMP Detection (Required - Static Linking)
+# GMP Detection (Required - v4.1.0)
+# 支持静态库(.a)和动态库(.dll/.so)两种模式
 # -----------------------------------------------------------------------------
 if(KCTSB_ENABLE_GMP)
     kctsb_find_thirdparty_inc(GMP_INCLUDE_DIRS gmp.h)
@@ -291,7 +314,13 @@ if(KCTSB_ENABLE_GMP)
         add_definitions(-DKCTSB_HAS_GMP)
         
         if(NOT TARGET GMP::GMP)
-            add_library(GMP::GMP STATIC IMPORTED)
+            # 检测是静态库还是动态库
+            get_filename_component(GMP_LIB_EXT "${GMP_LIBRARY}" EXT)
+            if(GMP_LIB_EXT STREQUAL ".a" OR GMP_LIB_EXT STREQUAL ".lib")
+                add_library(GMP::GMP STATIC IMPORTED)
+            else()
+                add_library(GMP::GMP SHARED IMPORTED)
+            endif()
             set_target_properties(GMP::GMP PROPERTIES
                 IMPORTED_LOCATION "${GMP_LIBRARY}"
                 INTERFACE_INCLUDE_DIRECTORIES "${GMP_INCLUDE_DIRS}")
@@ -300,30 +329,41 @@ if(KCTSB_ENABLE_GMP)
         if(GMPXX_LIBRARY)
             add_definitions(-DKCTSB_HAS_GMPXX)
             if(NOT TARGET GMP::GMPXX)
-                add_library(GMP::GMPXX STATIC IMPORTED)
+                get_filename_component(GMPXX_LIB_EXT "${GMPXX_LIBRARY}" EXT)
+                if(GMPXX_LIB_EXT STREQUAL ".a" OR GMPXX_LIB_EXT STREQUAL ".lib")
+                    add_library(GMP::GMPXX STATIC IMPORTED)
+                else()
+                    add_library(GMP::GMPXX SHARED IMPORTED)
+                endif()
                 set_target_properties(GMP::GMPXX PROPERTIES
                     IMPORTED_LOCATION "${GMPXX_LIBRARY}"
                     INTERFACE_INCLUDE_DIRECTORIES "${GMP_INCLUDE_DIRS}")
             endif()
         endif()
     else()
-        message(FATAL_ERROR "GMP not found. Required for kctsb v4.0.0")
+        message(FATAL_ERROR "GMP not found. Required for kctsb v4.1.0")
     endif()
 endif()
 
 # -----------------------------------------------------------------------------
-# gf2x Detection (Optional - Static Linking)
-# Bignum can use software fallback for GF2X if gf2x not available
+# gf2x Detection (Required - Dynamic Linking for v4.1.0)
 # -----------------------------------------------------------------------------
 if(KCTSB_ENABLE_GF2X)
-    # Also search in linux-x64 for cross-compile scenarios
     kctsb_find_thirdparty_inc(GF2X_INCLUDE_DIRS gf2x.h)
     if(NOT GF2X_INCLUDE_DIRS)
         find_path(GF2X_INCLUDE_DIRS gf2x.h
             HINTS "${KCTSB_THIRDPARTY_DIR}/linux-x64/include"
             NO_DEFAULT_PATH)
     endif()
-    kctsb_find_thirdparty_lib(GF2X_LIBRARY gf2x)
+    # 优先查找共享库
+    if(WIN32)
+        find_library(GF2X_LIBRARY NAMES libgf2x-1 gf2x libgf2x
+            HINTS "${KCTSB_THIRDPARTY_PLATFORM_DIR}/lib"
+                  "${KCTSB_THIRDPARTY_DIR}/lib"
+            NO_DEFAULT_PATH)
+    else()
+        kctsb_find_thirdparty_lib(GF2X_LIBRARY gf2x)
+    endif()
     if(NOT GF2X_LIBRARY)
         find_library(GF2X_LIBRARY NAMES gf2x libgf2x
             HINTS "${KCTSB_THIRDPARTY_DIR}/linux-x64/lib"
@@ -333,11 +373,16 @@ if(KCTSB_ENABLE_GF2X)
     if(GF2X_INCLUDE_DIRS AND GF2X_LIBRARY)
         set(GF2X_FOUND TRUE)
         message(STATUS "✓ gf2x found: ${GF2X_LIBRARY}")
-        # v4.0.1: Define both NTL_GF2X_LIB (legacy) and KCTSB_GF2X_LIB (new)
         add_definitions(-DKCTSB_HAS_GF2X -DNTL_GF2X_LIB -DKCTSB_GF2X_LIB)
         
         if(NOT TARGET gf2x::gf2x)
-            add_library(gf2x::gf2x STATIC IMPORTED)
+            # 检测是静态库还是动态库
+            get_filename_component(GF2X_LIB_EXT "${GF2X_LIBRARY}" EXT)
+            if(GF2X_LIB_EXT STREQUAL ".a" OR GF2X_LIB_EXT STREQUAL ".lib")
+                add_library(gf2x::gf2x STATIC IMPORTED)
+            else()
+                add_library(gf2x::gf2x SHARED IMPORTED)
+            endif()
             set_target_properties(gf2x::gf2x PROPERTIES
                 IMPORTED_LOCATION "${GF2X_LIBRARY}"
                 INTERFACE_INCLUDE_DIRECTORIES "${GF2X_INCLUDE_DIRS}")
@@ -350,25 +395,29 @@ if(KCTSB_ENABLE_GF2X)
 endif()
 
 # -----------------------------------------------------------------------------
-# SEAL Detection (Optional - Dynamic Linking)
+# SEAL Detection (Optional)
 # -----------------------------------------------------------------------------
 if(KCTSB_ENABLE_SEAL)
     find_path(SEAL_INCLUDE_DIRS seal/seal.h
         HINTS "${KCTSB_THIRDPARTY_PLATFORM_DIR}/include/SEAL-4.1"
               "${KCTSB_THIRDPARTY_DIR}/include/SEAL-4.1")
     
-    # Look for shared library
     find_library(SEAL_LIBRARY NAMES seal-4.1 seal
         HINTS "${KCTSB_THIRDPARTY_PLATFORM_DIR}/lib"
               "${KCTSB_THIRDPARTY_DIR}/lib")
     
     if(SEAL_INCLUDE_DIRS AND SEAL_LIBRARY)
         set(SEAL_FOUND TRUE)
-        message(STATUS "✓ SEAL found (dynamic): ${SEAL_LIBRARY}")
+        message(STATUS "✓ SEAL found: ${SEAL_LIBRARY}")
         add_definitions(-DKCTSB_HAS_SEAL)
         
         if(NOT TARGET SEAL::seal)
-            add_library(SEAL::seal SHARED IMPORTED)
+            get_filename_component(SEAL_LIB_EXT "${SEAL_LIBRARY}" EXT)
+            if(SEAL_LIB_EXT STREQUAL ".a" OR SEAL_LIB_EXT STREQUAL ".lib")
+                add_library(SEAL::seal STATIC IMPORTED)
+            else()
+                add_library(SEAL::seal SHARED IMPORTED)
+            endif()
             set_target_properties(SEAL::seal PROPERTIES
                 IMPORTED_LOCATION "${SEAL_LIBRARY}"
                 INTERFACE_INCLUDE_DIRECTORIES "${SEAL_INCLUDE_DIRS}")
@@ -380,7 +429,7 @@ if(KCTSB_ENABLE_SEAL)
 endif()
 
 # -----------------------------------------------------------------------------
-# HElib Detection (Optional - Dynamic Linking)
+# HElib Detection (Optional)
 # -----------------------------------------------------------------------------
 if(KCTSB_ENABLE_HELIB)
     kctsb_find_thirdparty_inc(HELIB_INCLUDE_DIRS helib/helib.h)
@@ -390,11 +439,16 @@ if(KCTSB_ENABLE_HELIB)
     
     if(HELIB_INCLUDE_DIRS AND HELIB_LIBRARY)
         set(HELIB_FOUND TRUE)
-        message(STATUS "✓ HElib found (dynamic): ${HELIB_LIBRARY}")
+        message(STATUS "✓ HElib found: ${HELIB_LIBRARY}")
         add_definitions(-DKCTSB_HAS_HELIB)
         
         if(NOT TARGET helib::helib)
-            add_library(helib::helib SHARED IMPORTED)
+            get_filename_component(HELIB_LIB_EXT "${HELIB_LIBRARY}" EXT)
+            if(HELIB_LIB_EXT STREQUAL ".a" OR HELIB_LIB_EXT STREQUAL ".lib")
+                add_library(helib::helib STATIC IMPORTED)
+            else()
+                add_library(helib::helib SHARED IMPORTED)
+            endif()
             set_target_properties(helib::helib PROPERTIES
                 IMPORTED_LOCATION "${HELIB_LIBRARY}"
                 INTERFACE_INCLUDE_DIRECTORIES "${HELIB_INCLUDE_DIRS}")
@@ -708,6 +762,33 @@ if(KCTSB_BUILD_SHARED)
     endif()
     find_package(Threads REQUIRED)
     target_link_libraries(kctsb_shared PUBLIC Threads::Threads)
+    
+    # v4.1.0: 构建后复制依赖 DLL 到输出目录
+    if(WIN32)
+        # 复制 GMP DLL
+        find_file(GMP_DLL NAMES libgmp-10.dll gmp.dll
+            HINTS "${KCTSB_THIRDPARTY_PLATFORM_DIR}/bin"
+                  "${KCTSB_THIRDPARTY_PLATFORM_DIR}/lib")
+        if(GMP_DLL)
+            add_custom_command(TARGET kctsb_shared POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    "${GMP_DLL}" $<TARGET_FILE_DIR:kctsb_shared>
+                COMMENT "Copying GMP DLL to output directory")
+        endif()
+        
+        # 复制 gf2x DLL
+        if(GF2X_FOUND)
+            find_file(GF2X_DLL NAMES libgf2x-1.dll gf2x.dll
+                HINTS "${KCTSB_THIRDPARTY_PLATFORM_DIR}/bin"
+                      "${KCTSB_THIRDPARTY_PLATFORM_DIR}/lib")
+            if(GF2X_DLL)
+                add_custom_command(TARGET kctsb_shared POST_BUILD
+                    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                        "${GF2X_DLL}" $<TARGET_FILE_DIR:kctsb_shared>
+                    COMMENT "Copying gf2x DLL to output directory")
+            endif()
+        endif()
+    endif()
 endif()
 
 # Aliases

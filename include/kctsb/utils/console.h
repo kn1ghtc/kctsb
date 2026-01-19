@@ -40,7 +40,7 @@ namespace utils {
  * - All platforms: sets the global locale to the user locale if available and
  *   imbues iostreams for consistent Unicode handling.
  */
-void enable_utf8_console();
+KCTSB_API void enable_utf8_console();
 
 } // namespace utils
 } // namespace kctsb

@@ -1,13 +1,13 @@
 ﻿# ============================================================================
 # kctsb Build Script for Windows (PowerShell)
-# Version: 3.4.2
+# Version: 4.1.0
 #
 # Features:
 # - Platform-specific thirdparty: thirdparty/win-x64/
-# - LTO enabled (GCC 11+/Clang/MSVC)
-# - Single-file distribution (libkctsb_bundled.a - default)
-# - Unified public API header (kctsb_api.h)
-# - Bundled library created automatically on every build
+# - LTO enabled (GCC 12+/Clang/MSVC)
+# - 动态库编译模式 (kctsb.dll + GMP/gf2x DLLs)
+# - Ninja + 并行8路构建
+# - 默认不构建测试（加快编译速度）
 # ============================================================================
 
 param(
@@ -18,7 +18,7 @@ param(
     [switch]$Install,
     [string]$InstallDir = "$PSScriptRoot\..\install",
     [switch]$Verbose,
-    [int]$Jobs = 0,
+    [int]$Jobs = 8,
     [switch]$All,
     [switch]$Release,
     [switch]$Help
@@ -31,7 +31,7 @@ $BuildType = if ($Debug) { "Debug" } else { "Release" }
 $BuildDir = if ($Debug) { Join-Path $ProjectDir "build" } else { Join-Path $ProjectDir "build-release" }
 $ReleaseDir = Join-Path $ProjectDir "release"
 $ThirdpartyDir = Join-Path $ProjectDir "thirdparty"
-$VERSION = "3.4.2"
+$VERSION = "4.1.0"
 $ARCH = $env:PROCESSOR_ARCHITECTURE
 $ARCH_SUFFIX = if ($ARCH -eq "AMD64") { "x64" } else { "arm64" }
 $PLATFORM_SUFFIX = "win-$ARCH_SUFFIX"
@@ -112,12 +112,15 @@ try {
     $CMakeArgs = @(
         "..",
         "-DCMAKE_BUILD_TYPE=$BuildType",
-        "-DKCTSB_BUILD_TESTS=ON",
-        "-DKCTSB_BUILD_EXAMPLES=ON",
+        "-DKCTSB_BUILD_SHARED=ON",
+        "-DKCTSB_BUILD_STATIC=OFF",
+        "-DKCTSB_BUILD_CLI=ON",
         "-DKCTSB_ENABLE_LTO=ON",
         "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
     )
 
+    # 默认不构建测试和 benchmark（加快编译速度）
+    if ($Test) { $CMakeArgs += "-DKCTSB_BUILD_TESTS=ON" }
     if ($Benchmark -or $Release) { $CMakeArgs += "-DKCTSB_BUILD_BENCHMARKS=ON" }
     if ($Install) { $CMakeArgs += "-DCMAKE_INSTALL_PREFIX=$InstallDir" }
 
@@ -155,97 +158,24 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "Build failed" }
     
     # ====================================================================
-    # Create bundled static library (always, single-file delivery)
+    # v4.1.0: 动态库模式 - DLL 已由 CMake POST_BUILD 自动复制
     # ====================================================================
-    Write-Host "   Creating bundled static library..." -ForegroundColor Yellow
-    
-    $staticLib = Join-Path $BuildDir "lib\libkctsb.a"
-    $bundledLib = Join-Path $BuildDir "lib\libkctsb_bundled.a"
-    
-    # Find ar tool
-    $AR = $null
-    $arPaths = @(
-        "C:\msys64\mingw64\bin\ar.exe",
-        "C:\msys64\usr\bin\ar.exe",
-        "C:\Strawberry\c\bin\ar.exe"
-    )
-    foreach ($arPath in $arPaths) {
-        if (Test-Path $arPath) { $AR = $arPath; break }
-    }
-    
-    if ($AR -and (Test-Path $staticLib)) {
-        # Collect all static libraries to bundle
-        $libsToBundle = @($staticLib)
+    $sharedLib = Join-Path $BuildDir "lib\kctsb.dll"
+    if (Test-Path $sharedLib) {
+        $sharedSize = (Get-Item $sharedLib).Length
+        $sharedSizeMB = [math]::Round($sharedSize / 1MB, 2)
+        Write-Host "   Created kctsb.dll ($sharedSizeMB MB)" -ForegroundColor Green
         
-        # Thirdparty libraries
-        $thirdpartyLibDirs = @(
-            (Join-Path $ThirdpartyPlatformDir "lib"),
-            (Join-Path $ThirdpartyDir "lib")
-        )
-        
-        $depLibs = @("libntl.a", "libgmp.a", "libgf2x.a", "libseal-4.1.a", "libhelib.a")
-        foreach ($libDir in $thirdpartyLibDirs) {
-            if (Test-Path $libDir) {
-                foreach ($depLib in $depLibs) {
-                    $depPath = Join-Path $libDir $depLib
-                    if ((Test-Path $depPath) -and ($libsToBundle -notcontains $depPath)) {
-                        $libsToBundle += $depPath
-                    }
-                }
+        # 列出输出目录中的 DLL
+        $libDir = Join-Path $BuildDir "lib"
+        $dlls = Get-ChildItem -Path $libDir -Filter "*.dll" 2>$null
+        if ($dlls.Count -gt 0) {
+            Write-Host "   Output DLLs:" -ForegroundColor Cyan
+            foreach ($dll in $dlls) {
+                $sizeMB = [math]::Round($dll.Length / 1MB, 2)
+                Write-Host "     - $($dll.Name) ($sizeMB MB)" -ForegroundColor Green
             }
         }
-        
-        if ($libsToBundle.Count -gt 1) {
-            # Create temp directory for extraction
-            $bundleTmpDir = Join-Path $BuildDir "bundle_tmp"
-            if (Test-Path $bundleTmpDir) {
-                Remove-Item -Recurse -Force $bundleTmpDir
-            }
-            New-Item -ItemType Directory -Path $bundleTmpDir | Out-Null
-            
-            Push-Location $bundleTmpDir
-            try {
-                $libIndex = 0
-                foreach ($lib in $libsToBundle) {
-                    $libName = [System.IO.Path]::GetFileNameWithoutExtension($lib)
-                    $prefix = "lib${libIndex}_"
-                    
-                    & $AR x $lib 2>$null
-                    
-                    # Rename extracted .o files with prefix
-                    Get-ChildItem -Filter "*.o" | Where-Object { $_.Name -notmatch "^lib\d+_" } | ForEach-Object {
-                        $newName = "${prefix}$($_.Name)"
-                        Rename-Item $_.FullName $newName
-                    }
-                    $libIndex++
-                }
-                
-                # Create bundled library
-                $objFiles = Get-ChildItem -Filter "*.o" | ForEach-Object { $_.Name }
-                
-                if ($objFiles.Count -gt 0) {
-                    & $AR rcs $bundledLib @objFiles 2>$null
-                    
-                    if (Test-Path $bundledLib) {
-                        $bundledSize = (Get-Item $bundledLib).Length
-                        $bundledSizeMB = [math]::Round($bundledSize / 1MB, 2)
-                        Write-Host "   ✓ Created libkctsb_bundled.a ($bundledSizeMB MB, $($objFiles.Count) objects)" -ForegroundColor Green
-                    }
-                }
-            }
-            finally {
-                Pop-Location
-                if (Test-Path $bundleTmpDir) {
-                    Remove-Item -Recurse -Force $bundleTmpDir
-                }
-            }
-        } else {
-            # No dependencies, just copy as bundled
-            Copy-Item $staticLib $bundledLib -Force
-            Write-Host "   ✓ Created libkctsb_bundled.a (no deps to bundle)" -ForegroundColor Green
-        }
-    } else {
-        Write-Host "   (ar not found or static lib missing)" -ForegroundColor Yellow
     }
     
     $STEP++

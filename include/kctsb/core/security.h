@@ -20,6 +20,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
+// Import KCTSB_API for symbol export/import in shared library builds
+#include "kctsb/core/common.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -35,7 +38,7 @@ extern "C" {
  * @param len Number of bytes to compare
  * @return 0 if equal, non-zero if different (but NOT the position of difference)
  */
-int kctsb_secure_compare(const void* a, const void* b, size_t len);
+KCTSB_API int kctsb_secure_compare(const void* a, const void* b, size_t len);
 
 /**
  * @brief Constant-time conditional select
@@ -48,7 +51,7 @@ int kctsb_secure_compare(const void* a, const void* b, size_t len);
  * @param b Value returned if condition is non-zero
  * @return Selected value
  */
-uint64_t kctsb_ct_select(uint64_t condition, uint64_t a, uint64_t b);
+KCTSB_API uint64_t kctsb_ct_select(uint64_t condition, uint64_t a, uint64_t b);
 
 /**
  * @brief Constant-time conditional swap
@@ -59,7 +62,7 @@ uint64_t kctsb_ct_select(uint64_t condition, uint64_t a, uint64_t b);
  * @param a Pointer to first value
  * @param b Pointer to second value
  */
-void kctsb_ct_swap(uint64_t condition, uint64_t* a, uint64_t* b);
+KCTSB_API void kctsb_ct_swap(uint64_t condition, uint64_t* a, uint64_t* b);
 
 /**
  * @brief Secure memory zeroing
@@ -70,7 +73,7 @@ void kctsb_ct_swap(uint64_t condition, uint64_t* a, uint64_t* b);
  * @param ptr Pointer to memory to zero
  * @param len Number of bytes to zero
  */
-void kctsb_secure_zero(void* ptr, size_t len);
+KCTSB_API void kctsb_secure_zero(void* ptr, size_t len);
 
 /**
  * @brief Secure memory copy
@@ -83,7 +86,7 @@ void kctsb_secure_zero(void* ptr, size_t len);
  * @param count Number of bytes to copy
  * @return 0 on success, non-zero on error (buffer overflow would occur)
  */
-int kctsb_secure_copy(void* dest, size_t dest_size, const void* src, size_t count);
+KCTSB_API int kctsb_secure_copy(void* dest, size_t dest_size, const void* src, size_t count);
 
 /**
  * @brief Cryptographically secure random bytes
@@ -100,7 +103,7 @@ int kctsb_secure_copy(void* dest, size_t dest_size, const void* src, size_t coun
 #ifndef KCTSB_RANDOM_BYTES_DECLARED
 #define KCTSB_RANDOM_BYTES_DECLARED
 /* Forward declare return type for C linkage compatibility */
-int kctsb_random_bytes(void* buf, size_t len);
+KCTSB_API int kctsb_random_bytes(void* buf, size_t len);
 #endif
 
 /**
@@ -108,14 +111,14 @@ int kctsb_random_bytes(void* buf, size_t len);
  * 
  * @return Cryptographically secure random 32-bit value
  */
-uint32_t kctsb_random_uint32(void);
+KCTSB_API uint32_t kctsb_random_uint32(void);
 
 /**
  * @brief Generate random uint64_t
  * 
  * @return Cryptographically secure random 64-bit value
  */
-uint64_t kctsb_random_uint64(void);
+KCTSB_API uint64_t kctsb_random_uint64(void);
 
 /**
  * @brief Generate random bytes in range [0, max)
@@ -126,7 +129,7 @@ uint64_t kctsb_random_uint64(void);
  * @param max Upper bound (exclusive)
  * @return Random value in [0, max)
  */
-uint64_t kctsb_random_uniform(uint64_t max);
+KCTSB_API uint64_t kctsb_random_uniform(uint64_t max);
 
 /**
  * @brief Check if running in secure execution environment
@@ -138,7 +141,7 @@ uint64_t kctsb_random_uniform(uint64_t max);
  * 
  * @return Bitmask of security features detected
  */
-uint32_t kctsb_security_check(void);
+KCTSB_API uint32_t kctsb_security_check(void);
 
 // Security check flags
 #define KCTSB_SEC_ASLR_ENABLED       (1U << 0)
@@ -151,17 +154,17 @@ uint32_t kctsb_security_check(void);
 /**
  * @brief Memory barrier to prevent compiler/CPU reordering
  */
-void kctsb_memory_barrier(void);
+KCTSB_API void kctsb_memory_barrier(void);
 
 /**
  * @brief Acquire memory fence
  */
-void kctsb_fence_acquire(void);
+KCTSB_API void kctsb_fence_acquire(void);
 
 /**
  * @brief Release memory fence
  */
-void kctsb_fence_release(void);
+KCTSB_API void kctsb_fence_release(void);
 
 #ifdef __cplusplus
 } // extern "C"

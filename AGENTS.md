@@ -1,9 +1,9 @@
 # AGENTS.md - kctsb AI Development Guidelines
 
 > **项目**: kctsb - Knight's Cryptographic Trusted Security Base  
-> **版本**: 4.0.1  
-> **更新时间**: 2026-01-17 (Beijing Time, UTC+8)  
-> **重大变更**: AES 安全加固 (T-table 移除, constexpr S-Box), 单文件静态库交付
+> **版本**: 4.1.0  
+> **更新时间**: 2026-01-19 (Beijing Time, UTC+8)  
+> **重大变更**: NTL源码完全集成、动态库编译模式、编译优化
 
 ---
 
@@ -13,9 +13,75 @@ kctsb (Knight's Cryptographic Trusted Security Base) 是一个**生产级**跨�
 
 ---
 
-## 🔐 v3.4.2 安全更新
+## 🚀 v4.1.0 架构变更 (2026-01-19)
 
-### AES 侧信道防护 (2026-01-17)
+### 1. NTL 源码完全集成
+
+- 原 NTL 库源码已完全集成到 `src/math/bignum/` 目录
+- 所有 `NTL_*` 宏逐步迁移为 `KCTSB_*` 前缀（保持兼容层）
+- 删除浮点精度模块（RR、xdouble、quad_float）- kctsb 只使用整数运算
+- 头文件从 117 个精简到 ~90 个
+
+### 2. 动态库编译模式
+
+**v4.1.0 不再使用单文件静态库，改为动态库链接：**
+
+```
+build/lib/
+├── kctsb.dll / libkctsb.so   # kctsb 共享库
+├── libgmp-10.dll             # GMP 共享库 (从 thirdparty 复制)
+└── libgf2x-1.dll             # gf2x 共享库 (从 thirdparty 复制)
+```
+
+**使用方式：**
+
+```bash
+# 编译链接
+g++ -o myapp myapp.cpp -L./lib -lkctsb -lstdc++
+
+# 运行时确保 DLL 在同一目录或 PATH 中
+# Windows: kctsb.dll, libgmp-10.dll, libgf2x-1.dll
+# Linux: libkctsb.so, libgmp.so, libgf2x.so
+```
+
+**thirdparty 动态库搜索顺序：**
+1. `${CMAKE_BINARY_DIR}/lib` (构建输出目录)
+2. `thirdparty/${PLATFORM}/lib` (预编译库)
+3. 系统 PATH
+
+### 3. 编译优化
+
+| 特性 | 配置 | 说明 |
+|------|------|------|
+| 构建系统 | Ninja (推荐) | `cmake -G Ninja` |
+| 并行构建 | 8 路 | `CMAKE_BUILD_PARALLEL_LEVEL=8` |
+| 增量编译 | 启用 | 仅重编译修改的文件 |
+| 默认测试 | 关闭 | 使用 `-DKCTSB_BUILD_TESTS=ON` 启用 |
+| 默认 benchmark | 关闭 | 使用 `-DKCTSB_BUILD_BENCHMARKS=ON` 启用 |
+
+**快速构建命令：**
+
+```powershell
+# Windows (PowerShell) - 推荐使用 Ninja
+cd D:\pyproject\kctsb
+cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel 8
+
+# 构建并测试
+cmake -B build -G Ninja -DKCTSB_BUILD_TESTS=ON
+cmake --build build --parallel 8
+ctest --test-dir build --output-on-failure
+```
+
+### 4. SEAL/HElib 仅用于 Benchmark
+
+- SEAL 和 HElib 不再默认编译到 kctsb
+- 仅在 benchmark 模式下作为性能对比参考
+- 预编译库放在 `thirdparty/${PLATFORM}/lib/`
+
+---
+
+## 🔐 AES 安全加固 (保留自 v3.4.2)
 
 **移除 T-table 查找表，防止缓存时序攻击：**
 
@@ -23,9 +89,6 @@ kctsb (Knight's Cryptographic Trusted Security Base) 是一个**生产级**跨�
 |------|------|------|
 | `Te0-Te3` 查找表 | ❌ 已移除 | 原用于 AES 加密的 4KB T-table |
 | `Te4` (S-Box table) | ❌ 已移除 | 原用于最后一轮的 S-Box 查找 |
-| `TTABLE_RCON` | ❌ 已移除 | 原用于密钥扩展的轮常量 |
-| `ttable_key_expansion()` | ❌ 已移除 | 基于 T-table 的密钥扩展 |
-| `ttable_encrypt_block()` | ❌ 已移除 | 基于 T-table 的块加密 |
 
 **新增 constexpr S-Box 编译期生成：**
 
@@ -47,31 +110,9 @@ static constexpr std::array<uint8_t, 256> AES_SBOX_INV = generate_aes_inv_sbox()
 | AES-NI | x86_64 + AES-NI | 常量时间 (硬件保证) | ~1.6-1.8 GB/s |
 | 软件后备 | 任意 CPU | 常量时间 (无 T-table) | ~300-500 MB/s |
 
-### 单文件静态库交付 (2026-01-17)
-
-**新增 bundled 静态库，包含所有依赖：**
-
-```
-release/{platform}/lib/
-├── libkctsb.a              # 独立库 (需要 NTL/GMP)
-├── libkctsb_bundled.a      # 单文件库 (包含 NTL/GMP/SEAL)
-└── libkctsb.dll/.so/.dylib # 动态库
-```
-
-**使用方式：**
-
-```bash
-# Option 1: 使用 bundled 库 (单文件，无外部依赖)
-g++ -o myapp myapp.cpp -lkctsb_bundled -lstdc++ -lbcrypt  # Windows
-g++ -o myapp myapp.cpp -lkctsb_bundled -lstdc++ -lpthread # Linux
-
-# Option 2: 使用独立库 (需要链接依赖)
-g++ -o myapp myapp.cpp -lkctsb -lntl -lgmp -lstdc++
-```
-
 ---
 
-## ⚡ 三大开发原则 (v3.4.0+)
+## ⚡ 三大开发原则 (v4.1.0+)
 
 ### 🥇 第一原则：C++ Core + C ABI 封装
 

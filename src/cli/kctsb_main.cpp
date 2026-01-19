@@ -46,7 +46,7 @@ void cmd_help();
 
 // Version information
 constexpr const char* KCTSB_VERSION_CLI = KCTSB_VERSION_STRING;
-constexpr const char* KCTSB_BUILD_DATE = "2026-01-14";
+constexpr const char* KCTSB_BUILD_DATE = "2026-01-19";
 
 /**
  * @brief Print general usage information
@@ -75,9 +75,9 @@ void print_usage() {
  */
 void cmd_version() {
     std::cout << "\n";
-    std::cout << "╔════════════════════════════════════════════════════════════════╗\n";
-    std::cout << "║  kctsb - Knight's Cryptographic Trusted Security Base         ║\n";
-    std::cout << "╚════════════════════════════════════════════════════════════════╝\n";
+    std::cout << "+------------------------------------------------------------------+\n";
+    std::cout << "|  kctsb - Knight's Cryptographic Trusted Security Base           |\n";
+    std::cout << "+------------------------------------------------------------------+\n";
     std::cout << "\n";
     std::cout << "Version:      " << KCTSB_VERSION_CLI << "\n";
     std::cout << "Build Date:   " << KCTSB_BUILD_DATE << " (Beijing Time, UTC+8)\n";
@@ -85,20 +85,35 @@ void cmd_version() {
     std::cout << "Author:       kctsb Development Team\n";
     std::cout << "\n";
     std::cout << "Supported Algorithms:\n";
-    std::cout << "  - AES-128/192/256 (ECB, CBC, GCM)\n";
+    std::cout << "  [Symmetric Encryption]\n";
+    std::cout << "  - AES-128/192/256 (ECB, CBC, GCM) with AES-NI acceleration\n";
     std::cout << "  - ChaCha20-Poly1305 AEAD\n";
-    std::cout << "  - SHA-256, SHA3-256, BLAKE2b\n";
-    std::cout << "  - RSA-2048/4096 (OAEP, PSS)\n";
-    std::cout << "  - ECC (ECDH, ECDSA, secp256k1, P-256)\n";
+    std::cout << "  - SM4 (Chinese National Standard)\n";
+    std::cout << "\n";
+    std::cout << "  [Hash Functions]\n";
+    std::cout << "  - SHA-256, SHA-512 (SHA-2 family)\n";
+    std::cout << "  - SHA3-256, SHA3-512 (Keccak)\n";
+    std::cout << "  - BLAKE2b-256, BLAKE2b-512\n";
+    std::cout << "  - SM3 (Chinese National Standard)\n";
+    std::cout << "\n";
+    std::cout << "  [Asymmetric Cryptography]\n";
+    std::cout << "  - RSA-2048/3072/4096 (OAEP, PSS)\n";
+    std::cout << "  - ECDSA/ECDH (secp256k1, P-256, P-384)\n";
+    std::cout << "  - SM2 (Chinese National Standard)\n";
+    std::cout << "\n";
+    std::cout << "  [Advanced]\n";
+    std::cout << "  - Zero-Knowledge Proofs (Schnorr, Bulletproofs)\n";
+    std::cout << "  - Secret Sharing (Shamir's SSS)\n";
+    std::cout << "  - Lattice Crypto (LLL, HNF)\n";
     std::cout << "\n";
     std::cout << "Dependencies:\n";
-    std::cout << "  - bignum 11.6.0 (bignum module)\n";
-    std::cout << "  - GMP 6.3.0 (GNU Multiple Precision Arithmetic)\n";
-#ifdef KCTSB_ENABLE_SEAL
+    std::cout << "  - GMP 6.3.0+ (High-precision arithmetic)\n";
+    std::cout << "  - gf2x 1.3.0+ (GF(2)[X] polynomial operations)\n";
+#ifdef KCTSB_HAS_SEAL
     std::cout << "  - Microsoft SEAL 4.1.2 (Homomorphic Encryption)\n";
 #endif
-#ifdef KCTSB_ENABLE_OPENSSL
-    std::cout << "  - OpenSSL 3.6.0 (for benchmarking)\n";
+#ifdef KCTSB_BENCHMARK_HAS_OPENSSL
+    std::cout << "  - OpenSSL 3.6.0+ (Benchmark comparison only)\n";
 #endif
     std::cout << "\n";
 }

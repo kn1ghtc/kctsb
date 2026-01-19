@@ -4,18 +4,15 @@
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](.)
 [![C++](https://img.shields.io/badge/C++-17-blue.svg)](.)
 [![CMake](https://img.shields.io/badge/CMake-3.20+-green.svg)](.)
-[![Version](https://img.shields.io/badge/Version-4.0.1-brightgreen.svg)](.)
+[![Version](https://img.shields.io/badge/Version-4.0.2-brightgreen.svg)](.)
 
 **kctsb** 是一个跨平台的 C/C++ 密码学和安全算法库，专为生产环境和安全研究设计。目标是成为 **OpenSSL 的现代替代品**。
 
-> **v4.0.1 更新** (2026年1月19日):  
-> - ✅ **NTL源码集成**: 移除外部NTL依赖，76个cpp文件、117个头文件集成到kctsb命名空间
-> - ✅ **GMP Nail Bits修复**: 修复KCTSB_ZZ_NBITS配置（60→64），解决256位数解析丢失12位问题
-> - ✅ **SM2完全功能恢复**: Sign/Verify/Encrypt/Decrypt全部正常（17-18% OpenSSL性能，优化路线图已定义）
-> - ✅ **100%测试通过**: 169/169测试用例全部通过
-> - ✅ **RSA-2048 PSS Verify超越OpenSSL**: 102.2%性能比率
-> - ✅ **Benchmark报告**: 完整非对称算法基线分析，见docs/benchmark-analysis/
-> - 📊 **依赖链简化**: kctsb → GMP 6.3.0 → gf2x 1.3.0（源码编译，thirdparty/）
+> **v4.0.2 更新** (2026年1月21日):  
+> - 🚀 **AES-GCM性能优化**: 10MB数据 AES-256-GCM达87%、AES-128-GCM达91% of OpenSSL
+> - 🚀 **SM4-GCM升级**: 8块并行CTR(128字节/批)，优化process_8blocks函数
+> - 📦 **lip.cpp瘦身**: 重命名为kcgmp.cpp，从9342行精简至6649行(删除非GMP代码)
+> - ✅ **测试全通过**: 169/169测试用例
 
 ## ✨ 特性
 
