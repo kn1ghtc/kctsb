@@ -113,6 +113,10 @@ ZZ bytes_to_zz(const uint8_t* data, size_t len) {
 
 /**
  * @brief Convert bignum ZZ to byte array (big-endian, fixed length)
+ * 
+ * This function manually extracts bytes to avoid issues with the bignum
+ * library's BytesFromZZ which has assumptions about internal limb storage.
+ * 
  * @param z ZZ value
  * @param out Output buffer
  * @param len Output length
@@ -120,13 +124,13 @@ ZZ bytes_to_zz(const uint8_t* data, size_t len) {
 void zz_to_bytes(const ZZ& z, uint8_t* out, size_t len) {
     std::memset(out, 0, len);
     
-    // Get byte representation using bignum's built-in (little-endian)
-    std::vector<uint8_t> tmp(len);
-    BytesFromZZ(tmp.data(), z, static_cast<long>(len));
-    
-    // Reverse to big-endian
-    for (size_t i = 0; i < len; i++) {
-        out[i] = tmp[len - 1 - i];
+    // Manual extraction: extract bytes from lowest to highest
+    ZZ tmp = z;
+    for (size_t i = 0; i < len && !IsZero(tmp); i++) {
+        // Get lowest byte
+        long byte_val = to_long(tmp % 256);
+        out[len - 1 - i] = static_cast<uint8_t>(byte_val);
+        tmp >>= 8;
     }
 }
 

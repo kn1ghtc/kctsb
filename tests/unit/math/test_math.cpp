@@ -330,3 +330,102 @@ TEST_F(MathTest, Statistics_StdDev) {
 
     EXPECT_DOUBLE_EQ(std::sqrt(4.0), stddev);
 }
+
+#ifdef KCTSB_HAS_BIGNUM_MODULES
+/**
+ * @brief Test ZZ decimal string parsing
+ * 
+ * This tests that conv<ZZ>(const char*) correctly parses large decimal strings.
+ * SM2 curve parameters depend on this working correctly.
+ */
+TEST_F(MathTest, ZZ_DecimalStringParsing) {
+    using namespace kctsb;
+    
+    // Print configuration
+    std::cout << "KCTSB_BITS_PER_LONG: " << KCTSB_BITS_PER_LONG << std::endl;
+    std::cout << "KCTSB_BITS_PER_LIMB_T: " << KCTSB_BITS_PER_LIMB_T << std::endl;
+    std::cout << "KCTSB_ZZ_NBITS: " << KCTSB_ZZ_NBITS << std::endl;
+    
+    // Test 1: Small number
+    ZZ z1 = conv<ZZ>("255");
+    EXPECT_EQ(NumBits(z1), 8) << "255 should be 8 bits";
+    EXPECT_EQ(to_long(z1), 255L);
+    
+    // Test 2: Medium number
+    ZZ z2 = conv<ZZ>("4294967295");  // 2^32 - 1
+    std::cout << "z2 = 4294967295, NumBits = " << NumBits(z2) << std::endl;
+    EXPECT_EQ(NumBits(z2), 32) << "2^32-1 should be 32 bits";
+    
+    // Test 3: Larger number just above 32 bits
+    ZZ z3 = conv<ZZ>("4294967296");  // 2^32
+    std::cout << "z3 = 4294967296, NumBits = " << NumBits(z3) << std::endl;
+    EXPECT_EQ(NumBits(z3), 33) << "2^32 should be 33 bits";
+    
+    // Test 4: Number around 60-bit boundary
+    ZZ z4 = conv<ZZ>("1152921504606846976");  // 2^60
+    std::cout << "z4 = 2^60, NumBits = " << NumBits(z4) << std::endl;
+    EXPECT_EQ(NumBits(z4), 61) << "2^60 should be 61 bits";
+    
+    // Test 4b: 120 bits
+    ZZ z4b = conv<ZZ>("1329227995784915872903807060280344576");  // 2^120
+    std::cout << "z4b = 2^120, NumBits = " << NumBits(z4b) << std::endl;
+    EXPECT_EQ(NumBits(z4b), 121) << "2^120 should be 121 bits";
+    
+    // Test 4c: 180 bits
+    ZZ z4c = conv<ZZ>("1532495540865888858358347027150309183618739122183602176");  // 2^180
+    std::cout << "z4c = 2^180, NumBits = " << NumBits(z4c) << std::endl;
+    EXPECT_EQ(NumBits(z4c), 181) << "2^180 should be 181 bits";
+    
+    // Test 4d: 240 bits  
+    ZZ z4d = conv<ZZ>("1766847064778384329583297500742918515827483896875618958121606201292619776");  // 2^240
+    std::cout << "z4d = 2^240, NumBits = " << NumBits(z4d) << std::endl;
+    EXPECT_EQ(NumBits(z4d), 241) << "2^240 should be 241 bits";
+    
+    // Test 5: Large number (SM2 p parameter)
+    const char* sm2_p = "115792089210356248756420345214020892766250353991924191454421193933289684991999";
+    ZZ p = conv<ZZ>(sm2_p);
+    
+    std::cout << "SM2 p, NumBits = " << NumBits(p) << std::endl;
+    EXPECT_EQ(NumBits(p), 256) << "SM2 p should be 256 bits, but got " << NumBits(p);
+    
+    // Verify specific bytes using BytesFromZZ
+    uint8_t p_bytes[32];
+    BytesFromZZ(p_bytes, p, 32);
+    
+    // p in big-endian: FFFFFFFE FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF 00000000 FFFFFFFF FFFFFFFF
+    // BytesFromZZ outputs little-endian, so index 0 is the LSB
+    // LSB is 0xFF (from the rightmost FFFFFFFF)
+    EXPECT_EQ(p_bytes[0], 0xFF) << "LSB of p should be 0xFF";
+    EXPECT_EQ(p_bytes[7], 0xFF) << "Byte 7 of p should be 0xFF";
+    // Bytes 8-11 should be 0x00 (from 00000000 block)
+    EXPECT_EQ(p_bytes[8], 0x00) << "Byte 8 of p should be 0x00";
+    EXPECT_EQ(p_bytes[9], 0x00) << "Byte 9 of p should be 0x00";
+    
+    // Test 6: SM2 n parameter
+    const char* sm2_n = "115792089210356248756420345214020892766061623724957744567843809356293439045923";
+    ZZ n = conv<ZZ>(sm2_n);
+    std::cout << "SM2 n, NumBits = " << NumBits(n) << std::endl;
+    EXPECT_EQ(NumBits(n), 256) << "SM2 n should be 256 bits, but got " << NumBits(n);
+}
+
+/**
+ * @brief Test ZZ arithmetic after string parsing
+ */
+TEST_F(MathTest, ZZ_ArithmeticAfterParsing) {
+    using namespace kctsb;
+    
+    // Parse large numbers and perform arithmetic
+    ZZ a = conv<ZZ>("1000000000000000000");  // 10^18
+    ZZ b = conv<ZZ>("2000000000000000000");  // 2*10^18
+    
+    ZZ c = a + b;
+    ZZ expected = conv<ZZ>("3000000000000000000");  // 3*10^18
+    
+    EXPECT_EQ(c, expected) << "ZZ addition should work correctly";
+    
+    // Test multiplication
+    ZZ d = conv<ZZ>("1000000000");  // 10^9
+    ZZ e = d * d;  // 10^18
+    EXPECT_EQ(e, a) << "ZZ multiplication should work correctly";
+}
+#endif

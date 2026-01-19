@@ -24,12 +24,47 @@
 // ============================================================================
 
 // mp_limb_t is the fundamental limb type in GMP
-// This should match the platform word size
+// This MUST match GMP's actual limb size, not the platform long size
+// On Windows LLP64: long=32bit, but GMP uses 64-bit limbs on x64
 
-#if GMP_LIMB_BITS == 64
-    #define KCTSB_BITS_PER_LIMB_T 64
+#ifndef KCTSB_BITS_PER_LIMB_T
+    #if GMP_LIMB_BITS == 64
+        #define KCTSB_BITS_PER_LIMB_T 64
+    #else
+        #define KCTSB_BITS_PER_LIMB_T 32
+    #endif
 #else
-    #define KCTSB_BITS_PER_LIMB_T 32
+    // Already defined - verify consistency with GMP
+    #if defined(GMP_LIMB_BITS) && (KCTSB_BITS_PER_LIMB_T != GMP_LIMB_BITS)
+        // Override with GMP's actual value for correct interop
+        #undef KCTSB_BITS_PER_LIMB_T
+        #define KCTSB_BITS_PER_LIMB_T GMP_LIMB_BITS
+    #endif
+#endif
+
+// ============================================================================
+// Critical: KCTSB_ZZ_NBITS must match GMP's actual numb bits
+// ============================================================================
+// GMP_NUMB_BITS = GMP_LIMB_BITS - GMP_NAIL_BITS
+// On most systems: GMP_NAIL_BITS = 0, so GMP_NUMB_BITS = GMP_LIMB_BITS = 64
+// NTL originally used nail bits (4 reserved bits), but GMP does not!
+// If we're using GMP, we MUST use GMP's actual numb bits to avoid data loss.
+
+#ifdef KCTSB_ZZ_NBITS
+    // Check if current value matches GMP - if not, warn or override
+    #if (KCTSB_ZZ_NBITS != GMP_NUMB_BITS)
+        #undef KCTSB_ZZ_NBITS
+    #endif
+#endif
+
+#ifndef KCTSB_ZZ_NBITS
+    // Use GMP's actual numb bits (typically 64 on 64-bit, 32 on 32-bit)
+    #define KCTSB_ZZ_NBITS GMP_NUMB_BITS
+#endif
+
+// Verify consistency: KCTSB_ZZ_NBITS should equal GMP_NUMB_BITS
+#if (KCTSB_ZZ_NBITS != GMP_NUMB_BITS)
+    #error "KCTSB_ZZ_NBITS must equal GMP_NUMB_BITS when using GMP backend"
 #endif
 
 // ============================================================================

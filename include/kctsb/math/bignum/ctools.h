@@ -297,7 +297,9 @@ extern unsigned long exception_counter;
 
 
 
+#ifndef KCTSB_MAX_ALLOC_BLOCK
 #define KCTSB_MAX_ALLOC_BLOCK (40000)
+#endif
 
 /*
  * KCTSB_MAX_ALLOC_BLOCK is the number of bytes that are allocated in
@@ -354,7 +356,9 @@ extern unsigned long exception_counter;
 #endif
 
 
+#ifndef KCTSB_RELEASE_THRESH
 #define KCTSB_RELEASE_THRESH (128)
+#endif
 
 /*
  * threshold for releasing scratch memory.

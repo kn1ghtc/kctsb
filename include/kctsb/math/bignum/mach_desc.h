@@ -131,23 +131,42 @@
 #endif
 
 // ============================================================================
-// ZZ Configuration - Match KCTSB_BITS_PER_LONG
+// ZZ Configuration - Match GMP's actual numb bits
 // ============================================================================
 // KCTSB_ZZ_NBITS defines the number of bits used per word in ZZ operations.
-// It MUST be <= KCTSB_BITS_PER_LONG - 2 to avoid overflow.
+// 
+// CRITICAL: When using GMP backend (KCTSB_GMP_LIP), this MUST match GMP_NUMB_BITS!
+// - GMP typically uses GMP_NUMB_BITS = GMP_LIMB_BITS (no nail bits, GMP_NAIL_BITS=0)
+// - On 64-bit systems: GMP_NUMB_BITS = 64
+// - On 32-bit systems: GMP_NUMB_BITS = 32
+//
+// NTL originally used 4 nail bits for carry detection, but GMP does not!
+// Using 60 bits when GMP uses 64 bits causes data corruption (12 bits lost
+// per 256-bit number, causing SM2/ECC failures).
 
-#if KCTSB_BITS_PER_LONG >= 64
-    // 64-bit long: use 60 bits per word
+#if KCTSB_BITS_PER_LIMB_T >= 64
+    // 64-bit limbs (GMP on x64, including Windows LLP64)
+    // Use full 64 bits when GMP backend is used (no nail bits)
     #ifndef KCTSB_ZZ_NBITS
-    #define KCTSB_ZZ_NBITS 60
+        #ifdef KCTSB_GMP_LIP
+            // GMP mode: use full limb width (GMP_NAIL_BITS is typically 0)
+            #define KCTSB_ZZ_NBITS 64
+        #else
+            // Non-GMP mode: use 60 bits (4 nail bits for overflow detection)
+            #define KCTSB_ZZ_NBITS 60
+        #endif
     #endif
     #ifndef KCTSB_NBITS_MAX
     #define KCTSB_NBITS_MAX 62
     #endif
 #else
-    // 32-bit long (including Windows LLP64): use 30 bits per word
+    // 32-bit limbs: use 30 bits per word (2 nail bits)
     #ifndef KCTSB_ZZ_NBITS
-    #define KCTSB_ZZ_NBITS 30
+        #ifdef KCTSB_GMP_LIP
+            #define KCTSB_ZZ_NBITS 32
+        #else
+            #define KCTSB_ZZ_NBITS 30
+        #endif
     #endif
     #ifndef KCTSB_NBITS_MAX
     #define KCTSB_NBITS_MAX 30

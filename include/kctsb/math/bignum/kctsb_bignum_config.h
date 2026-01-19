@@ -143,19 +143,39 @@
 #endif
 
 // GMP limb configuration
+// Note: KCTSB_BITS_PER_LIMB_T should match GMP's mp_limb_t size
+// On Windows x64 (LLP64): long=32bit, but GMP uses 64-bit limbs
+// The actual value is set in gmp_aux.h based on GMP_LIMB_BITS
+// Here we only provide a fallback if GMP headers haven't been included yet
 #ifndef KCTSB_BITS_PER_LIMB_T
-    #if KCTSB_BITS_PER_LONG == 64
+    // Fallback: assume 64-bit on 64-bit platforms, 32-bit otherwise
+    #if defined(__x86_64__) || defined(_M_X64) || defined(__aarch64__) || defined(_M_ARM64)
         #define KCTSB_BITS_PER_LIMB_T 64
     #else
         #define KCTSB_BITS_PER_LIMB_T 32
     #endif
 #endif
 
+// ZZ internal representation bits
+// CRITICAL: When using GMP backend (KCTSB_GMP_LIP), this MUST match GMP_NUMB_BITS!
+// GMP typically uses full limb width (no nail bits), so:
+// - 64-bit: KCTSB_ZZ_NBITS = 64
+// - 32-bit: KCTSB_ZZ_NBITS = 32
+// This is now set correctly in mach_desc.h based on KCTSB_GMP_LIP flag.
+// The fallback here is only used if mach_desc.h hasn't been included.
 #ifndef KCTSB_ZZ_NBITS
-    #if KCTSB_BITS_PER_LONG == 64
-        #define KCTSB_ZZ_NBITS 60
+    #if KCTSB_BITS_PER_LIMB_T == 64
+        #ifdef KCTSB_GMP_LIP
+            #define KCTSB_ZZ_NBITS 64
+        #else
+            #define KCTSB_ZZ_NBITS 60
+        #endif
     #else
-        #define KCTSB_ZZ_NBITS 30
+        #ifdef KCTSB_GMP_LIP
+            #define KCTSB_ZZ_NBITS 32
+        #else
+            #define KCTSB_ZZ_NBITS 30
+        #endif
     #endif
 #endif
 

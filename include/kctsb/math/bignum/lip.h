@@ -126,11 +126,18 @@ typedef _kctsb_gbigint_body *_kctsb_gbigint;
 #define KCTSB_FRADIX ((double) KCTSB_RADIX)
 #define KCTSB_FRADIX_INV  (((double) 1.0)/((double) KCTSB_RADIX))
 
+// These are now defined in kctsb_bignum_config.h and gmp_aux.h
+// Do NOT redefine them here - they must match GMP's limb size
+// #define KCTSB_BITS_PER_LIMB_T KCTSB_BITS_PER_LONG  // WRONG for GMP mode
+// #define KCTSB_ZZ_NBITS KCTSB_NBITS                 // WRONG - see kctsb_bignum_config.h
 
-#define KCTSB_BITS_PER_LIMB_T KCTSB_BITS_PER_LONG
-#define KCTSB_ZZ_NBITS KCTSB_NBITS
-#define KCTSB_ZZ_FRADIX ((double) (1L << KCTSB_NBITS))
-#define KCTSB_ZZ_WIDE_FRADIX ((double) (1L << KCTSB_NBITS))
+// Fallback only if not already defined (should come from config/gmp_aux.h)
+#ifndef KCTSB_ZZ_FRADIX
+    #define KCTSB_ZZ_FRADIX ((double) (1ULL << KCTSB_ZZ_NBITS))
+#endif
+#ifndef KCTSB_ZZ_WIDE_FRADIX
+    #define KCTSB_ZZ_WIDE_FRADIX ((double) (1ULL << KCTSB_ZZ_NBITS))
+#endif
 
 #define KCTSB_SP_NBITS KCTSB_NBITS
 #define KCTSB_SP_BOUND (1L << KCTSB_SP_NBITS)
@@ -139,7 +146,7 @@ typedef _kctsb_gbigint_body *_kctsb_gbigint;
 #define KCTSB_NSP_BOUND (1L << KCTSB_NSP_NBITS)
 
 #define KCTSB_WSP_NBITS KCTSB_ZZ_NBITS
-#define KCTSB_WSP_BOUND (1L << KCTSB_WSP_NBITS)
+#define KCTSB_WSP_BOUND (1ULL << KCTSB_WSP_NBITS)
 
 
 
