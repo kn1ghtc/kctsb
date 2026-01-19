@@ -233,8 +233,63 @@ int kctsb_random_bytes(void* buf, size_t len) {
     return kctsb::internal::random_bytes(buf, len);
 }
 
+uint32_t kctsb_random_u32(void) {
+    uint32_t val = 0;
+    kctsb::internal::random_bytes(&val, sizeof(val));
+    return val;
+}
+
+uint64_t kctsb_random_u64(void) {
+    uint64_t val = 0;
+    kctsb::internal::random_bytes(&val, sizeof(val));
+    return val;
+}
+
+uint32_t kctsb_random_range(uint32_t max) {
+    if (max <= 1) return 0;
+    
+    // Rejection sampling to avoid modulo bias
+    uint32_t threshold = (~max + 1) % max;  // = (2^32 - max) % max
+    uint32_t val;
+    do {
+        kctsb::internal::random_bytes(&val, sizeof(val));
+    } while (val < threshold);
+    
+    return val % max;
+}
+
 uint32_t kctsb_security_check(void) {
     return kctsb::internal::security_check();
 }
 
 }  // extern "C"
+
+// ============================================================================
+// C++ Namespace Wrappers
+// ============================================================================
+
+#include "kctsb/utils/random.h"
+
+namespace kctsb {
+
+ByteVec randomBytes(size_t len) {
+    ByteVec result(len);
+    if (len > 0) {
+        internal::random_bytes(result.data(), len);
+    }
+    return result;
+}
+
+uint32_t randomU32() {
+    return kctsb_random_u32();
+}
+
+uint64_t randomU64() {
+    return kctsb_random_u64();
+}
+
+uint32_t randomRange(uint32_t max) {
+    return kctsb_random_range(max);
+}
+
+}  // namespace kctsb

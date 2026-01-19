@@ -210,7 +210,7 @@ double _kctsb_ldexp(double x, long e)
 double _kctsb_GetTime()
 {
    // Use QueryPerformanceCounter for high-resolution timing
-   static LARGE_INTEGER freq = {0};
+   static LARGE_INTEGER freq = {};  // Value-initialize all members to zero
    static bool initialized = false;
    
    if (!initialized) {

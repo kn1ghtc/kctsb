@@ -101,6 +101,9 @@ long _ref_GF2__pos;
 
 ref_GF2() : _ref_GF2__ptr(0), _ref_GF2__pos(0) { }
 
+// Explicit copy constructor to avoid -Wdeprecated-copy warning
+ref_GF2(const ref_GF2& other) = default;
+
 ref_GF2(GF2& a) :
    _ref_GF2__ptr(&a._GF2__rep),  _ref_GF2__pos(0) { }
 

@@ -44,10 +44,31 @@ KCTSB_API uint32_t kctsb_random_range(uint32_t max);
 #ifdef __cplusplus
 namespace kctsb {
 
-ByteVec randomBytes(size_t len);
-uint32_t randomU32();
-uint64_t randomU64();
-uint32_t randomRange(uint32_t max);
+/**
+ * @brief Generate cryptographically secure random bytes (C++ wrapper)
+ * @param len Number of random bytes to generate
+ * @return Vector of random bytes
+ */
+KCTSB_API ByteVec randomBytes(size_t len);
+
+/**
+ * @brief Generate random 32-bit unsigned integer (C++ wrapper)
+ * @return Uniformly distributed random uint32_t
+ */
+KCTSB_API uint32_t randomU32();
+
+/**
+ * @brief Generate random 64-bit unsigned integer (C++ wrapper)
+ * @return Uniformly distributed random uint64_t
+ */
+KCTSB_API uint64_t randomU64();
+
+/**
+ * @brief Generate random integer in range [0, max) (C++ wrapper)
+ * @param max Upper bound (exclusive), must be > 0
+ * @return Uniformly distributed random value in [0, max)
+ */
+KCTSB_API uint32_t randomRange(uint32_t max);
 
 } // namespace kctsb
 #endif

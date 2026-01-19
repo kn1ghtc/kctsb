@@ -224,6 +224,7 @@ endif()
 option(KCTSB_WARNINGS_AS_ERRORS "Treat warnings as errors for kctsb code" ON)
 
 if(NOT MSVC)
+    # Common warning flags for both C and C++
     add_compile_options(
         -Wall -Wextra -Wpedantic
         -Werror=return-type
@@ -231,29 +232,45 @@ if(NOT MSVC)
         -Wno-unused-parameter
         -Wno-sign-conversion
         -Wno-conversion
-        -Wno-old-style-cast
         -finput-charset=UTF-8
         -fexec-charset=UTF-8
     )
-    # Suppress bignum-specific warnings (template-heavy code)
+    # C++ only warning suppressions (invalid for C code)
     add_compile_options(
-        -Wno-useless-cast
+        "$<$<COMPILE_LANGUAGE:CXX>:-Wno-old-style-cast>"
+        "$<$<COMPILE_LANGUAGE:CXX>:-Wno-deprecated-copy>"
+        "$<$<COMPILE_LANGUAGE:CXX>:-Wno-useless-cast>"
+    )
+    # Suppress bignum-specific warnings (NTL-derived template-heavy code)
+    # These warnings are in verified mathematical code and safe to ignore
+    add_compile_options(
         -Wno-double-promotion
+        -Wno-unused-variable
+        -Wno-unused-but-set-variable
+        -Wno-unused-function
+        -Wno-misleading-indentation
     )
 endif()
 
 # ============================================================================
-# Build Options (v4.1.0 - 优化默认值)
+# Build Options (v4.1.0)
 # ============================================================================
 
 # 默认构建共享库，不构建静态库（减小体积）
 option(KCTSB_BUILD_SHARED "Build shared library" ON)
 option(KCTSB_BUILD_STATIC "Build static library" OFF)
 
-# 默认不构建测试（加快编译速度，使用 -DKCTSB_BUILD_TESTS=ON 显式启用）
-option(KCTSB_BUILD_TESTS "Build tests (use -DKCTSB_BUILD_TESTS=ON to enable)" OFF)
-option(KCTSB_BUILD_BENCHMARKS "Build benchmarks" OFF)
+# 默认构建测试和基准测试（确保功能正确性）
+option(KCTSB_BUILD_TESTS "Build unit tests" ON)
+option(KCTSB_BUILD_BENCHMARKS "Build benchmarks" ON)
 option(KCTSB_BUILD_CLI "Build kctsb.exe CLI tool" ON)
+
+# v4.1.0: 测试需要静态库以确保所有bignum符号可用
+# 共享库无法导出所有底层GMP包装函数
+if(KCTSB_BUILD_TESTS AND NOT KCTSB_BUILD_STATIC)
+    message(STATUS "Tests enabled - forcing static library build for complete symbol access")
+    set(KCTSB_BUILD_STATIC ON CACHE BOOL "Build static library (required for tests)" FORCE)
+endif()
 
 # Core dependencies (required - 动态链接)
 option(KCTSB_ENABLE_GMP "Enable GMP (required)" ON)

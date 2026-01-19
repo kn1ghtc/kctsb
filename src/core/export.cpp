@@ -91,51 +91,6 @@ const char* kctsb_error_string(kctsb_error_t error) {
     }
 }
 
-// Security functions are now in security.c - only define random helpers here
-
-uint32_t kctsb_random_u32(void) {
-    uint32_t value;
-    kctsb_random_bytes((uint8_t*)&value, sizeof(value));
-    return value;
-}
-
-uint64_t kctsb_random_u64(void) {
-    uint64_t value;
-    kctsb_random_bytes((uint8_t*)&value, sizeof(value));
-    return value;
-}
-
-uint32_t kctsb_random_range(uint32_t max) {
-    if (max == 0) return 0;
-    uint32_t threshold = (0xFFFFFFFFU - max + 1) % max;
-    uint32_t value;
-    do {
-        value = kctsb_random_u32();
-    } while (value < threshold);
-    return value % max;
-}
+// Random functions are now defined in security.cpp to avoid duplication
 
 } // extern "C"
-
-// C++ implementations
-namespace kctsb {
-
-ByteVec randomBytes(size_t len) {
-    ByteVec result(len);
-    kctsb_random_bytes(result.data(), len);
-    return result;
-}
-
-uint32_t randomU32() {
-    return kctsb_random_u32();
-}
-
-uint64_t randomU64() {
-    return kctsb_random_u64();
-}
-
-uint32_t randomRange(uint32_t max) {
-    return kctsb_random_range(max);
-}
-
-} // namespace kctsb

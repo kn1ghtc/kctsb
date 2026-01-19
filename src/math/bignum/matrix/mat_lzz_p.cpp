@@ -642,8 +642,9 @@ void mul(mat_zz_p& X, const mat_zz_p& A, long b_in)
 
 #ifdef KCTSB_HAVE_AVX
 
-#define MAX_DBL_INT ((1L << KCTSB_DOUBLE_PRECISION)-1)
 // max int representable exactly as a double
+// Use LL suffix for 64-bit shift to avoid overflow on Windows LLP64
+#define MAX_DBL_INT ((1LL << KCTSB_DOUBLE_PRECISION)-1)
 // this assumes KCTSB_DBL_PRECISION <= KCTSB_BITS_PER_LONG-2, which is
 // checked in the code that tests for HAVE_AVX, but we check it here as
 // well

@@ -33,7 +33,8 @@
 // OpenSSL headers
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
-#include <openssl/cmac.h>
+#include <openssl/core_names.h>
+#include <openssl/params.h>
 #include <openssl/rand.h>
 
 // kctsb v3.4.0 headers - use unified public API
@@ -178,16 +179,31 @@ static double benchmark_openssl_cmac_aes128(
     const uint8_t* key
 ) {
     uint8_t mac[16];
-    size_t mac_len = 0;
+    size_t mac_len = 16;
     return run_benchmark_iterations("CMAC-AES128", "OpenSSL", data_size, [&]() {
-        CMAC_CTX* ctx = CMAC_CTX_new();
-        if (!ctx) return 0.0;
+        // Use OpenSSL 3.0 EVP_MAC API instead of deprecated CMAC_* functions
+        EVP_MAC* mac_impl = EVP_MAC_fetch(nullptr, "CMAC", nullptr);
+        if (!mac_impl) return 0.0;
+        
+        EVP_MAC_CTX* ctx = EVP_MAC_CTX_new(mac_impl);
+        if (!ctx) {
+            EVP_MAC_free(mac_impl);
+            return 0.0;
+        }
+        
+        OSSL_PARAM params[] = {
+            OSSL_PARAM_construct_utf8_string("cipher", const_cast<char*>("AES-128-CBC"), 0),
+            OSSL_PARAM_construct_end()
+        };
+        
         auto start = Clock::now();
-        CMAC_Init(ctx, key, 16, EVP_aes_128_cbc(), nullptr);
-        CMAC_Update(ctx, data, data_size);
-        CMAC_Final(ctx, mac, &mac_len);
+        EVP_MAC_init(ctx, key, 16, params);
+        EVP_MAC_update(ctx, data, data_size);
+        EVP_MAC_final(ctx, mac, &mac_len, sizeof(mac));
         auto end = Clock::now();
-        CMAC_CTX_free(ctx);
+        
+        EVP_MAC_CTX_free(ctx);
+        EVP_MAC_free(mac_impl);
         return std::chrono::duration<double, std::milli>(end - start).count();
     });
 }

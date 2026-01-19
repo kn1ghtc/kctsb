@@ -180,11 +180,28 @@
 #endif
 
 #ifndef KCTSB_ZZ_FRADIX
-    #define KCTSB_ZZ_FRADIX ((double)(1UL << KCTSB_ZZ_NBITS))
+    // FRADIX = 2^NBITS as a double
+    // Cannot use bit shift for NBITS >= 64 (UB), so use compile-time calculation
+    #if KCTSB_ZZ_NBITS == 64
+        // 2^64 = 18446744073709551616.0
+        #define KCTSB_ZZ_FRADIX (18446744073709551616.0)
+    #elif KCTSB_ZZ_NBITS == 60
+        // 2^60 = 1152921504606846976.0 
+        #define KCTSB_ZZ_FRADIX (1152921504606846976.0)
+    #elif KCTSB_ZZ_NBITS == 32
+        #define KCTSB_ZZ_FRADIX (4294967296.0)
+    #elif KCTSB_ZZ_NBITS == 30
+        #define KCTSB_ZZ_FRADIX (1073741824.0)
+    #else
+        // Fallback for other values - use ldexp at runtime (less efficient)
+        #include <cmath>
+        #define KCTSB_ZZ_FRADIX (ldexp(1.0, KCTSB_ZZ_NBITS))
+    #endif
 #endif
 
 #ifndef KCTSB_ZZ_WIDE_FRADIX
-    #define KCTSB_ZZ_WIDE_FRADIX ((double)(1UL << KCTSB_ZZ_NBITS))
+    // WIDE_FRADIX is the same as FRADIX (2^NBITS)
+    #define KCTSB_ZZ_WIDE_FRADIX KCTSB_ZZ_FRADIX
 #endif
 
 // ============================================================================

@@ -4,15 +4,16 @@
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](.)
 [![C++](https://img.shields.io/badge/C++-17-blue.svg)](.)
 [![CMake](https://img.shields.io/badge/CMake-3.20+-green.svg)](.)
-[![Version](https://img.shields.io/badge/Version-4.0.2-brightgreen.svg)](.)
+[![Version](https://img.shields.io/badge/Version-4.1.0-brightgreen.svg)](.)
 
 **kctsb** 是一个跨平台的 C/C++ 密码学和安全算法库，专为生产环境和安全研究设计。目标是成为 **OpenSSL 的现代替代品**。
 
-> **v4.0.2 更新** (2026年1月21日):  
-> - 🚀 **AES-GCM性能优化**: 10MB数据 AES-256-GCM达87%、AES-128-GCM达91% of OpenSSL
-> - 🚀 **SM4-GCM升级**: 8块并行CTR(128字节/批)，优化process_8blocks函数
-> - 📦 **lip.cpp瘦身**: 重命名为kcgmp.cpp，从9342行精简至6649行(删除非GMP代码)
-> - ✅ **测试全通过**: 169/169测试用例
+> **v4.1.0 更新** (2026年1月26日):  
+> - 🔧 **编译警告清零**: src/目录下所有警告已修复，包括 FRADIX 位移溢出、LARGE_INTEGER 初始化等
+> - 🔧 **测试/基准默认开启**: KCTSB_BUILD_TESTS 和 KCTSB_BUILD_BENCHMARKS 默认 ON
+> - 🔧 **OpenSSL 3.0 兼容**: benchmark 更新为 EVP_MAC API，移除已废弃 CMAC_* 函数
+> - 🔧 **静态库自动启用**: 当测试开启时自动启用静态库构建以访问所有符号
+> - ✅ **测试全通过**: 169/169 测试用例
 
 ## ✨ 特性
 

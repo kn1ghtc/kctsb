@@ -59,13 +59,22 @@ include(GoogleTest)
 
 # ============================================================================
 # Helper Function: Add test with labels
+# v4.1.0: Tests use static library for complete bignum symbol access
 # ============================================================================
 function(kctsb_add_test TARGET_NAME SOURCE_FILE LABEL)
     add_executable(${TARGET_NAME} ${SOURCE_FILE})
-    target_link_libraries(${TARGET_NAME} PRIVATE
-        kctsb_static
-        GTest::gtest_main
-    )
+    # v4.1.0: Always use static library for tests (bignum symbols not exported from DLL)
+    if(TARGET kctsb_static)
+        target_link_libraries(${TARGET_NAME} PRIVATE
+            kctsb_static
+            GTest::gtest_main
+        )
+    else()
+        target_link_libraries(${TARGET_NAME} PRIVATE
+            kctsb
+            GTest::gtest_main
+        )
+    endif()
     target_include_directories(${TARGET_NAME} PRIVATE
         ${CMAKE_SOURCE_DIR}/include
         ${CMAKE_SOURCE_DIR}/src
@@ -104,10 +113,18 @@ kctsb_add_test(test_random unit/crypto/test_random.cpp "unit;crypto;random")
 # Chinese national standards tests (SM3/SM4)
 # SM2 tests conditionally compiled when bignum modules available
 add_executable(test_sm unit/crypto/test_sm.cpp)
-target_link_libraries(test_sm PRIVATE
-    kctsb_static
-    GTest::gtest_main
-)
+# v4.1.0: Use static library for tests
+if(TARGET kctsb_static)
+    target_link_libraries(test_sm PRIVATE
+        kctsb_static
+        GTest::gtest_main
+    )
+else()
+    target_link_libraries(test_sm PRIVATE
+        kctsb
+        GTest::gtest_main
+    )
+endif()
 target_include_directories(test_sm PRIVATE
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/src
@@ -119,10 +136,18 @@ gtest_discover_tests(test_sm PROPERTIES LABELS "unit;crypto;sm")
 # Math tests (requires bignum for polynomial operations)
 # v4.0.1: Fixed LLP64 compatibility, now works on all platforms
 add_executable(test_math unit/math/test_math.cpp)
-target_link_libraries(test_math PRIVATE
-    kctsb_static
-    GTest::gtest_main
-)
+# v4.1.0: Use static library for tests
+if(TARGET kctsb_static)
+    target_link_libraries(test_math PRIVATE
+        kctsb_static
+        GTest::gtest_main
+    )
+else()
+    target_link_libraries(test_math PRIVATE
+        kctsb
+        GTest::gtest_main
+    )
+endif()
 target_include_directories(test_math PRIVATE
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/src
@@ -143,10 +168,18 @@ gtest_discover_tests(test_math PROPERTIES LABELS "unit;math")
 # ============================================================================
 
 add_executable(test_integration integration/test_integration.cpp)
-target_link_libraries(test_integration PRIVATE
-    kctsb_static
-    GTest::gtest_main
-)
+# v4.1.0: Use static library for tests
+if(TARGET kctsb_static)
+    target_link_libraries(test_integration PRIVATE
+        kctsb_static
+        GTest::gtest_main
+    )
+else()
+    target_link_libraries(test_integration PRIVATE
+        kctsb
+        GTest::gtest_main
+    )
+endif()
 # Note: bcrypt.dll loaded at runtime, no static link needed
 target_include_directories(test_integration PRIVATE ${CMAKE_SOURCE_DIR}/include)
 gtest_discover_tests(test_integration PROPERTIES LABELS "integration")
@@ -157,10 +190,18 @@ gtest_discover_tests(test_integration PROPERTIES LABELS "integration")
 # ============================================================================
 
 add_executable(test_benchmark benchmark/test_benchmark.cpp)
-target_link_libraries(test_benchmark PRIVATE
-    kctsb_static
-    GTest::gtest_main
-)
+# v4.1.0: Use static library for tests
+if(TARGET kctsb_static)
+    target_link_libraries(test_benchmark PRIVATE
+        kctsb_static
+        GTest::gtest_main
+    )
+else()
+    target_link_libraries(test_benchmark PRIVATE
+        kctsb
+        GTest::gtest_main
+    )
+endif()
 target_include_directories(test_benchmark PRIVATE ${CMAKE_SOURCE_DIR}/include)
 gtest_discover_tests(test_benchmark PROPERTIES LABELS "performance")
 

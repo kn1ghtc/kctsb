@@ -582,7 +582,7 @@ void image(mat_GF2& X, const mat_GF2& A)
 void kernel(mat_GF2& X, const mat_GF2& A)
 {
    long m = A.NumRows();
-   long n = A.NumCols();
+   (void)A.NumCols();  // n not used, suppress warning
 
    mat_GF2 M;
    long r;
