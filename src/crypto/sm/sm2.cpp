@@ -21,6 +21,7 @@
 
 #include "kctsb/crypto/sm/sm2.h"
 #include "kctsb/crypto/sm/sm3.h"
+#include "kctsb/crypto/sm/sm2_optimized.h"
 #include "kctsb/crypto/ecc/ecc_curve.h"
 #include "kctsb/core/security.h"
 #include "kctsb/core/common.h"
@@ -289,8 +290,8 @@ kctsb_error_t generate_keypair_internal(kctsb_sm2_keypair_t* keypair) {
         }
     }
     
-    // Compute public key P = d * G
-    ecc::JacobianPoint P_jac = curve.scalar_mult_base(d);
+    // Compute public key P = d * G (using wNAF optimization)
+    ecc::JacobianPoint P_jac = kctsb::sm2::sm2_fast_scalar_mult_base(curve, d);
     ecc::AffinePoint P_aff = curve.to_affine(P_jac);
     
     // Export private key
@@ -385,8 +386,8 @@ kctsb_error_t sign_internal(
             return err;
         }
         
-        // Step 3: Compute (x1, y1) = k * G
-        ecc::JacobianPoint kG = curve.scalar_mult_base(k);
+        // Step 3: Compute (x1, y1) = k * G (using wNAF optimization)
+        ecc::JacobianPoint kG = kctsb::sm2::sm2_fast_scalar_mult_base(curve, k);
         ecc::AffinePoint kG_aff = curve.to_affine(kG);
         
         // Extract ZZ value immediately after to_affine (ZZ_p context still valid)
@@ -503,10 +504,8 @@ kctsb_error_t verify_internal(
         return KCTSB_ERROR_VERIFICATION_FAILED;
     }
     
-    // Step 4: Compute (x1, y1) = s*G + t*P
-    ecc::JacobianPoint sG = curve.scalar_mult_base(s);
-    ecc::JacobianPoint tP = curve.scalar_mult(t, P_jac);
-    ecc::JacobianPoint R_point = curve.add(sG, tP);
+    // Step 4: Compute (x1, y1) = s*G + t*P (using wNAF double scalar mult)
+    ecc::JacobianPoint R_point = kctsb::sm2::sm2_fast_double_scalar_mult(curve, s, t, P_jac);
     ecc::AffinePoint R_aff = curve.to_affine(R_point);
     
     // Extract ZZ value immediately after to_affine (ZZ_p context still valid)
@@ -641,16 +640,16 @@ kctsb_error_t encrypt_internal(
             return err;
         }
         
-        // Step 2: Compute C1 = k * G
-        ecc::JacobianPoint C1_jac = curve.scalar_mult_base(k);
+        // Step 2: Compute C1 = k * G (using wNAF optimization)
+        ecc::JacobianPoint C1_jac = kctsb::sm2::sm2_fast_scalar_mult_base(curve, k);
         ecc::AffinePoint C1_aff = curve.to_affine(C1_jac);
         
         // Extract ZZ values immediately after to_affine (ZZ_p context still valid)
         ZZ x1 = rep(C1_aff.x);
         ZZ y1 = rep(C1_aff.y);
         
-        // Step 3: Compute (x2, y2) = k * P
-        ecc::JacobianPoint kP = curve.scalar_mult(k, P_jac);
+        // Step 3: Compute (x2, y2) = k * P (using wNAF optimization)
+        ecc::JacobianPoint kP = kctsb::sm2::sm2_fast_scalar_mult(curve, k, P_jac);
         if (kP.is_infinity()) {
             continue;  // Retry with new k
         }
@@ -801,8 +800,8 @@ kctsb_error_t decrypt_internal(
     const uint8_t* c3_ptr = ciphertext + 1 + 2 * FIELD_SIZE;
     const uint8_t* c2_ptr = c3_ptr + 32;
     
-    // Step 3: Compute (x2, y2) = d * C1
-    ecc::JacobianPoint dC1 = curve.scalar_mult(d, C1_jac);
+    // Step 3: Compute (x2, y2) = d * C1 (using wNAF optimization)
+    ecc::JacobianPoint dC1 = kctsb::sm2::sm2_fast_scalar_mult(curve, d, C1_jac);
     if (dC1.is_infinity()) {
         return KCTSB_ERROR_DECRYPTION_FAILED;
     }
@@ -1103,12 +1102,12 @@ SM2KeyPair::SM2KeyPair(const ByteVec& privateKey) {
     
     std::memcpy(keypair_.private_key, privateKey.data(), KCTSB_SM2_PRIVATE_KEY_SIZE);
     
-    // Derive public key from private key
+    // Derive public key from private key (using wNAF optimization)
     auto& ctx = internal::sm2::SM2Context::instance();
     const auto& curve = ctx.curve();
     
     kctsb::ZZ d = internal::sm2::bytes_to_zz(keypair_.private_key, KCTSB_SM2_PRIVATE_KEY_SIZE);
-    ecc::JacobianPoint P_jac = curve.scalar_mult_base(d);
+    ecc::JacobianPoint P_jac = kctsb::sm2::sm2_fast_scalar_mult_base(curve, d);
     ecc::AffinePoint P_aff = curve.to_affine(P_jac);
     
     kctsb::ZZ_p::init(ctx.p());

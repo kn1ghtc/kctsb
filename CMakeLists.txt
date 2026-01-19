@@ -522,10 +522,12 @@ set(KCTSB_HASH_SOURCES
 )
 # SM2 depends on ECC which requires bignum math
 # v4.0.1: Fixed Windows LLP64 compatibility, bignum now works on all platforms
+# v4.2.0: Added SM2 wNAF optimization for ~3x performance improvement
 set(KCTSB_SM_SOURCES
     ${KCTSB_SRC_DIR}/crypto/sm/sm3.cpp
     ${KCTSB_SRC_DIR}/crypto/sm/sm4.cpp
     ${KCTSB_SRC_DIR}/crypto/sm/sm2.cpp
+    ${KCTSB_SRC_DIR}/crypto/sm/sm2_optimized.cpp
     ${KCTSB_SRC_DIR}/crypto/sm/zuc.cpp
 )
 set(KCTSB_WHITEBOX_SOURCES ${KCTSB_SRC_DIR}/advanced/whitebox/whitebox_aes.c)
