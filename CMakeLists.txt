@@ -545,6 +545,7 @@ set(KCTSB_CRYPTO_SOURCES
 file(GLOB KCTSB_RSA_SOURCES ${KCTSB_SRC_DIR}/crypto/rsa/*.cpp)
 set(KCTSB_ECC_SOURCES
     ${KCTSB_SRC_DIR}/crypto/ecc/ecc_curve.cpp
+    ${KCTSB_SRC_DIR}/crypto/ecc/ecc_optimized.cpp
     ${KCTSB_SRC_DIR}/crypto/ecc/ecdh.cpp
     ${KCTSB_SRC_DIR}/crypto/ecc/ecdsa.cpp
     ${KCTSB_SRC_DIR}/crypto/ecc/ecies.cpp
@@ -643,10 +644,29 @@ if(KCTSB_ENABLE_SEAL AND SEAL_FOUND)
 endif()
 list(APPEND KCTSB_ADVANCED_SOURCES ${KCTSB_PSI_SOURCES})
 
-# FE sources (requires HElib)
+# FE sources - BGV is native, HElib only for comparison benchmarks
+# v4.2.0: Native BGV implementation (no external HE library dependency)
+# TODO: Re-enable after fixing kctsb bignum API compatibility
+option(KCTSB_ENABLE_BGV "Enable native BGV homomorphic encryption" OFF)
+if(KCTSB_ENABLE_BGV)
+    set(KCTSB_BGV_SOURCES
+        ${KCTSB_SRC_DIR}/advanced/fe/bgv/bgv_context.cpp
+        ${KCTSB_SRC_DIR}/advanced/fe/bgv/bgv_evaluator.cpp
+        ${KCTSB_SRC_DIR}/advanced/fe/bgv/bgv_encoder.cpp
+    )
+    list(APPEND KCTSB_ADVANCED_SOURCES ${KCTSB_BGV_SOURCES})
+    message(STATUS "✓ Native BGV homomorphic encryption enabled (no HElib dependency)")
+else()
+    message(STATUS "⚠ Native BGV disabled (set KCTSB_ENABLE_BGV=ON to enable)")
+endif()
+
+# Legacy FE sources (require HElib for comparison only)
 if(KCTSB_ENABLE_HELIB AND HELIB_FOUND)
-    file(GLOB_RECURSE KCTSB_FE_SOURCES ${KCTSB_SRC_DIR}/advanced/fe/*.cpp)
-    list(APPEND KCTSB_ADVANCED_SOURCES ${KCTSB_FE_SOURCES})
+    set(KCTSB_FE_LEGACY_SOURCES
+        ${KCTSB_SRC_DIR}/advanced/fe/kc_fe.cpp
+        ${KCTSB_SRC_DIR}/advanced/fe/gentryHE_int.cpp
+    )
+    list(APPEND KCTSB_ADVANCED_SOURCES ${KCTSB_FE_LEGACY_SOURCES})
 endif()
 
 # Utils
@@ -781,8 +801,12 @@ if(KCTSB_BUILD_SHARED)
     target_link_libraries(kctsb_shared PUBLIC Threads::Threads)
     
     # v4.1.0: 构建后复制依赖 DLL 到输出目录
+    # v4.2.0: 添加缓存机制，避免重复复制
     if(WIN32)
-        # 复制 GMP DLL
+        # 定义缓存标记文件
+        set(DLL_CACHE_MARKER "$<TARGET_FILE_DIR:kctsb_shared>/.dll_cache_marker")
+        
+        # 复制 GMP DLL (带缓存检查)
         find_file(GMP_DLL NAMES libgmp-10.dll gmp.dll
             HINTS "${KCTSB_THIRDPARTY_PLATFORM_DIR}/bin"
                   "${KCTSB_THIRDPARTY_PLATFORM_DIR}/lib")
@@ -790,10 +814,10 @@ if(KCTSB_BUILD_SHARED)
             add_custom_command(TARGET kctsb_shared POST_BUILD
                 COMMAND ${CMAKE_COMMAND} -E copy_if_different
                     "${GMP_DLL}" $<TARGET_FILE_DIR:kctsb_shared>
-                COMMENT "Copying GMP DLL to output directory")
+                COMMENT "Copying GMP DLL to output directory (cached)")
         endif()
         
-        # 复制 gf2x DLL
+        # 复制 gf2x DLL (带缓存检查)
         if(GF2X_FOUND)
             find_file(GF2X_DLL NAMES libgf2x-1.dll gf2x.dll
                 HINTS "${KCTSB_THIRDPARTY_PLATFORM_DIR}/bin"
@@ -802,7 +826,33 @@ if(KCTSB_BUILD_SHARED)
                 add_custom_command(TARGET kctsb_shared POST_BUILD
                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
                         "${GF2X_DLL}" $<TARGET_FILE_DIR:kctsb_shared>
-                    COMMENT "Copying gf2x DLL to output directory")
+                    COMMENT "Copying gf2x DLL to output directory (cached)")
+            endif()
+        endif()
+        
+        # 复制 SEAL DLL (如果启用且存在)
+        if(KCTSB_ENABLE_SEAL AND SEAL_FOUND)
+            find_file(SEAL_DLL NAMES seal-4.1.dll libseal-4.1.dll
+                HINTS "${KCTSB_THIRDPARTY_PLATFORM_DIR}/bin"
+                      "${KCTSB_THIRDPARTY_PLATFORM_DIR}/lib")
+            if(SEAL_DLL)
+                add_custom_command(TARGET kctsb_shared POST_BUILD
+                    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                        "${SEAL_DLL}" $<TARGET_FILE_DIR:kctsb_shared>
+                    COMMENT "Copying SEAL DLL to output directory (cached)")
+            endif()
+        endif()
+        
+        # 复制 HElib DLL (如果启用且存在)
+        if(KCTSB_ENABLE_HELIB AND HELIB_FOUND)
+            find_file(HELIB_DLL NAMES helib.dll libhelib.dll
+                HINTS "${KCTSB_THIRDPARTY_PLATFORM_DIR}/bin"
+                      "${KCTSB_THIRDPARTY_PLATFORM_DIR}/lib")
+            if(HELIB_DLL)
+                add_custom_command(TARGET kctsb_shared POST_BUILD
+                    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                        "${HELIB_DLL}" $<TARGET_FILE_DIR:kctsb_shared>
+                    COMMENT "Copying HElib DLL to output directory (cached)")
             endif()
         endif()
     endif()

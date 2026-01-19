@@ -136,3 +136,61 @@ else()
 endif()
 
 message(STATUS "Benchmarks configured: kctsb vs OpenSSL comparison")
+
+# ============================================================================
+# BGV Homomorphic Encryption Benchmark (standalone, no OpenSSL required)
+# TODO: Re-enable after fixing kctsb bignum API compatibility
+# ============================================================================
+
+if(KCTSB_ENABLE_BGV)
+    add_executable(kctsb_benchmark_bgv benchmark_bgv.cpp)
+
+    target_include_directories(kctsb_benchmark_bgv PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/src
+        ${CMAKE_SOURCE_DIR}/thirdparty/include
+    )
+
+    # Link kctsb
+    if(TARGET kctsb_static)
+        target_link_libraries(kctsb_benchmark_bgv PRIVATE kctsb_static)
+    elseif(TARGET kctsb_shared)
+        target_link_libraries(kctsb_benchmark_bgv PRIVATE kctsb_shared)
+    endif()
+
+    # Optional: SEAL comparison
+    if(KCTSB_ENABLE_SEAL AND SEAL_FOUND)
+        target_include_directories(kctsb_benchmark_bgv PRIVATE ${SEAL_INCLUDE_DIRS})
+        target_link_libraries(kctsb_benchmark_bgv PRIVATE SEAL::seal)
+        target_compile_definitions(kctsb_benchmark_bgv PRIVATE KCTSB_HAS_SEAL=1)
+        if(WIN32)
+            target_link_libraries(kctsb_benchmark_bgv PRIVATE bcrypt)
+        endif()
+    endif()
+
+    # Optional: HElib comparison
+    if(KCTSB_ENABLE_HELIB AND HELIB_FOUND)
+        target_link_libraries(kctsb_benchmark_bgv PRIVATE helib::helib)
+        target_compile_definitions(kctsb_benchmark_bgv PRIVATE KCTSB_HAS_HELIB=1)
+    endif()
+
+    set_target_properties(kctsb_benchmark_bgv PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+    )
+
+    if(MSVC)
+        target_compile_options(kctsb_benchmark_bgv PRIVATE /O2 /fp:fast /utf-8)
+    else()
+        target_compile_options(kctsb_benchmark_bgv PRIVATE
+            -O3 -march=native
+            -finput-charset=UTF-8
+            -fexec-charset=UTF-8
+            -Wno-conversion
+            -Wno-sign-conversion
+        )
+    endif()
+
+    message(STATUS "BGV benchmark configured: kctsb native BGV")
+else()
+    message(STATUS "BGV benchmark skipped: KCTSB_ENABLE_BGV is OFF")
+endif()

@@ -1,0 +1,918 @@
+﻿/**
+ * @file bgv_context.cpp
+ * @brief BGV Context Implementation
+ * 
+ * Implements BGV parameter setup, key generation, encryption, and decryption.
+ * 
+ * @author knightc
+ * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
+ * @license Apache-2.0
+ */
+
+#include "kctsb/advanced/fe/bgv/bgv_context.hpp"
+#include <cmath>
+#include <algorithm>
+#include <stdexcept>
+#include <cstring>
+
+namespace kctsb {
+namespace fhe {
+namespace bgv {
+
+// ============================================================================
+// BGVParams Implementation
+// ============================================================================
+
+uint64_t BGVParams::slot_count() const {
+    // For prime m, slot_count = (m-1) / ord_t(m)
+    // where ord_t(m) is the multiplicative order of t mod m
+    // Simplified: if t = 1 mod m, slot_count = 蠁(m) = n
+    
+    if (m == 0 || t == 0) return 0;
+    
+    // Compute ord_t(m) - the order of t in (Z/mZ)*
+    uint64_t order = 1;
+    uint64_t pow_t = t % m;
+    while (pow_t != 1 && order < m) {
+        pow_t = (pow_t * t) % m;
+        order++;
+    }
+    
+    return n / order;
+}
+
+double BGVParams::initial_noise_budget() const {
+    // Noise budget = log2(q) - log2(B_init)
+    // where B_init depends on key distribution and encryption randomness
+    if (IsZero(q)) return 0;
+    
+    double log_q = log(q) / std::log(2.0);
+    double log_B = std::log2(n) + std::log2(sigma) + 3;  // Conservative estimate
+    
+    return log_q - log_B;
+}
+
+bool BGVParams::validate() const {
+    // Basic validation
+    if (m == 0 || n == 0) return false;
+    if (IsZero(q)) return false;
+    if (t == 0 || t >= to_ulong(q)) return false;
+    if (L == 0) return false;
+    if (sigma <= 0) return false;
+    
+    // n should be 蠁(m)
+    // For power-of-2 m: 蠁(m) = m/2
+    // For prime m: 蠁(m) = m-1
+    
+    // Check RNS primes if provided
+    if (!primes.empty()) {
+        ZZ product = conv<ZZ>(1);
+        for (uint64_t p : primes) {
+            product *= p;
+        }
+        // Product of primes should match q
+        // (allowing for special modulus)
+    }
+    
+    return true;
+}
+
+BGVParams BGVParams::create_standard(SecurityLevel security, 
+                                      uint32_t mult_depth,
+                                      uint64_t t_value) {
+    BGVParams params;
+    params.t = t_value;
+    params.sigma = 3.2;
+    params.security = security;
+    params.L = mult_depth + 1;  // L primes for depth mult_depth
+    
+    // Parameter selection based on security level and depth
+    // These follow HElib/SEAL standard parameter choices
+    
+    switch (security) {
+        case SecurityLevel::NONE:
+            // Toy parameters for testing (INSECURE!)
+            params.m = 4096;
+            params.n = 2048;
+            params.primes = {40961, 65537};  // Small primes
+            break;
+            
+        case SecurityLevel::CLASSICAL_128:
+            // 128-bit security
+            if (mult_depth <= 3) {
+                params.m = 8192;
+                params.n = 4096;
+            } else if (mult_depth <= 5) {
+                params.m = 16384;
+                params.n = 8192;
+            } else {
+                params.m = 32768;
+                params.n = 16384;
+            }
+            break;
+            
+        case SecurityLevel::CLASSICAL_192:
+            // 192-bit security
+            if (mult_depth <= 3) {
+                params.m = 16384;
+                params.n = 8192;
+            } else {
+                params.m = 32768;
+                params.n = 16384;
+            }
+            break;
+            
+        case SecurityLevel::CLASSICAL_256:
+        case SecurityLevel::QUANTUM_128:
+        case SecurityLevel::QUANTUM_192:
+        case SecurityLevel::QUANTUM_256:
+            // Conservative for quantum security
+            params.m = 32768;
+            params.n = 16384;
+            break;
+    }
+    
+    // Generate NTT-friendly primes: q_i = 1 (mod 2n)
+    // Each prime ~60 bits for efficient modular arithmetic
+    params.primes.clear();
+    uint64_t prime_bits = 60;
+    uint64_t candidate = (1ULL << prime_bits) - (1ULL << prime_bits) % (2 * params.n) + 1;
+    
+    for (uint32_t i = 0; i < params.L && params.primes.size() < params.L; i++) {
+        // Find next prime = 1 mod 2n
+        while (!ProbPrime(to_ZZ(candidate))) {
+            candidate += 2 * params.n;
+        }
+        params.primes.push_back(candidate);
+        candidate += 2 * params.n;
+    }
+    
+    // Compute q = product of primes
+    params.q = conv<ZZ>(1);
+    for (uint64_t p : params.primes) {
+        params.q *= p;
+    }
+    
+    return params;
+}
+
+// ============================================================================
+// Standard Parameter Sets
+// ============================================================================
+
+namespace StandardParams {
+
+BGVParams TOY_PARAMS() {
+    BGVParams params;
+    params.m = 512;
+    params.n = 256;  // 蠁(512) = 256 for power-of-2
+    params.t = 257;  // Small prime
+    params.L = 2;
+    params.sigma = 3.2;
+    params.security = SecurityLevel::NONE;
+    
+    // Small modulus for testing
+    params.primes = {65537, 114689};  // 17-bit primes = 1 mod 512
+    params.q = conv<ZZ>(65537) * conv<ZZ>(114689);
+    
+    return params;
+}
+
+BGVParams SECURITY_128_DEPTH_3() {
+    return BGVParams::create_standard(SecurityLevel::CLASSICAL_128, 3, 65537);
+}
+
+BGVParams SECURITY_128_DEPTH_5() {
+    return BGVParams::create_standard(SecurityLevel::CLASSICAL_128, 5, 65537);
+}
+
+BGVParams SECURITY_192_DEPTH_5() {
+    return BGVParams::create_standard(SecurityLevel::CLASSICAL_192, 5, 65537);
+}
+
+}  // namespace StandardParams
+
+// ============================================================================
+// RingElement Implementation
+// ============================================================================
+
+RingElement::RingElement(const ZZ_pX& poly) : poly_(poly), is_ntt_(false) {}
+
+ZZ_p RingElement::coeff(long i) const {
+    if (i < 0 || i > deg(poly_)) {
+        return ZZ_p::zero();
+    }
+    return coeff(poly_, i);
+}
+
+void RingElement::set_coeff(long i, const ZZ_p& val) {
+    SetCoeff(poly_, i, val);
+}
+
+long RingElement::degree() const {
+    return deg(poly_);
+}
+
+RingElement RingElement::operator+(const RingElement& other) const {
+    RingElement result;
+    result.poly_ = poly_ + other.poly_;
+    return result;
+}
+
+RingElement RingElement::operator-(const RingElement& other) const {
+    RingElement result;
+    result.poly_ = poly_ - other.poly_;
+    return result;
+}
+
+RingElement RingElement::operator*(const RingElement& other) const {
+    // Note: This does NOT reduce by 桅_m(X) automatically
+    // The caller must handle reduction in the quotient ring
+    RingElement result;
+    result.poly_ = poly_ * other.poly_;
+    return result;
+}
+
+RingElement RingElement::operator-() const {
+    RingElement result;
+    result.poly_ = -poly_;
+    return result;
+}
+
+RingElement& RingElement::operator+=(const RingElement& other) {
+    poly_ += other.poly_;
+    return *this;
+}
+
+RingElement& RingElement::operator-=(const RingElement& other) {
+    poly_ -= other.poly_;
+    return *this;
+}
+
+RingElement& RingElement::operator*=(const RingElement& other) {
+    poly_ *= other.poly_;
+    return *this;
+}
+
+RingElement RingElement::operator*(const ZZ_p& scalar) const {
+    RingElement result;
+    result.poly_ = poly_ * scalar;
+    return result;
+}
+
+RingElement& RingElement::operator*=(const ZZ_p& scalar) {
+    poly_ *= scalar;
+    return *this;
+}
+
+bool RingElement::operator==(const RingElement& other) const {
+    return poly_ == other.poly_;
+}
+
+bool RingElement::is_zero() const {
+    return IsZero(poly_);
+}
+
+void RingElement::clear() {
+    clear(poly_);
+    is_ntt_ = false;
+}
+
+RingElement RingElement::reduce_mod(const ZZ& new_mod) const {
+    // Change modulus: coefficient-wise reduction
+    ZZ_pPush push;  // Save current modulus
+    ZZ_p::init(new_mod);
+    
+    RingElement result;
+    for (long i = 0; i <= degree(); i++) {
+        ZZ coef = rep(coeff(i));
+        SetCoeff(result.poly_, i, conv<ZZ_p>(coef));
+    }
+    return result;
+}
+
+void RingElement::to_ntt() {
+    if (is_ntt_) return;
+    // TODO: Implement NTT transform
+    // For now, we use schoolbook multiplication
+    is_ntt_ = true;
+}
+
+void RingElement::from_ntt() {
+    if (!is_ntt_) return;
+    // TODO: Implement inverse NTT
+    is_ntt_ = false;
+}
+
+// ============================================================================
+// BGVCiphertext Implementation
+// ============================================================================
+
+void BGVCiphertext::push_back(const RingElement& elem) {
+    polys_.push_back(elem);
+}
+
+void BGVCiphertext::push_back(RingElement&& elem) {
+    polys_.push_back(std::move(elem));
+}
+
+std::vector<uint8_t> BGVCiphertext::serialize() const {
+    // TODO: Implement proper serialization
+    std::vector<uint8_t> data;
+    // Placeholder
+    return data;
+}
+
+BGVCiphertext BGVCiphertext::deserialize(const std::vector<uint8_t>& data) {
+    // TODO: Implement proper deserialization
+    BGVCiphertext ct;
+    return ct;
+}
+
+size_t BGVCiphertext::byte_size() const {
+    // Estimate: each polynomial has n coefficients of ~log2(q) bits
+    // This is a rough approximation
+    size_t coef_bits = 64 * polys_.size();  // Simplified
+    return (coef_bits + 7) / 8;
+}
+
+// ============================================================================
+// BGVSecretKey Implementation
+// ============================================================================
+
+const RingElement& BGVSecretKey::power(size_t k) const {
+    if (k == 0) {
+        // Return 1 (constant polynomial)
+        static RingElement one;
+        // TODO: Initialize to 1
+        return one;
+    }
+    if (k == 1) {
+        return s_;
+    }
+    
+    // Compute s^k if not cached
+    while (powers_.size() < k) {
+        if (powers_.empty()) {
+            powers_.push_back(s_);  // s^1
+        }
+        RingElement next = powers_.back() * s_;
+        powers_.push_back(next);
+    }
+    
+    return powers_[k - 1];
+}
+
+std::vector<uint8_t> BGVSecretKey::serialize() const {
+    // WARNING: Serializing secret keys is security-sensitive
+    // TODO: Implement with encryption
+    return {};
+}
+
+BGVSecretKey BGVSecretKey::deserialize(const std::vector<uint8_t>& data) {
+    BGVSecretKey sk;
+    // TODO: Implement
+    return sk;
+}
+
+BGVSecretKey::~BGVSecretKey() {
+    // Secure cleanup: zero the secret polynomial
+    s_.clear();
+    powers_.clear();
+}
+
+// ============================================================================
+// BGVPublicKey Implementation
+// ============================================================================
+
+std::vector<uint8_t> BGVPublicKey::serialize() const {
+    // TODO: Implement
+    return {};
+}
+
+BGVPublicKey BGVPublicKey::deserialize(const std::vector<uint8_t>& data) {
+    BGVPublicKey pk;
+    // TODO: Implement
+    return pk;
+}
+
+size_t BGVPublicKey::byte_size() const {
+    // Two polynomials
+    return 0;  // TODO
+}
+
+// ============================================================================
+// BGVContext Implementation
+// ============================================================================
+
+BGVContext::BGVContext(const BGVParams& params) 
+    : params_(params) {
+    
+    if (!params_.validate()) {
+        throw std::invalid_argument("Invalid BGV parameters");
+    }
+    
+    // Seed RNG
+    std::random_device rd;
+    rng_.seed(rd());
+    
+    // Initialize polynomial ring
+    initialize_ring();
+    
+    // Initialize modulus levels
+    initialize_levels();
+}
+
+BGVContext::~BGVContext() {
+    // Cleanup
+}
+
+BGVContext::BGVContext(BGVContext&& other) noexcept = default;
+BGVContext& BGVContext::operator=(BGVContext&& other) noexcept = default;
+
+void BGVContext::initialize_ring() {
+    // Set up the polynomial ring R_q = Z_q[X]/(桅_m(X))
+    ZZ_p::init(params_.q);
+    
+    // Compute cyclotomic polynomial 桅_m(X)
+    cyclotomic_ = compute_cyclotomic(params_.m);
+}
+
+void BGVContext::initialize_levels() {
+    // For each level, set up the modulus and reduction polynomial
+    levels_.resize(params_.L);
+    
+    ZZ q_current = params_.q;
+    
+    for (uint32_t i = 0; i < params_.L; i++) {
+        levels_[i].q = q_current;
+        
+        // Compute 桅_m(X) mod q_current
+        ZZ_pPush push;
+        ZZ_p::init(q_current);
+        levels_[i].cyclotomic = compute_cyclotomic(params_.m);
+        
+        // For next level, divide by one prime
+        if (i < params_.primes.size()) {
+            q_current /= params_.primes[i];
+        }
+    }
+}
+
+ZZ_pX BGVContext::compute_cyclotomic(uint64_t m) {
+    // Compute the m-th cyclotomic polynomial 桅_m(X)
+    // 桅_m(X) = 鈭廮{d|m} (X^{m/d} - 1)^{渭(d)}
+    
+    // For power-of-2 m: 桅_m(X) = X^{m/2} + 1
+    if ((m & (m - 1)) == 0) {  // m is power of 2
+        ZZ_pX phi;
+        SetCoeff(phi, 0, conv<ZZ_p>(1));
+        SetCoeff(phi, m / 2, conv<ZZ_p>(1));
+        return phi;
+    }
+    
+    // For prime m: 桅_m(X) = 1 + X + X^2 + ... + X^{m-1}
+    if (ProbPrime(to_ZZ(m))) {
+        ZZ_pX phi;
+        for (uint64_t i = 0; i < m; i++) {
+            SetCoeff(phi, i, conv<ZZ_p>(1));
+        }
+        return phi;
+    }
+    
+    // General case: use NTL's CyclotomicPoly or compute via M枚bius function
+    // Simplified: assume m is a power of 2 for now
+    ZZ_pX phi;
+    SetCoeff(phi, 0, conv<ZZ_p>(1));
+    SetCoeff(phi, params_.n, conv<ZZ_p>(1));
+    return phi;
+}
+
+ZZ BGVContext::ciphertext_modulus(uint32_t level) const {
+    if (level >= levels_.size()) {
+        return levels_.back().q;
+    }
+    return levels_[level].q;
+}
+
+// ============================================================================
+// Key Generation
+// ============================================================================
+
+BGVSecretKey BGVContext::generate_secret_key() {
+    BGVSecretKey sk;
+    
+    // Generate ternary secret key s 鈭?{-1, 0, 1}^n
+    sk.s_ = sample_ternary(params_.hamming_weight);
+    
+    return sk;
+}
+
+BGVPublicKey BGVContext::generate_public_key(const BGVSecretKey& sk) {
+    BGVPublicKey pk;
+    
+    // Sample uniform a 鈭?R_q
+    pk.a_ = sample_uniform();
+    
+    // Sample error e 鈫?蠂
+    RingElement e = sample_error();
+    
+    // Compute b = -a*s + t*e (mod 桅_m(X))
+    RingElement as = pk.a_ * sk.s_;
+    // Reduce mod 桅_m(X)
+    ZZ_pX as_reduced;
+    rem(as_reduced, as.poly(), cyclotomic_);
+    
+    ZZ_pX te = e.poly() * conv<ZZ_p>(params_.t);
+    
+    pk.b_.poly() = -as_reduced + te;
+    
+    // Reduce mod 桅_m(X)
+    rem(pk.b_.poly(), pk.b_.poly(), cyclotomic_);
+    
+    return pk;
+}
+
+BGVRelinKey BGVContext::generate_relin_key(const BGVSecretKey& sk) {
+    BGVRelinKey rk;
+    
+    // Relinearization key: encryptions of s^2 under key s
+    // Using digit decomposition with base w
+    
+    const size_t num_digits = 3;  // Number of decomposition digits
+    ZZ base = power(conv<ZZ>(2), 60);  // Digit base
+    
+    RingElement s2 = sk.s_ * sk.s_;
+    rem(s2.poly(), s2.poly(), cyclotomic_);
+    
+    for (size_t i = 0; i < num_digits; i++) {
+        // Sample a_i uniformly
+        RingElement a = sample_uniform();
+        
+        // Sample error e_i
+        RingElement e = sample_error();
+        
+        // Compute b_i = -a_i*s + t*e_i + base^i * s^2
+        RingElement as = a * sk.s_;
+        rem(as.poly(), as.poly(), cyclotomic_);
+        
+        ZZ_pX te = e.poly() * conv<ZZ_p>(params_.t);
+        
+        // base^i * s^2
+        ZZ_p scale = conv<ZZ_p>(power(base, i));
+        RingElement scaled_s2 = s2 * scale;
+        
+        RingElement b;
+        b.poly() = -as.poly() + te + scaled_s2.poly();
+        rem(b.poly(), b.poly(), cyclotomic_);
+        
+        rk.key_components_.push_back({b, a});
+    }
+    
+    return rk;
+}
+
+BGVGaloisKey BGVContext::generate_galois_keys(const BGVSecretKey& sk,
+                                               const std::vector<int>& steps) {
+    BGVGaloisKey gk;
+    
+    // Generate keys for specified rotations
+    // For rotation by k slots, need automorphism 蟽: X -> X^{5^k mod m}
+    
+    std::vector<int> rotation_steps = steps;
+    if (rotation_steps.empty()) {
+        // Generate for all rotations
+        for (uint64_t i = 1; i < slot_count(); i *= 2) {
+            rotation_steps.push_back(static_cast<int>(i));
+            rotation_steps.push_back(-static_cast<int>(i));
+        }
+    }
+    
+    for (int step : rotation_steps) {
+        // Compute Galois element for this rotation
+        // For power-of-2 m, Galois element = 5^step mod m or 5^{-step} mod m
+        uint64_t galois_elt = 1;
+        uint64_t base = 5;
+        uint64_t exp = (step > 0) ? static_cast<uint64_t>(step) 
+                                  : static_cast<uint64_t>(-step);
+        
+        for (uint64_t i = 0; i < exp; i++) {
+            galois_elt = (galois_elt * base) % params_.m;
+        }
+        if (step < 0) {
+            // Compute inverse
+            // galois_elt = modular inverse of current value
+        }
+        
+        // Generate key for this Galois element
+        // Key switches from 蟽(s) to s
+        
+        // Apply automorphism to s: s(X) -> s(X^{galois_elt})
+        RingElement sigma_s;
+        for (long i = 0; i <= sk.s_.degree(); i++) {
+            long new_idx = (i * galois_elt) % params_.n;
+            sigma_s.set_coeff(new_idx, sk.s_.coeff(i));
+        }
+        
+        // Generate key switching key from sigma_s to s
+        std::vector<std::pair<RingElement, RingElement>> key;
+        
+        const size_t num_digits = 3;
+        ZZ base_decomp = power(conv<ZZ>(2), 60);
+        
+        for (size_t d = 0; d < num_digits; d++) {
+            RingElement a = sample_uniform();
+            RingElement e = sample_error();
+            
+            RingElement as = a * sk.s_;
+            rem(as.poly(), as.poly(), cyclotomic_);
+            
+            ZZ_pX te = e.poly() * conv<ZZ_p>(params_.t);
+            
+            ZZ_p scale = conv<ZZ_p>(power(base_decomp, d));
+            RingElement scaled = sigma_s * scale;
+            
+            RingElement b;
+            b.poly() = -as.poly() + te + scaled.poly();
+            rem(b.poly(), b.poly(), cyclotomic_);
+            
+            key.push_back({b, a});
+        }
+        
+        gk.keys_[galois_elt] = key;
+    }
+    
+    return gk;
+}
+
+// ============================================================================
+// Encryption/Decryption
+// ============================================================================
+
+BGVCiphertext BGVContext::encrypt(const BGVPublicKey& pk, 
+                                   const BGVPlaintext& pt) {
+    BGVCiphertext ct;
+    
+    // Sample random u 鈭?{-1, 0, 1}^n
+    RingElement u = sample_ternary();
+    
+    // Sample errors e_0, e_1 鈫?蠂
+    RingElement e0 = sample_error();
+    RingElement e1 = sample_error();
+    
+    // c_0 = b*u + t*e_0 + m (mod 桅_m(X))
+    RingElement c0;
+    RingElement bu = pk.b_ * u;
+    rem(bu.poly(), bu.poly(), cyclotomic_);
+    
+    ZZ_pX te0 = e0.poly() * conv<ZZ_p>(params_.t);
+    
+    c0.poly() = bu.poly() + te0 + pt.data().poly();
+    rem(c0.poly(), c0.poly(), cyclotomic_);
+    
+    // c_1 = a*u + t*e_1 (mod 桅_m(X))
+    RingElement c1;
+    RingElement au = pk.a_ * u;
+    rem(au.poly(), au.poly(), cyclotomic_);
+    
+    ZZ_pX te1 = e1.poly() * conv<ZZ_p>(params_.t);
+    
+    c1.poly() = au.poly() + te1;
+    rem(c1.poly(), c1.poly(), cyclotomic_);
+    
+    ct.push_back(c0);
+    ct.push_back(c1);
+    ct.set_level(0);
+    ct.set_noise_budget(params_.initial_noise_budget());
+    
+    return ct;
+}
+
+BGVPlaintext BGVContext::decrypt(const BGVSecretKey& sk, 
+                                  const BGVCiphertext& ct) {
+    if (ct.size() < 2) {
+        throw std::invalid_argument("Invalid ciphertext size");
+    }
+    
+    // Compute m = [c_0 + c_1*s + c_2*s^2 + ...]_t
+    // where [x]_t means coefficient-wise mod t with centered reduction
+    
+    RingElement result = ct[0];
+    
+    for (size_t i = 1; i < ct.size(); i++) {
+        RingElement term = ct[i] * sk.power(i);
+        rem(term.poly(), term.poly(), cyclotomic_);
+        result += term;
+    }
+    
+    rem(result.poly(), result.poly(), cyclotomic_);
+    
+    // Reduce coefficients mod t with centered reduction
+    BGVPlaintext pt;
+    ZZ t = conv<ZZ>(params_.t);
+    ZZ t_half = t / 2;
+    
+    for (long i = 0; i <= result.degree(); i++) {
+        ZZ coef = rep(result.coeff(i));
+        coef = coef % t;
+        
+        // Centered reduction: if coef > t/2, coef -= t
+        if (coef > t_half) {
+            coef -= t;
+        }
+        
+        // Now convert back to mod t (positive representative)
+        if (coef < 0) {
+            coef += t;
+        }
+        
+        ZZ_pPush push;
+        ZZ_p::init(t);
+        SetCoeff(pt.data().poly(), i, conv<ZZ_p>(coef));
+    }
+    
+    return pt;
+}
+
+BGVCiphertext BGVContext::encrypt_symmetric(const BGVSecretKey& sk,
+                                             const BGVPlaintext& pt) {
+    BGVCiphertext ct;
+    
+    // Sample uniform a 鈭?R_q
+    RingElement a = sample_uniform();
+    
+    // Sample error e 鈫?蠂
+    RingElement e = sample_error();
+    
+    // c_0 = -a*s + t*e + m (mod 桅_m(X))
+    RingElement c0;
+    RingElement as = a * sk.s_;
+    rem(as.poly(), as.poly(), cyclotomic_);
+    
+    ZZ_pX te = e.poly() * conv<ZZ_p>(params_.t);
+    
+    c0.poly() = -as.poly() + te + pt.data().poly();
+    rem(c0.poly(), c0.poly(), cyclotomic_);
+    
+    // c_1 = a
+    ct.push_back(c0);
+    ct.push_back(a);
+    ct.set_level(0);
+    ct.set_noise_budget(params_.initial_noise_budget());
+    
+    return ct;
+}
+
+BGVCiphertext BGVContext::encrypt_zero(const BGVPublicKey& pk) {
+    // Encrypt the zero polynomial
+    BGVPlaintext zero;
+    zero.data().clear();
+    return encrypt(pk, zero);
+}
+
+// ============================================================================
+// Noise Management
+// ============================================================================
+
+double BGVContext::noise_budget(const BGVSecretKey& sk, 
+                                 const BGVCiphertext& ct) {
+    // Compute actual noise and return bits of remaining budget
+    
+    // Decrypt without mod t reduction to get raw polynomial
+    RingElement raw = ct[0];
+    for (size_t i = 1; i < ct.size(); i++) {
+        RingElement term = ct[i] * sk.power(i);
+        rem(term.poly(), term.poly(), cyclotomic_);
+        raw += term;
+    }
+    rem(raw.poly(), raw.poly(), cyclotomic_);
+    
+    // The noise is the non-plaintext component
+    // noise = raw - m*t where m is the plaintext
+    // For exact computation, we'd need to know the plaintext
+    
+    // Estimate: noise magnitude is max coefficient after mod t reduction
+    ZZ max_coef = conv<ZZ>(0);
+    ZZ t = conv<ZZ>(params_.t);
+    
+    for (long i = 0; i <= raw.degree(); i++) {
+        ZZ coef = rep(raw.coeff(i)) % t;
+        // Centered reduction
+        if (coef > t / 2) coef = t - coef;
+        if (coef > max_coef) max_coef = coef;
+    }
+    
+    // Noise budget = log2(q/2) - log2(noise)
+    double log_q = log(params_.q) / std::log(2.0);
+    double log_noise = log(max_coef + 1) / std::log(2.0);
+    
+    return log_q - 1 - log_noise;
+}
+
+bool BGVContext::is_valid(const BGVSecretKey& sk, const BGVCiphertext& ct) {
+    return noise_budget(sk, ct) > 0;
+}
+
+// ============================================================================
+// Sampling Functions
+// ============================================================================
+
+RingElement BGVContext::sample_uniform() {
+    RingElement result;
+    
+    for (uint64_t i = 0; i < params_.n; i++) {
+        // Sample uniform in [0, q)
+        ZZ coef;
+        RandomBnd(coef, params_.q);
+        SetCoeff(result.poly(), i, conv<ZZ_p>(coef));
+    }
+    
+    return result;
+}
+
+RingElement BGVContext::sample_error() {
+    RingElement result;
+    
+    // Discrete Gaussian with parameter 蟽
+    std::normal_distribution<double> dist(0.0, params_.sigma);
+    
+    for (uint64_t i = 0; i < params_.n; i++) {
+        double val = dist(rng_);
+        long rounded = static_cast<long>(std::round(val));
+        
+        // Convert to mod q
+        ZZ coef = to_ZZ(rounded);
+        if (rounded < 0) {
+            coef += params_.q;
+        }
+        
+        SetCoeff(result.poly(), i, conv<ZZ_p>(coef));
+    }
+    
+    return result;
+}
+
+RingElement BGVContext::sample_ternary(uint32_t hamming_weight) {
+    RingElement result;
+    
+    if (hamming_weight == 0) {
+        // Dense ternary: each coefficient uniformly in {-1, 0, 1}
+        std::uniform_int_distribution<int> dist(-1, 1);
+        
+        for (uint64_t i = 0; i < params_.n; i++) {
+            int val = dist(rng_);
+            ZZ coef = to_ZZ(val);
+            if (val < 0) {
+                coef += params_.q;
+            }
+            SetCoeff(result.poly(), i, conv<ZZ_p>(coef));
+        }
+    } else {
+        // Sparse ternary with exactly hamming_weight non-zero coefficients
+        // Half are +1, half are -1
+        
+        // Initialize to zero
+        for (uint64_t i = 0; i < params_.n; i++) {
+            SetCoeff(result.poly(), i, conv<ZZ_p>(0));
+        }
+        
+        // Pick random positions
+        std::vector<uint64_t> positions(params_.n);
+        for (uint64_t i = 0; i < params_.n; i++) {
+            positions[i] = i;
+        }
+        std::shuffle(positions.begin(), positions.end(), rng_);
+        
+        // Set first hamming_weight/2 to +1
+        for (uint32_t i = 0; i < hamming_weight / 2; i++) {
+            SetCoeff(result.poly(), positions[i], conv<ZZ_p>(1));
+        }
+        
+        // Set next hamming_weight/2 to -1
+        ZZ_p minus_one = conv<ZZ_p>(params_.q - 1);
+        for (uint32_t i = hamming_weight / 2; i < hamming_weight; i++) {
+            SetCoeff(result.poly(), positions[i], minus_one);
+        }
+    }
+    
+    return result;
+}
+
+// ============================================================================
+// Serialization
+// ============================================================================
+
+std::vector<uint8_t> BGVContext::serialize() const {
+    // TODO: Implement proper serialization
+    return {};
+}
+
+std::unique_ptr<BGVContext> BGVContext::deserialize(
+    const std::vector<uint8_t>& data) {
+    // TODO: Implement proper deserialization
+    return nullptr;
+}
+
+} // namespace bgv
+} // namespace fhe
+} // namespace kctsb

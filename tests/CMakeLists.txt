@@ -213,6 +213,41 @@ gtest_discover_tests(test_benchmark PROPERTIES LABELS "performance")
 kctsb_add_test(test_security_boundaries unit/security/test_security_boundaries.cpp "unit;security")
 
 # ============================================================================
+# ADVANCED CRYPTOGRAPHY TESTS - BGV Homomorphic Encryption
+# Label: "unit;fhe" - Run with: ctest -L fhe
+# TODO: Re-enable after fixing kctsb bignum API compatibility
+# ============================================================================
+
+if(KCTSB_ENABLE_BGV)
+    # BGV Homomorphic Encryption tests (v4.2.0)
+    add_executable(test_bgv test_bgv.cpp)
+    # BGV requires static library for full NTL/bignum access
+    if(TARGET kctsb_static)
+        target_link_libraries(test_bgv PRIVATE
+            kctsb_static
+            GTest::gtest_main
+        )
+    else()
+        target_link_libraries(test_bgv PRIVATE
+            kctsb
+            GTest::gtest_main
+        )
+    endif()
+    target_include_directories(test_bgv PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/src
+    )
+    # Link NTL if available
+    if(NTL_FOUND)
+        target_link_libraries(test_bgv PRIVATE ${NTL_LIBRARY})
+        if(GMP_FOUND)
+            target_link_libraries(test_bgv PRIVATE ${GMP_LIBRARY})
+        endif()
+    endif()
+    gtest_discover_tests(test_bgv PROPERTIES LABELS "unit;fhe;bgv")
+endif()
+
+# ============================================================================
 # Test Summary
 # ============================================================================
 message(STATUS "")
@@ -222,12 +257,18 @@ if(NOT WIN32 OR KCTSB_FORCE_BIGNUM_MODULES)
 else()
     message(STATUS "  Unit Tests:        test_aes, test_hash, test_sha, test_security_boundaries (bignum disabled)")
 endif()
+if(KCTSB_ENABLE_BGV)
+    message(STATUS "  FHE Tests:         test_bgv (BGV homomorphic encryption)")
+else()
+    message(STATUS "  FHE Tests:         (disabled - set KCTSB_ENABLE_BGV=ON)")
+endif()
 message(STATUS "  Integration Tests: test_integration")
 message(STATUS "  Performance Tests: test_benchmark")
 message(STATUS "")
 message(STATUS "Run commands:")
 message(STATUS "  All tests:         ctest --output-on-failure")
 message(STATUS "  Unit tests only:   ctest -L unit --output-on-failure")
+message(STATUS "  FHE tests only:    ctest -L fhe --output-on-failure")
 message(STATUS "  Integration only:  ctest -L integration --output-on-failure")
 message(STATUS "  Security only:     ctest -L security --output-on-failure")
 message(STATUS "  Performance only:  ctest -L performance --output-on-failure")
