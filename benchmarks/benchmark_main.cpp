@@ -279,10 +279,11 @@ int main(int argc, char* argv[]) {
     }
 #endif
 
-    // SM benchmarks disabled - SM2/SM4 functions not yet implemented
-    // if (algorithm == "all" || algorithm == "sm") {
-    //     benchmark_sm();
-    // }
+#ifdef KCTSB_HAS_SM2
+    if (algorithm == "all" || algorithm == "sm") {
+        benchmark_sm();
+    }
+#endif
 
     // Print summary
     print_summary();
