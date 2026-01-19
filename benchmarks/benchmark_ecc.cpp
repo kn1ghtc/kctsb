@@ -1,12 +1,14 @@
 /**
  * @file benchmark_ecc.cpp
- * @brief ECC Performance Benchmark: kctsb vs OpenSSL
+ * @brief ECC Performance Benchmark: kctsb vs OpenSSL 3.6.0
  *
  * Benchmarks elliptic curve operations:
  * - Key generation (secp256k1, secp256r1, secp384r1)
  * - ECDSA sign/verify operations
  * - ECDH key agreement
  * - Point multiplication
+ * 
+ * v4.0.1: Added ratio comparison output format
  *
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
  * @license Apache License 2.0
@@ -20,6 +22,9 @@
 #include <algorithm>
 #include <numeric>
 #include <functional>
+
+// Common benchmark utilities
+#include "benchmark_common.hpp"
 
 // OpenSSL headers
 #include <openssl/evp.h>
@@ -174,9 +179,10 @@ static double benchmark_openssl_ecdh(EVP_PKEY* priv_key, EVP_PKEY* peer_pub) {
 }
 
 /**
- * @brief Run benchmark iterations and print results
+ * @brief Run benchmark iterations and return average time
+ * @return Average execution time in milliseconds
  */
-static void run_benchmark(
+static double run_benchmark(
     const std::string& name,
     const std::string& impl,
     std::function<double()> benchmark_func
@@ -208,6 +214,8 @@ static void run_benchmark(
               << std::setw(10) << min_time << " ms"
               << std::setw(10) << ops_per_sec << " op/s"
               << std::endl;
+    
+    return avg;  // Return for ratio comparison
 }
 
 /**
@@ -226,12 +234,12 @@ static void print_header(const std::string& title) {
 }
 
 /**
- * @brief Main ECC benchmark function
+ * @brief Main ECC benchmark function with ratio comparison
  */
 void benchmark_ecc() {
-    std::cout << "\n" << std::string(75, '=') << std::endl;
-    std::cout << "  Elliptic Curve Cryptography (ECC) Benchmark" << std::endl;
-    std::cout << std::string(75, '=') << std::endl;
+    std::cout << "\n" << std::string(80, '=') << std::endl;
+    std::cout << "  Elliptic Curve Cryptography (ECC) Benchmark vs OpenSSL 3.6.0" << std::endl;
+    std::cout << std::string(80, '=') << std::endl;
 
     // Generate test hash
     uint8_t hash[HASH_SIZE];
@@ -240,26 +248,37 @@ void benchmark_ecc() {
     for (const auto& curve : TEST_CURVES) {
         print_header(curve.name);
 
+        // Variables to store times for ratio comparison
+        double openssl_keygen_time = 0, kctsb_keygen_time = 0;
+        double openssl_sign_time = 0, kctsb_sign_time = 0;
+        double openssl_verify_time = 0, kctsb_verify_time = 0;
+        double openssl_ecdh_time = 0, kctsb_ecdh_time = 0;
+
         // ================================================================
         // Key Generation Benchmark
         // ================================================================
-        run_benchmark(
+        openssl_keygen_time = run_benchmark(
             "Key Generation",
             "OpenSSL",
             [&]() { return benchmark_openssl_ec_keygen(curve.nid); }
         );
 
 #ifdef KCTSB_HAS_ECC
-        // kctsb ECDSA Key Generation
-        run_benchmark(
-            "Key Generation",
-            "kctsb",
-            [&curve]() {
-                kctsb::ecc::ECDSA ecdsa(curve.kctsb_type);
-                auto keypair = ecdsa.generate_keypair();
-                return keypair.is_valid(ecdsa.get_curve()) ? 1.0 : 0.0;
-            }
-        );
+        {
+            kctsb::ecc::ECDSA ecdsa(curve.kctsb_type);
+            kctsb_keygen_time = run_benchmark(
+                "Key Generation",
+                "kctsb",
+                [&ecdsa]() {
+                    auto start = Clock::now();
+                    auto keypair = ecdsa.generate_keypair();
+                    auto end = Clock::now();
+                    (void)keypair;
+                    return Duration(end - start).count();
+                }
+            );
+            kctsb_bench::print_time_ratio(kctsb_keygen_time, openssl_keygen_time);
+        }
 #endif
 
         // Generate persistent key pair for sign/verify tests
@@ -273,25 +292,28 @@ void benchmark_ecc() {
         // ================================================================
         // ECDSA Sign Benchmark
         // ================================================================
-        run_benchmark(
+        openssl_sign_time = run_benchmark(
             "ECDSA Sign",
             "OpenSSL",
             [&]() { return benchmark_openssl_ecdsa_sign(pkey, hash); }
         );
 
 #ifdef KCTSB_HAS_ECC
-        // kctsb ECDSA Sign
         {
             kctsb::ecc::ECDSA ecdsa(curve.kctsb_type);
             auto kctsb_keypair = ecdsa.generate_keypair();
-            run_benchmark(
+            kctsb_sign_time = run_benchmark(
                 "ECDSA Sign",
                 "kctsb",
                 [&ecdsa, &kctsb_keypair, &hash]() {
+                    auto start = Clock::now();
                     auto sig = ecdsa.sign(hash, HASH_SIZE, kctsb_keypair.private_key);
-                    return sig.is_valid(ecdsa.get_curve().get_order()) ? 1.0 : 0.0;
+                    auto end = Clock::now();
+                    (void)sig;
+                    return Duration(end - start).count();
                 }
             );
+            kctsb_bench::print_time_ratio(kctsb_sign_time, openssl_sign_time);
         }
 #endif
 
@@ -308,7 +330,7 @@ void benchmark_ecc() {
         // ================================================================
         // ECDSA Verify Benchmark
         // ================================================================
-        run_benchmark(
+        openssl_verify_time = run_benchmark(
             "ECDSA Verify",
             "OpenSSL",
             [&]() {
@@ -318,27 +340,29 @@ void benchmark_ecc() {
         );
 
 #ifdef KCTSB_HAS_ECC
-        // kctsb ECDSA Verify
         {
             kctsb::ecc::ECDSA ecdsa(curve.kctsb_type);
             auto kctsb_keypair = ecdsa.generate_keypair();
             auto kctsb_sig = ecdsa.sign(hash, HASH_SIZE, kctsb_keypair.private_key);
-            run_benchmark(
+            kctsb_verify_time = run_benchmark(
                 "ECDSA Verify",
                 "kctsb",
                 [&ecdsa, &kctsb_keypair, &kctsb_sig, &hash]() {
+                    auto start = Clock::now();
                     bool valid = ecdsa.verify(hash, HASH_SIZE,
                                              kctsb_sig, kctsb_keypair.public_key);
-                    return valid ? 1.0 : 0.0;
+                    auto end = Clock::now();
+                    (void)valid;
+                    return Duration(end - start).count();
                 }
             );
+            kctsb_bench::print_time_ratio(kctsb_verify_time, openssl_verify_time);
         }
 #endif
 
         // ================================================================
         // ECDH Key Agreement Benchmark
         // ================================================================
-        // Generate peer key pair
         EVP_PKEY_CTX* peer_ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_EC, nullptr);
         EVP_PKEY* peer_pkey = nullptr;
         EVP_PKEY_keygen_init(peer_ctx);
@@ -346,27 +370,30 @@ void benchmark_ecc() {
         EVP_PKEY_keygen(peer_ctx, &peer_pkey);
         EVP_PKEY_CTX_free(peer_ctx);
 
-        run_benchmark(
+        openssl_ecdh_time = run_benchmark(
             "ECDH Key Agreement",
             "OpenSSL",
             [&]() { return benchmark_openssl_ecdh(pkey, peer_pkey); }
         );
 
 #ifdef KCTSB_HAS_ECC
-        // kctsb ECDH Key Agreement
         {
             kctsb::ecc::ECDH ecdh(curve.kctsb_type);
             auto our_keypair = ecdh.generate_keypair();
             auto peer_keypair = ecdh.generate_keypair();
-            run_benchmark(
+            kctsb_ecdh_time = run_benchmark(
                 "ECDH Key Agreement",
                 "kctsb",
                 [&ecdh, &our_keypair, &peer_keypair]() {
+                    auto start = Clock::now();
                     auto secret = ecdh.compute_shared_secret(
                         our_keypair.private_key, peer_keypair.public_key);
-                    return secret.empty() ? 0.0 : 1.0;
+                    auto end = Clock::now();
+                    (void)secret;
+                    return Duration(end - start).count();
                 }
             );
+            kctsb_bench::print_time_ratio(kctsb_ecdh_time, openssl_ecdh_time);
         }
 #endif
 
@@ -378,8 +405,8 @@ void benchmark_ecc() {
     }
 
     // Summary
-    std::cout << "\n  Note: kctsb ECC implementation uses NTL backend.\n";
-    std::cout << "  OpenSSL results shown as baseline reference.\n";
+    std::cout << "\n  Note: kctsb ECC uses NTL backend. OpenSSL uses optimized ASM.\n";
+    std::cout << "  Ratio shows percentage of OpenSSL performance (higher = faster).\n";
 }
 
 // Declare external benchmark entry

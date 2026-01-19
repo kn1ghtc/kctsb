@@ -1,6 +1,6 @@
 /**
  * @file benchmark_sm.cpp
- * @brief SM Algorithm Performance Benchmark: kctsb vs OpenSSL
+ * @brief SM Algorithm Performance Benchmark: kctsb vs OpenSSL 3.6.0
  *
  * Benchmarks Chinese National Standard cryptographic algorithms:
  * - SM2: Key generation, Encrypt/Decrypt, Sign/Verify (full comparison)
@@ -16,6 +16,8 @@
  * - OpenSSL 3.x does NOT support SM4-GCM mode
  * - We compare with SM4-CBC for reference (both encrypt and decrypt)
  * - kctsb SM4 uses GCM mode only for security (AEAD)
+ * 
+ * v4.0.1: Added ratio comparison output format
  *
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
  * @license Apache License 2.0
@@ -30,6 +32,9 @@
 #include <numeric>
 #include <functional>
 #include <limits>
+
+// Common benchmark utilities
+#include "benchmark_common.hpp"
 
 // OpenSSL headers
 #include <openssl/evp.h>
@@ -85,8 +90,9 @@ static double calculate_throughput(double bytes, double ms) {
 
 /**
  * @brief Run benchmark and collect statistics
+ * @return Average execution time in milliseconds
  */
-static void run_benchmark(
+static double run_benchmark(
     const std::string& name,
     const std::string& impl,
     std::function<double()> benchmark_func,
@@ -123,6 +129,8 @@ static void run_benchmark(
         std::cout << std::setw(12) << std::setprecision(2) << throughput << " MB/s";
     }
     std::cout << std::endl;
+    
+    return avg;  // Return for ratio comparison
 }
 
 /**
@@ -130,7 +138,7 @@ static void run_benchmark(
  */
 static void print_header(const std::string& title) {
     std::cout << "\n  " << title << std::endl;
-    std::cout << std::string(75, '-') << std::endl;
+    std::cout << std::string(80, '-') << std::endl;
     std::cout << std::left << std::setw(25) << "Operation"
               << std::setw(10) << "Impl"
               << std::right << std::setw(15) << "Avg"
@@ -149,10 +157,10 @@ static void print_header(const std::string& title) {
  * Tests: Key Generation, Encrypt, Decrypt, Sign, Verify
  */
 void benchmark_sm2() {
-    std::cout << "\n" << std::string(75, '=') << std::endl;
-    std::cout << "  SM2 Complete Benchmark (GB/T 32918)" << std::endl;
+    std::cout << "\n" << std::string(80, '=') << std::endl;
+    std::cout << "  SM2 Complete Benchmark vs OpenSSL 3.6.0 (GB/T 32918)" << std::endl;
     std::cout << "  Operations: KeyGen, Encrypt, Decrypt, Sign, Verify" << std::endl;
-    std::cout << std::string(75, '=') << std::endl;
+    std::cout << std::string(80, '=') << std::endl;
 
 #ifdef KCTSB_HAS_SM2
     // Test message and user ID
@@ -421,7 +429,8 @@ void benchmark_sm2() {
     }
 
     std::cout << "\n  Note: SM2 follows GB/T 32918.1-5 specifications.\n";
-    std::cout << "  OpenSSL and kctsb may use different internal formats.\n";
+    std::cout << "  kctsb uses NTL-based implementation; OpenSSL uses optimized ASM.\n";
+    std::cout << "  Expected kctsb SM2 performance: 15-25% of OpenSSL (optimization pending).\n";
 #else
     std::cout << "\n  SM2 benchmarks skipped (KCTSB_HAS_SM2 not defined)\n";
 #endif
@@ -435,9 +444,9 @@ void benchmark_sm2() {
  * @brief SM3 benchmark suite
  */
 void benchmark_sm3() {
-    std::cout << "\n" << std::string(75, '=') << std::endl;
-    std::cout << "  SM3 Hash Benchmark (GB/T 32905)" << std::endl;
-    std::cout << std::string(75, '=') << std::endl;
+    std::cout << "\n" << std::string(80, '=') << std::endl;
+    std::cout << "  SM3 Hash Benchmark vs OpenSSL 3.6.0 (GB/T 32905)" << std::endl;
+    std::cout << std::string(80, '=') << std::endl;
 
 #ifdef KCTSB_HAS_SM3
     for (size_t data_size : TEST_SIZES) {
@@ -454,11 +463,13 @@ void benchmark_sm3() {
         std::vector<uint8_t> data(data_size);
         generate_random(data.data(), data_size);
         uint8_t digest[32];
+        
+        double openssl_time = 0, kctsb_time = 0;
 
         // OpenSSL SM3
         const EVP_MD* sm3_md = EVP_sm3();
         if (sm3_md) {
-            run_benchmark(
+            openssl_time = run_benchmark(
                 "SM3 Hash",
                 "OpenSSL",
                 [&]() {
@@ -482,7 +493,7 @@ void benchmark_sm3() {
         }
 
         // kctsb SM3
-        run_benchmark(
+        kctsb_time = run_benchmark(
             "SM3 Hash",
             "kctsb",
             [&]() {
@@ -494,6 +505,10 @@ void benchmark_sm3() {
             },
             true, data_size
         );
+        
+        if (openssl_time > 0) {
+            kctsb_bench::print_time_ratio(kctsb_time, openssl_time);
+        }
     }
 #else
     std::cout << "\n  SM3 benchmarks skipped (KCTSB_HAS_SM3 not defined)\n";
@@ -510,10 +525,10 @@ void benchmark_sm3() {
  * - OpenSSL: CBC mode for reference (GCM not available)
  */
 void benchmark_sm4() {
-    std::cout << "\n" << std::string(75, '=') << std::endl;
-    std::cout << "  SM4 Cipher Benchmark (GB/T 32907)" << std::endl;
+    std::cout << "\n" << std::string(80, '=') << std::endl;
+    std::cout << "  SM4 Cipher Benchmark vs OpenSSL 3.6.0 (GB/T 32907)" << std::endl;
     std::cout << "  kctsb: GCM mode (AEAD) | OpenSSL: CBC mode (reference)" << std::endl;
-    std::cout << std::string(75, '=') << std::endl;
+    std::cout << std::string(80, '=') << std::endl;
 
 #ifdef KCTSB_HAS_SM4
     // Generate key and IVs
@@ -651,14 +666,17 @@ void benchmark_sm4() {
  * @brief Main SM algorithm benchmark function
  */
 void benchmark_sm() {
-    std::cout << "\n" << std::string(75, '=') << std::endl;
-    std::cout << "  Chinese National Standard Cryptography (SM2/SM3/SM4)" << std::endl;
-    std::cout << std::string(75, '=') << std::endl;
+    std::cout << "\n" << std::string(80, '=') << std::endl;
+    std::cout << "  Chinese National Standard Cryptography vs OpenSSL 3.6.0" << std::endl;
+    std::cout << "  SM2 (GB/T 32918) | SM3 (GB/T 32905) | SM4 (GB/T 32907)" << std::endl;
+    std::cout << std::string(80, '=') << std::endl;
 
     benchmark_sm2();
     benchmark_sm3();
     benchmark_sm4();
 
-    std::cout << "\n  Note: SM algorithms follow GB/T 32905/32907/32918 specifications.\n";
-    std::cout << "  SM4: GCM mode only in kctsb (AEAD, secure). CBC removed.\n";
+    std::cout << "\n  Summary:\n";
+    std::cout << "  - SM algorithms follow GB/T 32905/32907/32918 specifications.\n";
+    std::cout << "  - SM4: GCM mode only (AEAD, secure). CBC removed.\n";
+    std::cout << "  - Ratio shows percentage of OpenSSL performance (higher = faster).\n";
 }

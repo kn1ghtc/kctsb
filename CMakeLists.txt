@@ -407,14 +407,28 @@ endif()
 
 # -----------------------------------------------------------------------------
 # OpenSSL for benchmarks ONLY
+# Requires OpenSSL 3.6.0+ from vcpkg for consistent benchmark comparison
 # -----------------------------------------------------------------------------
 if(KCTSB_BUILD_BENCHMARKS AND KCTSB_ENABLE_OPENSSL)
-    find_package(OpenSSL QUIET)
+    # Prefer vcpkg OpenSSL 3.6.0
+    if(WIN32 AND EXISTS "D:/vcpkg/installed/x64-windows")
+        set(OPENSSL_ROOT_DIR "D:/vcpkg/installed/x64-windows")
+        set(OPENSSL_USE_STATIC_LIBS OFF)
+    endif()
+    
+    find_package(OpenSSL 3.6 QUIET)
     if(OPENSSL_FOUND)
-        message(STATUS "✓ OpenSSL for benchmarks: ${OPENSSL_VERSION}")
-        add_definitions(-DKCTSB_BENCHMARK_HAS_OPENSSL)
+        if(OPENSSL_VERSION VERSION_LESS "3.6.0")
+            message(WARNING "⚠ OpenSSL ${OPENSSL_VERSION} found, but 3.6.0+ required for benchmarks")
+            message(WARNING "  Please install OpenSSL 3.6.0 via: vcpkg install openssl:x64-windows")
+            set(OPENSSL_FOUND FALSE)
+        else()
+            message(STATUS "✓ OpenSSL for benchmarks: ${OPENSSL_VERSION}")
+            add_definitions(-DKCTSB_BENCHMARK_HAS_OPENSSL)
+        endif()
     else()
-        message(STATUS "⚠ OpenSSL not found, limited benchmarks")
+        message(STATUS "⚠ OpenSSL 3.6.0+ not found, limited benchmarks")
+        message(STATUS "  Install via: vcpkg install openssl:x64-windows")
         set(KCTSB_ENABLE_OPENSSL OFF)
     endif()
 endif()

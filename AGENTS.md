@@ -1,7 +1,7 @@
 # AGENTS.md - kctsb AI Development Guidelines
 
 > **项目**: kctsb - Knight's Cryptographic Trusted Security Base  
-> **版本**: 3.4.2  
+> **版本**: 4.0.1  
 > **更新时间**: 2026-01-17 (Beijing Time, UTC+8)  
 > **重大变更**: AES 安全加固 (T-table 移除, constexpr S-Box), 单文件静态库交付
 
@@ -447,7 +447,7 @@ thirdparty/
 **Benchmark 专用依赖** (仅 benchmarks/ 可用):
 | 依赖 | 版本 | 来源 | 用途 |
 |------|------|------|------|
-| OpenSSL | 3.x | vcpkg | 性能对比 |
+| OpenSSL | 3.6.0+ | vcpkg (`D:/vcpkg`) | 性能对比 |
 | zlib | 1.3.1 | vcpkg | 压缩支持 |
 | zstd | 1.5.7 | vcpkg | 压缩支持 |
 
