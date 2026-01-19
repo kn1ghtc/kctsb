@@ -29,6 +29,41 @@ project(kctsb
 )
 
 # ============================================================================
+# Assembly Language Support (v4.5.0)
+# ============================================================================
+# Enable ASM for optimized field element operations (fe256)
+# x86_64: Uses BMI2 (MULX) and ADX (ADCX/ADOX) instructions
+# ARM64: Uses NEON instructions (future)
+
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "AMD64|x86_64")
+    # Enable ASM_NASM for MSVC, regular ASM for GCC/Clang
+    if(MSVC)
+        enable_language(ASM_MASM)
+        set(KCTSB_ASM_ENABLED ON)
+        set(KCTSB_ASM_TYPE "MASM")
+        message(STATUS "✓ Assembly enabled: x86_64 MASM (MSVC)")
+    else()
+        # GCC/Clang use GNU as syntax
+        enable_language(ASM)
+        set(KCTSB_ASM_ENABLED ON)
+        set(KCTSB_ASM_TYPE "GAS")
+        message(STATUS "✓ Assembly enabled: x86_64 GAS (GCC/Clang)")
+    endif()
+    set(KCTSB_ARCH_X86_64 ON)
+    add_definitions(-DKCTSB_ARCH_X86_64)
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
+    enable_language(ASM)
+    set(KCTSB_ASM_ENABLED ON)
+    set(KCTSB_ASM_TYPE "GAS")
+    set(KCTSB_ARCH_ARM64 ON)
+    add_definitions(-DKCTSB_ARCH_ARM64)
+    message(STATUS "✓ Assembly enabled: ARM64 NEON")
+else()
+    set(KCTSB_ASM_ENABLED OFF)
+    message(STATUS "⚠ Assembly disabled: unsupported architecture ${CMAKE_SYSTEM_PROCESSOR}")
+endif()
+
+# ============================================================================
 # Build Configuration - C++17 Mandatory
 # ============================================================================
 
@@ -544,13 +579,32 @@ set(KCTSB_CRYPTO_SOURCES
 # RSA and ECC sources (depend on integrated bignum math)
 # v4.0.1: Windows LLP64 compatibility fixed - bignum works on all platforms
 # v4.4.0: wNAF optimization consolidated into ecc_curve.cpp
+# v4.5.0: fe256 optimized field arithmetic with assembly support
 file(GLOB KCTSB_RSA_SOURCES ${KCTSB_SRC_DIR}/crypto/rsa/*.cpp)
 set(KCTSB_ECC_SOURCES
     ${KCTSB_SRC_DIR}/crypto/ecc/ecc_curve.cpp
     ${KCTSB_SRC_DIR}/crypto/ecc/ecdh.cpp
     ${KCTSB_SRC_DIR}/crypto/ecc/ecdsa.cpp
     ${KCTSB_SRC_DIR}/crypto/ecc/ecies.cpp
+    ${KCTSB_SRC_DIR}/crypto/ecc/fe256.cpp
 )
+
+# v4.5.0: Add assembly sources for optimized field arithmetic
+if(KCTSB_ASM_ENABLED AND KCTSB_ARCH_X86_64 AND NOT MSVC)
+    # GCC/Clang on Linux/macOS/MinGW - use .S files (GNU as)
+    set(KCTSB_ECC_ASM_SOURCES
+        ${KCTSB_SRC_DIR}/crypto/ecc/asm/fe256_x86_64.S
+    )
+    list(APPEND KCTSB_ECC_SOURCES ${KCTSB_ECC_ASM_SOURCES})
+    add_definitions(-DKCTSB_HAS_FE256_ASM)
+    message(STATUS "✓ fe256 assembly optimizations enabled (x86_64 GAS)")
+elseif(KCTSB_ASM_ENABLED AND KCTSB_ARCH_X86_64 AND MSVC)
+    # MSVC uses MASM (.asm) - future support
+    message(STATUS "⚠ fe256 assembly: MSVC MASM support pending (using C++ fallback)")
+else()
+    message(STATUS "  fe256: using portable C++ implementation")
+endif()
+
 list(APPEND KCTSB_CRYPTO_SOURCES ${KCTSB_RSA_SOURCES} ${KCTSB_ECC_SOURCES})
 add_definitions(-DKCTSB_HAS_BIGNUM_MODULES)
 message(STATUS "✓ RSA/ECC modules enabled (bignum integrated)")
