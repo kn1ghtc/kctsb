@@ -470,6 +470,35 @@ std::reverse(output, output + len);  // ❌ 分散实现，难以维护
 
 ## 开发约束
 
+### 跨平台数据类型安全 ⚠️
+
+**关键规则 (2026-01-20 SM2 Bug 教训)**:
+
+| 数据类型 | Windows x64 | Linux x64 | 规则 |
+|----------|-------------|-----------|------|
+| `long` | ❌ **32-bit** | 64-bit | **禁止使用** |
+| `unsigned long` | ❌ **32-bit** | 64-bit | **禁止使用** |
+| `int64_t` | ✅ 64-bit | ✅ 64-bit | **必须使用** |
+| `uint64_t` | ✅ 64-bit | ✅ 64-bit | **必须使用** |
+| `int32_t` | ✅ 32-bit | ✅ 32-bit | 明确需要32位时 |
+| `size_t` | 64-bit | 64-bit | 用于数组索引 |
+
+**开发准则**:
+1. **禁止使用 `long`/`unsigned long`** - Windows 与 Linux 位宽不同
+2. **必须使用 `<cstdint>` 精确类型** - `int64_t`, `uint64_t`, `int32_t`
+3. **累加器使用 `int64_t`** - 允许负数进位处理 (如 Solinas reduction)
+4. **乘法结果使用 `uint128_t`** 或手动拆分为高/低 64 位
+
+**错误示例**:
+```cpp
+// ❌ WRONG - Windows 上 long 只有 32 位
+long carry = a + b;  // 溢出!
+
+// ✅ CORRECT
+int64_t carry = (int64_t)a + (int64_t)b;
+```
+
+参见 `docs/troubleshooting/fe256_data_type_issues.md` 获取完整分析。
 
 ### 编译器要求
 

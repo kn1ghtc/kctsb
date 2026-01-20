@@ -300,22 +300,27 @@ JacobianPoint ECCurve::add(const JacobianPoint& P, const JacobianPoint& Q) const
         return P;
     }
     
-    // Note: ZZ_p modulus should be set by caller for batch operations
-    // For single operations, we ensure it's set correctly
-    if (IsZero(ZZ_p::modulus()) || ZZ_p::modulus() != p_) {
-        ZZ_p::init(p_);
-    }
+    // Ensure correct modulus
+    ZZ_p::init(p_);
+    
+    // CRITICAL: Normalize input coordinates under current modulus
+    // This ensures ZZ_p values created under different modulus are correctly interpreted
+    ZZ_p P_X = conv<ZZ_p>(rep(P.X));
+    ZZ_p P_Y = conv<ZZ_p>(rep(P.Y));
+    ZZ_p P_Z = conv<ZZ_p>(rep(P.Z));
+    ZZ_p Q_X = conv<ZZ_p>(rep(Q.X));
+    ZZ_p Q_Y = conv<ZZ_p>(rep(Q.Y));
+    ZZ_p Q_Z = conv<ZZ_p>(rep(Q.Z));
     
     // Optimized Jacobian addition (12M + 4S formula from EFD)
     // https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html
-    // For a = 0 curves (secp256k1, SM2)
     
-    ZZ_p Z1Z1 = sqr(P.Z);
-    ZZ_p Z2Z2 = sqr(Q.Z);
-    ZZ_p U1 = P.X * Z2Z2;
-    ZZ_p U2 = Q.X * Z1Z1;
-    ZZ_p S1 = P.Y * Q.Z * Z2Z2;
-    ZZ_p S2 = Q.Y * P.Z * Z1Z1;
+    ZZ_p Z1Z1 = sqr(P_Z);
+    ZZ_p Z2Z2 = sqr(Q_Z);
+    ZZ_p U1 = P_X * Z2Z2;
+    ZZ_p U2 = Q_X * Z1Z1;
+    ZZ_p S1 = P_Y * Q_Z * Z2Z2;
+    ZZ_p S2 = Q_Y * P_Z * Z1Z1;
     
     ZZ_p H = U2 - U1;
     ZZ_p r = S2 - S1;
@@ -342,7 +347,7 @@ JacobianPoint ECCurve::add(const JacobianPoint& P, const JacobianPoint& Q) const
     ZZ_p Y3 = r * (V - X3) - S1 * HHH;
     
     // Z3 = H * Z1 * Z2
-    ZZ_p Z3 = H * P.Z * Q.Z;
+    ZZ_p Z3 = H * P_Z * Q_Z;
     
     return JacobianPoint(X3, Y3, Z3);
 }
@@ -352,31 +357,34 @@ JacobianPoint ECCurve::double_point(const JacobianPoint& P) const {
         return P;
     }
     
-    // Note: ZZ_p modulus should be set by caller for batch operations
-    if (IsZero(ZZ_p::modulus()) || ZZ_p::modulus() != p_) {
-        ZZ_p::init(p_);
-    }
+    // Ensure correct modulus
+    ZZ_p::init(p_);
+    
+    // CRITICAL: Normalize input coordinates under current modulus
+    ZZ_p P_X = conv<ZZ_p>(rep(P.X));
+    ZZ_p P_Y = conv<ZZ_p>(rep(P.Y));
+    ZZ_p P_Z = conv<ZZ_p>(rep(P.Z));
     
     // Optimized doubling formula from EFD
     // For a = 0: dbl-2009-l (1M + 5S + 1*a + 7add + 2*2 + 1*3 + 1*8)
     // https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#doubling-dbl-2009-l
     
-    ZZ_p A = sqr(P.X);           // X1²
-    ZZ_p B = sqr(P.Y);           // Y1²
+    ZZ_p A = sqr(P_X);           // X1²
+    ZZ_p B = sqr(P_Y);           // Y1²
     ZZ_p C = sqr(B);             // Y1⁴
     
     // D = 2*((X1+B)² - A - C) = 2*(X1+Y1²)² - 2*X1² - 2*Y1⁴
-    ZZ_p tmp = P.X + B;
+    ZZ_p tmp = P_X + B;
     ZZ_p D = sqr(tmp) - A - C;
     D = D + D;                    // D = 2*D (cheaper than 2*D multiply)
     
     ZZ_p E;
     if (IsZero(a_)) {
-        // a = 0 (secp256k1, SM2): E = 3*A
+        // a = 0 (secp256k1): E = 3*A
         E = A + A + A;
     } else {
-        // General case: E = 3*A + a*Z1⁴
-        ZZ_p Z1_sq = sqr(P.Z);
+        // General case (P-256, SM2): E = 3*A + a*Z1⁴
+        ZZ_p Z1_sq = sqr(P_Z);
         E = A + A + A + a_ * sqr(Z1_sq);
     }
     
@@ -391,7 +399,7 @@ JacobianPoint ECCurve::double_point(const JacobianPoint& P) const {
     ZZ_p Y3 = E * (D - X3) - C8;
     
     // Z3 = 2*Y1*Z1
-    ZZ_p Z3 = P.Y * P.Z;
+    ZZ_p Z3 = P_Y * P_Z;
     Z3 = Z3 + Z3;
     
     return JacobianPoint(X3, Y3, Z3);
@@ -402,11 +410,10 @@ JacobianPoint ECCurve::negate(const JacobianPoint& P) const {
         return P;
     }
     
-    // Note: Caller should have set modulus
-    if (IsZero(ZZ_p::modulus()) || ZZ_p::modulus() != p_) {
-        ZZ_p::init(p_);
-    }
-    return JacobianPoint(P.X, -P.Y, P.Z);
+    // Ensure correct modulus and normalize
+    ZZ_p::init(p_);
+    ZZ_p P_Y = conv<ZZ_p>(rep(P.Y));
+    return JacobianPoint(conv<ZZ_p>(rep(P.X)), -P_Y, conv<ZZ_p>(rep(P.Z)));
 }
 
 JacobianPoint ECCurve::subtract(const JacobianPoint& P, const JacobianPoint& Q) const {
@@ -449,27 +456,17 @@ JacobianPoint ECCurve::montgomery_ladder(const ZZ& k, const JacobianPoint& P) co
 }
 
 JacobianPoint ECCurve::scalar_mult(const ZZ& k, const JacobianPoint& P) const {
-    // TODO: fe256 fast path temporarily disabled for debugging
-    // Try fe256 fast path for 256-bit curves
-    // if (g_fe256_fast_path_enabled && fe256_fast_path_supported(name_)) {
-    //     return fe256_fast_scalar_mult(name_, k, P, p_);
-    // }
-    
-    // Fallback to wNAF for larger curves
-    return wnaf_scalar_mult(k, P);
+    // Use constant-time Montgomery ladder for security
+    ZZ_p::init(p_);
+    JacobianPoint P_norm(conv<ZZ_p>(rep(P.X)), conv<ZZ_p>(rep(P.Y)), conv<ZZ_p>(rep(P.Z)));
+    return montgomery_ladder(k, P_norm);
 }
 
 JacobianPoint ECCurve::scalar_mult_base(const ZZ& k) const {
-    // TODO: fe256 fast path temporarily disabled for debugging
-    // Try fe256 fast path for 256-bit curves
-    // if (g_fe256_fast_path_enabled && fe256_fast_path_supported(name_)) {
-    //     return fe256_fast_scalar_mult_base(name_, k, p_);
-    // }
-    
-    // Fallback to cached wNAF for larger curves
-    // Use cached precomputation table for generator multiplication
-    // This avoids rebuilding the table for every call (~16 point additions saved)
-    return wnaf_scalar_mult_cached(k);
+    // Use constant-time Montgomery ladder for security
+    ZZ_p::init(p_);
+    JacobianPoint G_norm(conv<ZZ_p>(rep(G_.X)), conv<ZZ_p>(rep(G_.Y)), conv<ZZ_p>(rep(G_.Z)));
+    return montgomery_ladder(k, G_norm);
 }
 
 // ============================================================================
@@ -570,6 +567,15 @@ JacobianPoint ECCurve::wnaf_scalar_mult(const ZZ& k, const JacobianPoint& P) con
     // Initialize modulus once for all point operations
     ZZ_p::init(p_);
     
+    // CRITICAL: Re-create the point with coordinates in the correct modulus context
+    // This ensures that ZZ_p values are properly interpreted under the current modulus p_
+    // Without this, points created under a different modulus may have incorrect values
+    JacobianPoint P_normalized(
+        conv<ZZ_p>(rep(P.X)),  // Extract ZZ from ZZ_p, then convert to ZZ_p under current modulus
+        conv<ZZ_p>(rep(P.Y)),
+        conv<ZZ_p>(rep(P.Z))
+    );
+    
     // Compute wNAF representation
     std::vector<int8_t> wnaf;
     size_t wnaf_len = compute_wnaf(k_mod, wnaf);
@@ -580,7 +586,7 @@ JacobianPoint ECCurve::wnaf_scalar_mult(const ZZ& k, const JacobianPoint& P) con
     
     // Build precomputation table
     std::array<JacobianPoint, WNAF_TABLE_SIZE> table;
-    build_precomp_table(P, table);
+    build_precomp_table(P_normalized, table);
     
     // wNAF evaluation (left-to-right for clarity)
     JacobianPoint R;  // Infinity
@@ -635,8 +641,14 @@ JacobianPoint ECCurve::wnaf_scalar_mult_cached(const ZZ& k) const {
     auto* cache_entry = GeneratorPrecompCache::instance().get_or_create(name_);
     
     if (!cache_entry->valid) {
-        // Build precomputation table for generator point G_
-        build_precomp_table(G_, cache_entry->table);
+        // CRITICAL: Normalize G_ coordinates under current modulus before building table
+        JacobianPoint G_normalized(
+            conv<ZZ_p>(rep(G_.X)),
+            conv<ZZ_p>(rep(G_.Y)),
+            conv<ZZ_p>(rep(G_.Z))
+        );
+        // Build precomputation table for generator point
+        build_precomp_table(G_normalized, cache_entry->table);
         cache_entry->valid = true;
     }
     
@@ -682,9 +694,13 @@ JacobianPoint ECCurve::double_scalar_mult(const ZZ& k1, const JacobianPoint& P,
     // Initialize modulus once for all point operations
     ZZ_p::init(p_);
     
+    // CRITICAL: Normalize point coordinates under current modulus
+    JacobianPoint P_norm(conv<ZZ_p>(rep(P.X)), conv<ZZ_p>(rep(P.Y)), conv<ZZ_p>(rep(P.Z)));
+    JacobianPoint Q_norm(conv<ZZ_p>(rep(Q.X)), conv<ZZ_p>(rep(Q.Y)), conv<ZZ_p>(rep(Q.Z)));
+    
     // Shamir's trick for simultaneous multiple scalar multiplication
     // Precompute: P, Q, P+Q
-    JacobianPoint PQ = add(P, Q);
+    JacobianPoint PQ = add(P_norm, Q_norm);
     
     ZZ k1_mod = k1 % n_;
     ZZ k2_mod = k2 % n_;
@@ -706,9 +722,9 @@ JacobianPoint ECCurve::double_scalar_mult(const ZZ& k1, const JacobianPoint& P,
         if (b1 && b2) {
             R = add(R, PQ);
         } else if (b1) {
-            R = add(R, P);
+            R = add(R, P_norm);
         } else if (b2) {
-            R = add(R, Q);
+            R = add(R, Q_norm);
         }
     }
     
@@ -726,14 +742,19 @@ AffinePoint ECCurve::to_affine(const JacobianPoint& P) const {
     
     ZZ_p::init(p_);
     
+    // CRITICAL: Normalize coordinates under current modulus p_
+    ZZ_p X = conv<ZZ_p>(rep(P.X));
+    ZZ_p Y = conv<ZZ_p>(rep(P.Y));
+    ZZ_p Z = conv<ZZ_p>(rep(P.Z));
+    
     // x = X / Z²
     // y = Y / Z³
-    ZZ_p Z_inv = inv(P.Z);
+    ZZ_p Z_inv = inv(Z);
     ZZ_p Z_inv_sq = sqr(Z_inv);
     ZZ_p Z_inv_cb = Z_inv_sq * Z_inv;
     
-    ZZ_p x = P.X * Z_inv_sq;
-    ZZ_p y = P.Y * Z_inv_cb;
+    ZZ_p x = X * Z_inv_sq;
+    ZZ_p y = Y * Z_inv_cb;
     
     return AffinePoint(x, y);
 }

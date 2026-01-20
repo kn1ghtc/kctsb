@@ -718,8 +718,11 @@ static void init_generators_mont() {
                             FE256_CURVE_SECP256K1);
         build_precomp_table(&p256_generator_mont, p256_precomp_table, 
                             FE256_CURVE_P256);
-        build_precomp_table(&sm2_generator_mont, sm2_precomp_table, 
-                            FE256_CURVE_SM2);
+        // NOTE: SM2 precomputation table disabled due to fe256_reduce_sm2 bug
+        // SM2 uses NTL-based implementation (ecc_curve.cpp) which is fully functional
+        // TODO: Fix fe256_reduce_sm2 and re-enable SM2 precomputation
+        // build_precomp_table(&sm2_generator_mont, sm2_precomp_table, 
+        //                     FE256_CURVE_SM2);
         precomp_tables_initialized = true;
     }
 }

@@ -33,6 +33,12 @@
 #include <vector>
 #include <stdexcept>
 
+// Enable debug output for SM2 verification failures
+// #define KCTSB_DEBUG_SM2 1  // Disabled - SM2 signature verification now works correctly
+#ifdef KCTSB_DEBUG_SM2
+#include <iostream>
+#endif
+
 // Bignum namespace is now kctsb (was bignum)
 using namespace kctsb;
 
@@ -386,6 +392,15 @@ kctsb_error_t sign_internal(
         ecc::JacobianPoint kG = curve.scalar_mult_base(k);
         ecc::AffinePoint kG_aff = curve.to_affine(kG);
         
+        #ifdef KCTSB_DEBUG_SM2
+        // Debug: Print k and kG.x for comparison with verification
+        ZZ_p::init(ctx.p());
+        ecc::AffinePoint G_aff_sign = curve.to_affine(curve.get_generator());
+        std::cerr << "[SM2 SIGN DEBUG] k = " << k << "\n";
+        std::cerr << "[SM2 SIGN DEBUG] G.x in sign = " << rep(G_aff_sign.x) << "\n";
+        std::cerr << "[SM2 SIGN DEBUG] kG.x = " << rep(kG_aff.x) << "\n";
+        #endif
+        
         // Extract ZZ value immediately after to_affine (ZZ_p context still valid)
         ZZ x1 = rep(kG_aff.x);
         
@@ -417,6 +432,14 @@ kctsb_error_t sign_internal(
     // Step 8: Output signature (r, s)
     zz_to_bytes(r, signature->r, FIELD_SIZE);
     zz_to_bytes(s, signature->s, FIELD_SIZE);
+    
+    #ifdef KCTSB_DEBUG_SM2
+    std::cerr << "[SM2 DEBUG] Signature generated:\n";
+    std::cerr << "  e (hash): " << e << "\n";
+    std::cerr << "  x1 (from kG): " << (r - e % n) << "\n";  // Reconstruct x1 from r - e mod n
+    std::cerr << "  r (e+x1 mod n): " << r << "\n";
+    std::cerr << "  s: " << s << "\n";
+    #endif
     
     // Secure cleanup
     kctsb_secure_zero(z_value, sizeof(z_value));
@@ -502,7 +525,26 @@ kctsb_error_t verify_internal(
     
     // Step 4: Compute (x1, y1) = s*G + t*P (using Shamir's trick)
     ecc::JacobianPoint G = curve.get_generator();
-    ecc::JacobianPoint R_point = curve.double_scalar_mult(s, G, t, P_jac);
+    
+    #ifdef KCTSB_DEBUG_SM2
+    // Debug: Check generator point in Jacobian coordinates
+    ZZ_p::init(ctx.p());
+    std::cerr << "[SM2 DEBUG] G.X (Jacobian) = " << rep(G.X) << "\n";
+    std::cerr << "[SM2 DEBUG] G.Y (Jacobian) = " << rep(G.Y) << "\n";
+    std::cerr << "[SM2 DEBUG] G.Z (Jacobian) = " << rep(G.Z) << "\n";
+    std::cerr << "[SM2 DEBUG] P_jac.X = " << rep(P_jac.X) << "\n";
+    std::cerr << "[SM2 DEBUG] P_jac.Y = " << rep(P_jac.Y) << "\n";
+    std::cerr << "[SM2 DEBUG] P_jac.Z = " << rep(P_jac.Z) << "\n";
+    std::cerr << "[SM2 DEBUG] s = " << s << "\n";
+    std::cerr << "[SM2 DEBUG] t = " << t << "\n";
+    #endif
+    
+    // Use separate scalar multiplications for debugging
+    // R_point = s*G + t*P
+    // Note: Use scalar_mult_base for G to use same path as signature
+    ecc::JacobianPoint sG = curve.scalar_mult_base(s);  // Use cached table like signature
+    ecc::JacobianPoint tP = curve.scalar_mult(t, P_jac);
+    ecc::JacobianPoint R_point = curve.add(sG, tP);
     ecc::AffinePoint R_aff = curve.to_affine(R_point);
     
     // Extract ZZ value immediately after to_affine (ZZ_p context still valid)
@@ -514,6 +556,18 @@ kctsb_error_t verify_internal(
     if (R == r) {
         return KCTSB_SUCCESS;
     }
+    
+    // Debug output for verification failure
+    #ifdef KCTSB_DEBUG_SM2
+    std::cerr << "[SM2 DEBUG] Verification FAILED!\n";
+    std::cerr << "  r (from sig): " << r << "\n";
+    std::cerr << "  s (from sig): " << s << "\n";
+    std::cerr << "  e (hash): " << e << "\n";
+    std::cerr << "  t (r+s mod n): " << t << "\n";
+    std::cerr << "  x1 (from R_aff): " << x1 << "\n";
+    std::cerr << "  R (e+x1 mod n): " << R << "\n";
+    std::cerr << "  R == r: " << (R == r ? "YES" : "NO") << "\n";
+    #endif
     
     return KCTSB_ERROR_VERIFICATION_FAILED;
 }
