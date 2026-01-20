@@ -580,6 +580,8 @@ set(KCTSB_CRYPTO_SOURCES
 # v4.0.1: Windows LLP64 compatibility fixed - bignum works on all platforms
 # v4.4.0: wNAF optimization consolidated into ecc_curve.cpp
 # v4.5.0: fe256 optimized field arithmetic with assembly support
+# v4.5.1: Added P-256 (secp256r1) specialized field operations
+# v4.5.2: Added fe256_point for optimized Jacobian point arithmetic
 file(GLOB KCTSB_RSA_SOURCES ${KCTSB_SRC_DIR}/crypto/rsa/*.cpp)
 set(KCTSB_ECC_SOURCES
     ${KCTSB_SRC_DIR}/crypto/ecc/ecc_curve.cpp
@@ -587,6 +589,8 @@ set(KCTSB_ECC_SOURCES
     ${KCTSB_SRC_DIR}/crypto/ecc/ecdsa.cpp
     ${KCTSB_SRC_DIR}/crypto/ecc/ecies.cpp
     ${KCTSB_SRC_DIR}/crypto/ecc/fe256.cpp
+    ${KCTSB_SRC_DIR}/crypto/ecc/fe256_p256.cpp
+    ${KCTSB_SRC_DIR}/crypto/ecc/fe256_point.cpp
 )
 
 # v4.5.0: Add assembly sources for optimized field arithmetic

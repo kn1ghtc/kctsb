@@ -335,6 +335,71 @@ void fe256_mul_wide(fe512* r, const fe256* a, const fe256* b);
  */
 void fe256_sqr_wide(fe512* r, const fe256* a);
 
+// ============================================================================
+// Field Arithmetic - NIST P-256 (secp256r1)
+// ============================================================================
+
+/**
+ * @brief P-256 modular addition: r = (a + b) mod p
+ */
+void fe256_add_p256(fe256* r, const fe256* a, const fe256* b);
+
+/**
+ * @brief P-256 modular subtraction: r = (a - b) mod p
+ */
+void fe256_sub_p256(fe256* r, const fe256* a, const fe256* b);
+
+/**
+ * @brief P-256 modular negation: r = -a mod p
+ */
+void fe256_neg_p256(fe256* r, const fe256* a);
+
+/**
+ * @brief P-256 Montgomery multiplication: r = a * b * R^(-1) mod p
+ */
+void fe256_mul_mont_p256(fe256* r, const fe256* a, const fe256* b);
+
+/**
+ * @brief P-256 Montgomery squaring: r = a^2 * R^(-1) mod p
+ */
+void fe256_sqr_mont_p256(fe256* r, const fe256* a);
+
+/**
+ * @brief P-256 Solinas reduction for 512-bit input
+ * Uses the special structure of the P-256 prime for efficient reduction.
+ */
+void fe256_reduce_p256(fe256* r, const fe512* a);
+
+/**
+ * @brief P-256 modular inversion: r = a^(-1) mod p
+ */
+void fe256_inv_p256(fe256* r, const fe256* a);
+
+/**
+ * @brief Convert to Montgomery form for P-256
+ */
+void fe256_to_mont_p256(fe256* r, const fe256* a);
+
+/**
+ * @brief Convert from Montgomery form for P-256
+ */
+void fe256_from_mont_p256(fe256* r, const fe256* a);
+
+/**
+ * @brief Get P-256 prime constant
+ */
+const fe256* fe256_get_p256_prime(void);
+
+/**
+ * @brief Get P-256 R^2 constant for Montgomery conversion
+ */
+const fe256* fe256_get_p256_r2(void);
+
+/**
+ * @brief Get P-256 n0 constant for Montgomery reduction
+ */
+uint64_t fe256_get_p256_n0(void);
+
 #ifdef __cplusplus
 }
 #endif

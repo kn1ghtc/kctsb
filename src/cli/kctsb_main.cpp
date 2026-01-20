@@ -98,7 +98,7 @@ void cmd_version() {
     std::cout << "\n";
     std::cout << "  [Asymmetric Cryptography]\n";
     std::cout << "  - RSA-2048/3072/4096 (OAEP, PSS)\n";
-    std::cout << "  - ECDSA/ECDH (secp256k1, P-256, P-384)\n";
+    std::cout << "  - ECDSA/ECDH (secp256k1, P-256, SM2)\n";
     std::cout << "  - SM2 (Chinese National Standard)\n";
     std::cout << "\n";
     std::cout << "  [Advanced]\n";

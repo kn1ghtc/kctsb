@@ -19,10 +19,10 @@ typedef struct {
     int curve_id;
 } kctsb_ecc_key_t;
 
-// Supported curves
-#define KCTSB_ECC_SECP256K1 1
-#define KCTSB_ECC_SECP384R1 2
-#define KCTSB_ECC_SECP521R1 3
+// Supported curves (256-bit only)
+#define KCTSB_ECC_SECP256K1 0
+#define KCTSB_ECC_SECP256R1 1  // P-256
+#define KCTSB_ECC_SM2       4  // Chinese National Standard
 
 KCTSB_API kctsb_error_t kctsb_ecc_generate_keypair(kctsb_ecc_key_t* key, int curve);
 KCTSB_API kctsb_error_t kctsb_ecdh_compute_shared(const kctsb_ecc_key_t* priv, const kctsb_ecc_key_t* pub, uint8_t* shared, size_t* len);

@@ -2,13 +2,14 @@
  * @file benchmark_ecc.cpp
  * @brief ECC Performance Benchmark: kctsb vs OpenSSL 3.6.0
  *
- * Benchmarks elliptic curve operations:
- * - Key generation (secp256k1, secp256r1, secp384r1)
+ * Benchmarks elliptic curve operations (256-bit curves only):
+ * - Key generation (secp256k1, secp256r1/P-256)
  * - ECDSA sign/verify operations
  * - ECDH key agreement
  * - Point multiplication
  * 
  * v4.0.1: Added ratio comparison output format
+ * v4.6.0: Removed P-384/P-521, focus on 256-bit curves
  *
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
  * @license Apache License 2.0
@@ -40,6 +41,7 @@
 #ifdef KCTSB_HAS_ECC
 #include "kctsb/crypto/ecc/ecdsa.h"
 #include "kctsb/crypto/ecc/ecdh.h"
+#include "kctsb/crypto/ecc/ecies.h"
 #include "kctsb/crypto/ecc/ecc_curve.h"
 #endif
 
@@ -77,11 +79,9 @@ static const CurveConfig TEST_CURVES[] = {
 #ifdef KCTSB_HAS_ECC
     {NID_secp256k1, "secp256k1", 256, kctsb::ecc::CurveType::SECP256K1},
     {NID_X9_62_prime256v1, "secp256r1 (P-256)", 256, kctsb::ecc::CurveType::SECP256R1},
-    {NID_secp384r1, "secp384r1 (P-384)", 384, kctsb::ecc::CurveType::SECP384R1},
 #else
     {NID_secp256k1, "secp256k1", 256},
     {NID_X9_62_prime256v1, "secp256r1 (P-256)", 256},
-    {NID_secp384r1, "secp384r1 (P-384)", 384},
 #endif
 };
 
@@ -397,6 +397,54 @@ void benchmark_ecc() {
         }
 #endif
 
+        // ================================================================
+        // ECIES Encrypt/Decrypt Benchmark
+        // ================================================================
+        // Note: OpenSSL does not have a built-in ECIES implementation,
+        // so we benchmark kctsb ECIES standalone without ratio comparison
+#ifdef KCTSB_HAS_ECC
+        {
+            kctsb::ecc::ECIES ecies(curve.kctsb_type);
+            auto recipient_keypair = ecies.generate_keypair();
+            
+            // Test plaintext (256 bytes typical message)
+            std::vector<uint8_t> test_plaintext(256);
+            generate_random(test_plaintext.data(), test_plaintext.size());
+            
+            run_benchmark(
+                "ECIES Encrypt (256 bytes)",
+                "kctsb",
+                [&ecies, &test_plaintext, &recipient_keypair]() {
+                    auto start = Clock::now();
+                    auto ciphertext = ecies.encrypt(
+                        test_plaintext.data(), test_plaintext.size(),
+                        recipient_keypair.public_key);
+                    auto end = Clock::now();
+                    (void)ciphertext;
+                    return Duration(end - start).count();
+                }
+            );
+            
+            // Pre-encrypt for decrypt benchmark
+            auto pre_ciphertext = ecies.encrypt(
+                test_plaintext.data(), test_plaintext.size(),
+                recipient_keypair.public_key);
+            
+            run_benchmark(
+                "ECIES Decrypt (256 bytes)",
+                "kctsb",
+                [&ecies, &pre_ciphertext, &recipient_keypair]() {
+                    auto start = Clock::now();
+                    auto decrypted = ecies.decrypt(
+                        pre_ciphertext, recipient_keypair.private_key);
+                    auto end = Clock::now();
+                    (void)decrypted;
+                    return Duration(end - start).count();
+                }
+            );
+        }
+#endif
+
         // Cleanup
         EVP_PKEY_free(pkey);
         EVP_PKEY_free(peer_pkey);
@@ -407,7 +455,9 @@ void benchmark_ecc() {
     // Summary
     std::cout << "\n  Note: kctsb ECC uses NTL backend. OpenSSL uses optimized ASM.\n";
     std::cout << "  Ratio shows percentage of OpenSSL performance (higher = faster).\n";
+    std::cout << "  ECIES: No OpenSSL equivalent; standalone benchmark only.\n";
 }
 
 // Declare external benchmark entry
 extern void benchmark_ecc();
+

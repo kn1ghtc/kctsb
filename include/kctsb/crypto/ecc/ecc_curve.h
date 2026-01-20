@@ -3,7 +3,7 @@
  * @brief Elliptic Curve Definitions and Core Operations - Bignum Implementation
  * 
  * This header provides complete elliptic curve definitions including:
- * - Standard curves (secp256k1, secp256r1/P-256, secp384r1/P-384, SM2)
+ * - 256-bit standard curves (secp256k1, secp256r1/P-256, SM2)
  * - Point representation (Affine and Jacobian coordinates)
  * - Core point arithmetic operations
  * 
@@ -47,13 +47,11 @@ class ECCurve;
 // ============================================================================
 
 /**
- * @brief Supported elliptic curve types
+ * @brief Supported elliptic curve types (256-bit curves only)
  */
 enum class CurveType : int {
     SECP256K1 = 0,      // Bitcoin/Ethereum curve
     SECP256R1 = 1,      // NIST P-256
-    SECP384R1 = 2,      // NIST P-384
-    SECP521R1 = 3,      // NIST P-521
     SM2       = 4,      // Chinese National Standard
     CURVE25519 = 5,     // Montgomery curve for ECDH
     ED25519   = 6       // Edwards curve for signatures
@@ -362,7 +360,7 @@ private:
     // wNAF configuration constants
     static constexpr int WNAF_WINDOW_WIDTH = 5;
     static constexpr size_t WNAF_TABLE_SIZE = 16;  // 2^(w-1)
-    static constexpr size_t MAX_SCALAR_BITS = 521; // For secp521r1
+    static constexpr size_t MAX_SCALAR_BITS = 256; // 256-bit curves only
     
     /**
      * @brief Montgomery ladder (constant-time scalar multiplication)
@@ -416,8 +414,6 @@ private:
 
 CurveParams get_secp256k1_params();
 CurveParams get_secp256r1_params();
-CurveParams get_secp384r1_params();
-CurveParams get_secp521r1_params();
 CurveParams get_sm2_params();
 
 } // namespace ecc

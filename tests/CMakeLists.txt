@@ -213,6 +213,36 @@ gtest_discover_tests(test_benchmark PROPERTIES LABELS "performance")
 kctsb_add_test(test_security_boundaries unit/security/test_security_boundaries.cpp "unit;security")
 
 # ============================================================================
+# ECC TESTS - Elliptic Curve Cryptography (v4.5.2)
+# Label: "unit;ecc" - Run with: ctest -L ecc
+# ============================================================================
+
+# fe256 optimized point arithmetic tests
+add_executable(test_fe256_point test_fe256_point.cpp)
+if(TARGET kctsb_static)
+    target_link_libraries(test_fe256_point PRIVATE
+        kctsb_static
+        GTest::gtest_main
+    )
+else()
+    target_link_libraries(test_fe256_point PRIVATE
+        kctsb
+        GTest::gtest_main
+    )
+endif()
+target_include_directories(test_fe256_point PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/src
+)
+if(NTL_FOUND)
+    target_link_libraries(test_fe256_point PRIVATE ${NTL_LIBRARY})
+    if(GMP_FOUND)
+        target_link_libraries(test_fe256_point PRIVATE ${GMP_LIBRARY})
+    endif()
+endif()
+gtest_discover_tests(test_fe256_point PROPERTIES LABELS "unit;ecc;fe256")
+
+# ============================================================================
 # ADVANCED CRYPTOGRAPHY TESTS - BGV Homomorphic Encryption
 # Label: "unit;fhe" - Run with: ctest -L fhe
 # TODO: Re-enable after fixing kctsb bignum API compatibility

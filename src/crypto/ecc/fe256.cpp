@@ -29,7 +29,15 @@
 // ============================================================================
 
 #if defined(__SIZEOF_INT128__)
+// Suppress pedantic warning for __int128 which is supported by GCC/Clang
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
+#endif
 typedef unsigned __int128 uint128_t;
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 
 static inline void mul64x64(uint64_t a, uint64_t b, uint64_t* hi, uint64_t* lo) {
     uint128_t product = (uint128_t)a * b;
@@ -434,14 +442,12 @@ void fe256_sqr_wide(fe512* r, const fe256* a) {
  * result = [l3:l2:l1:l0] + [h3:h2:h1:h0] * (2^32 + 977)
  */
 void fe256_reduce_secp256k1(fe256* r, const fe512* a) {
-    // Step 1: Extract high and low 256-bit parts
-    // low = a[0..3], high = a[4..7]
-    
     // Reduction constant: c = 2^32 + 977 = 0x1000003D1
     const uint64_t c = 0x1000003D1ULL;
     
     uint64_t carry = 0;
     uint64_t hi, lo;
+    uint64_t c1, c2;  // Separate carries to accumulate properly
     
     // Compute: r = low + high * c
     // This is: a[0..3] + a[4..7] * 0x1000003D1
@@ -453,21 +459,21 @@ void fe256_reduce_secp256k1(fe256* r, const fe512* a) {
     
     // Process a[5] * c + a[1] + t0
     mul64x64(a->limb[5], c, &hi, &lo);
-    r->limb[1] = adc64(a->limb[1], lo, 0, &carry);
-    r->limb[1] = adc64(r->limb[1], t0, 0, &carry);
-    uint64_t t1 = hi + carry;
+    r->limb[1] = adc64(a->limb[1], lo, 0, &c1);
+    r->limb[1] = adc64(r->limb[1], t0, 0, &c2);
+    uint64_t t1 = hi + c1 + c2;
     
     // Process a[6] * c + a[2] + t1
     mul64x64(a->limb[6], c, &hi, &lo);
-    r->limb[2] = adc64(a->limb[2], lo, 0, &carry);
-    r->limb[2] = adc64(r->limb[2], t1, 0, &carry);
-    uint64_t t2 = hi + carry;
+    r->limb[2] = adc64(a->limb[2], lo, 0, &c1);
+    r->limb[2] = adc64(r->limb[2], t1, 0, &c2);
+    uint64_t t2 = hi + c1 + c2;
     
     // Process a[7] * c + a[3] + t2
     mul64x64(a->limb[7], c, &hi, &lo);
-    r->limb[3] = adc64(a->limb[3], lo, 0, &carry);
-    r->limb[3] = adc64(r->limb[3], t2, 0, &carry);
-    uint64_t t3 = hi + carry;
+    r->limb[3] = adc64(a->limb[3], lo, 0, &c1);
+    r->limb[3] = adc64(r->limb[3], t2, 0, &c2);
+    uint64_t t3 = hi + c1 + c2;
     
     // Final reduction: if t3 > 0, we need another round
     // t3 * c (at most ~33 bits)
@@ -477,6 +483,14 @@ void fe256_reduce_secp256k1(fe256* r, const fe512* a) {
         r->limb[1] = adc64(r->limb[1], hi, carry, &carry);
         r->limb[2] = adc64(r->limb[2], 0, carry, &carry);
         r->limb[3] = adc64(r->limb[3], 0, carry, &carry);
+        
+        // In extremely rare cases, we might need another reduction
+        if (carry) {
+            r->limb[0] = adc64(r->limb[0], c, 0, &carry);
+            r->limb[1] = adc64(r->limb[1], 0, carry, &carry);
+            r->limb[2] = adc64(r->limb[2], 0, carry, &carry);
+            r->limb[3] = adc64(r->limb[3], 0, carry, &carry);
+        }
     }
     
     // Final conditional subtraction if r >= p
@@ -493,71 +507,14 @@ void fe256_reduce_secp256k1(fe256* r, const fe512* a) {
 
 /**
  * @brief secp256k1 Montgomery multiplication
+ *
+ * Note: Using fast Solinas-style reduction for secp256k1.
+ * Despite the name, this uses direct modular reduction for performance.
  */
 void fe256_mul_mont_secp256k1(fe256* r, const fe256* a, const fe256* b) {
     fe512 wide;
     fe256_mul_wide(&wide, a, b);
-    
-    // Montgomery reduction using secp256k1's special form
-    // For each limb i, compute m = (wide[i] * n0) mod 2^64
-    // Then add m * p to wide, shift right by 64 bits
-    
-    const uint64_t n0 = SECP256K1_N0;
-    uint64_t carry;
-    
-    for (int i = 0; i < 4; i++) {
-        uint64_t m = wide.limb[i] * n0;
-        
-        // Add m * p to wide[i..i+4]
-        uint64_t hi, lo;
-        
-        // p[0] = 0xFFFFFFFEFFFFFC2F
-        mul64x64(m, SECP256K1_P.limb[0], &hi, &lo);
-        wide.limb[i] = adc64(wide.limb[i], lo, 0, &carry);
-        uint64_t t = hi + carry;
-        
-        // p[1] = p[2] = p[3] = 0xFFFFFFFFFFFFFFFF
-        // m * 0xFFFFFFFFFFFFFFFF = m * 2^64 - m
-        // = (m << 64) - m
-        // So: wide[i+1] += m * p[1] = wide[i+1] + (m * 2^64 - m)
-        // = wide[i+1] + carry - m + m * 2^64
-        
-        wide.limb[i+1] = adc64(wide.limb[i+1], t, 0, &carry);
-        // Subtract m, add m to next (equivalent to m * 2^64 - m)
-        uint64_t borrow;
-        wide.limb[i+1] = sbb64(wide.limb[i+1], m, 0, &borrow);
-        t = m + carry - borrow;
-        
-        wide.limb[i+2] = adc64(wide.limb[i+2], t, 0, &carry);
-        wide.limb[i+2] = sbb64(wide.limb[i+2], m, 0, &borrow);
-        t = m + carry - borrow;
-        
-        wide.limb[i+3] = adc64(wide.limb[i+3], t, 0, &carry);
-        wide.limb[i+3] = sbb64(wide.limb[i+3], m, 0, &borrow);
-        t = m + carry - borrow;
-        
-        if (i < 3) {
-            wide.limb[i+4] = adc64(wide.limb[i+4], t, 0, &carry);
-        } else {
-            wide.limb[7] = t;
-        }
-    }
-    
-    // Result is in wide[4..7]
-    r->limb[0] = wide.limb[4];
-    r->limb[1] = wide.limb[5];
-    r->limb[2] = wide.limb[6];
-    r->limb[3] = wide.limb[7];
-    
-    // Final conditional subtraction
-    fe256 tmp;
-    uint64_t borrow = 0;
-    tmp.limb[0] = sbb64(r->limb[0], SECP256K1_P.limb[0], 0, &borrow);
-    tmp.limb[1] = sbb64(r->limb[1], SECP256K1_P.limb[1], borrow, &borrow);
-    tmp.limb[2] = sbb64(r->limb[2], SECP256K1_P.limb[2], borrow, &borrow);
-    tmp.limb[3] = sbb64(r->limb[3], SECP256K1_P.limb[3], borrow, &borrow);
-    
-    fe256_cmov(r, &tmp, !borrow);
+    fe256_reduce_secp256k1(r, &wide);
 }
 
 void fe256_sqr_mont_secp256k1(fe256* r, const fe256* a) {
@@ -566,15 +523,13 @@ void fe256_sqr_mont_secp256k1(fe256* r, const fe256* a) {
 }
 
 void fe256_to_mont_secp256k1(fe256* r, const fe256* a) {
-    // a_mont = a * R mod p = MontMul(a, R^2)
-    fe256_mul_mont_secp256k1(r, a, &SECP256K1_R2);
+    // Identity operation - using fast reduction, not Montgomery form
+    fe256_copy(r, a);
 }
 
 void fe256_from_mont_secp256k1(fe256* r, const fe256* a) {
-    // a = a_mont * R^(-1) mod p = MontMul(a_mont, 1)
-    fe256 one;
-    fe256_one(&one);
-    fe256_mul_mont_secp256k1(r, a, &one);
+    // Identity operation - no Montgomery form used
+    fe256_copy(r, a);
 }
 
 void fe256_inv_secp256k1(fe256* r, const fe256* a) {
@@ -582,12 +537,10 @@ void fe256_inv_secp256k1(fe256* r, const fe256* a) {
     // p - 2 for secp256k1
     
     fe256 result, base;
-    fe256_to_mont_secp256k1(&base, a);
+    fe256_copy(&base, a);
     
-    // Start with result = 1 in Montgomery form
-    fe256_copy(&result, &SECP256K1_R2);  // R^2 * R^(-1) = R (Montgomery 1)
-    fe256_from_mont_secp256k1(&result, &SECP256K1_R2);  // Temporary fix
-    fe256_to_mont_secp256k1(&result, &result);
+    // Start with result = 1
+    fe256_one(&result);
     
     // Square-and-multiply for p-2
     // This is slow - should use addition chain optimization
@@ -745,13 +698,13 @@ void fe256_sqr_mont_sm2(fe256* r, const fe256* a) {
 }
 
 void fe256_to_mont_sm2(fe256* r, const fe256* a) {
-    fe256_mul_mont_sm2(r, a, &SM2_R2);
+    // Identity operation - SM2 uses Solinas reduction, not Montgomery
+    fe256_copy(r, a);
 }
 
 void fe256_from_mont_sm2(fe256* r, const fe256* a) {
-    fe256 one;
-    fe256_one(&one);
-    fe256_mul_mont_sm2(r, a, &one);
+    // Identity operation - no Montgomery form used
+    fe256_copy(r, a);
 }
 
 void fe256_inv_sm2(fe256* r, const fe256* a) {
