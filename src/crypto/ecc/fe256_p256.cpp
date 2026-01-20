@@ -388,7 +388,11 @@ void fe256_reduce_p256(fe256* r, const fe512* a) {
 }
 
 /**
- * @brief P-256 Montgomery multiplication: r = a * b * R^(-1) mod p
+ * @brief P-256 Montgomery multiplication: r = a * b mod p
+ * 
+ * Uses wide multiplication followed by Solinas reduction.
+ * Despite the "Montgomery" naming for API consistency, this uses
+ * direct modular reduction (not true Montgomery form).
  */
 void fe256_mul_mont_p256(fe256* r, const fe256* a, const fe256* b) {
     fe512 wide;
@@ -397,7 +401,7 @@ void fe256_mul_mont_p256(fe256* r, const fe256* a, const fe256* b) {
 }
 
 /**
- * @brief P-256 Montgomery squaring: r = a^2 * R^(-1) mod p
+ * @brief P-256 Montgomery squaring: r = a^2 mod p
  */
 void fe256_sqr_mont_p256(fe256* r, const fe256* a) {
     fe256_mul_mont_p256(r, a, a);

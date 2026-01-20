@@ -402,6 +402,10 @@ void fe256_point_negate(fe256_point* r, const fe256_point* p, int curve_type) {
 #define WNAF_TABLE_SIZE (1 << (WNAF_WIDTH - 1))  // 16
 #define MAX_SCALAR_BITS 256
 
+// Forward declarations
+static void init_generators_mont();
+static const std::array<fe256_point, WNAF_TABLE_SIZE>* get_precomp_table(int curve_type);
+
 /**
  * @brief Compute wNAF representation
  */
@@ -524,8 +528,44 @@ void fe256_point_scalar_mult(fe256_point* r, const uint64_t k[4],
 
 void fe256_point_scalar_mult_base(fe256_point* r, const uint64_t k[4],
                                    int curve_type) {
-    const fe256_point* g = fe256_get_generator(curve_type);
-    fe256_point_scalar_mult(r, k, g, curve_type);
+    // Ensure generators and precomputation tables are initialized
+    init_generators_mont();
+    
+    // Check for zero scalar
+    if (k[0] == 0 && k[1] == 0 && k[2] == 0 && k[3] == 0) {
+        fe256_point_set_infinity(r);
+        return;
+    }
+
+    // Compute wNAF representation
+    int8_t wnaf[MAX_SCALAR_BITS + 1];
+    size_t wnaf_len = compute_wnaf(k, wnaf);
+
+    if (wnaf_len == 0) {
+        fe256_point_set_infinity(r);
+        return;
+    }
+
+    // Use cached precomputation table for generator point
+    const std::array<fe256_point, WNAF_TABLE_SIZE>* table = get_precomp_table(curve_type);
+
+    // wNAF evaluation
+    fe256_point_set_infinity(r);
+
+    for (long i = static_cast<long>(wnaf_len) - 1; i >= 0; i--) {
+        fe256_point_double(r, r, curve_type);
+
+        int8_t digit = wnaf[static_cast<size_t>(i)];
+        if (digit > 0) {
+            size_t idx = static_cast<size_t>((digit - 1) / 2);
+            fe256_point_add(r, r, &(*table)[idx], curve_type);
+        } else if (digit < 0) {
+            size_t idx = static_cast<size_t>((-digit - 1) / 2);
+            fe256_point neg_table_point;
+            fe256_point_negate(&neg_table_point, &(*table)[idx], curve_type);
+            fe256_point_add(r, r, &neg_table_point, curve_type);
+        }
+    }
 }
 
 // ============================================================================
@@ -626,31 +666,62 @@ static fe256_point p256_generator_mont;
 static fe256_point sm2_generator_mont;
 static bool generators_initialized = false;
 
+// Cached wNAF precomputation tables for generator points
+static std::array<fe256_point, WNAF_TABLE_SIZE> secp256k1_precomp_table;
+static std::array<fe256_point, WNAF_TABLE_SIZE> p256_precomp_table;
+static std::array<fe256_point, WNAF_TABLE_SIZE> sm2_precomp_table;
+static bool precomp_tables_initialized = false;
+
 /**
- * @brief Initialize generator points in Montgomery form
+ * @brief Get cached precomputation table for a curve's generator
+ */
+static const std::array<fe256_point, WNAF_TABLE_SIZE>* get_precomp_table(int curve_type) {
+    switch (curve_type) {
+        case FE256_CURVE_SECP256K1: return &secp256k1_precomp_table;
+        case FE256_CURVE_P256:      return &p256_precomp_table;
+        case FE256_CURVE_SM2:       return &sm2_precomp_table;
+        default:                    return &secp256k1_precomp_table;
+    }
+}
+
+/**
+ * @brief Initialize generator points in Montgomery form and precomputation tables
  */
 static void init_generators_mont() {
-    if (generators_initialized) return;
+    if (generators_initialized && precomp_tables_initialized) return;
     
-    // secp256k1 generator
-    fe256_point_copy(&secp256k1_generator_mont, &secp256k1_generator);
-    fe256_to_mont_secp256k1(&secp256k1_generator_mont.X, &secp256k1_generator_mont.X);
-    fe256_to_mont_secp256k1(&secp256k1_generator_mont.Y, &secp256k1_generator_mont.Y);
-    fe256_to_mont_secp256k1(&secp256k1_generator_mont.Z, &secp256k1_generator_mont.Z);
+    if (!generators_initialized) {
+        // secp256k1 generator
+        fe256_point_copy(&secp256k1_generator_mont, &secp256k1_generator);
+        fe256_to_mont_secp256k1(&secp256k1_generator_mont.X, &secp256k1_generator_mont.X);
+        fe256_to_mont_secp256k1(&secp256k1_generator_mont.Y, &secp256k1_generator_mont.Y);
+        fe256_to_mont_secp256k1(&secp256k1_generator_mont.Z, &secp256k1_generator_mont.Z);
+        
+        // P-256 generator
+        fe256_point_copy(&p256_generator_mont, &p256_generator);
+        fe256_to_mont_p256(&p256_generator_mont.X, &p256_generator_mont.X);
+        fe256_to_mont_p256(&p256_generator_mont.Y, &p256_generator_mont.Y);
+        fe256_to_mont_p256(&p256_generator_mont.Z, &p256_generator_mont.Z);
+        
+        // SM2 generator
+        fe256_point_copy(&sm2_generator_mont, &sm2_generator);
+        fe256_to_mont_sm2(&sm2_generator_mont.X, &sm2_generator_mont.X);
+        fe256_to_mont_sm2(&sm2_generator_mont.Y, &sm2_generator_mont.Y);
+        fe256_to_mont_sm2(&sm2_generator_mont.Z, &sm2_generator_mont.Z);
+        
+        generators_initialized = true;
+    }
     
-    // P-256 generator
-    fe256_point_copy(&p256_generator_mont, &p256_generator);
-    fe256_to_mont_p256(&p256_generator_mont.X, &p256_generator_mont.X);
-    fe256_to_mont_p256(&p256_generator_mont.Y, &p256_generator_mont.Y);
-    fe256_to_mont_p256(&p256_generator_mont.Z, &p256_generator_mont.Z);
-    
-    // SM2 generator
-    fe256_point_copy(&sm2_generator_mont, &sm2_generator);
-    fe256_to_mont_sm2(&sm2_generator_mont.X, &sm2_generator_mont.X);
-    fe256_to_mont_sm2(&sm2_generator_mont.Y, &sm2_generator_mont.Y);
-    fe256_to_mont_sm2(&sm2_generator_mont.Z, &sm2_generator_mont.Z);
-    
-    generators_initialized = true;
+    // Build precomputation tables for all curves
+    if (!precomp_tables_initialized) {
+        build_precomp_table(&secp256k1_generator_mont, secp256k1_precomp_table, 
+                            FE256_CURVE_SECP256K1);
+        build_precomp_table(&p256_generator_mont, p256_precomp_table, 
+                            FE256_CURVE_P256);
+        build_precomp_table(&sm2_generator_mont, sm2_precomp_table, 
+                            FE256_CURVE_SM2);
+        precomp_tables_initialized = true;
+    }
 }
 
 // ============================================================================
