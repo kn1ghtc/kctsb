@@ -288,16 +288,17 @@ if(NOT MSVC)
 endif()
 
 # ============================================================================
-# Build Options (v4.1.0)
+# Build Options (v4.1.0 / v4.6.0 updated for faster incremental builds)
 # ============================================================================
 
 # 默认构建共享库，不构建静态库（减小体积）
 option(KCTSB_BUILD_SHARED "Build shared library" ON)
 option(KCTSB_BUILD_STATIC "Build static library" OFF)
 
-# 默认构建测试和基准测试（确保功能正确性）
-option(KCTSB_BUILD_TESTS "Build unit tests" ON)
-option(KCTSB_BUILD_BENCHMARKS "Build benchmarks" ON)
+# v4.6.0: 测试和基准测试默认关闭以加速增量编译
+# 使用 -DKCTSB_BUILD_TESTS=ON 或 -DKCTSB_BUILD_BENCHMARKS=ON 单独启用
+option(KCTSB_BUILD_TESTS "Build unit tests (default OFF for faster builds)" OFF)
+option(KCTSB_BUILD_BENCHMARKS "Build benchmarks (default OFF for faster builds)" OFF)
 option(KCTSB_BUILD_CLI "Build kctsb.exe CLI tool" ON)
 
 # v4.1.0: 测试需要静态库以确保所有bignum符号可用

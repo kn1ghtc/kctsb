@@ -357,50 +357,18 @@ private:
     std::string name_;  // Curve name
     int bit_size_;      // Bit size (e.g., 256 for P-256)
     
-    // wNAF configuration constants
-    static constexpr int WNAF_WINDOW_WIDTH = 5;
-    static constexpr size_t WNAF_TABLE_SIZE = 16;  // 2^(w-1)
     static constexpr size_t MAX_SCALAR_BITS = 256; // 256-bit curves only
     
     /**
      * @brief Montgomery ladder (constant-time scalar multiplication)
+     * 
+     * Provides constant-time execution to prevent side-channel attacks.
+     * This is the ONLY scalar multiplication method used.
+     * 
+     * NOTE: wNAF algorithm was removed due to side-channel vulnerabilities.
+     * Montgomery ladder provides timing-attack resistance.
      */
     JacobianPoint montgomery_ladder(const ZZ& k, const JacobianPoint& P) const;
-    
-    /**
-     * @brief wNAF scalar multiplication (faster, non-constant-time)
-     * @param k Scalar value
-     * @param P Base point
-     * @return k * P
-     */
-    JacobianPoint wnaf_scalar_mult(const ZZ& k, const JacobianPoint& P) const;
-    
-    /**
-     * @brief Cached wNAF scalar multiplication for generator point
-     * 
-     * Uses a cached precomputation table for the generator point,
-     * avoiding rebuilding the table for every call. Thread-safe.
-     * 
-     * @param k Scalar value
-     * @return k * G where G is the curve's generator
-     */
-    JacobianPoint wnaf_scalar_mult_cached(const ZZ& k) const;
-    
-    /**
-     * @brief Compute wNAF encoding of scalar k
-     * @param k Scalar to encode
-     * @param wnaf Output vector of wNAF digits
-     * @return Number of digits in wNAF representation
-     */
-    size_t compute_wnaf(const ZZ& k, std::vector<int8_t>& wnaf) const;
-    
-    /**
-     * @brief Build precomputation table for wNAF multiplication
-     * @param P Base point
-     * @param table Output precomputation table (odd multiples of P)
-     */
-    void build_precomp_table(const JacobianPoint& P, 
-                             std::array<JacobianPoint, WNAF_TABLE_SIZE>& table) const;
     
     /**
      * @brief Initialize ZZ_p modulus

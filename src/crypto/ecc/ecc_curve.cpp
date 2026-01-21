@@ -4,16 +4,15 @@
  * 
  * Complete implementation of elliptic curve operations using bignum.
  * Features:
- * - wNAF (width-5 Non-Adjacent Form) scalar multiplication for ~3x speedup
- * - Constant-time Montgomery ladder fallback for maximum security
+ * - Constant-time Montgomery ladder for all scalar multiplication
  * - Jacobian coordinates for efficient point arithmetic
  * - Support for 256-bit standard curves (secp256k1, P-256, SM2)
  * - fe256 fast path for 256-bit curves (~3-5x additional speedup)
  * 
- * Performance optimizations (v4.4.0):
- * - wNAF with w=5 for generator and arbitrary point multiplication
- * - Shamir's trick for double scalar multiplication
- * - Precomputation table caching for generator points
+ * Security (v4.6.0):
+ * - wNAF algorithm REMOVED due to side-channel vulnerabilities
+ * - All scalar multiplication uses Montgomery ladder (constant-time)
+ * - Timing-attack resistant implementation
  * 
  * Performance optimizations (v4.5.2):
  * - fe256 fast path for secp256k1, P-256, SM2
@@ -31,9 +30,6 @@
 #include <vector>
 #include <cstdint>
 #include <array>
-#include <mutex>
-#include <unordered_map>
-#include <memory>
 
 // Bignum namespace is now kctsb (was bignum)
 using namespace kctsb;
@@ -63,46 +59,6 @@ void fe256_set_fast_path_enabled(bool enable) {
 bool fe256_is_fast_path_enabled() {
     return g_fe256_fast_path_enabled;
 }
-
-// ============================================================================
-// Generator Precomputation Cache (for scalar_mult_base acceleration)
-// ============================================================================
-
-/**
- * @brief Cached precomputation table for generator points
- * 
- * This cache stores precomputed tables for each curve's generator point,
- * eliminating the need to rebuild the table for every scalar_mult_base call.
- * Thread-safe with mutex protection.
- */
-class GeneratorPrecompCache {
-public:
-    struct CacheEntry {
-        std::array<JacobianPoint, 16> table;  // wNAF table (w=5)
-        bool valid = false;
-    };
-    
-    static GeneratorPrecompCache& instance() {
-        static GeneratorPrecompCache cache;
-        return cache;
-    }
-    
-    CacheEntry* get_or_create(const std::string& curve_name) {
-        std::lock_guard<std::mutex> lock(mutex_);
-        auto it = cache_.find(curve_name);
-        if (it != cache_.end()) {
-            return &it->second;
-        }
-        // Create empty entry, will be filled by caller
-        cache_[curve_name] = CacheEntry();
-        return &cache_[curve_name];
-    }
-    
-private:
-    GeneratorPrecompCache() = default;
-    std::mutex mutex_;
-    std::unordered_map<std::string, CacheEntry> cache_;
-};
 
 // ============================================================================
 // Standard Curve Parameters (SECG/NIST)
@@ -470,227 +426,11 @@ JacobianPoint ECCurve::scalar_mult_base(const ZZ& k) const {
 }
 
 // ============================================================================
-// wNAF (width-5 Non-Adjacent Form) Optimization
-// ============================================================================
-
-/**
- * @brief Compute wNAF representation of scalar k
- * 
- * wNAF reduces the number of point additions by encoding the scalar
- * such that at most one in every w bits is non-zero.
- * For w=5: digits are in {±1, ±3, ±5, ±7, ±9, ±11, ±13, ±15}
- * 
- * @param k Scalar to encode
- * @param wnaf Output vector of wNAF digits
- * @return Number of digits in wNAF representation
- */
-size_t ECCurve::compute_wnaf(const ZZ& k, std::vector<int8_t>& wnaf) const {
-    wnaf.clear();
-    wnaf.resize(MAX_SCALAR_BITS + 1, 0);
-    
-    if (IsZero(k)) {
-        return 0;
-    }
-    
-    ZZ val = k;
-    size_t i = 0;
-    const int w = WNAF_WINDOW_WIDTH;
-    const int mask = (1 << w) - 1;  // 0x1F for w=5
-    const int half = 1 << (w - 1);  // 16 for w=5
-    
-    while (val > 0 && i < MAX_SCALAR_BITS) {
-        if (IsOdd(val)) {
-            // Get lowest w bits
-            long digit = conv<long>(val & ZZ(mask));
-            if (digit >= half) {
-                // Make digit negative: digit -= 2^w
-                digit -= (1 << w);
-            }
-            wnaf[i] = static_cast<int8_t>(digit);
-            val -= digit;
-        } else {
-            wnaf[i] = 0;
-        }
-        val >>= 1;  // val = val / 2
-        i++;
-    }
-    
-    return i;
-}
-
-/**
- * @brief Build precomputation table for wNAF multiplication
- * 
- * For w=5, computes: P, 3P, 5P, 7P, 9P, 11P, 13P, 15P (odd multiples up to 2^(w-1)-1)
- * 
- * @param P Base point
- * @param table Output precomputation table
- */
-void ECCurve::build_precomp_table(const JacobianPoint& P, 
-                                   std::array<JacobianPoint, WNAF_TABLE_SIZE>& table) const {
-    // table[i] = (2*i + 1) * P
-    // i=0: 1*P, i=1: 3*P, i=2: 5*P, ..., i=15: 31*P (for w=5)
-    
-    table[0] = P;  // 1*P
-    
-    JacobianPoint P2 = double_point(P);  // 2*P
-    
-    for (size_t i = 1; i < WNAF_TABLE_SIZE; i++) {
-        table[i] = add(table[i-1], P2);  // (2*i+1)*P = (2*(i-1)+1)*P + 2*P
-    }
-}
-
-/**
- * @brief wNAF scalar multiplication
- * 
- * Uses width-5 wNAF for approximately 3x speedup over binary method.
- * Average number of additions: ~256/5 ≈ 51 vs ~128 for binary method.
- * 
- * @param k Scalar (will be reduced mod n)
- * @param P Base point
- * @return k * P
- */
-JacobianPoint ECCurve::wnaf_scalar_mult(const ZZ& k, const JacobianPoint& P) const {
-    if (IsZero(k) || P.is_infinity()) {
-        return JacobianPoint();
-    }
-    
-    // Reduce k modulo n
-    ZZ k_mod = k % n_;
-    if (k_mod < 0) {
-        k_mod += n_;
-    }
-    if (IsZero(k_mod)) {
-        return JacobianPoint();
-    }
-    
-    // Initialize modulus once for all point operations
-    ZZ_p::init(p_);
-    
-    // CRITICAL: Re-create the point with coordinates in the correct modulus context
-    // This ensures that ZZ_p values are properly interpreted under the current modulus p_
-    // Without this, points created under a different modulus may have incorrect values
-    JacobianPoint P_normalized(
-        conv<ZZ_p>(rep(P.X)),  // Extract ZZ from ZZ_p, then convert to ZZ_p under current modulus
-        conv<ZZ_p>(rep(P.Y)),
-        conv<ZZ_p>(rep(P.Z))
-    );
-    
-    // Compute wNAF representation
-    std::vector<int8_t> wnaf;
-    size_t wnaf_len = compute_wnaf(k_mod, wnaf);
-    
-    if (wnaf_len == 0) {
-        return JacobianPoint();
-    }
-    
-    // Build precomputation table
-    std::array<JacobianPoint, WNAF_TABLE_SIZE> table;
-    build_precomp_table(P_normalized, table);
-    
-    // wNAF evaluation (left-to-right for clarity)
-    JacobianPoint R;  // Infinity
-    
-    for (long i = static_cast<long>(wnaf_len) - 1; i >= 0; i--) {
-        R = double_point(R);
-        
-        int8_t digit = wnaf[static_cast<size_t>(i)];
-        if (digit > 0) {
-            size_t idx = static_cast<size_t>((digit - 1) / 2);
-            R = add(R, table[idx]);
-        } else if (digit < 0) {
-            size_t idx = static_cast<size_t>((-digit - 1) / 2);
-            R = subtract(R, table[idx]);
-        }
-    }
-    
-    return R;
-}
-
-/**
- * @brief Cached wNAF scalar multiplication for generator point
- * 
- * Uses a cached precomputation table for the generator point to avoid
- * rebuilding the table for every scalar multiplication. This provides
- * significant speedup for repeated key generation and signing operations.
- * 
- * The precomputation table is built once per curve and cached using a
- * thread-safe singleton pattern.
- * 
- * @param k Scalar (will be reduced mod n)
- * @return k * G where G is the curve's generator
- */
-JacobianPoint ECCurve::wnaf_scalar_mult_cached(const ZZ& k) const {
-    if (IsZero(k)) {
-        return JacobianPoint();
-    }
-    
-    // Reduce k modulo n
-    ZZ k_mod = k % n_;
-    if (k_mod < 0) {
-        k_mod += n_;
-    }
-    if (IsZero(k_mod)) {
-        return JacobianPoint();
-    }
-    
-    // Initialize modulus once for all point operations
-    ZZ_p::init(p_);
-    
-    // Get or create cached precomputation table for this curve's generator
-    auto* cache_entry = GeneratorPrecompCache::instance().get_or_create(name_);
-    
-    if (!cache_entry->valid) {
-        // CRITICAL: Normalize G_ coordinates under current modulus before building table
-        JacobianPoint G_normalized(
-            conv<ZZ_p>(rep(G_.X)),
-            conv<ZZ_p>(rep(G_.Y)),
-            conv<ZZ_p>(rep(G_.Z))
-        );
-        // Build precomputation table for generator point
-        build_precomp_table(G_normalized, cache_entry->table);
-        cache_entry->valid = true;
-    }
-    
-    // Compute wNAF representation
-    std::vector<int8_t> wnaf;
-    size_t wnaf_len = compute_wnaf(k_mod, wnaf);
-    
-    if (wnaf_len == 0) {
-        return JacobianPoint();
-    }
-    
-    // wNAF evaluation using cached table
-    JacobianPoint R;  // Infinity
-    
-    for (long i = static_cast<long>(wnaf_len) - 1; i >= 0; i--) {
-        R = double_point(R);
-        
-        int8_t digit = wnaf[static_cast<size_t>(i)];
-        if (digit > 0) {
-            size_t idx = static_cast<size_t>((digit - 1) / 2);
-            R = add(R, cache_entry->table[idx]);
-        } else if (digit < 0) {
-            size_t idx = static_cast<size_t>((-digit - 1) / 2);
-            R = subtract(R, cache_entry->table[idx]);
-        }
-    }
-    
-    return R;
-}
-
-// ============================================================================
-// Double Scalar Multiplication with Shamir's Trick + wNAF
+// Double Scalar Multiplication with Shamir's Trick (Constant-Time)
 // ============================================================================
 
 JacobianPoint ECCurve::double_scalar_mult(const ZZ& k1, const JacobianPoint& P,
                                           const ZZ& k2, const JacobianPoint& Q) const {
-    // TODO: fe256 fast path temporarily disabled for debugging
-    // Try fe256 fast path for 256-bit curves
-    // if (g_fe256_fast_path_enabled && fe256_fast_path_supported(name_)) {
-    //     return fe256_fast_double_mult(name_, k1, P, k2, Q, p_);
-    // }
-    
     // Initialize modulus once for all point operations
     ZZ_p::init(p_);
     

@@ -1,9 +1,9 @@
 # AGENTS.md - kctsb AI Development Guidelines
 
 > **项目**: kctsb - Knight's Cryptographic Trusted Security Base  
-> **版本**: 4.1.0  
-> **更新时间**: 2026-01-19 (Beijing Time, UTC+8)  
-> **重大变更**: NTL源码完全集成、动态库编译模式、编译优化
+> **版本**: 4.6.0  
+> **更新时间**: 2026-01-21 (Beijing Time, UTC+8)  
+> **重大变更**: 增量编译优化、单文件原则强化、ECC 模块合并
 
 ---
 
@@ -13,12 +13,65 @@ kctsb (Knight's Cryptographic Trusted Security Base) 是一个**生产级**跨�
 
 ---
 
+## 🚀 v4.6.0 架构变更 (2026-01-21)
+
+### 1. 增量编译优化
+
+**默认关闭测试和基准测试构建，加速日常开发迭代：**
+
+```cmake
+# 默认配置 (v4.6.0) - 仅构建核心库和CLI
+option(KCTSB_BUILD_TESTS "Build unit tests (default OFF)" OFF)
+option(KCTSB_BUILD_BENCHMARKS "Build benchmarks (default OFF)" OFF)
+option(KCTSB_BUILD_CLI "Build kctsb.exe CLI tool" ON)
+```
+
+**构建命令：**
+```powershell
+# 快速增量构建 (< 30秒)
+cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel 8
+
+# 需要测试时显式启用
+cmake -B build -G Ninja -DKCTSB_BUILD_TESTS=ON
+cmake --build build --parallel 8
+ctest --test-dir build --output-on-failure
+```
+
+### 2. ECC 模块结构说明
+
+**fe256* 系列文件保持独立，以确保各曲线实现的正确性：**
+
+| 文件 | 内容 | 说明 |
+|------|------|------|
+| `fe256.cpp` | secp256k1 + SM2 场运算 | 通用字段运算和曲线特化 |
+| `fe256_p256.cpp` | P-256 场运算 | NIST P-256 Solinas reduction |
+| `fe256_point.cpp` | Jacobian 点运算 | 曲线无关的点运算 |
+
+**ECC 模块目录结构：**
+```
+src/crypto/ecc/
+├── fe256.cpp          # secp256k1/SM2 场运算
+├── fe256_p256.cpp     # P-256 Solinas reduction
+├── fe256_point.cpp    # Jacobian 点运算
+├── ecc_curve.cpp      # ECC 上层 API
+├── ecdsa.cpp          # ECDSA 签名
+├── ecdh.cpp           # ECDH 密钥交换
+├── ecies.cpp          # ECIES 加密
+└── asm/
+    └── fe256_x86_64.S # x86_64 汇编优化 (secp256k1)
+```
+
+**注意：** P-256 使用 Solinas reduction（非 Montgomery），实现与 secp256k1 不同，故保持独立文件。
+
+---
+
 ## 🚀 v4.1.0 架构变更 (2026-01-19)
 
 ### 1. NTL 源码完全集成
 
 - 原 NTL 库源码已完全集成到 `src/math/bignum/` 目录
-- 所有 `NTL_*` 宏逐步迁移为 `KCTSB_*` 前缀（保持兼容层）
+- 所有 `NTL_*` 宏逐步迁移为 `KCTSB_*` 前缀
 - 删除浮点精度模块（RR、xdouble、quad_float）- kctsb 只使用整数运算
 - 头文件从 117 个精简到 ~90 个
 
@@ -176,13 +229,6 @@ KCTSB_API kctsb_error_t kctsb_aes256_init(kctsb_aes_ctx_t* ctx,
     }
 }
 
-KCTSB_API void kctsb_aes256_clear(kctsb_aes_ctx_t* ctx) {
-    if (ctx) {
-        // Secure memory zeroing
-        kctsb_secure_memzero(ctx, sizeof(*ctx));
-    }
-}
-
 } // extern "C"
 ```
 
@@ -298,6 +344,28 @@ counter += 8;  // 8-block增量
 ### 🥉 第三原则：单文件单算法 + 禁止额外封装层
 
 **每个算法使用一个独立的 .cpp 文件实现，C ABI 封装直接在该文件内导出，每个算法对应一个独立的 .h 头文件。**
+
+#### 单文件原则细则 (v4.6.0 强化)
+
+| 规则 | 说明 | 示例 |
+|------|------|------|
+| **核心算法单文件** | 一个核心算法的所有实现放在一个 .cpp 文件 | `fe256.cpp` 包含 secp256k1/P-256/SM2 全部场运算 |
+| **禁止按曲线拆分** | 不同曲线的同类算法不单独成文件 | ❌ `fe256_p256.cpp`, `fe256_sm2.cpp` |
+| **辅助代码允许分离** | 点运算、签名等可独立成文件 | ✅ `fe256.cpp` (场运算) + `fe256_point.cpp` (点运算) |
+| **汇编代码独立** | 平台相关汇编放在 `asm/` 子目录 | ✅ `asm/fe256_x86_64.S` |
+| **测试合并原则** | 相关测试合并到统一测试文件 | ✅ `test_ecc.cpp` 包含所有 ECC 测试 |
+
+#### 文件合并指导
+
+**何时应该合并：**
+- 同一算法的多个变体 (AES-128/192/256 → `aes.cpp`)
+- 同类曲线的场运算 (secp256k1/P-256/SM2 → `fe256.cpp`)
+- 相关的测试用例 (test_fe256 + test_fe256_point → `test_ecc.cpp`)
+
+**何时应该分离：**
+- 不同层次的抽象 (场运算 vs 点运算 vs 签名)
+- 平台相关代码 (C++ 实现 vs 汇编优化)
+- 可选功能模块 (核心库 vs benchmark)
 
 #### ✅ 正确做法
 
@@ -547,35 +615,18 @@ thirdparty/
 | 依赖 | 版本 | 位置 | 状态 | 用途 |
 |------|------|------|------|------|
 | GMP | 6.3.0+ | thirdparty | ✅ 必需 | 高精度整数 |
-| gf2x | 1.3.0+ | thirdparty | ✅ 必需 | NTL 依赖 |
-| NTL | 11.6.0+ | thirdparty | ✅ 必需 | 数论、ECC、大数运算加速 |
-| SEAL | 4.1.2 | thirdparty | ⚠️ 可选 | 同态加密 |
-| HElib | v2.3.0 | thirdparty | ⚠️ 可选 | 函数加密 |
+| gf2x | 1.3.0+ | thirdparty | ✅ 必需 | 有限域运算 依赖 |
+
 
 **Benchmark 专用依赖** (仅 benchmarks/ 可用):
 | 依赖 | 版本 | 来源 | 用途 |
 |------|------|------|------|
 | OpenSSL | 3.6.0+ | vcpkg (`D:/vcpkg`) | 性能对比 |
+| SEAL | 4.1.2 | thirdparty | ⚠️ 可选 | 同态加密 |
+| HElib | v2.3.0 | thirdparty | ⚠️ 可选 | 函数加密 |
 | zlib | 1.3.1 | vcpkg | 压缩支持 |
 | zstd | 1.5.7 | vcpkg | 压缩支持 |
 
-### 依赖约束 ⚠️
-
-1. **核心依赖** (src/ 目录可用):
-   - ✅ NTL 11.6.0+: 数论运算、椭圆曲线、大数加速
-   - ✅ GMP 6.3.0+: 高精度整数
-   - ✅ gf2x 1.3.0+: NTL 的 GF(2) 多项式运算
-   - ⚠️ SEAL 4.1.2 (可选): 同态加密
-   - ⚠️ HElib v2.3.0 (可选): 函数加密
-
-2. **禁止依赖** (src/ 目录禁用):
-   - ❌ OpenSSL: 目标是替代它
-   - ❌ MIRACL: 已移除，使用 NTL 实现 ECC
-   - ❌ 其他外部库: 使用纯 C++ 原生实现
-
-3. **benchmark 依赖** (仅 benchmarks/ 目录可用):
-   - ✅ OpenSSL: 性能对比测试
-   - ✅ zlib/zstd: 压缩 benchmark
 
 ### 目录规范
 
@@ -638,12 +689,12 @@ thirdparty/
 | 模块 | 功能 | 实现状态 | 依赖 |
 |------|------|----------|------|
 | whitebox | 白盒 AES (Chow 方案) | ✅ 完成 | 无 |
-| sss | Shamir 秘密共享 | ✅ 完成 | NTL |
-| zk/ffs | Feige-Fiat-Shamir | ✅ 完成 | NTL |
-| zk/snarks | Groth16 zk-SNARKs | ✅ 完成 | NTL |
-| pqc | 后量子密码 (Kyber/Dilithium) | ✅ 完成 | NTL |
-| lattice | 格密码 (LLL 约简) | ✅ 完成 | NTL |
-| fe | 函数加密 (BGV) | ⚠️ 可选 | HElib |
+| sss | Shamir 秘密共享 | ✅ 完成 |无 |
+| zk/ffs | Feige-Fiat-Shamir | ✅ 完成 | 无 |
+| zk/snarks | Groth16 zk-SNARKs | ✅ 完成 | 无 |
+| pqc | 后量子密码 (Kyber/Dilithium) | ✅ 完成 | 无 |
+| lattice | 格密码 (LLL 约简) | ✅ 完成 | 无 |
+| fe | 函数加密 (BGV) | ⚠️ 可选 | 无 |
 
 ---
 
@@ -671,31 +722,11 @@ thirdparty/
 # 构建 + 创建 release (含 bundled 库)
 .\scripts\build.ps1 -Release
 
-# 构建 NTL bundled 库 (NTL + GMP + gf2x)
-.\scripts\build_ntl_bundled.ps1
-```
-
-### Linux/macOS
-
-```bash
-# 一键构建 + 测试
-./scripts/build.sh --all
-
-# 构建 + 创建 release (含 bundled 库)
-./scripts/build.sh --release
-
-# 构建 NTL bundled 库
-./scripts/build_ntl_bundled.sh
 ```
 
 ### 手动构建
 
 ```bash
-cmake -B build -G Ninja \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DKCTSB_BUILD_TESTS=ON \
-    -DKCTSB_BUILD_BENCHMARKS=ON
-
 cmake --build build --parallel $(nproc)
 ctest --test-dir build --output-on-failure
 ```
@@ -779,6 +810,58 @@ kctsb_error_t kctsb_sha256(const uint8_t* data, size_t len,
 - **IV/Nonce**: GCM 模式下 IV 必须唯一，绝不能重用
 - **认证**: 始终使用 AEAD 模式 (GCM/Poly1305)，避免使用 ECB/CBC-only
 - **密钥派生**: 使用 HKDF 或 Argon2 派生密钥，不要直接使用密码
+
+### 🔒 ECC 安全开发规则 
+
+**重要：以下规则为强制性安全约束，违反会导致代码审查失败。**
+
+#### ❌ 禁止使用的算法和实现
+
+| 禁止项 | 原因 | 替代方案 |
+|--------|------|----------|
+| **wNAF 标量乘法** | 存在侧信道泄露（非常量时间执行） | 使用 Montgomery ladder |
+| **滑动窗口方法** | 查表操作泄露标量位信息 | 使用 Montgomery ladder |
+| **二进制展开法** | 条件分支泄露标量位 | 使用 Montgomery ladder |
+| **预计算表 (wNAF 用途)** | 表访问模式泄露敏感信息 | 移除预计算表依赖 |
+
+#### ✅ 强制要求的实现
+
+| 操作 | 强制实现 | 说明 |
+|------|----------|------|
+| **标量乘法 (k * P)** | Montgomery ladder | 常量时间，每位执行相同操作 |
+| **基点乘法 (k * G)** | Montgomery ladder | 同上，不允许例外 |
+| **双标量乘法** | Shamir's trick | k1*P + k2*Q 同时计算 |
+
+#### Montgomery Ladder 实现规范
+
+```cpp
+/**
+ * @brief Montgomery ladder scalar multiplication (constant-time)
+ * 
+ * CRITICAL SECURITY REQUIREMENT:
+ * - Every bit of scalar k must perform EXACTLY one double and one add
+ * - No early termination allowed
+ * - No conditional branches based on scalar bits
+ */
+JacobianPoint montgomery_ladder(const ZZ& k, const JacobianPoint& P) const {
+    JacobianPoint R0;  // Infinity
+    JacobianPoint R1 = P;
+    
+    long num_bits = NumBits(k);
+    
+    for (long i = num_bits - 1; i >= 0; --i) {
+        if (bit(k, i)) {
+            R0 = add(R0, R1);
+            R1 = double_point(R1);
+        } else {
+            R1 = add(R0, R1);
+            R0 = double_point(R0);
+        }
+    }
+    
+    return R0;
+}
+```
 
 ---
 

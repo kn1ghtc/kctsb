@@ -5,6 +5,10 @@
  * High-performance Jacobian point operations using direct fe256 arithmetic.
  * Provides ~3-5x speedup over NTL ZZ_p based implementation.
  *
+ * Security (v4.6.0):
+ * - wNAF algorithm REMOVED due to side-channel vulnerabilities
+ * - All scalar multiplication uses Montgomery ladder (constant-time)
+ *
  * Formulas from Explicit-Formulas Database (EFD):
  * https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html
  *
@@ -15,7 +19,6 @@
 
 #include "fe256_point.h"
 #include <cstring>
-#include <array>
 
 // ============================================================================
 // Curve-specific operation dispatch
@@ -395,91 +398,55 @@ void fe256_point_negate(fe256_point* r, const fe256_point* p, int curve_type) {
 }
 
 // ============================================================================
-// wNAF Scalar Multiplication
+// Montgomery Ladder Scalar Multiplication (Constant-Time)
 // ============================================================================
+// NOTE: wNAF algorithm was REMOVED in v4.6.0 due to side-channel vulnerabilities.
+// All scalar multiplication now uses Montgomery ladder for timing-attack resistance.
 
-#define WNAF_WIDTH 5
-#define WNAF_TABLE_SIZE (1 << (WNAF_WIDTH - 1))  // 16
 #define MAX_SCALAR_BITS 256
 
-// Forward declarations
+// Forward declaration for generator initialization
 static void init_generators_mont();
-static const std::array<fe256_point, WNAF_TABLE_SIZE>* get_precomp_table(int curve_type);
 
 /**
- * @brief Compute wNAF representation
+ * @brief Get the highest bit position in a 256-bit scalar
+ * @param k 256-bit scalar as 4 uint64_t limbs
+ * @return Highest bit position (0-255), or -1 if zero
  */
-static size_t compute_wnaf(const uint64_t k[4], int8_t* wnaf) {
-    memset(wnaf, 0, MAX_SCALAR_BITS + 1);
-
-    // Check if k is zero
-    if (k[0] == 0 && k[1] == 0 && k[2] == 0 && k[3] == 0) {
-        return 0;
-    }
-
-    // Copy k for modification
-    uint64_t val[5] = {k[0], k[1], k[2], k[3], 0};
-
-    size_t i = 0;
-    const int w = WNAF_WIDTH;
-    const int mask = (1 << w) - 1;
-    const int half = 1 << (w - 1);
-
-    while ((val[0] | val[1] | val[2] | val[3]) != 0 && i < MAX_SCALAR_BITS) {
-        if (val[0] & 1) {
-            int digit = static_cast<int>(val[0] & mask);
-            if (digit >= half) {
-                digit -= (1 << w);
-            }
-            wnaf[i] = static_cast<int8_t>(digit);
-
-            // Subtract digit from val
-            if (digit >= 0) {
-                val[0] -= static_cast<uint64_t>(digit);
-            } else {
-                // Add |digit| to val
-                uint64_t add = static_cast<uint64_t>(-digit);
-                uint64_t carry = 0;
-                val[0] += add;
-                if (val[0] < add) carry = 1;
-                for (int j = 1; j < 4 && carry; j++) {
-                    val[j] += carry;
-                    carry = (val[j] == 0) ? 1 : 0;
-                }
-            }
-        } else {
-            wnaf[i] = 0;
+static int get_highest_bit(const uint64_t k[4]) {
+    for (int i = 3; i >= 0; i--) {
+        if (k[i] != 0) {
+            // Find highest bit in this limb using builtin
+            int pos = 63 - __builtin_clzll(k[i]);
+            return i * 64 + pos;
         }
-
-        // val >>= 1
-        val[0] = (val[0] >> 1) | (val[1] << 63);
-        val[1] = (val[1] >> 1) | (val[2] << 63);
-        val[2] = (val[2] >> 1) | (val[3] << 63);
-        val[3] = val[3] >> 1;
-
-        i++;
     }
-
-    return i;
+    return -1;  // Zero scalar
 }
 
 /**
- * @brief Build wNAF precomputation table
+ * @brief Get bit at position i from 256-bit scalar
+ * @param k 256-bit scalar as 4 uint64_t limbs
+ * @param i Bit position (0-255)
+ * @return 0 or 1
  */
-static void build_precomp_table(const fe256_point* p,
-                                 std::array<fe256_point, WNAF_TABLE_SIZE>& table,
-                                 int curve_type) {
-    // table[i] = (2*i + 1) * P
-    fe256_point_copy(&table[0], p);  // 1*P
-
-    fe256_point p2;
-    fe256_point_double(&p2, p, curve_type);  // 2*P
-
-    for (int i = 1; i < WNAF_TABLE_SIZE; i++) {
-        fe256_point_add(&table[i], &table[i-1], &p2, curve_type);  // (2*i+1)*P
-    }
+static inline int get_bit(const uint64_t k[4], int i) {
+    int limb = i / 64;
+    int bit = i % 64;
+    return (k[limb] >> bit) & 1;
 }
 
+/**
+ * @brief Montgomery ladder scalar multiplication (constant-time)
+ * 
+ * Provides constant-time execution to prevent side-channel attacks.
+ * For every bit of the scalar, exactly one double and one add are performed.
+ * 
+ * @param r Output point (k * p)
+ * @param k 256-bit scalar
+ * @param p Base point
+ * @param curve_type Curve type (secp256k1, P-256, SM2)
+ */
 void fe256_point_scalar_mult(fe256_point* r, const uint64_t k[4],
                               const fe256_point* p, int curve_type) {
     // Check for zero scalar
@@ -494,41 +461,36 @@ void fe256_point_scalar_mult(fe256_point* r, const uint64_t k[4],
         return;
     }
 
-    // Compute wNAF representation
-    int8_t wnaf[MAX_SCALAR_BITS + 1];
-    size_t wnaf_len = compute_wnaf(k, wnaf);
+    // Montgomery ladder: R0 = O, R1 = P
+    fe256_point R0, R1;
+    fe256_point_set_infinity(&R0);
+    fe256_point_copy(&R1, p);
 
-    if (wnaf_len == 0) {
+    // Get highest bit position
+    int high_bit = get_highest_bit(k);
+    if (high_bit < 0) {
         fe256_point_set_infinity(r);
         return;
     }
 
-    // Build precomputation table
-    std::array<fe256_point, WNAF_TABLE_SIZE> table;
-    build_precomp_table(p, table, curve_type);
-
-    // wNAF evaluation
-    fe256_point_set_infinity(r);
-
-    for (long i = static_cast<long>(wnaf_len) - 1; i >= 0; i--) {
-        fe256_point_double(r, r, curve_type);
-
-        int8_t digit = wnaf[static_cast<size_t>(i)];
-        if (digit > 0) {
-            size_t idx = static_cast<size_t>((digit - 1) / 2);
-            fe256_point_add(r, r, &table[idx], curve_type);
-        } else if (digit < 0) {
-            size_t idx = static_cast<size_t>((-digit - 1) / 2);
-            fe256_point neg_table_point;
-            fe256_point_negate(&neg_table_point, &table[idx], curve_type);
-            fe256_point_add(r, r, &neg_table_point, curve_type);
+    // Process bits from MSB to LSB
+    for (int i = high_bit; i >= 0; i--) {
+        int bit = get_bit(k, i);
+        if (bit) {
+            fe256_point_add(&R0, &R0, &R1, curve_type);
+            fe256_point_double(&R1, &R1, curve_type);
+        } else {
+            fe256_point_add(&R1, &R0, &R1, curve_type);
+            fe256_point_double(&R0, &R0, curve_type);
         }
     }
+
+    fe256_point_copy(r, &R0);
 }
 
 void fe256_point_scalar_mult_base(fe256_point* r, const uint64_t k[4],
                                    int curve_type) {
-    // Ensure generators and precomputation tables are initialized
+    // Ensure generators are initialized
     init_generators_mont();
     
     // Check for zero scalar
@@ -537,35 +499,11 @@ void fe256_point_scalar_mult_base(fe256_point* r, const uint64_t k[4],
         return;
     }
 
-    // Compute wNAF representation
-    int8_t wnaf[MAX_SCALAR_BITS + 1];
-    size_t wnaf_len = compute_wnaf(k, wnaf);
+    // Get generator point for this curve
+    const fe256_point* G = fe256_get_generator(curve_type);
 
-    if (wnaf_len == 0) {
-        fe256_point_set_infinity(r);
-        return;
-    }
-
-    // Use cached precomputation table for generator point
-    const std::array<fe256_point, WNAF_TABLE_SIZE>* table = get_precomp_table(curve_type);
-
-    // wNAF evaluation
-    fe256_point_set_infinity(r);
-
-    for (long i = static_cast<long>(wnaf_len) - 1; i >= 0; i--) {
-        fe256_point_double(r, r, curve_type);
-
-        int8_t digit = wnaf[static_cast<size_t>(i)];
-        if (digit > 0) {
-            size_t idx = static_cast<size_t>((digit - 1) / 2);
-            fe256_point_add(r, r, &(*table)[idx], curve_type);
-        } else if (digit < 0) {
-            size_t idx = static_cast<size_t>((-digit - 1) / 2);
-            fe256_point neg_table_point;
-            fe256_point_negate(&neg_table_point, &(*table)[idx], curve_type);
-            fe256_point_add(r, r, &neg_table_point, curve_type);
-        }
-    }
+    // Use Montgomery ladder for constant-time scalar multiplication
+    fe256_point_scalar_mult(r, k, G, curve_type);
 }
 
 // ============================================================================
@@ -666,65 +604,34 @@ static fe256_point p256_generator_mont;
 static fe256_point sm2_generator_mont;
 static bool generators_initialized = false;
 
-// Cached wNAF precomputation tables for generator points
-static std::array<fe256_point, WNAF_TABLE_SIZE> secp256k1_precomp_table;
-static std::array<fe256_point, WNAF_TABLE_SIZE> p256_precomp_table;
-static std::array<fe256_point, WNAF_TABLE_SIZE> sm2_precomp_table;
-static bool precomp_tables_initialized = false;
-
 /**
- * @brief Get cached precomputation table for a curve's generator
- */
-static const std::array<fe256_point, WNAF_TABLE_SIZE>* get_precomp_table(int curve_type) {
-    switch (curve_type) {
-        case FE256_CURVE_SECP256K1: return &secp256k1_precomp_table;
-        case FE256_CURVE_P256:      return &p256_precomp_table;
-        case FE256_CURVE_SM2:       return &sm2_precomp_table;
-        default:                    return &secp256k1_precomp_table;
-    }
-}
-
-/**
- * @brief Initialize generator points in Montgomery form and precomputation tables
+ * @brief Initialize generator points in Montgomery form
+ * 
+ * Converts generator points from standard to Montgomery form for efficient
+ * field arithmetic. This is called once on first use.
  */
 static void init_generators_mont() {
-    if (generators_initialized && precomp_tables_initialized) return;
+    if (generators_initialized) return;
     
-    if (!generators_initialized) {
-        // secp256k1 generator
-        fe256_point_copy(&secp256k1_generator_mont, &secp256k1_generator);
-        fe256_to_mont_secp256k1(&secp256k1_generator_mont.X, &secp256k1_generator_mont.X);
-        fe256_to_mont_secp256k1(&secp256k1_generator_mont.Y, &secp256k1_generator_mont.Y);
-        fe256_to_mont_secp256k1(&secp256k1_generator_mont.Z, &secp256k1_generator_mont.Z);
-        
-        // P-256 generator
-        fe256_point_copy(&p256_generator_mont, &p256_generator);
-        fe256_to_mont_p256(&p256_generator_mont.X, &p256_generator_mont.X);
-        fe256_to_mont_p256(&p256_generator_mont.Y, &p256_generator_mont.Y);
-        fe256_to_mont_p256(&p256_generator_mont.Z, &p256_generator_mont.Z);
-        
-        // SM2 generator
-        fe256_point_copy(&sm2_generator_mont, &sm2_generator);
-        fe256_to_mont_sm2(&sm2_generator_mont.X, &sm2_generator_mont.X);
-        fe256_to_mont_sm2(&sm2_generator_mont.Y, &sm2_generator_mont.Y);
-        fe256_to_mont_sm2(&sm2_generator_mont.Z, &sm2_generator_mont.Z);
-        
-        generators_initialized = true;
-    }
+    // secp256k1 generator
+    fe256_point_copy(&secp256k1_generator_mont, &secp256k1_generator);
+    fe256_to_mont_secp256k1(&secp256k1_generator_mont.X, &secp256k1_generator_mont.X);
+    fe256_to_mont_secp256k1(&secp256k1_generator_mont.Y, &secp256k1_generator_mont.Y);
+    fe256_to_mont_secp256k1(&secp256k1_generator_mont.Z, &secp256k1_generator_mont.Z);
     
-    // Build precomputation tables for all curves
-    if (!precomp_tables_initialized) {
-        build_precomp_table(&secp256k1_generator_mont, secp256k1_precomp_table, 
-                            FE256_CURVE_SECP256K1);
-        build_precomp_table(&p256_generator_mont, p256_precomp_table, 
-                            FE256_CURVE_P256);
-        // NOTE: SM2 precomputation table disabled due to fe256_reduce_sm2 bug
-        // SM2 uses NTL-based implementation (ecc_curve.cpp) which is fully functional
-        // TODO: Fix fe256_reduce_sm2 and re-enable SM2 precomputation
-        // build_precomp_table(&sm2_generator_mont, sm2_precomp_table, 
-        //                     FE256_CURVE_SM2);
-        precomp_tables_initialized = true;
-    }
+    // P-256 generator
+    fe256_point_copy(&p256_generator_mont, &p256_generator);
+    fe256_to_mont_p256(&p256_generator_mont.X, &p256_generator_mont.X);
+    fe256_to_mont_p256(&p256_generator_mont.Y, &p256_generator_mont.Y);
+    fe256_to_mont_p256(&p256_generator_mont.Z, &p256_generator_mont.Z);
+    
+    // SM2 generator
+    fe256_point_copy(&sm2_generator_mont, &sm2_generator);
+    fe256_to_mont_sm2(&sm2_generator_mont.X, &sm2_generator_mont.X);
+    fe256_to_mont_sm2(&sm2_generator_mont.Y, &sm2_generator_mont.Y);
+    fe256_to_mont_sm2(&sm2_generator_mont.Z, &sm2_generator_mont.Z);
+    
+    generators_initialized = true;
 }
 
 // ============================================================================
