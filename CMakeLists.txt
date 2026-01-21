@@ -580,34 +580,27 @@ set(KCTSB_CRYPTO_SOURCES
 # RSA and ECC sources (depend on integrated bignum math)
 # v4.0.1: Windows LLP64 compatibility fixed - bignum works on all platforms
 # v4.4.0: wNAF optimization consolidated into ecc_curve.cpp
-# v4.5.0: fe256 optimized field arithmetic with assembly support
-# v4.5.1: Added P-256 (secp256r1) specialized field operations
-# v4.5.2: Added fe256_point for optimized Jacobian point arithmetic
+# v4.7.0: Removed fe256 fast path layer (simplified architecture)
 file(GLOB KCTSB_RSA_SOURCES ${KCTSB_SRC_DIR}/crypto/rsa/*.cpp)
 set(KCTSB_ECC_SOURCES
     ${KCTSB_SRC_DIR}/crypto/ecc/ecc_curve.cpp
     ${KCTSB_SRC_DIR}/crypto/ecc/ecdh.cpp
     ${KCTSB_SRC_DIR}/crypto/ecc/ecdsa.cpp
     ${KCTSB_SRC_DIR}/crypto/ecc/ecies.cpp
-    ${KCTSB_SRC_DIR}/crypto/ecc/fe256.cpp
-    ${KCTSB_SRC_DIR}/crypto/ecc/fe256_p256.cpp
-    ${KCTSB_SRC_DIR}/crypto/ecc/fe256_point.cpp
 )
 
-# v4.5.0: Add assembly sources for optimized field arithmetic
+# v4.7.0: Assembly support for ECC (optional, x86_64 only)
 if(KCTSB_ASM_ENABLED AND KCTSB_ARCH_X86_64 AND NOT MSVC)
     # GCC/Clang on Linux/macOS/MinGW - use .S files (GNU as)
-    set(KCTSB_ECC_ASM_SOURCES
-        ${KCTSB_SRC_DIR}/crypto/ecc/asm/fe256_x86_64.S
-    )
-    list(APPEND KCTSB_ECC_SOURCES ${KCTSB_ECC_ASM_SOURCES})
-    add_definitions(-DKCTSB_HAS_FE256_ASM)
-    message(STATUS "✓ fe256 assembly optimizations enabled (x86_64 GAS)")
+    if(EXISTS "${KCTSB_SRC_DIR}/crypto/ecc/asm/fe256_x86_64.S")
+        list(APPEND KCTSB_ECC_SOURCES ${KCTSB_SRC_DIR}/crypto/ecc/asm/fe256_x86_64.S)
+        add_definitions(-DKCTSB_HAS_ECC_ASM)
+        message(STATUS "✓ ECC assembly optimizations enabled (x86_64 GAS)")
+    endif()
 elseif(KCTSB_ASM_ENABLED AND KCTSB_ARCH_X86_64 AND MSVC)
-    # MSVC uses MASM (.asm) - future support
-    message(STATUS "⚠ fe256 assembly: MSVC MASM support pending (using C++ fallback)")
+    message(STATUS "⚠ ECC assembly: MSVC MASM support pending (using C++ fallback)")
 else()
-    message(STATUS "  fe256: using portable C++ implementation")
+    message(STATUS "  ECC: using portable C++ implementation")
 endif()
 
 list(APPEND KCTSB_CRYPTO_SOURCES ${KCTSB_RSA_SOURCES} ${KCTSB_ECC_SOURCES})

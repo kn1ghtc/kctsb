@@ -213,44 +213,22 @@ gtest_discover_tests(test_benchmark PROPERTIES LABELS "performance")
 kctsb_add_test(test_security_boundaries unit/security/test_security_boundaries.cpp "unit;security")
 
 # ============================================================================
-# ECC TESTS - Elliptic Curve Cryptography (v4.5.2)
+# ECC TESTS - Elliptic Curve Cryptography (v4.7.0)
 # Label: "unit;ecc" - Run with: ctest -L ecc
+# Note: fe256 fast path tests removed in v4.7.0 (simplified architecture)
 # ============================================================================
 
-# fe256 optimized point arithmetic tests
-add_executable(test_fe256_point test_fe256_point.cpp)
-if(TARGET kctsb_static)
-    target_link_libraries(test_fe256_point PRIVATE
-        kctsb_static
-        GTest::gtest_main
-    )
-else()
-    target_link_libraries(test_fe256_point PRIVATE
-        kctsb
-        GTest::gtest_main
-    )
-endif()
-target_include_directories(test_fe256_point PRIVATE
-    ${CMAKE_SOURCE_DIR}/include
-    ${CMAKE_SOURCE_DIR}/src
-)
-if(NTL_FOUND)
-    target_link_libraries(test_fe256_point PRIVATE ${NTL_LIBRARY})
-    if(GMP_FOUND)
-        target_link_libraries(test_fe256_point PRIVATE ${GMP_LIBRARY})
-    endif()
-endif()
-gtest_discover_tests(test_fe256_point PROPERTIES LABELS "unit;ecc;fe256")
+# ECC tests are included in test_ecc.cpp via kctsb_add_test
 
 # ============================================================================
-# ADVANCED CRYPTOGRAPHY TESTS - BGV Homomorphic Encryption
+# ADVANCED CRYPTOGRAPHY TESTS - BGV Homomorphic Encryption (v4.7.0)
 # Label: "unit;fhe" - Run with: ctest -L fhe
-# TODO: Re-enable after fixing kctsb bignum API compatibility
+# Note: test_bgv.cpp moved to unit/fhe/ directory for better organization
 # ============================================================================
 
 if(KCTSB_ENABLE_BGV)
     # BGV Homomorphic Encryption tests (v4.2.0)
-    add_executable(test_bgv test_bgv.cpp)
+    add_executable(test_bgv unit/fhe/test_bgv.cpp)
     # BGV requires static library for full NTL/bignum access
     if(TARGET kctsb_static)
         target_link_libraries(test_bgv PRIVATE

@@ -7,24 +7,18 @@
  * - Constant-time Montgomery ladder for all scalar multiplication
  * - Jacobian coordinates for efficient point arithmetic
  * - Support for 256-bit standard curves (secp256k1, P-256, SM2)
- * - fe256 fast path for 256-bit curves (~3-5x additional speedup)
  * 
- * Security (v4.6.0):
+ * Security (v4.7.0):
  * - wNAF algorithm REMOVED due to side-channel vulnerabilities
  * - All scalar multiplication uses Montgomery ladder (constant-time)
  * - Timing-attack resistant implementation
- * 
- * Performance optimizations (v4.5.2):
- * - fe256 fast path for secp256k1, P-256, SM2
- * - Direct field arithmetic bypassing ZZ_p overhead
- * - P-256 Solinas reduction for NIST curve optimization
+ * - Removed fe256 fast path layer (simplified architecture)
  * 
  * @author knightc
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
  */
 
 #include "kctsb/crypto/ecc/ecc_curve.h"
-#include "fe256_ecc_fast.h"
 #include <stdexcept>
 #include <algorithm>
 #include <vector>
@@ -36,29 +30,6 @@ using namespace kctsb;
 
 namespace kctsb {
 namespace ecc {
-
-// ============================================================================
-// fe256 Fast Path Control
-// ============================================================================
-
-// Enable/disable fe256 fast path (can be controlled at runtime if needed)
-static bool g_fe256_fast_path_enabled = true;
-
-/**
- * @brief Enable or disable fe256 fast path
- * @param enable true to enable, false to disable
- */
-void fe256_set_fast_path_enabled(bool enable) {
-    g_fe256_fast_path_enabled = enable;
-}
-
-/**
- * @brief Check if fe256 fast path is enabled
- * @return true if enabled
- */
-bool fe256_is_fast_path_enabled() {
-    return g_fe256_fast_path_enabled;
-}
 
 // ============================================================================
 // Standard Curve Parameters (SECG/NIST)
