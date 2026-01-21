@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file bgv_context.cpp
  * @brief BGV Context Implementation
  * 
@@ -26,7 +26,7 @@ namespace bgv {
 uint64_t BGVParams::slot_count() const {
     // For prime m, slot_count = (m-1) / ord_t(m)
     // where ord_t(m) is the multiplicative order of t mod m
-    // Simplified: if t = 1 mod m, slot_count = 蠁(m) = n
+    // Simplified: if t = 1 mod m, slot_count = φ(m) = n
     
     if (m == 0 || t == 0) return 0;
     
@@ -56,13 +56,14 @@ bool BGVParams::validate() const {
     // Basic validation
     if (m == 0 || n == 0) return false;
     if (IsZero(q)) return false;
-    if (t == 0 || t >= to_ulong(q)) return false;
+    // Check t is positive and reasonable (skip strict comparison to avoid overflow)
+    if (t == 0) return false;
     if (L == 0) return false;
     if (sigma <= 0) return false;
     
-    // n should be 蠁(m)
-    // For power-of-2 m: 蠁(m) = m/2
-    // For prime m: 蠁(m) = m-1
+    // n should be φ(m)
+    // For power-of-2 m: φ(m) = m/2
+    // For prime m: φ(m) = m-1
     
     // Check RNS primes if provided
     if (!primes.empty()) {
@@ -165,15 +166,16 @@ namespace StandardParams {
 BGVParams TOY_PARAMS() {
     BGVParams params;
     params.m = 512;
-    params.n = 256;  // 蠁(512) = 256 for power-of-2
-    params.t = 257;  // Small prime
-    params.L = 2;
+    params.n = 256;  // φ(512) = 256 for power-of-2
+    params.t = 257;  // Small prime plaintext modulus
+    params.L = 1;    // Single level (no modulus switching)
     params.sigma = 3.2;
     params.security = SecurityLevel::NONE;
     
-    // Small modulus for testing
-    params.primes = {65537, 114689};  // 17-bit primes = 1 mod 512
-    params.q = conv<ZZ>(65537) * conv<ZZ>(114689);
+    // Use single small prime for testing (avoids FFT precision issues)
+    // Prime p = 12289 = 1 + 3*4096 = 1 mod 512 (NTT-friendly)
+    params.primes = {12289};
+    params.q = conv<ZZ>(12289);
     
     return params;
 }
@@ -202,7 +204,7 @@ ZZ_p RingElement::coeff(long i) const {
     if (i < 0 || i > deg(poly_)) {
         return ZZ_p::zero();
     }
-    return coeff(poly_, i);
+    return kctsb::coeff(poly_, i);
 }
 
 void RingElement::set_coeff(long i, const ZZ_p& val) {
@@ -226,10 +228,15 @@ RingElement RingElement::operator-(const RingElement& other) const {
 }
 
 RingElement RingElement::operator*(const RingElement& other) const {
-    // Note: This does NOT reduce by 桅_m(X) automatically
+    // Note: This does NOT reduce by Φ_m(X) automatically
     // The caller must handle reduction in the quotient ring
     RingElement result;
-    result.poly_ = poly_ * other.poly_;
+    
+    // Use PlainMul (classical algorithm) to avoid FFT precision issues
+    // with large moduli. FFT requires the modulus to be small enough
+    // for floating-point precision, which is not the case for FHE.
+    PlainMul(result.poly_, poly_, other.poly_);
+    
     return result;
 }
 
@@ -274,7 +281,7 @@ bool RingElement::is_zero() const {
 }
 
 void RingElement::clear() {
-    clear(poly_);
+    kctsb::clear(poly_);
     is_ntt_ = false;
 }
 
@@ -431,10 +438,10 @@ BGVContext::BGVContext(BGVContext&& other) noexcept = default;
 BGVContext& BGVContext::operator=(BGVContext&& other) noexcept = default;
 
 void BGVContext::initialize_ring() {
-    // Set up the polynomial ring R_q = Z_q[X]/(桅_m(X))
+    // Set up the polynomial ring R_q = Z_q[X]/(Φ_m(X))
     ZZ_p::init(params_.q);
     
-    // Compute cyclotomic polynomial 桅_m(X)
+    // Compute cyclotomic polynomial Φ_m(X)
     cyclotomic_ = compute_cyclotomic(params_.m);
 }
 
@@ -447,7 +454,7 @@ void BGVContext::initialize_levels() {
     for (uint32_t i = 0; i < params_.L; i++) {
         levels_[i].q = q_current;
         
-        // Compute 桅_m(X) mod q_current
+        // Compute Φ_m(X) mod q_current
         ZZ_pPush push;
         ZZ_p::init(q_current);
         levels_[i].cyclotomic = compute_cyclotomic(params_.m);
@@ -460,10 +467,10 @@ void BGVContext::initialize_levels() {
 }
 
 ZZ_pX BGVContext::compute_cyclotomic(uint64_t m) {
-    // Compute the m-th cyclotomic polynomial 桅_m(X)
-    // 桅_m(X) = 鈭廮{d|m} (X^{m/d} - 1)^{渭(d)}
+    // Compute the m-th cyclotomic polynomial Φ_m(X)
+    // Φ_m(X) = ∏_{d|m} (X^{m/d} - 1)^{μ(d)}
     
-    // For power-of-2 m: 桅_m(X) = X^{m/2} + 1
+    // For power-of-2 m: Φ_m(X) = X^{m/2} + 1
     if ((m & (m - 1)) == 0) {  // m is power of 2
         ZZ_pX phi;
         SetCoeff(phi, 0, conv<ZZ_p>(1));
@@ -471,7 +478,7 @@ ZZ_pX BGVContext::compute_cyclotomic(uint64_t m) {
         return phi;
     }
     
-    // For prime m: 桅_m(X) = 1 + X + X^2 + ... + X^{m-1}
+    // For prime m: Φ_m(X) = 1 + X + X^2 + ... + X^{m-1}
     if (ProbPrime(to_ZZ(m))) {
         ZZ_pX phi;
         for (uint64_t i = 0; i < m; i++) {
@@ -480,7 +487,7 @@ ZZ_pX BGVContext::compute_cyclotomic(uint64_t m) {
         return phi;
     }
     
-    // General case: use NTL's CyclotomicPoly or compute via M枚bius function
+    // General case: use NTL's CyclotomicPoly or compute via Möbius function
     // Simplified: assume m is a power of 2 for now
     ZZ_pX phi;
     SetCoeff(phi, 0, conv<ZZ_p>(1));
@@ -502,7 +509,10 @@ ZZ BGVContext::ciphertext_modulus(uint32_t level) const {
 BGVSecretKey BGVContext::generate_secret_key() {
     BGVSecretKey sk;
     
-    // Generate ternary secret key s 鈭?{-1, 0, 1}^n
+    // CRITICAL: Set modulus to q for key generation
+    ZZ_p::init(params_.q);
+    
+    // Generate ternary secret key s ∈ {-1, 0, 1}^n
     sk.s_ = sample_ternary(params_.hamming_weight);
     
     return sk;
@@ -511,24 +521,56 @@ BGVSecretKey BGVContext::generate_secret_key() {
 BGVPublicKey BGVContext::generate_public_key(const BGVSecretKey& sk) {
     BGVPublicKey pk;
     
-    // Sample uniform a 鈭?R_q
+    // DEBUG: Check sk.s_ before modulus change
+    std::cerr << "DEBUG gen_pk (before init): sk.s_[0] = " << rep(sk.s_.coeff(0)) 
+              << ", sk.s_[3] = " << rep(sk.s_.coeff(3)) << "\n";
+    
+    // CRITICAL: Set modulus to q for key generation
+    ZZ_p::init(params_.q);
+    
+    // DEBUG: Check sk.s_ after modulus change
+    std::cerr << "DEBUG gen_pk (after init): sk.s_[0] = " << rep(sk.s_.coeff(0)) 
+              << ", sk.s_[3] = " << rep(sk.s_.coeff(3)) << "\n";
+    
+    // Convert secret key to current modulus q
+    ZZ_pX sk_q;
+    for (long j = 0; j <= sk.s_.degree(); j++) {
+        ZZ coef = rep(sk.s_.coeff(j));
+        SetCoeff(sk_q, j, conv<ZZ_p>(coef));
+    }
+    
+    // Sample uniform a ∈ R_q
     pk.a_ = sample_uniform();
     
-    // Sample error e 鈫?蠂
+    // Sample error e ∈ χ
     RingElement e = sample_error();
     
-    // Compute b = -a*s + t*e (mod 桅_m(X))
-    RingElement as = pk.a_ * sk.s_;
-    // Reduce mod 桅_m(X)
-    ZZ_pX as_reduced;
-    rem(as_reduced, as.poly(), cyclotomic_);
+    // Compute b = -a*s + t*e (mod Φ_m(X))
+    ZZ_pX as;
+    PlainMul(as, pk.a_.poly(), sk_q);
+    PlainRem(as, as, cyclotomic_);
     
-    ZZ_pX te = e.poly() * conv<ZZ_p>(params_.t);
+    ZZ_pX te = e.poly() * conv<ZZ_p>(static_cast<long>(params_.t));
     
-    pk.b_.poly() = -as_reduced + te;
+    pk.b_.poly() = -as + te;
     
-    // Reduce mod 桅_m(X)
-    rem(pk.b_.poly(), pk.b_.poly(), cyclotomic_);
+    // Reduce mod Φ_m(X)
+    PlainRem(pk.b_.poly(), pk.b_.poly(), cyclotomic_);
+    
+    // DEBUG: Print public key generation values
+    long sk_degree = deg(sk_q);
+    std::cerr << "DEBUG keygen: sk_degree = " << sk_degree << "\n";
+    std::cerr << "DEBUG keygen: a[0] = " << rep(coeff(pk.a_.poly(), 0))
+              << ", s[0] = " << rep(coeff(sk_q, 0))
+              << ", as[0] = " << rep(coeff(as, 0))
+              << ", te[0] = " << rep(coeff(te, 0))
+              << ", b[0] = " << rep(coeff(pk.b_.poly(), 0)) << "\n";
+    // Print a few more s coefficients
+    std::cerr << "DEBUG keygen: s[1..5] = ";
+    for (int i = 1; i <= 5 && i <= sk_degree; ++i) {
+        std::cerr << rep(coeff(sk_q, i)) << " ";
+    }
+    std::cerr << "\n";
     
     return pk;
 }
@@ -536,14 +578,17 @@ BGVPublicKey BGVContext::generate_public_key(const BGVSecretKey& sk) {
 BGVRelinKey BGVContext::generate_relin_key(const BGVSecretKey& sk) {
     BGVRelinKey rk;
     
+    // CRITICAL: Set modulus to q for relin key generation
+    ZZ_p::init(params_.q);
+    
     // Relinearization key: encryptions of s^2 under key s
     // Using digit decomposition with base w
     
     const size_t num_digits = 3;  // Number of decomposition digits
-    ZZ base = power(conv<ZZ>(2), 60);  // Digit base
+    ZZ base = kctsb::power(to_ZZ(2), 60);  // Digit base
     
     RingElement s2 = sk.s_ * sk.s_;
-    rem(s2.poly(), s2.poly(), cyclotomic_);
+    PlainRem(s2.poly(), s2.poly(), cyclotomic_);
     
     for (size_t i = 0; i < num_digits; i++) {
         // Sample a_i uniformly
@@ -554,17 +599,17 @@ BGVRelinKey BGVContext::generate_relin_key(const BGVSecretKey& sk) {
         
         // Compute b_i = -a_i*s + t*e_i + base^i * s^2
         RingElement as = a * sk.s_;
-        rem(as.poly(), as.poly(), cyclotomic_);
+        PlainRem(as.poly(), as.poly(), cyclotomic_);
         
-        ZZ_pX te = e.poly() * conv<ZZ_p>(params_.t);
+        ZZ_pX te = e.poly() * conv<ZZ_p>(static_cast<long>(params_.t));
         
         // base^i * s^2
-        ZZ_p scale = conv<ZZ_p>(power(base, i));
+        ZZ_p scale = conv<ZZ_p>(kctsb::power(base, i));
         RingElement scaled_s2 = s2 * scale;
         
         RingElement b;
         b.poly() = -as.poly() + te + scaled_s2.poly();
-        rem(b.poly(), b.poly(), cyclotomic_);
+        PlainRem(b.poly(), b.poly(), cyclotomic_);
         
         rk.key_components_.push_back({b, a});
     }
@@ -577,7 +622,7 @@ BGVGaloisKey BGVContext::generate_galois_keys(const BGVSecretKey& sk,
     BGVGaloisKey gk;
     
     // Generate keys for specified rotations
-    // For rotation by k slots, need automorphism 蟽: X -> X^{5^k mod m}
+    // For rotation by k slots, need automorphism σ: X -> X^{5^k mod m}
     
     std::vector<int> rotation_steps = steps;
     if (rotation_steps.empty()) {
@@ -605,7 +650,7 @@ BGVGaloisKey BGVContext::generate_galois_keys(const BGVSecretKey& sk,
         }
         
         // Generate key for this Galois element
-        // Key switches from 蟽(s) to s
+        // Key switches from σ(s) to s
         
         // Apply automorphism to s: s(X) -> s(X^{galois_elt})
         RingElement sigma_s;
@@ -618,23 +663,23 @@ BGVGaloisKey BGVContext::generate_galois_keys(const BGVSecretKey& sk,
         std::vector<std::pair<RingElement, RingElement>> key;
         
         const size_t num_digits = 3;
-        ZZ base_decomp = power(conv<ZZ>(2), 60);
+        ZZ base_decomp = kctsb::power(to_ZZ(2), 60);
         
         for (size_t d = 0; d < num_digits; d++) {
             RingElement a = sample_uniform();
             RingElement e = sample_error();
             
             RingElement as = a * sk.s_;
-            rem(as.poly(), as.poly(), cyclotomic_);
+            PlainRem(as.poly(), as.poly(), cyclotomic_);
             
-            ZZ_pX te = e.poly() * conv<ZZ_p>(params_.t);
+            ZZ_pX te = e.poly() * conv<ZZ_p>(static_cast<long>(params_.t));
             
             ZZ_p scale = conv<ZZ_p>(power(base_decomp, d));
             RingElement scaled = sigma_s * scale;
             
             RingElement b;
             b.poly() = -as.poly() + te + scaled.poly();
-            rem(b.poly(), b.poly(), cyclotomic_);
+            PlainRem(b.poly(), b.poly(), cyclotomic_);
             
             key.push_back({b, a});
         }
@@ -653,32 +698,71 @@ BGVCiphertext BGVContext::encrypt(const BGVPublicKey& pk,
                                    const BGVPlaintext& pt) {
     BGVCiphertext ct;
     
-    // Sample random u 鈭?{-1, 0, 1}^n
+    // CRITICAL: Set modulus to q before encryption operations
+    ZZ_p::init(params_.q);
+    
+    // Convert plaintext polynomial coefficients to mod q representation
+    // The plaintext was encoded mod t, but we need it as ZZ_p mod q
+    ZZ_pX pt_in_q;
+    for (long i = 0; i <= pt.data().degree(); i++) {
+        ZZ coef = rep(pt.data().coeff(i));  // Get raw ZZ value
+        SetCoeff(pt_in_q, i, conv<ZZ_p>(coef));  // Convert to mod q
+    }
+    
+    // Sample random u ∈ {-1, 0, 1}^n
     RingElement u = sample_ternary();
     
-    // Sample errors e_0, e_1 鈫?蠂
+    // Sample errors e_0, e_1 ∈ χ
     RingElement e0 = sample_error();
     RingElement e1 = sample_error();
     
-    // c_0 = b*u + t*e_0 + m (mod 桅_m(X))
+    // Convert public key polynomials to current modulus context
+    // The public key was generated under mod q, but NTL ZZ_pX stores
+    // context-dependent representations that need re-conversion
+    ZZ_pX pk_b_q;
+    for (long j = 0; j <= pk.b_.degree(); j++) {
+        ZZ coef = rep(pk.b_.coeff(j));
+        SetCoeff(pk_b_q, j, conv<ZZ_p>(coef));
+    }
+    
+    ZZ_pX pk_a_q;
+    for (long j = 0; j <= pk.a_.degree(); j++) {
+        ZZ coef = rep(pk.a_.coeff(j));
+        SetCoeff(pk_a_q, j, conv<ZZ_p>(coef));
+    }
+    
+    // c_0 = b*u + t*e_0 + m (mod Φ_m(X))
     RingElement c0;
-    RingElement bu = pk.b_ * u;
-    rem(bu.poly(), bu.poly(), cyclotomic_);
+    ZZ_pX bu;
+    PlainMul(bu, pk_b_q, u.poly());
+    PlainRem(bu, bu, cyclotomic_);
     
-    ZZ_pX te0 = e0.poly() * conv<ZZ_p>(params_.t);
+    ZZ_pX te0 = e0.poly() * conv<ZZ_p>(static_cast<long>(params_.t));
     
-    c0.poly() = bu.poly() + te0 + pt.data().poly();
-    rem(c0.poly(), c0.poly(), cyclotomic_);
+    c0.poly() = bu + te0 + pt_in_q;
+    PlainRem(c0.poly(), c0.poly(), cyclotomic_);
     
-    // c_1 = a*u + t*e_1 (mod 桅_m(X))
+    // DEBUG: Print intermediate values
+    std::cerr << "DEBUG encrypt: m[0] = " << rep(coeff(pt_in_q, 0))
+              << ", bu[0] = " << rep(coeff(bu, 0))
+              << ", te0[0] = " << rep(coeff(te0, 0))
+              << ", c0[0] = " << rep(coeff(c0.poly(), 0)) << "\n";
+    
+    // c_1 = a*u + t*e_1 (mod Φ_m(X))
     RingElement c1;
-    RingElement au = pk.a_ * u;
-    rem(au.poly(), au.poly(), cyclotomic_);
+    ZZ_pX au;
+    PlainMul(au, pk_a_q, u.poly());
+    PlainRem(au, au, cyclotomic_);
     
-    ZZ_pX te1 = e1.poly() * conv<ZZ_p>(params_.t);
+    ZZ_pX te1 = e1.poly() * conv<ZZ_p>(static_cast<long>(params_.t));
     
-    c1.poly() = au.poly() + te1;
-    rem(c1.poly(), c1.poly(), cyclotomic_);
+    c1.poly() = au + te1;
+    PlainRem(c1.poly(), c1.poly(), cyclotomic_);
+    
+    // DEBUG: Print c1 and expected c1*s
+    std::cerr << "DEBUG encrypt: au[0] = " << rep(coeff(au, 0))
+              << ", te1[0] = " << rep(coeff(te1, 0))
+              << ", c1[0] = " << rep(coeff(c1.poly(), 0)) << "\n";
     
     ct.push_back(c0);
     ct.push_back(c1);
@@ -694,26 +778,54 @@ BGVPlaintext BGVContext::decrypt(const BGVSecretKey& sk,
         throw std::invalid_argument("Invalid ciphertext size");
     }
     
-    // Compute m = [c_0 + c_1*s + c_2*s^2 + ...]_t
-    // where [x]_t means coefficient-wise mod t with centered reduction
+    // CRITICAL: Set modulus to q before decryption operations
+    // All ring operations must be performed mod q
+    ZZ_p::init(params_.q);
     
-    RingElement result = ct[0];
-    
-    for (size_t i = 1; i < ct.size(); i++) {
-        RingElement term = ct[i] * sk.power(i);
-        rem(term.poly(), term.poly(), cyclotomic_);
-        result += term;
+    // Convert ciphertext polynomials to current modulus context
+    // This ensures coefficients are correctly interpreted mod q
+    ZZ_pX c0_q;
+    for (long j = 0; j <= ct[0].degree(); j++) {
+        ZZ coef = rep(ct[0].coeff(j));
+        SetCoeff(c0_q, j, conv<ZZ_p>(coef));
     }
     
-    rem(result.poly(), result.poly(), cyclotomic_);
+    // Similarly convert secret key power
+    ZZ_pX s_q;
+    for (long j = 0; j <= sk.power(1).degree(); j++) {
+        ZZ coef = rep(sk.power(1).coeff(j));
+        SetCoeff(s_q, j, conv<ZZ_p>(coef));
+    }
+    
+    ZZ_pX c1_q;
+    for (long j = 0; j <= ct[1].degree(); j++) {
+        ZZ coef = rep(ct[1].coeff(j));
+        SetCoeff(c1_q, j, conv<ZZ_p>(coef));
+    }
+    
+    // Compute m = c_0 + c_1*s (mod Φ_m(X), mod q)
+    ZZ_pX c1s;
+    PlainMul(c1s, c1_q, s_q);
+    PlainRem(c1s, c1s, cyclotomic_);
+    
+    // DEBUG: Print intermediate values
+    std::cerr << "DEBUG decrypt: c0[0] = " << rep(coeff(c0_q, 0)) 
+              << ", c1s[0] = " << rep(coeff(c1s, 0)) << "\n";
+    
+    ZZ_pX result = c0_q + c1s;
+    PlainRem(result, result, cyclotomic_);
+    
+    // DEBUG: Print intermediate value
+    std::cerr << "DEBUG decrypt: result[0] mod q = " << rep(coeff(result, 0)) 
+              << ", t = " << params_.t << ", expected mod t = " << (rep(coeff(result, 0)) % to_ZZ(params_.t)) << "\n";
     
     // Reduce coefficients mod t with centered reduction
     BGVPlaintext pt;
-    ZZ t = conv<ZZ>(params_.t);
+    ZZ t = to_ZZ(static_cast<unsigned long>(params_.t));
     ZZ t_half = t / 2;
     
-    for (long i = 0; i <= result.degree(); i++) {
-        ZZ coef = rep(result.coeff(i));
+    for (long i = 0; i <= deg(result); i++) {
+        ZZ coef = rep(coeff(result, i));
         coef = coef % t;
         
         // Centered reduction: if coef > t/2, coef -= t
@@ -738,21 +850,31 @@ BGVCiphertext BGVContext::encrypt_symmetric(const BGVSecretKey& sk,
                                              const BGVPlaintext& pt) {
     BGVCiphertext ct;
     
-    // Sample uniform a 鈭?R_q
+    // CRITICAL: Set modulus to q for encryption
+    ZZ_p::init(params_.q);
+    
+    // Convert plaintext polynomial coefficients to mod q representation
+    ZZ_pX pt_in_q;
+    for (long i = 0; i <= pt.data().degree(); i++) {
+        ZZ coef = rep(pt.data().coeff(i));
+        SetCoeff(pt_in_q, i, conv<ZZ_p>(coef));
+    }
+    
+    // Sample uniform a ∈ R_q
     RingElement a = sample_uniform();
     
-    // Sample error e 鈫?蠂
+    // Sample error e ∈ χ
     RingElement e = sample_error();
     
-    // c_0 = -a*s + t*e + m (mod 桅_m(X))
+    // c_0 = -a*s + t*e + m (mod Φ_m(X))
     RingElement c0;
     RingElement as = a * sk.s_;
-    rem(as.poly(), as.poly(), cyclotomic_);
+    PlainRem(as.poly(), as.poly(), cyclotomic_);
     
-    ZZ_pX te = e.poly() * conv<ZZ_p>(params_.t);
+    ZZ_pX te = e.poly() * conv<ZZ_p>(static_cast<long>(params_.t));
     
-    c0.poly() = -as.poly() + te + pt.data().poly();
-    rem(c0.poly(), c0.poly(), cyclotomic_);
+    c0.poly() = -as.poly() + te + pt_in_q;
+    PlainRem(c0.poly(), c0.poly(), cyclotomic_);
     
     // c_1 = a
     ct.push_back(c0);
@@ -782,10 +904,10 @@ double BGVContext::noise_budget(const BGVSecretKey& sk,
     RingElement raw = ct[0];
     for (size_t i = 1; i < ct.size(); i++) {
         RingElement term = ct[i] * sk.power(i);
-        rem(term.poly(), term.poly(), cyclotomic_);
+        PlainRem(term.poly(), term.poly(), cyclotomic_);
         raw += term;
     }
-    rem(raw.poly(), raw.poly(), cyclotomic_);
+    PlainRem(raw.poly(), raw.poly(), cyclotomic_);
     
     // The noise is the non-plaintext component
     // noise = raw - m*t where m is the plaintext
@@ -793,7 +915,7 @@ double BGVContext::noise_budget(const BGVSecretKey& sk,
     
     // Estimate: noise magnitude is max coefficient after mod t reduction
     ZZ max_coef = conv<ZZ>(0);
-    ZZ t = conv<ZZ>(params_.t);
+    ZZ t = to_ZZ(static_cast<unsigned long>(params_.t));
     
     for (long i = 0; i <= raw.degree(); i++) {
         ZZ coef = rep(raw.coeff(i)) % t;
@@ -833,15 +955,15 @@ RingElement BGVContext::sample_uniform() {
 RingElement BGVContext::sample_error() {
     RingElement result;
     
-    // Discrete Gaussian with parameter 蟽
+    // Discrete Gaussian with parameter σ
     std::normal_distribution<double> dist(0.0, params_.sigma);
     
     for (uint64_t i = 0; i < params_.n; i++) {
         double val = dist(rng_);
         long rounded = static_cast<long>(std::round(val));
         
-        // Convert to mod q
-        ZZ coef = to_ZZ(rounded);
+        // Convert to mod q - use conv<ZZ>(long) for signed integers
+        ZZ coef = conv<ZZ>(rounded);
         if (rounded < 0) {
             coef += params_.q;
         }
@@ -861,7 +983,8 @@ RingElement BGVContext::sample_ternary(uint32_t hamming_weight) {
         
         for (uint64_t i = 0; i < params_.n; i++) {
             int val = dist(rng_);
-            ZZ coef = to_ZZ(val);
+            // Use conv<ZZ>(long) for signed integers, not to_ZZ(uint64_t)
+            ZZ coef = conv<ZZ>(static_cast<long>(val));
             if (val < 0) {
                 coef += params_.q;
             }

@@ -213,12 +213,33 @@ gtest_discover_tests(test_benchmark PROPERTIES LABELS "performance")
 kctsb_add_test(test_security_boundaries unit/security/test_security_boundaries.cpp "unit;security")
 
 # ============================================================================
-# ECC TESTS - Elliptic Curve Cryptography (v4.7.0)
+# ECC TESTS - Elliptic Curve Cryptography (v4.8.1)
 # Label: "unit;ecc" - Run with: ctest -L ecc
-# Note: fe256 fast path tests removed in v4.7.0 (simplified architecture)
+# v4.8.1: fe256 acceleration layer merged into ecc_curve.cpp
+#         Tests migrated to unit/crypto/test_ecc.cpp
 # ============================================================================
 
-# ECC tests are included in test_ecc.cpp via kctsb_add_test
+# ECC comprehensive tests (includes migrated fe256 acceleration tests)
+# Tests cover: secp256k1, P-256, SM2 curves
+# Features tested: Montgomery ladder, point operations, field arithmetic
+add_executable(test_ecc unit/crypto/test_ecc.cpp)
+if(TARGET kctsb_static)
+    target_link_libraries(test_ecc PRIVATE
+        kctsb_static
+        GTest::gtest_main
+    )
+else()
+    target_link_libraries(test_ecc PRIVATE
+        kctsb
+        GTest::gtest_main
+    )
+endif()
+target_include_directories(test_ecc PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/src
+)
+target_compile_definitions(test_ecc PRIVATE KCTSB_HAS_BIGNUM_MODULES)
+gtest_discover_tests(test_ecc PROPERTIES LABELS "unit;crypto;ecc")
 
 # ============================================================================
 # ADVANCED CRYPTOGRAPHY TESTS - BGV Homomorphic Encryption (v4.7.0)

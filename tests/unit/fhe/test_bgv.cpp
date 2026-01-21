@@ -88,6 +88,40 @@ TEST(BGVContextTest, ContextCreation) {
     });
 }
 
+// Step-by-step debug test
+TEST(BGVContextTest, StepByStepCreation) {
+    auto params = StandardParams::TOY_PARAMS();
+    
+    // Step 1: Create context
+    BGVContext context(params);
+    
+    // Step 2: Create encoder
+    EXPECT_NO_THROW({
+        BGVEncoder encoder(context);
+    });
+    
+    // Step 3: Create evaluator
+    EXPECT_NO_THROW({
+        BGVEvaluator evaluator(context);
+    });
+    
+    // Step 4: Generate secret key
+    BGVSecretKey sk;
+    EXPECT_NO_THROW({
+        sk = context.generate_secret_key();
+    });
+    
+    // Step 5: Generate public key
+    EXPECT_NO_THROW({
+        auto pk = context.generate_public_key(sk);
+    });
+    
+    // Step 6: Generate relin key
+    EXPECT_NO_THROW({
+        auto rk = context.generate_relin_key(sk);
+    });
+}
+
 TEST(BGVContextTest, InvalidParamsThrows) {
     BGVParams invalid_params;
     invalid_params.m = 0;  // Invalid
@@ -167,11 +201,22 @@ TEST_F(BGVTest, PolyEncode) {
 // ============================================================================
 
 TEST_F(BGVTest, EncryptDecryptSingle) {
-    auto pt = encoder_->encode(42);
-    auto ct = context_->encrypt(pk_, pt);
-    auto pt_dec = context_->decrypt(sk_, ct);
+    // Debug: Print parameters
+    std::cout << "Debug: t=" << params_.t << ", q=" << params_.q << ", n=" << params_.n << "\n";
     
-    EXPECT_EQ(encoder_->decode_int(pt_dec), 42);
+    auto pt = encoder_->encode(42);
+    std::cout << "Debug: Encoded value coeff(0)=" << rep(pt.data().coeff(0)) << "\n";
+    
+    auto ct = context_->encrypt(pk_, pt);
+    std::cout << "Debug: Ciphertext size=" << ct.size() << "\n";
+    
+    auto pt_dec = context_->decrypt(sk_, ct);
+    std::cout << "Debug: Decrypted coeff(0)=" << rep(pt_dec.data().coeff(0)) << "\n";
+    
+    int64_t decoded = encoder_->decode_int(pt_dec);
+    std::cout << "Debug: Decoded value=" << decoded << "\n";
+    
+    EXPECT_EQ(decoded, 42);
 }
 
 TEST_F(BGVTest, EncryptDecryptBatch) {

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file bgv_evaluator.cpp
  * @brief BGV Homomorphic Evaluation Implementation
  * 
@@ -50,7 +50,7 @@ BGVCiphertext BGVEvaluator::add(const BGVCiphertext& ct1,
         }
         
         // Reduce mod cyclotomic
-        rem(sum.poly(), sum.poly(), context_.cyclotomic());
+        PlainRem(sum.poly(), sum.poly(), context_.cyclotomic());
         result.push_back(sum);
     }
     
@@ -68,7 +68,7 @@ BGVCiphertext BGVEvaluator::add_plain(const BGVCiphertext& ct,
     
     // Add plaintext to c_0 only
     result[0] = ct[0] + pt.data();
-    rem(result[0].poly(), result[0].poly(), context_.cyclotomic());
+    PlainRem(result[0].poly(), result[0].poly(), context_.cyclotomic());
     
     return result;
 }
@@ -86,7 +86,7 @@ void BGVEvaluator::add_inplace(BGVCiphertext& ct1,
     
     for (size_t i = 0; i < ct2.size(); i++) {
         ct1[i] += ct2[i];
-        rem(ct1[i].poly(), ct1[i].poly(), context_.cyclotomic());
+        PlainRem(ct1[i].poly(), ct1[i].poly(), context_.cyclotomic());
     }
     
     ct1.set_noise_budget(std::min(ct1.noise_budget(), ct2.noise_budget()) - 1);
@@ -95,7 +95,7 @@ void BGVEvaluator::add_inplace(BGVCiphertext& ct1,
 void BGVEvaluator::add_plain_inplace(BGVCiphertext& ct,
                                       const BGVPlaintext& pt) const {
     ct[0] += pt.data();
-    rem(ct[0].poly(), ct[0].poly(), context_.cyclotomic());
+    PlainRem(ct[0].poly(), ct[0].poly(), context_.cyclotomic());
 }
 
 // ============================================================================
@@ -122,7 +122,7 @@ BGVCiphertext BGVEvaluator::sub(const BGVCiphertext& ct1,
             diff = -ct2[i];
         }
         
-        rem(diff.poly(), diff.poly(), context_.cyclotomic());
+        PlainRem(diff.poly(), diff.poly(), context_.cyclotomic());
         result.push_back(diff);
     }
     
@@ -136,7 +136,7 @@ BGVCiphertext BGVEvaluator::sub_plain(const BGVCiphertext& ct,
                                        const BGVPlaintext& pt) const {
     BGVCiphertext result = ct;
     result[0] = ct[0] - pt.data();
-    rem(result[0].poly(), result[0].poly(), context_.cyclotomic());
+    PlainRem(result[0].poly(), result[0].poly(), context_.cyclotomic());
     return result;
 }
 
@@ -148,14 +148,14 @@ void BGVEvaluator::sub_inplace(BGVCiphertext& ct1,
     
     for (size_t i = 0; i < ct2.size(); i++) {
         ct1[i] -= ct2[i];
-        rem(ct1[i].poly(), ct1[i].poly(), context_.cyclotomic());
+        PlainRem(ct1[i].poly(), ct1[i].poly(), context_.cyclotomic());
     }
 }
 
 void BGVEvaluator::sub_plain_inplace(BGVCiphertext& ct,
                                       const BGVPlaintext& pt) const {
     ct[0] -= pt.data();
-    rem(ct[0].poly(), ct[0].poly(), context_.cyclotomic());
+    PlainRem(ct[0].poly(), ct[0].poly(), context_.cyclotomic());
 }
 
 BGVCiphertext BGVEvaluator::negate(const BGVCiphertext& ct) const {
@@ -201,9 +201,9 @@ BGVCiphertext BGVEvaluator::multiply(const BGVCiphertext& ct1,
     for (size_t i = 0; i < ct1.size(); i++) {
         for (size_t j = 0; j < ct2.size(); j++) {
             RingElement product = ct1[i] * ct2[j];
-            rem(product.poly(), product.poly(), context_.cyclotomic());
+            PlainRem(product.poly(), product.poly(), context_.cyclotomic());
             result[i + j] += product;
-            rem(result[i + j].poly(), result[i + j].poly(), 
+            PlainRem(result[i + j].poly(), result[i + j].poly(), 
                      context_.cyclotomic());
         }
     }
@@ -225,7 +225,7 @@ BGVCiphertext BGVEvaluator::multiply_plain(const BGVCiphertext& ct,
     
     for (size_t i = 0; i < ct.size(); i++) {
         RingElement product = ct[i] * pt.data();
-        rem(product.poly(), product.poly(), context_.cyclotomic());
+        PlainRem(product.poly(), product.poly(), context_.cyclotomic());
         result.push_back(product);
     }
     
@@ -245,7 +245,7 @@ void BGVEvaluator::multiply_plain_inplace(BGVCiphertext& ct,
                                            const BGVPlaintext& pt) const {
     for (size_t i = 0; i < ct.size(); i++) {
         ct[i] *= pt.data();
-        rem(ct[i].poly(), ct[i].poly(), context_.cyclotomic());
+        PlainRem(ct[i].poly(), ct[i].poly(), context_.cyclotomic());
     }
     ct.set_noise_budget(ct.noise_budget() - std::log2(context_.ring_degree()));
 }
@@ -307,22 +307,22 @@ void BGVEvaluator::relinearize_inplace(BGVCiphertext& ct,
             RingElement d_b = digits[i] * key_components[i].first;
             RingElement d_a = digits[i] * key_components[i].second;
             
-            rem(d_b.poly(), d_b.poly(), context_.cyclotomic());
-            rem(d_a.poly(), d_a.poly(), context_.cyclotomic());
+            PlainRem(d_b.poly(), d_b.poly(), context_.cyclotomic());
+            PlainRem(d_a.poly(), d_a.poly(), context_.cyclotomic());
             
             new_c0 += d_b;
             new_c1 += d_a;
         }
         
-        rem(new_c0.poly(), new_c0.poly(), context_.cyclotomic());
-        rem(new_c1.poly(), new_c1.poly(), context_.cyclotomic());
+        PlainRem(new_c0.poly(), new_c0.poly(), context_.cyclotomic());
+        PlainRem(new_c1.poly(), new_c1.poly(), context_.cyclotomic());
         
         // Update ciphertext: remove c_high, add to c_0 and c_1
         ct[0] += new_c0;
         ct[1] += new_c1;
         
-        rem(ct[0].poly(), ct[0].poly(), context_.cyclotomic());
-        rem(ct[1].poly(), ct[1].poly(), context_.cyclotomic());
+        PlainRem(ct[0].poly(), ct[0].poly(), context_.cyclotomic());
+        PlainRem(ct[1].poly(), ct[1].poly(), context_.cyclotomic());
         
         // Remove highest component
         // Note: This is a simplified implementation
@@ -338,7 +338,7 @@ std::vector<RingElement> BGVEvaluator::decompose(const RingElement& poly) const 
     // Split polynomial into smaller-coefficient parts
     
     const size_t num_digits = 3;  // Should match key generation
-    ZZ base = power(conv<ZZ>(2), 60);
+    ZZ base = kctsb::power(to_ZZ(2), 60);
     
     std::vector<RingElement> digits(num_digits);
     
@@ -401,7 +401,7 @@ BGVCiphertext BGVEvaluator::apply_galois(const BGVCiphertext& ct,
                                     std::to_string(galois_elt));
     }
     
-    // Apply automorphism 蟽: X -> X^{galois_elt} to each component
+    // Apply automorphism σ: X -> X^{galois_elt} to each component
     BGVCiphertext result;
     
     for (size_t i = 0; i < ct.size(); i++) {
@@ -416,7 +416,7 @@ BGVCiphertext BGVEvaluator::apply_galois(const BGVCiphertext& ct,
         result.push_back(sigma_c);
     }
     
-    // Need to key switch from 蟽(s) back to s
+    // Need to key switch from σ(s) back to s
     result = key_switch(result, gk.get_key(galois_elt));
     
     result.set_level(ct.level());
@@ -447,15 +447,15 @@ BGVCiphertext BGVEvaluator::key_switch(
         RingElement d_b = digits[i] * switch_key[i].first;
         RingElement d_a = digits[i] * switch_key[i].second;
         
-        rem(d_b.poly(), d_b.poly(), context_.cyclotomic());
-        rem(d_a.poly(), d_a.poly(), context_.cyclotomic());
+        PlainRem(d_b.poly(), d_b.poly(), context_.cyclotomic());
+        PlainRem(d_a.poly(), d_a.poly(), context_.cyclotomic());
         
         new_c0 += d_b;
         new_c1 += d_a;
     }
     
-    rem(new_c0.poly(), new_c0.poly(), context_.cyclotomic());
-    rem(new_c1.poly(), new_c1.poly(), context_.cyclotomic());
+    PlainRem(new_c0.poly(), new_c0.poly(), context_.cyclotomic());
+    PlainRem(new_c1.poly(), new_c1.poly(), context_.cyclotomic());
     
     BGVCiphertext result;
     result.push_back(new_c0);

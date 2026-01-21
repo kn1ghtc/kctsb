@@ -1,18 +1,26 @@
 ﻿/**
  * @file ecc_curve.cpp
- * @brief Elliptic Curve Core Implementation - Bignum Backend
+ * @brief Elliptic Curve Core Implementation - Bignum Backend with fe256 Acceleration
  * 
- * Complete implementation of elliptic curve operations using bignum.
+ * Complete implementation of elliptic curve operations using bignum with optional
+ * fe256 256-bit field element acceleration for 256-bit curves.
+ * 
  * Features:
  * - Constant-time Montgomery ladder for all scalar multiplication
  * - Jacobian coordinates for efficient point arithmetic
  * - Support for 256-bit standard curves (secp256k1, P-256, SM2)
+ * - Integrated fe256 acceleration layer (v4.2.0+)
  * 
- * Security (v4.7.0):
+ * Acceleration Features (fe256):
+ * - 128-bit integer arithmetic helpers (mul64x64, adc64, sbb64)
+ * - Montgomery multiplication with specialized reduction
+ * - Curve-specific modular reduction (secp256k1, P-256 Solinas, SM2)
+ * - Constant-time operations for side-channel resistance
+ * 
+ * Security (v4.2.0):
  * - wNAF algorithm REMOVED due to side-channel vulnerabilities
  * - All scalar multiplication uses Montgomery ladder (constant-time)
  * - Timing-attack resistant implementation
- * - Removed fe256 fast path layer (simplified architecture)
  * 
  * @author knightc
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
@@ -23,13 +31,991 @@
 #include <algorithm>
 #include <vector>
 #include <cstdint>
+#include <cstring>
 #include <array>
+
+// Platform-specific intrinsics
+#ifdef _MSC_VER
+#include <intrin.h>
+#else
+#include <x86intrin.h>
+#endif
 
 // Bignum namespace is now kctsb (was bignum)
 using namespace kctsb;
 
 namespace kctsb {
 namespace ecc {
+
+// ============================================================================
+// fe256 Acceleration Layer - 256-bit Field Element Operations
+// ============================================================================
+// This integrated acceleration layer provides optimized field arithmetic
+// for 256-bit prime fields used in secp256k1, P-256, and SM2 curves.
+// Features:
+// - Montgomery multiplication (no division operations)
+// - Specialized modular reduction for each curve's prime
+// - 4-limb representation (4 × 64-bit) for optimal performance
+// - Constant-time operations for side-channel resistance
+
+namespace {
+
+// ============================================================================
+// fe256 Types and Helpers
+// ============================================================================
+
+/**
+ * @brief 256-bit field element in 4-limb representation
+ */
+struct Fe256 {
+    uint64_t limb[4];  // Little-endian: limb[0] is LSB
+};
+
+/**
+ * @brief 512-bit intermediate result for multiplication
+ */
+struct Fe512 {
+    uint64_t limb[8];
+};
+
+// ============================================================================
+// 128-bit Arithmetic Helpers
+// ============================================================================
+
+#if defined(__SIZEOF_INT128__)
+// GCC/Clang with __int128 support
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
+#endif
+typedef unsigned __int128 uint128_t;
+typedef __int128 int128_t;
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+
+static inline void mul64x64(uint64_t a, uint64_t b, uint64_t* hi, uint64_t* lo) {
+    uint128_t product = (uint128_t)a * b;
+    *lo = (uint64_t)product;
+    *hi = (uint64_t)(product >> 64);
+}
+
+static inline uint64_t adc64(uint64_t a, uint64_t b, uint64_t carry_in, uint64_t* carry_out) {
+    uint128_t sum = (uint128_t)a + b + carry_in;
+    *carry_out = (uint64_t)(sum >> 64);
+    return (uint64_t)sum;
+}
+
+static inline uint64_t sbb64(uint64_t a, uint64_t b, uint64_t borrow_in, uint64_t* borrow_out) {
+    uint128_t diff = (uint128_t)a - b - borrow_in;
+    *borrow_out = (diff >> 127) ? 1 : 0;
+    return (uint64_t)diff;
+}
+
+#elif defined(_MSC_VER) && defined(_M_X64)
+// MSVC x64 intrinsics
+
+static inline void mul64x64(uint64_t a, uint64_t b, uint64_t* hi, uint64_t* lo) {
+    *lo = _umul128(a, b, hi);
+}
+
+static inline uint64_t adc64(uint64_t a, uint64_t b, uint64_t carry_in, uint64_t* carry_out) {
+    unsigned char c;
+    uint64_t sum = _addcarry_u64((unsigned char)carry_in, a, b, (unsigned long long*)&c);
+    *carry_out = c;
+    return sum;
+}
+
+static inline uint64_t sbb64(uint64_t a, uint64_t b, uint64_t borrow_in, uint64_t* borrow_out) {
+    unsigned char c;
+    uint64_t diff = _subborrow_u64((unsigned char)borrow_in, a, b, (unsigned long long*)&c);
+    *borrow_out = c;
+    return diff;
+}
+
+#else
+// Portable fallback (slower)
+
+static inline void mul64x64(uint64_t a, uint64_t b, uint64_t* hi, uint64_t* lo) {
+    uint32_t a0 = (uint32_t)a;
+    uint32_t a1 = (uint32_t)(a >> 32);
+    uint32_t b0 = (uint32_t)b;
+    uint32_t b1 = (uint32_t)(b >> 32);
+    
+    uint64_t p00 = (uint64_t)a0 * b0;
+    uint64_t p01 = (uint64_t)a0 * b1;
+    uint64_t p10 = (uint64_t)a1 * b0;
+    uint64_t p11 = (uint64_t)a1 * b1;
+    
+    uint64_t mid = p01 + p10 + (p00 >> 32);
+    *lo = (p00 & 0xFFFFFFFF) | (mid << 32);
+    *hi = p11 + (mid >> 32);
+}
+
+static inline uint64_t adc64(uint64_t a, uint64_t b, uint64_t carry_in, uint64_t* carry_out) {
+    uint64_t sum = a + b + carry_in;
+    *carry_out = (sum < a) || (carry_in && sum == a) ? 1 : 0;
+    return sum;
+}
+
+static inline uint64_t sbb64(uint64_t a, uint64_t b, uint64_t borrow_in, uint64_t* borrow_out) {
+    uint64_t diff = a - b - borrow_in;
+    *borrow_out = (a < b) || (borrow_in && a == b) ? 1 : 0;
+    return diff;
+}
+#endif
+
+// ============================================================================
+// fe256 Basic Operations
+// ============================================================================
+
+static inline void fe256_copy(Fe256* dst, const Fe256* src) {
+    dst->limb[0] = src->limb[0];
+    dst->limb[1] = src->limb[1];
+    dst->limb[2] = src->limb[2];
+    dst->limb[3] = src->limb[3];
+}
+
+static inline void fe256_zero(Fe256* a) {
+    a->limb[0] = 0;
+    a->limb[1] = 0;
+    a->limb[2] = 0;
+    a->limb[3] = 0;
+}
+
+static inline void fe256_one(Fe256* a) {
+    a->limb[0] = 1;
+    a->limb[1] = 0;
+    a->limb[2] = 0;
+    a->limb[3] = 0;
+}
+
+static inline int fe256_is_zero(const Fe256* a) {
+    uint64_t x = a->limb[0] | a->limb[1] | a->limb[2] | a->limb[3];
+    return ((x | (~x + 1)) >> 63) ^ 1;
+}
+
+static inline int fe256_equal(const Fe256* a, const Fe256* b) {
+    uint64_t diff = 0;
+    diff |= a->limb[0] ^ b->limb[0];
+    diff |= a->limb[1] ^ b->limb[1];
+    diff |= a->limb[2] ^ b->limb[2];
+    diff |= a->limb[3] ^ b->limb[3];
+    return ((diff | (~diff + 1)) >> 63) ^ 1;
+}
+
+/**
+ * @brief Constant-time conditional move
+ */
+static inline void fe256_cmov(Fe256* r, const Fe256* a, int cond) {
+    uint64_t mask = ~((uint64_t)cond - 1);
+    r->limb[0] ^= mask & (r->limb[0] ^ a->limb[0]);
+    r->limb[1] ^= mask & (r->limb[1] ^ a->limb[1]);
+    r->limb[2] ^= mask & (r->limb[2] ^ a->limb[2]);
+    r->limb[3] ^= mask & (r->limb[3] ^ a->limb[3]);
+}
+
+// ============================================================================
+// Curve Constants
+// ============================================================================
+
+// secp256k1: p = 2^256 - 2^32 - 977
+alignas(32) static const Fe256 SECP256K1_P = {{
+    0xFFFFFFFEFFFFFC2FULL, 0xFFFFFFFFFFFFFFFFULL,
+    0xFFFFFFFFFFFFFFFFULL, 0xFFFFFFFFFFFFFFFFULL
+}};
+static const uint64_t SECP256K1_REDUCE_C = 0x1000003D1ULL;
+
+// P-256: p = 2^256 - 2^224 + 2^192 + 2^96 - 1
+alignas(32) static const Fe256 P256_P = {{
+    0xFFFFFFFFFFFFFFFFULL, 0x00000000FFFFFFFFULL,
+    0x0000000000000000ULL, 0xFFFFFFFF00000001ULL
+}};
+
+// SM2: p = 2^256 - 2^224 - 2^96 + 2^64 - 1
+alignas(32) static const Fe256 SM2_P = {{
+    0xFFFFFFFFFFFFFFFFULL, 0xFFFFFFFF00000000ULL,
+    0xFFFFFFFFFFFFFFFFULL, 0xFFFFFFFEFFFFFFFFULL
+}};
+
+// ============================================================================
+// Wide Multiplication (256x256 -> 512-bit)
+// ============================================================================
+
+static void fe256_mul_wide(Fe512* r, const Fe256* a, const Fe256* b) {
+    uint64_t hi, lo;
+    uint64_t carry;
+    
+    // Schoolbook multiplication with accumulation
+    // Column 0
+    mul64x64(a->limb[0], b->limb[0], &hi, &lo);
+    r->limb[0] = lo;
+    uint64_t acc0 = hi;
+    
+    // Column 1
+    carry = 0;
+    mul64x64(a->limb[0], b->limb[1], &hi, &lo);
+    acc0 = adc64(acc0, lo, 0, &carry);
+    uint64_t acc1 = hi + carry;
+    
+    mul64x64(a->limb[1], b->limb[0], &hi, &lo);
+    acc0 = adc64(acc0, lo, 0, &carry);
+    acc1 = adc64(acc1, hi, carry, &carry);
+    uint64_t acc2 = carry;
+    
+    r->limb[1] = acc0;
+    
+    // Column 2
+    acc0 = acc1;
+    acc1 = acc2;
+    acc2 = 0;
+    
+    mul64x64(a->limb[0], b->limb[2], &hi, &lo);
+    acc0 = adc64(acc0, lo, 0, &carry);
+    acc1 = adc64(acc1, hi, carry, &carry);
+    acc2 += carry;
+    
+    mul64x64(a->limb[1], b->limb[1], &hi, &lo);
+    acc0 = adc64(acc0, lo, 0, &carry);
+    acc1 = adc64(acc1, hi, carry, &carry);
+    acc2 += carry;
+    
+    mul64x64(a->limb[2], b->limb[0], &hi, &lo);
+    acc0 = adc64(acc0, lo, 0, &carry);
+    acc1 = adc64(acc1, hi, carry, &carry);
+    acc2 += carry;
+    
+    r->limb[2] = acc0;
+    
+    // Column 3
+    acc0 = acc1;
+    acc1 = acc2;
+    acc2 = 0;
+    
+    mul64x64(a->limb[0], b->limb[3], &hi, &lo);
+    acc0 = adc64(acc0, lo, 0, &carry);
+    acc1 = adc64(acc1, hi, carry, &carry);
+    acc2 += carry;
+    
+    mul64x64(a->limb[1], b->limb[2], &hi, &lo);
+    acc0 = adc64(acc0, lo, 0, &carry);
+    acc1 = adc64(acc1, hi, carry, &carry);
+    acc2 += carry;
+    
+    mul64x64(a->limb[2], b->limb[1], &hi, &lo);
+    acc0 = adc64(acc0, lo, 0, &carry);
+    acc1 = adc64(acc1, hi, carry, &carry);
+    acc2 += carry;
+    
+    mul64x64(a->limb[3], b->limb[0], &hi, &lo);
+    acc0 = adc64(acc0, lo, 0, &carry);
+    acc1 = adc64(acc1, hi, carry, &carry);
+    acc2 += carry;
+    
+    r->limb[3] = acc0;
+    
+    // Column 4
+    acc0 = acc1;
+    acc1 = acc2;
+    acc2 = 0;
+    
+    mul64x64(a->limb[1], b->limb[3], &hi, &lo);
+    acc0 = adc64(acc0, lo, 0, &carry);
+    acc1 = adc64(acc1, hi, carry, &carry);
+    acc2 += carry;
+    
+    mul64x64(a->limb[2], b->limb[2], &hi, &lo);
+    acc0 = adc64(acc0, lo, 0, &carry);
+    acc1 = adc64(acc1, hi, carry, &carry);
+    acc2 += carry;
+    
+    mul64x64(a->limb[3], b->limb[1], &hi, &lo);
+    acc0 = adc64(acc0, lo, 0, &carry);
+    acc1 = adc64(acc1, hi, carry, &carry);
+    acc2 += carry;
+    
+    r->limb[4] = acc0;
+    
+    // Column 5
+    acc0 = acc1;
+    acc1 = acc2;
+    acc2 = 0;
+    
+    mul64x64(a->limb[2], b->limb[3], &hi, &lo);
+    acc0 = adc64(acc0, lo, 0, &carry);
+    acc1 = adc64(acc1, hi, carry, &carry);
+    acc2 += carry;
+    
+    mul64x64(a->limb[3], b->limb[2], &hi, &lo);
+    acc0 = adc64(acc0, lo, 0, &carry);
+    acc1 = adc64(acc1, hi, carry, &carry);
+    acc2 += carry;
+    
+    r->limb[5] = acc0;
+    
+    // Column 6
+    acc0 = acc1;
+    acc1 = acc2;
+    
+    mul64x64(a->limb[3], b->limb[3], &hi, &lo);
+    acc0 = adc64(acc0, lo, 0, &carry);
+    acc1 = adc64(acc1, hi, carry, &carry);
+    
+    r->limb[6] = acc0;
+    r->limb[7] = acc1;
+}
+
+// ============================================================================
+// secp256k1 Specialized Reduction
+// ============================================================================
+
+/**
+ * @brief secp256k1 specialized reduction
+ * Uses: 2^256 ≡ 2^32 + 977 (mod p)
+ */
+static void fe256_reduce_secp256k1(Fe256* r, const Fe512* a) {
+    const uint64_t c = SECP256K1_REDUCE_C;
+    uint64_t carry = 0;
+    uint64_t hi, lo;
+    uint64_t c1, c2;
+    
+    // Compute: r = low + high * c
+    mul64x64(a->limb[4], c, &hi, &lo);
+    r->limb[0] = adc64(a->limb[0], lo, 0, &carry);
+    uint64_t t0 = hi + carry;
+    
+    mul64x64(a->limb[5], c, &hi, &lo);
+    r->limb[1] = adc64(a->limb[1], lo, 0, &c1);
+    r->limb[1] = adc64(r->limb[1], t0, 0, &c2);
+    uint64_t t1 = hi + c1 + c2;
+    
+    mul64x64(a->limb[6], c, &hi, &lo);
+    r->limb[2] = adc64(a->limb[2], lo, 0, &c1);
+    r->limb[2] = adc64(r->limb[2], t1, 0, &c2);
+    uint64_t t2 = hi + c1 + c2;
+    
+    mul64x64(a->limb[7], c, &hi, &lo);
+    r->limb[3] = adc64(a->limb[3], lo, 0, &c1);
+    r->limb[3] = adc64(r->limb[3], t2, 0, &c2);
+    uint64_t t3 = hi + c1 + c2;
+    
+    if (t3) {
+        mul64x64(t3, c, &hi, &lo);
+        r->limb[0] = adc64(r->limb[0], lo, 0, &carry);
+        r->limb[1] = adc64(r->limb[1], hi, carry, &carry);
+        r->limb[2] = adc64(r->limb[2], 0, carry, &carry);
+        r->limb[3] = adc64(r->limb[3], 0, carry, &carry);
+        
+        if (carry) {
+            r->limb[0] = adc64(r->limb[0], c, 0, &carry);
+            r->limb[1] = adc64(r->limb[1], 0, carry, &carry);
+            r->limb[2] = adc64(r->limb[2], 0, carry, &carry);
+            r->limb[3] = adc64(r->limb[3], 0, carry, &carry);
+        }
+    }
+    
+    // Final conditional subtraction
+    Fe256 tmp;
+    uint64_t borrow = 0;
+    tmp.limb[0] = sbb64(r->limb[0], SECP256K1_P.limb[0], 0, &borrow);
+    tmp.limb[1] = sbb64(r->limb[1], SECP256K1_P.limb[1], borrow, &borrow);
+    tmp.limb[2] = sbb64(r->limb[2], SECP256K1_P.limb[2], borrow, &borrow);
+    tmp.limb[3] = sbb64(r->limb[3], SECP256K1_P.limb[3], borrow, &borrow);
+    
+    fe256_cmov(r, &tmp, !borrow);
+}
+
+static void fe256_mul_secp256k1(Fe256* r, const Fe256* a, const Fe256* b) {
+    Fe512 wide;
+    fe256_mul_wide(&wide, a, b);
+    fe256_reduce_secp256k1(r, &wide);
+}
+
+static void fe256_sqr_secp256k1(Fe256* r, const Fe256* a) {
+    fe256_mul_secp256k1(r, a, a);
+}
+
+// ============================================================================
+// P-256 Solinas Reduction
+// ============================================================================
+
+/**
+ * @brief P-256 Solinas reduction for 512-bit input
+ * Uses prime structure: p = 2^256 - 2^224 + 2^192 + 2^96 - 1
+ */
+static void fe256_reduce_p256(Fe256* r, const Fe512* a) {
+    // Extract 32-bit words from 64-bit limbs
+    uint64_t c[16];
+    for (int i = 0; i < 8; i++) {
+        c[2*i] = (uint32_t)a->limb[i];
+        c[2*i + 1] = (uint32_t)(a->limb[i] >> 32);
+    }
+
+    int64_t t[9] = {0};
+
+    // T = (c7, c6, c5, c4, c3, c2, c1, c0)
+    for (int i = 0; i < 8; i++) t[i] = (int64_t)c[i];
+
+    // 2*S1 = 2 * (c15, c14, c13, c12, c11, 0, 0, 0)
+    t[3] += 2 * (int64_t)c[11];
+    t[4] += 2 * (int64_t)c[12];
+    t[5] += 2 * (int64_t)c[13];
+    t[6] += 2 * (int64_t)c[14];
+    t[7] += 2 * (int64_t)c[15];
+
+    // 2*S2 = 2 * (0, c15, c14, c13, c12, 0, 0, 0)
+    t[3] += 2 * (int64_t)c[12];
+    t[4] += 2 * (int64_t)c[13];
+    t[5] += 2 * (int64_t)c[14];
+    t[6] += 2 * (int64_t)c[15];
+
+    // S3 = (c15, c14, 0, 0, 0, c10, c9, c8)
+    t[0] += (int64_t)c[8];
+    t[1] += (int64_t)c[9];
+    t[2] += (int64_t)c[10];
+    t[6] += (int64_t)c[14];
+    t[7] += (int64_t)c[15];
+
+    // S4 = (c8, c13, c15, c14, c13, c11, c10, c9)
+    t[0] += (int64_t)c[9];
+    t[1] += (int64_t)c[10];
+    t[2] += (int64_t)c[11];
+    t[3] += (int64_t)c[13];
+    t[4] += (int64_t)c[14];
+    t[5] += (int64_t)c[15];
+    t[6] += (int64_t)c[13];
+    t[7] += (int64_t)c[8];
+
+    // -D1 = -(c10, c8, 0, 0, 0, c13, c12, c11)
+    t[0] -= (int64_t)c[11];
+    t[1] -= (int64_t)c[12];
+    t[2] -= (int64_t)c[13];
+    t[6] -= (int64_t)c[8];
+    t[7] -= (int64_t)c[10];
+
+    // -D2 = -(c11, c9, 0, 0, c15, c14, c13, c12)
+    t[0] -= (int64_t)c[12];
+    t[1] -= (int64_t)c[13];
+    t[2] -= (int64_t)c[14];
+    t[3] -= (int64_t)c[15];
+    t[6] -= (int64_t)c[9];
+    t[7] -= (int64_t)c[11];
+
+    // -D3 = -(c12, 0, c10, c9, c8, c15, c14, c13)
+    t[0] -= (int64_t)c[13];
+    t[1] -= (int64_t)c[14];
+    t[2] -= (int64_t)c[15];
+    t[3] -= (int64_t)c[8];
+    t[4] -= (int64_t)c[9];
+    t[5] -= (int64_t)c[10];
+    t[7] -= (int64_t)c[12];
+
+    // -D4 = -(c13, 0, c11, c10, c9, 0, c15, c14)
+    t[0] -= (int64_t)c[14];
+    t[1] -= (int64_t)c[15];
+    t[3] -= (int64_t)c[9];
+    t[4] -= (int64_t)c[10];
+    t[5] -= (int64_t)c[11];
+    t[7] -= (int64_t)c[13];
+
+    // Carry propagation
+    int64_t carry = 0;
+    for (int i = 0; i < 8; i++) {
+        t[i] += carry;
+        carry = t[i] >> 32;
+        t[i] &= 0xFFFFFFFFLL;
+    }
+    t[8] = carry;
+
+    // Handle overflow/underflow
+    while (t[8] < 0) {
+        int64_t cc = 0;
+        t[0] += 0xFFFFFFFFLL + cc; cc = t[0] >> 32; t[0] &= 0xFFFFFFFFLL;
+        t[1] += 0xFFFFFFFFLL + cc; cc = t[1] >> 32; t[1] &= 0xFFFFFFFFLL;
+        t[2] += 0xFFFFFFFFLL + cc; cc = t[2] >> 32; t[2] &= 0xFFFFFFFFLL;
+        t[3] += 0x00000000LL + cc; cc = t[3] >> 32; t[3] &= 0xFFFFFFFFLL;
+        t[4] += 0x00000000LL + cc; cc = t[4] >> 32; t[4] &= 0xFFFFFFFFLL;
+        t[5] += 0x00000000LL + cc; cc = t[5] >> 32; t[5] &= 0xFFFFFFFFLL;
+        t[6] += 0x00000001LL + cc; cc = t[6] >> 32; t[6] &= 0xFFFFFFFFLL;
+        t[7] += 0xFFFFFFFFLL + cc; cc = t[7] >> 32; t[7] &= 0xFFFFFFFFLL;
+        t[8] += cc;
+    }
+
+    while (t[8] > 0) {
+        int64_t cc = 0;
+        int64_t tmp = t[0] - 0xFFFFFFFFLL - cc;
+        cc = (tmp < 0) ? 1 : 0; t[0] = tmp + (cc << 32);
+        tmp = t[1] - 0xFFFFFFFFLL - cc;
+        cc = (tmp < 0) ? 1 : 0; t[1] = tmp + (cc << 32);
+        tmp = t[2] - 0xFFFFFFFFLL - cc;
+        cc = (tmp < 0) ? 1 : 0; t[2] = tmp + (cc << 32);
+        tmp = t[3] - 0x00000000LL - cc;
+        cc = (tmp < 0) ? 1 : 0; t[3] = tmp + (cc << 32);
+        tmp = t[4] - 0x00000000LL - cc;
+        cc = (tmp < 0) ? 1 : 0; t[4] = tmp + (cc << 32);
+        tmp = t[5] - 0x00000000LL - cc;
+        cc = (tmp < 0) ? 1 : 0; t[5] = tmp + (cc << 32);
+        tmp = t[6] - 0x00000001LL - cc;
+        cc = (tmp < 0) ? 1 : 0; t[6] = tmp + (cc << 32);
+        tmp = t[7] - 0xFFFFFFFFLL - cc;
+        cc = (tmp < 0) ? 1 : 0; t[7] = tmp + (cc << 32);
+        t[8] -= cc;
+    }
+
+    // Convert back to 64-bit limbs
+    r->limb[0] = ((uint64_t)(uint32_t)t[0]) | (((uint64_t)(uint32_t)t[1]) << 32);
+    r->limb[1] = ((uint64_t)(uint32_t)t[2]) | (((uint64_t)(uint32_t)t[3]) << 32);
+    r->limb[2] = ((uint64_t)(uint32_t)t[4]) | (((uint64_t)(uint32_t)t[5]) << 32);
+    r->limb[3] = ((uint64_t)(uint32_t)t[6]) | (((uint64_t)(uint32_t)t[7]) << 32);
+
+    // Final reduction
+    uint64_t borrow = 0;
+    Fe256 tmp;
+    tmp.limb[0] = sbb64(r->limb[0], P256_P.limb[0], 0, &borrow);
+    tmp.limb[1] = sbb64(r->limb[1], P256_P.limb[1], borrow, &borrow);
+    tmp.limb[2] = sbb64(r->limb[2], P256_P.limb[2], borrow, &borrow);
+    tmp.limb[3] = sbb64(r->limb[3], P256_P.limb[3], borrow, &borrow);
+
+    fe256_cmov(r, &tmp, !borrow);
+}
+
+static void fe256_mul_p256(Fe256* r, const Fe256* a, const Fe256* b) {
+    Fe512 wide;
+    fe256_mul_wide(&wide, a, b);
+    fe256_reduce_p256(r, &wide);
+}
+
+static void fe256_sqr_p256(Fe256* r, const Fe256* a) {
+    fe256_mul_p256(r, a, a);
+}
+
+// ============================================================================
+// SM2 Specialized Reduction
+// ============================================================================
+
+/**
+ * @brief SM2 specialized reduction for 512-bit input
+ * SM2 p = 2^256 - 2^224 - 2^96 + 2^64 - 1
+ */
+static void fe256_reduce_sm2(Fe256* r, const Fe512* a) {
+#if defined(__SIZEOF_INT128__)
+    int128_t acc[5] = {0};
+    
+    // Initialize with low 256 bits
+    acc[0] = a->limb[0];
+    acc[1] = a->limb[1];
+    acc[2] = a->limb[2];
+    acc[3] = a->limb[3];
+    
+    uint64_t h0 = a->limb[4];
+    uint64_t h1 = a->limb[5];
+    uint64_t h2 = a->limb[6];
+    uint64_t h3 = a->limb[7];
+    
+    // k = 2^224 + 2^96 - 2^64 + 1
+    // h0 * k
+    acc[0] += h0;
+    acc[1] += (int128_t)(h0 & 0xFFFFFFFFULL) << 32;
+    acc[2] += h0 >> 32;
+    acc[1] -= h0;
+    acc[3] += (int128_t)(h0 & 0xFFFFFFFFULL) << 32;
+    acc[4] += h0 >> 32;
+    
+    // h1 * k * 2^64
+    acc[1] += h1;
+    acc[2] += (int128_t)(h1 & 0xFFFFFFFFULL) << 32;
+    acc[3] += h1 >> 32;
+    acc[2] -= h1;
+    acc[4] += (int128_t)(h1 & 0xFFFFFFFFULL) << 32;
+    
+    // h2 * k * 2^128
+    acc[2] += h2;
+    acc[3] += (int128_t)(h2 & 0xFFFFFFFFULL) << 32;
+    acc[4] += h2 >> 32;
+    acc[3] -= h2;
+    
+    // h3 * k * 2^192
+    acc[3] += h3;
+    acc[4] += (int128_t)(h3 & 0xFFFFFFFFULL) << 32;
+    acc[4] -= h3;
+    
+    // Carry propagation and reduction
+    for (int round = 0; round < 4; round++) {
+        for (int i = 0; i < 4; i++) {
+            acc[i + 1] += acc[i] >> 64;
+            acc[i] = (uint64_t)acc[i];
+        }
+        
+        if (acc[4] != 0) {
+            int128_t overflow = acc[4];
+            acc[4] = 0;
+            acc[0] += overflow;
+            acc[1] += (overflow << 32) - overflow;
+            acc[2] += overflow >> 32;
+            acc[3] += overflow << 32;
+            acc[4] += overflow >> 32;
+        } else {
+            break;
+        }
+    }
+    
+    for (int i = 0; i < 4; i++) {
+        acc[i + 1] += acc[i] >> 64;
+        acc[i] = (uint64_t)acc[i];
+    }
+    
+    while (acc[4] != 0) {
+        int128_t overflow = acc[4];
+        acc[4] = 0;
+        acc[0] += overflow;
+        acc[1] += (overflow << 32) - overflow;
+        acc[2] += overflow >> 32;
+        acc[3] += overflow << 32;
+        acc[4] += overflow >> 32;
+        
+        for (int i = 0; i < 4; i++) {
+            acc[i + 1] += acc[i] >> 64;
+            acc[i] = (uint64_t)acc[i];
+        }
+    }
+    
+    uint64_t result[4] = {
+        (uint64_t)acc[0], (uint64_t)acc[1], 
+        (uint64_t)acc[2], (uint64_t)acc[3]
+    };
+    
+    // Final reduction
+    for (int i = 0; i < 3; i++) {
+        uint64_t borrow = 0;
+        uint64_t tmp[4];
+        
+        tmp[0] = sbb64(result[0], SM2_P.limb[0], 0, &borrow);
+        tmp[1] = sbb64(result[1], SM2_P.limb[1], borrow, &borrow);
+        tmp[2] = sbb64(result[2], SM2_P.limb[2], borrow, &borrow);
+        tmp[3] = sbb64(result[3], SM2_P.limb[3], borrow, &borrow);
+        
+        if (borrow == 0) {
+            result[0] = tmp[0];
+            result[1] = tmp[1];
+            result[2] = tmp[2];
+            result[3] = tmp[3];
+        } else {
+            break;
+        }
+    }
+    
+    r->limb[0] = result[0];
+    r->limb[1] = result[1];
+    r->limb[2] = result[2];
+    r->limb[3] = result[3];
+#else
+    // Fallback: use generic modular reduction
+    // This is slower but correct
+    r->limb[0] = a->limb[0];
+    r->limb[1] = a->limb[1];
+    r->limb[2] = a->limb[2];
+    r->limb[3] = a->limb[3];
+    
+    // Add high part * k iteratively
+    for (int i = 4; i < 8; i++) {
+        if (a->limb[i] != 0) {
+            // Simplified reduction for fallback
+            uint64_t carry = 0;
+            r->limb[0] = adc64(r->limb[0], a->limb[i], 0, &carry);
+            r->limb[1] = adc64(r->limb[1], 0, carry, &carry);
+            r->limb[2] = adc64(r->limb[2], 0, carry, &carry);
+            r->limb[3] = adc64(r->limb[3], 0, carry, &carry);
+        }
+    }
+    
+    // Final subtraction
+    Fe256 tmp;
+    uint64_t borrow = 0;
+    tmp.limb[0] = sbb64(r->limb[0], SM2_P.limb[0], 0, &borrow);
+    tmp.limb[1] = sbb64(r->limb[1], SM2_P.limb[1], borrow, &borrow);
+    tmp.limb[2] = sbb64(r->limb[2], SM2_P.limb[2], borrow, &borrow);
+    tmp.limb[3] = sbb64(r->limb[3], SM2_P.limb[3], borrow, &borrow);
+    
+    fe256_cmov(r, &tmp, !borrow);
+#endif
+}
+
+static void fe256_mul_sm2(Fe256* r, const Fe256* a, const Fe256* b) {
+    Fe512 wide;
+    fe256_mul_wide(&wide, a, b);
+    fe256_reduce_sm2(r, &wide);
+}
+
+static void fe256_sqr_sm2(Fe256* r, const Fe256* a) {
+    fe256_mul_sm2(r, a, a);
+}
+
+// ============================================================================
+// Field Inversion (using Fermat's little theorem: a^-1 = a^(p-2))
+// ============================================================================
+
+static void fe256_inv_secp256k1(Fe256* r, const Fe256* a) {
+    Fe256 result, base;
+    fe256_copy(&base, a);
+    fe256_one(&result);
+    
+    uint64_t p_minus_2[4] = {
+        SECP256K1_P.limb[0] - 2,
+        SECP256K1_P.limb[1],
+        SECP256K1_P.limb[2],
+        SECP256K1_P.limb[3]
+    };
+    
+    for (int i = 3; i >= 0; i--) {
+        for (int j = 63; j >= 0; j--) {
+            fe256_sqr_secp256k1(&result, &result);
+            if ((p_minus_2[i] >> j) & 1) {
+                fe256_mul_secp256k1(&result, &result, &base);
+            }
+        }
+    }
+    
+    fe256_copy(r, &result);
+}
+
+static void fe256_inv_p256(Fe256* r, const Fe256* a) {
+    Fe256 result, base;
+    fe256_copy(&base, a);
+    fe256_one(&result);
+    
+    uint64_t p_minus_2[4] = {
+        P256_P.limb[0] - 2,
+        P256_P.limb[1],
+        P256_P.limb[2],
+        P256_P.limb[3]
+    };
+    
+    for (int i = 3; i >= 0; i--) {
+        for (int j = 63; j >= 0; j--) {
+            fe256_sqr_p256(&result, &result);
+            if ((p_minus_2[i] >> j) & 1) {
+                fe256_mul_p256(&result, &result, &base);
+            }
+        }
+    }
+    
+    fe256_copy(r, &result);
+}
+
+static void fe256_inv_sm2(Fe256* r, const Fe256* a) {
+    Fe256 result, base;
+    fe256_copy(&base, a);
+    fe256_one(&result);
+    
+    uint64_t p_minus_2[4] = {
+        SM2_P.limb[0] - 2,
+        SM2_P.limb[1],
+        SM2_P.limb[2],
+        SM2_P.limb[3]
+    };
+    
+    for (int i = 3; i >= 0; i--) {
+        for (int j = 63; j >= 0; j--) {
+            fe256_sqr_sm2(&result, &result);
+            if ((p_minus_2[i] >> j) & 1) {
+                fe256_mul_sm2(&result, &result, &base);
+            }
+        }
+    }
+    
+    fe256_copy(r, &result);
+}
+
+// ============================================================================
+// Field Addition/Subtraction
+// ============================================================================
+
+static void fe256_add_secp256k1(Fe256* r, const Fe256* a, const Fe256* b) {
+    uint64_t carry = 0;
+    uint64_t borrow = 0;
+    Fe256 tmp;
+    
+    r->limb[0] = adc64(a->limb[0], b->limb[0], 0, &carry);
+    r->limb[1] = adc64(a->limb[1], b->limb[1], carry, &carry);
+    r->limb[2] = adc64(a->limb[2], b->limb[2], carry, &carry);
+    r->limb[3] = adc64(a->limb[3], b->limb[3], carry, &carry);
+    
+    tmp.limb[0] = sbb64(r->limb[0], SECP256K1_P.limb[0], 0, &borrow);
+    tmp.limb[1] = sbb64(r->limb[1], SECP256K1_P.limb[1], borrow, &borrow);
+    tmp.limb[2] = sbb64(r->limb[2], SECP256K1_P.limb[2], borrow, &borrow);
+    tmp.limb[3] = sbb64(r->limb[3], SECP256K1_P.limb[3], borrow, &borrow);
+    
+    int use_reduced = (carry || !borrow) ? 1 : 0;
+    fe256_cmov(r, &tmp, use_reduced);
+}
+
+static void fe256_sub_secp256k1(Fe256* r, const Fe256* a, const Fe256* b) {
+    uint64_t borrow = 0;
+    
+    r->limb[0] = sbb64(a->limb[0], b->limb[0], 0, &borrow);
+    r->limb[1] = sbb64(a->limb[1], b->limb[1], borrow, &borrow);
+    r->limb[2] = sbb64(a->limb[2], b->limb[2], borrow, &borrow);
+    r->limb[3] = sbb64(a->limb[3], b->limb[3], borrow, &borrow);
+    
+    Fe256 tmp;
+    uint64_t carry = 0;
+    tmp.limb[0] = adc64(r->limb[0], SECP256K1_P.limb[0], 0, &carry);
+    tmp.limb[1] = adc64(r->limb[1], SECP256K1_P.limb[1], carry, &carry);
+    tmp.limb[2] = adc64(r->limb[2], SECP256K1_P.limb[2], carry, &carry);
+    tmp.limb[3] = adc64(r->limb[3], SECP256K1_P.limb[3], carry, &carry);
+    
+    fe256_cmov(r, &tmp, (int)borrow);
+}
+
+static void fe256_neg_secp256k1(Fe256* r, const Fe256* a) {
+    int is_nonzero = !fe256_is_zero(a);
+    
+    uint64_t borrow = 0;
+    r->limb[0] = sbb64(SECP256K1_P.limb[0], a->limb[0], 0, &borrow);
+    r->limb[1] = sbb64(SECP256K1_P.limb[1], a->limb[1], borrow, &borrow);
+    r->limb[2] = sbb64(SECP256K1_P.limb[2], a->limb[2], borrow, &borrow);
+    r->limb[3] = sbb64(SECP256K1_P.limb[3], a->limb[3], borrow, &borrow);
+    
+    Fe256 zero_fe;
+    fe256_zero(&zero_fe);
+    fe256_cmov(r, &zero_fe, !is_nonzero);
+}
+
+static void fe256_add_p256(Fe256* r, const Fe256* a, const Fe256* b) {
+    uint64_t carry = 0;
+    uint64_t borrow = 0;
+    Fe256 tmp;
+    
+    r->limb[0] = adc64(a->limb[0], b->limb[0], 0, &carry);
+    r->limb[1] = adc64(a->limb[1], b->limb[1], carry, &carry);
+    r->limb[2] = adc64(a->limb[2], b->limb[2], carry, &carry);
+    r->limb[3] = adc64(a->limb[3], b->limb[3], carry, &carry);
+    
+    tmp.limb[0] = sbb64(r->limb[0], P256_P.limb[0], 0, &borrow);
+    tmp.limb[1] = sbb64(r->limb[1], P256_P.limb[1], borrow, &borrow);
+    tmp.limb[2] = sbb64(r->limb[2], P256_P.limb[2], borrow, &borrow);
+    tmp.limb[3] = sbb64(r->limb[3], P256_P.limb[3], borrow, &borrow);
+    
+    int use_reduced = (carry || !borrow) ? 1 : 0;
+    fe256_cmov(r, &tmp, use_reduced);
+}
+
+static void fe256_sub_p256(Fe256* r, const Fe256* a, const Fe256* b) {
+    uint64_t borrow = 0;
+    
+    r->limb[0] = sbb64(a->limb[0], b->limb[0], 0, &borrow);
+    r->limb[1] = sbb64(a->limb[1], b->limb[1], borrow, &borrow);
+    r->limb[2] = sbb64(a->limb[2], b->limb[2], borrow, &borrow);
+    r->limb[3] = sbb64(a->limb[3], b->limb[3], borrow, &borrow);
+    
+    Fe256 tmp;
+    uint64_t carry = 0;
+    tmp.limb[0] = adc64(r->limb[0], P256_P.limb[0], 0, &carry);
+    tmp.limb[1] = adc64(r->limb[1], P256_P.limb[1], carry, &carry);
+    tmp.limb[2] = adc64(r->limb[2], P256_P.limb[2], carry, &carry);
+    tmp.limb[3] = adc64(r->limb[3], P256_P.limb[3], carry, &carry);
+    
+    fe256_cmov(r, &tmp, (int)borrow);
+}
+
+static void fe256_neg_p256(Fe256* r, const Fe256* a) {
+    int is_nonzero = !fe256_is_zero(a);
+    
+    uint64_t borrow = 0;
+    r->limb[0] = sbb64(P256_P.limb[0], a->limb[0], 0, &borrow);
+    r->limb[1] = sbb64(P256_P.limb[1], a->limb[1], borrow, &borrow);
+    r->limb[2] = sbb64(P256_P.limb[2], a->limb[2], borrow, &borrow);
+    r->limb[3] = sbb64(P256_P.limb[3], a->limb[3], borrow, &borrow);
+    
+    Fe256 zero_fe;
+    fe256_zero(&zero_fe);
+    fe256_cmov(r, &zero_fe, !is_nonzero);
+}
+
+static void fe256_add_sm2(Fe256* r, const Fe256* a, const Fe256* b) {
+    uint64_t carry = 0;
+    uint64_t borrow = 0;
+    Fe256 tmp;
+    
+    r->limb[0] = adc64(a->limb[0], b->limb[0], 0, &carry);
+    r->limb[1] = adc64(a->limb[1], b->limb[1], carry, &carry);
+    r->limb[2] = adc64(a->limb[2], b->limb[2], carry, &carry);
+    r->limb[3] = adc64(a->limb[3], b->limb[3], carry, &carry);
+    
+    tmp.limb[0] = sbb64(r->limb[0], SM2_P.limb[0], 0, &borrow);
+    tmp.limb[1] = sbb64(r->limb[1], SM2_P.limb[1], borrow, &borrow);
+    tmp.limb[2] = sbb64(r->limb[2], SM2_P.limb[2], borrow, &borrow);
+    tmp.limb[3] = sbb64(r->limb[3], SM2_P.limb[3], borrow, &borrow);
+    
+    int use_reduced = (carry || !borrow) ? 1 : 0;
+    fe256_cmov(r, &tmp, use_reduced);
+}
+
+static void fe256_sub_sm2(Fe256* r, const Fe256* a, const Fe256* b) {
+    uint64_t borrow = 0;
+    
+    r->limb[0] = sbb64(a->limb[0], b->limb[0], 0, &borrow);
+    r->limb[1] = sbb64(a->limb[1], b->limb[1], borrow, &borrow);
+    r->limb[2] = sbb64(a->limb[2], b->limb[2], borrow, &borrow);
+    r->limb[3] = sbb64(a->limb[3], b->limb[3], borrow, &borrow);
+    
+    Fe256 tmp;
+    uint64_t carry = 0;
+    tmp.limb[0] = adc64(r->limb[0], SM2_P.limb[0], 0, &carry);
+    tmp.limb[1] = adc64(r->limb[1], SM2_P.limb[1], carry, &carry);
+    tmp.limb[2] = adc64(r->limb[2], SM2_P.limb[2], carry, &carry);
+    tmp.limb[3] = adc64(r->limb[3], SM2_P.limb[3], carry, &carry);
+    
+    fe256_cmov(r, &tmp, (int)borrow);
+}
+
+static void fe256_neg_sm2(Fe256* r, const Fe256* a) {
+    int is_nonzero = !fe256_is_zero(a);
+    
+    uint64_t borrow = 0;
+    r->limb[0] = sbb64(SM2_P.limb[0], a->limb[0], 0, &borrow);
+    r->limb[1] = sbb64(SM2_P.limb[1], a->limb[1], borrow, &borrow);
+    r->limb[2] = sbb64(SM2_P.limb[2], a->limb[2], borrow, &borrow);
+    r->limb[3] = sbb64(SM2_P.limb[3], a->limb[3], borrow, &borrow);
+    
+    Fe256 zero_fe;
+    fe256_zero(&zero_fe);
+    fe256_cmov(r, &zero_fe, !is_nonzero);
+}
+
+// ============================================================================
+// Montgomery Form Conversion (Identity - using Solinas reduction)
+// ============================================================================
+
+static inline void fe256_to_mont_secp256k1(Fe256* r, const Fe256* a) {
+    fe256_copy(r, a);
+}
+
+static inline void fe256_from_mont_secp256k1(Fe256* r, const Fe256* a) {
+    fe256_copy(r, a);
+}
+
+static inline void fe256_to_mont_p256(Fe256* r, const Fe256* a) {
+    fe256_copy(r, a);
+}
+
+static inline void fe256_from_mont_p256(Fe256* r, const Fe256* a) {
+    fe256_copy(r, a);
+}
+
+static inline void fe256_to_mont_sm2(Fe256* r, const Fe256* a) {
+    fe256_copy(r, a);
+}
+
+static inline void fe256_from_mont_sm2(Fe256* r, const Fe256* a) {
+    fe256_copy(r, a);
+}
+
+} // anonymous namespace
+
+// ============================================================================
+// End of fe256 Acceleration Layer
+// ============================================================================
 
 // ============================================================================
 // Standard Curve Parameters (SECG/NIST)

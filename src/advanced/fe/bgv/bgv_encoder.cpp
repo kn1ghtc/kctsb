@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file bgv_encoder.cpp
  * @brief BGV Plaintext Encoding Implementation
  * 
@@ -10,6 +10,7 @@
  */
 
 #include "kctsb/advanced/fe/bgv/bgv_encoder.hpp"
+#include "kctsb/advanced/fe/bgv/bgv_context.hpp"
 #include <stdexcept>
 #include <algorithm>
 
@@ -27,7 +28,7 @@ BGVPlaintext::BGVPlaintext(const RingElement& elem)
 
 BGVPlaintext::BGVPlaintext(uint64_t value) : is_batched_(false) {
     // Encode as constant polynomial
-    SetCoeff(data_.poly(), 0, conv<ZZ_p>(value));
+    SetCoeff(data_.poly(), 0, conv<ZZ_p>(static_cast<long>(value)));
 }
 
 BGVPlaintext::BGVPlaintext(const std::vector<int64_t>& values) 
@@ -76,11 +77,11 @@ BGVEncoder::BGVEncoder(const BGVContext& context)
 }
 
 void BGVEncoder::initialize_batch_encoder() {
-    // Set up CRT decomposition for Z_t[X]/(桅_m(X))
+    // Set up CRT decomposition for Z_t[X]/(Φ_m(X))
     // This requires finding primitive roots and computing CRT basis
     
     // For simplicity, we use coefficient encoding as fallback
-    // Full CRT implementation requires factoring 桅_m(X) mod t
+    // Full CRT implementation requires factoring Φ_m(X) mod t
     
     uint64_t m = context_.params().m;
     uint64_t n = context_.params().n;
@@ -145,9 +146,10 @@ int64_t BGVEncoder::decode_int(const BGVPlaintext& pt) const {
     ZZ coef = rep(pt.data().coeff(0));
     
     // Centered reduction
-    ZZ t_half = conv<ZZ>(t_ / 2);
+    ZZ t_half = to_ZZ(static_cast<long>(t_ / 2));
+    ZZ t_zz = to_ZZ(static_cast<long>(t_));
     if (coef > t_half) {
-        coef -= t_;
+        coef -= t_zz;
     }
     
     return to_long(coef);
@@ -249,10 +251,10 @@ std::vector<uint64_t> BGVEncoder::decode_batch_unsigned(
         if (coef_idx <= pt.data().degree()) {
             coef = rep(pt.data().coeff(coef_idx));
         } else {
-            coef = conv<ZZ>(0);
+            coef = to_ZZ(0);
         }
         
-        result[i] = to_ulong(coef % t_);
+        result[i] = to_ulong(coef % to_ZZ(static_cast<long>(t_)));
     }
     
     return result;

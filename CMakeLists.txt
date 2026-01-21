@@ -580,9 +580,13 @@ set(KCTSB_CRYPTO_SOURCES
 # RSA and ECC sources (depend on integrated bignum math)
 # v4.0.1: Windows LLP64 compatibility fixed - bignum works on all platforms
 # v4.4.0: wNAF optimization consolidated into ecc_curve.cpp
-# v4.7.0: Removed fe256 fast path layer (simplified architecture)
+# v4.8.1: fe256 acceleration layer merged into ecc_curve.cpp (no separate files)
+#         Includes 128-bit arithmetic, Solinas reduction for secp256k1/P-256/SM2
 file(GLOB KCTSB_RSA_SOURCES ${KCTSB_SRC_DIR}/crypto/rsa/*.cpp)
 set(KCTSB_ECC_SOURCES
+    # Core ECC operations with integrated fe256 acceleration layer
+    # fe256 provides: 128-bit widening multiply, specialized modular reduction,
+    #                 constant-time field arithmetic for 256-bit curves
     ${KCTSB_SRC_DIR}/crypto/ecc/ecc_curve.cpp
     ${KCTSB_SRC_DIR}/crypto/ecc/ecdh.cpp
     ${KCTSB_SRC_DIR}/crypto/ecc/ecdsa.cpp
@@ -590,12 +594,15 @@ set(KCTSB_ECC_SOURCES
 )
 
 # v4.7.0: Assembly support for ECC (optional, x86_64 only)
+# v4.8.1: ASM acceleration for fe256 layer (if available)
 if(KCTSB_ASM_ENABLED AND KCTSB_ARCH_X86_64 AND NOT MSVC)
     # GCC/Clang on Linux/macOS/MinGW - use .S files (GNU as)
     if(EXISTS "${KCTSB_SRC_DIR}/crypto/ecc/asm/fe256_x86_64.S")
         list(APPEND KCTSB_ECC_SOURCES ${KCTSB_SRC_DIR}/crypto/ecc/asm/fe256_x86_64.S)
         add_definitions(-DKCTSB_HAS_ECC_ASM)
         message(STATUS "✓ ECC assembly optimizations enabled (x86_64 GAS)")
+    else()
+        message(STATUS "  ECC: using integrated fe256 C++ fast path")
     endif()
 elseif(KCTSB_ASM_ENABLED AND KCTSB_ARCH_X86_64 AND MSVC)
     message(STATUS "⚠ ECC assembly: MSVC MASM support pending (using C++ fallback)")
