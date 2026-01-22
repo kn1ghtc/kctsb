@@ -196,6 +196,132 @@ inline std::vector<uint64_t> reduce_to_prime(const ZZ_pX& poly, size_t n, uint64
     return result;
 }
 
+/**
+ * @brief CRT reconstruction of a coefficient from RNS representation
+ * 
+ * Given residues r_0, r_1, ..., r_{k-1} where r_i = x mod q_i,
+ * reconstruct x mod Q where Q = q_0 * q_1 * ... * q_{k-1}.
+ * 
+ * Uses the formula: x = sum_i (r_i * Q_i * (Q_i^{-1} mod q_i)) mod Q
+ * where Q_i = Q / q_i.
+ * 
+ * @param residues Residues [r_0, r_1, ..., r_{k-1}]
+ * @param primes Moduli [q_0, q_1, ..., q_{k-1}]
+ * @return Reconstructed value mod Q
+ */
+inline ZZ crt_reconstruct(
+    const std::vector<uint64_t>& residues,
+    const std::vector<uint64_t>& primes)
+{
+    if (residues.size() != primes.size()) {
+        throw std::invalid_argument("Residues and primes size mismatch");
+    }
+    
+    size_t k = primes.size();
+    
+    // Compute Q = prod(q_i)
+    ZZ Q = conv<ZZ>(1);
+    for (uint64_t q : primes) {
+        Q *= to_ZZ(q);
+    }
+    
+    // CRT reconstruction
+    ZZ result = conv<ZZ>(0);
+    for (size_t i = 0; i < k; ++i) {
+        ZZ q_i = to_ZZ(primes[i]);
+        ZZ Q_i = Q / q_i;                    // Q_i = Q / q_i
+        ZZ Q_i_inv = InvMod(Q_i % q_i, q_i); // Q_i^{-1} mod q_i
+        
+        ZZ term = to_ZZ(residues[i]) * Q_i * Q_i_inv;
+        result += term;
+    }
+    
+    return result % Q;
+}
+
+/**
+ * @brief CRT reconstruct polynomial from RNS representation
+ * 
+ * Reconstructs a polynomial mod Q from its RNS components mod each q_i.
+ * 
+ * @param rns_polys Polynomials in RNS representation [poly mod q_0, poly mod q_1, ...]
+ * @param n Ring degree
+ * @param primes RNS primes
+ * @param Q Full modulus (product of primes)
+ * @return Polynomial with coefficients mod Q
+ */
+inline ZZ_pX crt_reconstruct_poly(
+    const std::vector<std::vector<uint64_t>>& rns_polys,
+    size_t n,
+    const std::vector<uint64_t>& primes,
+    const ZZ& Q)
+{
+    // Set modulus context to full Q
+    ZZ_p::init(Q);
+    
+    ZZ_pX result;
+    clear(result);
+    
+    for (size_t j = 0; j < n; ++j) {
+        // Collect residues for coefficient j
+        std::vector<uint64_t> residues(primes.size());
+        for (size_t i = 0; i < primes.size(); ++i) {
+            residues[i] = rns_polys[i][j];
+        }
+        
+        // CRT reconstruct coefficient j
+        ZZ coef = crt_reconstruct(residues, primes);
+        if (!IsZero(coef)) {
+            SetCoeff(result, static_cast<long>(j), conv<ZZ_p>(coef));
+        }
+    }
+    
+    return result;
+}
+
+/**
+ * @brief Full RNS-NTT multiplication with CRT reconstruction
+ * 
+ * Performs complete multiplication pipeline:
+ * 1. Decompose inputs into RNS representation
+ * 2. For each RNS level, perform NTT multiplication
+ * 3. CRT reconstruct the result back to full modulus
+ * 
+ * This is the correct approach for BGV when q = prod(q_i).
+ * 
+ * @param a First polynomial (under full q modulus context)
+ * @param b Second polynomial (under full q modulus context)
+ * @param n Ring degree
+ * @param primes RNS primes where q = prod(primes)
+ * @param Q Full modulus q
+ * @return Product a * b mod (x^n + 1) mod Q
+ */
+inline ZZ_pX multiply_rns_ntt_crt(
+    const ZZ_pX& a,
+    const ZZ_pX& b,
+    size_t n,
+    const std::vector<uint64_t>& primes,
+    const ZZ& Q)
+{
+    size_t k = primes.size();
+    
+    // Step 1: Decompose polynomials into RNS representation
+    std::vector<std::vector<uint64_t>> a_rns(k), b_rns(k);
+    for (size_t i = 0; i < k; ++i) {
+        a_rns[i] = reduce_to_prime(a, n, primes[i]);
+        b_rns[i] = reduce_to_prime(b, n, primes[i]);
+    }
+    
+    // Step 2: NTT multiply in each RNS level
+    std::vector<std::vector<uint64_t>> result_rns(k);
+    for (size_t i = 0; i < k; ++i) {
+        result_rns[i] = ntt::multiply_poly_ntt(a_rns[i], b_rns[i], n, primes[i]);
+    }
+    
+    // Step 3: CRT reconstruct back to full modulus
+    return crt_reconstruct_poly(result_rns, n, primes, Q);
+}
+
 }  // namespace bgv
 }  // namespace fhe
 }  // namespace kctsb

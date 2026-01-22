@@ -190,8 +190,7 @@ void BGVEvaluator::negate_inplace(BGVCiphertext& ct) const {
  * Uses NTT O(n log n) when RNS primes are available and NTT-compatible,
  * otherwise falls back to schoolbook O(n²) multiplication.
  * 
- * @note v4.6.0: NTT infrastructure ready, but disabled pending full RNS-CRT implementation.
- *       Single-prime NTT is mathematically incorrect for multi-prime q = prod(q_i).
+ * @note v4.6.0: Full RNS-CRT implementation for correct NTT acceleration.
  */
 [[maybe_unused]]
 static ZZ_pX multiply_poly_accelerated(
@@ -221,17 +220,11 @@ BGVCiphertext BGVEvaluator::multiply(const BGVCiphertext& ct1,
     }
     
     const auto& params = context_.params();
+    size_t n = params.n;
+    const auto& primes = params.primes;
     
-    // TODO v4.6.0: Enable NTT acceleration once full RNS-CRT is implemented
-    // Current issue: Single-prime NTT loses information when q = prod(q_i)
-    // Correct approach requires:
-    // 1. Convert polynomial to RNS representation (one per prime)
-    // 2. NTT multiply in each RNS level independently  
-    // 3. CRT reconstruct back to coefficient mod full q
-    // For now, use schoolbook multiplication which is correct but O(n²)
-    
-    // CRITICAL: Set the modulus context before polynomial operations
-    ZZ_p::init(params.q);
+    // Check if we can use NTT acceleration with full RNS-CRT
+    bool use_ntt = can_use_ntt(n, primes) && !primes.empty();
     
     // Result has size = ct1.size() + ct2.size() - 1
     // For fresh ciphertexts: 2 + 2 - 1 = 3 components
@@ -241,6 +234,9 @@ BGVCiphertext BGVEvaluator::multiply(const BGVCiphertext& ct1,
     for (size_t i = 0; i < result_size; i++) {
         result.push_back(RingElement());
     }
+    
+    // CRITICAL: Set the modulus context before polynomial operations
+    ZZ_p::init(params.q);
     
     // Convert ciphertext polynomials to current modulus context
     std::vector<ZZ_pX> ct1_q(ct1.size()), ct2_q(ct2.size());
@@ -259,13 +255,32 @@ BGVCiphertext BGVEvaluator::multiply(const BGVCiphertext& ct1,
     
     // Convolution: result[k] = sum_{i+j=k} ct1[i] * ct2[j]
     std::vector<ZZ_pX> result_q(result_size);
-    for (size_t i = 0; i < ct1.size(); i++) {
-        for (size_t j = 0; j < ct2.size(); j++) {
-            ZZ_pX product;
-            PlainMul(product, ct1_q[i], ct2_q[j]);
-            PlainRem(product, product, context_.cyclotomic());
-            result_q[i + j] += product;
-            PlainRem(result_q[i + j], result_q[i + j], context_.cyclotomic());
+    
+    if (use_ntt) {
+        // ========================================
+        // NTT-accelerated multiplication with RNS-CRT
+        // ========================================
+        // Uses O(n log n) NTT in each RNS level, then CRT reconstruction
+        for (size_t i = 0; i < ct1.size(); i++) {
+            for (size_t j = 0; j < ct2.size(); j++) {
+                // Use full RNS-NTT-CRT multiplication
+                ZZ_pX product = multiply_rns_ntt_crt(
+                    ct1_q[i], ct2_q[j], n, primes, params.q);
+                result_q[i + j] += product;
+            }
+        }
+    } else {
+        // ========================================
+        // Fallback: Schoolbook multiplication O(n²)
+        // ========================================
+        for (size_t i = 0; i < ct1.size(); i++) {
+            for (size_t j = 0; j < ct2.size(); j++) {
+                ZZ_pX product;
+                PlainMul(product, ct1_q[i], ct2_q[j]);
+                PlainRem(product, product, context_.cyclotomic());
+                result_q[i + j] += product;
+                PlainRem(result_q[i + j], result_q[i + j], context_.cyclotomic());
+            }
         }
     }
     
