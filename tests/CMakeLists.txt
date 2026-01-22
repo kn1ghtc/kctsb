@@ -268,6 +268,25 @@ gtest_discover_tests(test_fe256_debug PROPERTIES LABELS "unit;crypto;debug")
 # ============================================================================
 
 if(KCTSB_ENABLE_BGV)
+    # NTT (Number Theoretic Transform) tests (v4.6.0 Phase 1)
+    add_executable(test_ntt unit/fhe/test_ntt.cpp)
+    if(TARGET kctsb_static)
+        target_link_libraries(test_ntt PRIVATE
+            kctsb_static
+            GTest::gtest_main
+        )
+    else()
+        target_link_libraries(test_ntt PRIVATE
+            kctsb
+            GTest::gtest_main
+        )
+    endif()
+    target_include_directories(test_ntt PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/src
+    )
+    gtest_discover_tests(test_ntt PROPERTIES LABELS "unit;fhe;ntt")
+    
     # BGV Homomorphic Encryption tests (v4.2.0)
     add_executable(test_bgv unit/fhe/test_bgv.cpp)
     # BGV requires static library for full NTL/bignum access

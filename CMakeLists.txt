@@ -738,13 +738,19 @@ list(APPEND KCTSB_ADVANCED_SOURCES ${KCTSB_PSI_SOURCES})
 # v4.9.0: BGV enabled by default for production homomorphic encryption
 option(KCTSB_ENABLE_BGV "Enable native BGV homomorphic encryption" ON)
 if(KCTSB_ENABLE_BGV)
+    # NTT common sources (shared by BGV/BFV/CKKS)
+    set(KCTSB_NTT_SOURCES
+        ${KCTSB_SRC_DIR}/advanced/fe/common/ntt.cpp
+    )
+    
+    # BGV-specific sources
     set(KCTSB_BGV_SOURCES
         ${KCTSB_SRC_DIR}/advanced/fe/bgv/bgv_context.cpp
         ${KCTSB_SRC_DIR}/advanced/fe/bgv/bgv_evaluator.cpp
         ${KCTSB_SRC_DIR}/advanced/fe/bgv/bgv_encoder.cpp
     )
-    list(APPEND KCTSB_ADVANCED_SOURCES ${KCTSB_BGV_SOURCES})
-    message(STATUS "✓ Native BGV homomorphic encryption enabled (no HElib dependency)")
+    list(APPEND KCTSB_ADVANCED_SOURCES ${KCTSB_NTT_SOURCES} ${KCTSB_BGV_SOURCES})
+    message(STATUS "✓ Native BGV homomorphic encryption enabled (with NTT acceleration)")
 else()
     message(STATUS "⚠ Native BGV disabled (set KCTSB_ENABLE_BGV=ON to enable)")
 endif()
