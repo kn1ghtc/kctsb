@@ -163,7 +163,11 @@ void benchmark_kctsb_ckks() {
     
     using namespace kctsb::fhe::ckks;
     
-    auto params = StandardParams::SECURITY_128_DEPTH_5();
+    // Use SECURITY_128 parameters (n=8192)
+    std::cout << "Loading parameters..." << std::endl;
+    auto params = StandardParams::SECURITY_128();
+    
+    std::cout << "Creating context..." << std::endl;
     CKKSContext context(params);
     
     std::cout << "Parameters:\n";

@@ -595,14 +595,24 @@ void BGVContext::initialize_levels() {
     for (uint32_t i = 0; i < params_.L; i++) {
         levels_[i].q = q_current;
         
+        // Validate q_current before using
+        if (IsZero(q_current) || q_current < 2) {
+            std::string msg = "initialize_levels: q_current became <= 1 at level " + std::to_string(i);
+            if (i > 0 && i-1 < params_.primes.size()) {
+                msg += " (after dividing by prime " + std::to_string(params_.primes[i-1]) + ")";
+            }
+            throw std::runtime_error(msg);
+        }
+        
         // Compute Φ_m(X) mod q_current
         ZZ_pPush push;
         ZZ_p::init(q_current);
         levels_[i].cyclotomic = compute_cyclotomic(params_.m);
         
-        // For next level, divide by one prime
+        // For next level, divide by one prime (convert to ZZ for proper division)
         if (i < params_.primes.size()) {
-            q_current /= params_.primes[i];
+            ZZ prime = to_ZZ(params_.primes[i]);
+            q_current /= prime;
         }
     }
 }

@@ -245,8 +245,11 @@ else()
 endif()
 
 # ============================================================================
-# CKKS Benchmark (Phase 3 - placeholder until CKKS module is implemented)
+# CKKS Benchmark (Phase 3 - native CKKS implementation)
 # ============================================================================
+
+# CKKS is enabled when BGV is enabled (they share infrastructure)
+option(KCTSB_ENABLE_CKKS "Enable native CKKS benchmark" ON)
 
 if(KCTSB_ENABLE_CKKS OR KCTSB_HAS_SEAL)
     add_executable(kctsb_benchmark_ckks benchmark_ckks.cpp)
@@ -256,6 +259,11 @@ if(KCTSB_ENABLE_CKKS OR KCTSB_HAS_SEAL)
         ${CMAKE_SOURCE_DIR}/src
         ${CMAKE_SOURCE_DIR}/thirdparty/include
     )
+    
+    # Enable native CKKS when BGV is enabled (CKKS uses BGV infrastructure)
+    if(KCTSB_ENABLE_BGV)
+        target_compile_definitions(kctsb_benchmark_ckks PRIVATE KCTSB_HAS_CKKS=1)
+    endif()
 
     if(TARGET kctsb_static)
         target_link_libraries(kctsb_benchmark_ckks PRIVATE kctsb_static)
@@ -263,8 +271,9 @@ if(KCTSB_ENABLE_CKKS OR KCTSB_HAS_SEAL)
         target_link_libraries(kctsb_benchmark_ckks PRIVATE kctsb_shared)
     endif()
 
-    # SEAL comparison (if available)
-    if(KCTSB_ENABLE_SEAL AND SEAL_FOUND)
+    # SEAL comparison (if available AND properly built)
+    # SEAL requires seal/util/config.h which is generated during SEAL build
+    if(KCTSB_ENABLE_SEAL AND SEAL_FOUND AND EXISTS "${SEAL_INCLUDE_DIRS}/seal/util/config.h")
         target_include_directories(kctsb_benchmark_ckks PRIVATE ${SEAL_INCLUDE_DIRS})
         target_link_libraries(kctsb_benchmark_ckks PRIVATE "${SEAL_LIBRARY}")
         target_compile_definitions(kctsb_benchmark_ckks PRIVATE KCTSB_HAS_SEAL=1)

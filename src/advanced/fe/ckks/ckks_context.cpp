@@ -63,6 +63,12 @@ bool CKKSParams::validate() const {
     if (log_scale <= 0.0 || log_scale > 60.0) {
         return false;  // Reasonable scale range
     }
+    if (IsZero(q) || q < 2) {
+        return false;  // q must be > 1 for ZZ_pContext
+    }
+    if (primes.empty()) {
+        return false;  // Need primes for modulus chain
+    }
     return true;
 }
 
