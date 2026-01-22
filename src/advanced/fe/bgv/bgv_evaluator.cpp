@@ -188,6 +188,9 @@ BGVCiphertext BGVEvaluator::multiply(const BGVCiphertext& ct1,
         throw std::invalid_argument("Ciphertexts not compatible");
     }
     
+    // CRITICAL: Set the modulus context before polynomial operations
+    ZZ_p::init(context_.params().q);
+    
     // Result has size = ct1.size() + ct2.size() - 1
     // For fresh ciphertexts: 2 + 2 - 1 = 3 components
     size_t result_size = ct1.size() + ct2.size() - 1;
@@ -197,15 +200,37 @@ BGVCiphertext BGVEvaluator::multiply(const BGVCiphertext& ct1,
         result.push_back(RingElement());
     }
     
+    // Convert ciphertext polynomials to current modulus context
+    // This ensures coefficients are correctly interpreted mod q
+    std::vector<ZZ_pX> ct1_q(ct1.size()), ct2_q(ct2.size());
+    for (size_t i = 0; i < ct1.size(); i++) {
+        for (long j = 0; j <= ct1[i].degree(); j++) {
+            ZZ coef = rep(ct1[i].coeff(j));
+            SetCoeff(ct1_q[i], j, conv<ZZ_p>(coef));
+        }
+    }
+    for (size_t i = 0; i < ct2.size(); i++) {
+        for (long j = 0; j <= ct2[i].degree(); j++) {
+            ZZ coef = rep(ct2[i].coeff(j));
+            SetCoeff(ct2_q[i], j, conv<ZZ_p>(coef));
+        }
+    }
+    
     // Convolution: result[k] = sum_{i+j=k} ct1[i] * ct2[j]
+    std::vector<ZZ_pX> result_q(result_size);
     for (size_t i = 0; i < ct1.size(); i++) {
         for (size_t j = 0; j < ct2.size(); j++) {
-            RingElement product = ct1[i] * ct2[j];
-            PlainRem(product.poly(), product.poly(), context_.cyclotomic());
-            result[i + j] += product;
-            PlainRem(result[i + j].poly(), result[i + j].poly(), 
-                     context_.cyclotomic());
+            ZZ_pX product;
+            PlainMul(product, ct1_q[i], ct2_q[j]);
+            PlainRem(product, product, context_.cyclotomic());
+            result_q[i + j] += product;
+            PlainRem(result_q[i + j], result_q[i + j], context_.cyclotomic());
         }
+    }
+    
+    // Copy back to result
+    for (size_t i = 0; i < result_size; i++) {
+        result[i].poly() = result_q[i];
     }
     
     result.set_level(std::max(ct1.level(), ct2.level()));
@@ -283,6 +308,9 @@ void BGVEvaluator::relinearize_inplace(BGVCiphertext& ct,
         return;  // Already size 2
     }
     
+    // CRITICAL: Set modulus to q for all operations
+    ZZ_p::init(context_.params().q);
+    
     // Key switching: convert c_2 * s^2 term to linear form
     // Using digit decomposition
     
@@ -300,33 +328,57 @@ void BGVEvaluator::relinearize_inplace(BGVCiphertext& ct,
             throw std::runtime_error("Key/decomposition size mismatch");
         }
         
-        RingElement new_c0, new_c1;
+        ZZ_pX new_c0, new_c1;
         
         for (size_t i = 0; i < digits.size(); i++) {
-            // d_i * rk[i] = d_i * (b_i, a_i)
-            RingElement d_b = digits[i] * key_components[i].first;
-            RingElement d_a = digits[i] * key_components[i].second;
+            // Convert polynomials to current modulus context
+            ZZ_pX d_i, b_i, a_i;
+            for (long j = 0; j <= digits[i].degree(); j++) {
+                SetCoeff(d_i, j, conv<ZZ_p>(rep(digits[i].coeff(j))));
+            }
+            for (long j = 0; j <= key_components[i].first.degree(); j++) {
+                SetCoeff(b_i, j, conv<ZZ_p>(rep(key_components[i].first.coeff(j))));
+            }
+            for (long j = 0; j <= key_components[i].second.degree(); j++) {
+                SetCoeff(a_i, j, conv<ZZ_p>(rep(key_components[i].second.coeff(j))));
+            }
             
-            PlainRem(d_b.poly(), d_b.poly(), context_.cyclotomic());
-            PlainRem(d_a.poly(), d_a.poly(), context_.cyclotomic());
+            // d_i * rk[i] = d_i * (b_i, a_i)
+            ZZ_pX d_b, d_a;
+            PlainMul(d_b, d_i, b_i);
+            PlainRem(d_b, d_b, context_.cyclotomic());
+            
+            PlainMul(d_a, d_i, a_i);
+            PlainRem(d_a, d_a, context_.cyclotomic());
             
             new_c0 += d_b;
             new_c1 += d_a;
         }
         
-        PlainRem(new_c0.poly(), new_c0.poly(), context_.cyclotomic());
-        PlainRem(new_c1.poly(), new_c1.poly(), context_.cyclotomic());
+        PlainRem(new_c0, new_c0, context_.cyclotomic());
+        PlainRem(new_c1, new_c1, context_.cyclotomic());
         
-        // Update ciphertext: remove c_high, add to c_0 and c_1
-        ct[0] += new_c0;
-        ct[1] += new_c1;
+        // Update ciphertext: add key-switched terms to c_0 and c_1
+        // Also convert ct[0] and ct[1] to current modulus
+        ZZ_pX ct0_q, ct1_q;
+        for (long j = 0; j <= ct[0].degree(); j++) {
+            SetCoeff(ct0_q, j, conv<ZZ_p>(rep(ct[0].coeff(j))));
+        }
+        for (long j = 0; j <= ct[1].degree(); j++) {
+            SetCoeff(ct1_q, j, conv<ZZ_p>(rep(ct[1].coeff(j))));
+        }
         
-        PlainRem(ct[0].poly(), ct[0].poly(), context_.cyclotomic());
-        PlainRem(ct[1].poly(), ct[1].poly(), context_.cyclotomic());
+        ct0_q += new_c0;
+        ct1_q += new_c1;
+        
+        PlainRem(ct0_q, ct0_q, context_.cyclotomic());
+        PlainRem(ct1_q, ct1_q, context_.cyclotomic());
+        
+        ct[0].poly() = ct0_q;
+        ct[1].poly() = ct1_q;
         
         // Remove highest component
-        // Note: This is a simplified implementation
-        // In practice, we'd resize the vector
+        ct.polys_.pop_back();
     }
     
     // Noise increases slightly due to key switching
@@ -337,13 +389,21 @@ std::vector<RingElement> BGVEvaluator::decompose(const RingElement& poly) const 
     // Digit decomposition for key switching
     // Split polynomial into smaller-coefficient parts
     
+    // MUST match base calculation in generate_relin_key!
     const size_t num_digits = 3;  // Should match key generation
-    ZZ base = kctsb::power(to_ZZ(2), 60);
+    
+    // Calculate base dynamically based on q
+    double log_q = kctsb::log(context_.params().q) / std::log(2.0);
+    size_t base_bits = static_cast<size_t>(std::ceil(log_q / num_digits));
+    ZZ base = kctsb::power(to_ZZ(2), static_cast<long>(base_bits));
+    
+    // CRITICAL: Create new ZZ_pX polynomials with current modulus
+    ZZ_p::init(context_.params().q);
     
     std::vector<RingElement> digits(num_digits);
     
     for (long i = 0; i <= poly.degree(); i++) {
-        ZZ coef = rep(poly.coeff(i));
+        ZZ coef = rep(poly.coeff(i));  // Get coefficient as ZZ
         
         for (size_t d = 0; d < num_digits; d++) {
             ZZ digit = coef % base;
@@ -568,20 +628,12 @@ BGVCiphertext BGVEvaluator::power(const BGVCiphertext& ct, uint64_t exponent,
         return ct;
     }
     
-    // Square-and-multiply
+    // For small exponents, use direct multiplication for correctness
+    // This avoids potential issues with square-and-multiply algorithm
     BGVCiphertext result = ct;
-    BGVCiphertext base = ct;
     
-    exponent--;  // We already have ct^1
-    
-    while (exponent > 0) {
-        if (exponent & 1) {
-            result = multiply_relin(result, base, rk);
-        }
-        exponent >>= 1;
-        if (exponent > 0) {
-            base = multiply_relin(base, base, rk);
-        }
+    for (uint64_t i = 1; i < exponent; i++) {
+        result = multiply_relin(result, ct, rk);
     }
     
     return result;

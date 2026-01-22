@@ -28,13 +28,25 @@ namespace bgv {
  * 
  * The secret key is a polynomial s ∈ R with small coefficients
  * (typically ternary: coefficients in {-1, 0, 1}).
+ * 
+ * IMPORTANT: Coefficients are stored as ZZ (not ZZ_p) to avoid
+ * dependency on NTL's global modulus state.
  */
 class BGVSecretKey {
 public:
     BGVSecretKey() = default;
     
-    /// Access secret polynomial
+    /// Access secret polynomial (use with caution - modulus-dependent)
     const RingElement& data() const { return s_; }
+    
+    /// Get coefficient as ZZ (modulus-independent)
+    const ZZ& coeff(size_t i) const;
+    
+    /// Get all coefficients
+    const std::vector<ZZ>& coefficients() const { return coeffs_; }
+    
+    /// Polynomial degree
+    long degree() const;
     
     /// Powers of secret key (for decryption of higher-degree ciphertexts)
     const RingElement& power(size_t k) const;
@@ -47,7 +59,8 @@ public:
     ~BGVSecretKey();
 
 private:
-    RingElement s_;                        ///< Secret polynomial
+    RingElement s_;                        ///< Secret polynomial (for backward compat)
+    std::vector<ZZ> coeffs_;               ///< Modulus-independent coefficients
     mutable std::vector<RingElement> powers_;  ///< Cached powers s^k
     
     friend class BGVContext;

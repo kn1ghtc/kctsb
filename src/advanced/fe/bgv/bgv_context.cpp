@@ -168,16 +168,24 @@ BGVParams TOY_PARAMS() {
     params.m = 512;
     params.n = 256;  // φ(512) = 256 for power-of-2
     params.t = 257;  // Small prime plaintext modulus
-    params.L = 1;    // Single level (no modulus switching)
+    params.L = 3;    // Three levels for two multiplications (power(3) support)
     params.sigma = 3.2;
     params.security = SecurityLevel::NONE;
     
-    // Use larger prime for sufficient noise budget
-    // q/(2t) determines max noise coefficient
-    // With q=786433 and t=257: q/(2t) ≈ 1530 (much better!)
-    // Prime 786433 = 1 + 3*2^18 = 1 mod 512 (NTT-friendly)
-    params.primes = {786433};
-    params.q = conv<ZZ>(786433);
+    // For multiplication support, we need q large enough that:
+    // After 2 multiplications + 2 relinearizations, noise ≈ n^2 * t^2 * B^4
+    // With n=256, t=257, B~10: need q > 2^60 for two multiplications
+    // 
+    // Use product of FOUR NTT-friendly primes (= 1 mod 2n = 1 mod 512):
+    // - 786433 = 1 + 3*2^18 ≈ 2^20
+    // - 65537 = 1 + 128*512 ≈ 2^16 (Fermat prime)
+    // - 40961 = 1 + 80*512 ≈ 2^16  
+    // - 12289 = 1 + 24*512 ≈ 2^14
+    // - Product ≈ 2^66, sufficient for two multiplications with margin
+    //
+    // Primes ordered from largest to smallest for modulus switching
+    params.primes = {786433, 65537, 40961, 12289};
+    params.q = conv<ZZ>(786433) * conv<ZZ>(65537) * conv<ZZ>(40961) * conv<ZZ>(12289);
     
     return params;
 }
@@ -372,6 +380,21 @@ const RingElement& BGVSecretKey::power(size_t k) const {
     return powers_[k - 1];
 }
 
+long BGVSecretKey::degree() const {
+    // Return the polynomial degree from stored coefficients
+    // Find the highest non-zero coefficient
+    if (coeffs_.empty()) {
+        return -1;  // Zero polynomial
+    }
+    
+    for (long i = static_cast<long>(coeffs_.size()) - 1; i >= 0; i--) {
+        if (coeffs_[static_cast<size_t>(i)] != 0) {
+            return i;
+        }
+    }
+    return -1;  // Zero polynomial
+}
+
 std::vector<uint8_t> BGVSecretKey::serialize() const {
     // WARNING: Serializing secret keys is security-sensitive
     // TODO: Implement with encryption
@@ -517,33 +540,39 @@ BGVSecretKey BGVContext::generate_secret_key() {
     // Generate ternary secret key s ∈ {-1, 0, 1}^n
     sk.s_ = sample_ternary(params_.hamming_weight);
     
+    // CRITICAL: Store coefficients as ZZ to avoid modulus dependency
+    // This allows consistent key access across different modulus contexts
+    sk.coeffs_.resize(params_.n);
+    for (size_t i = 0; i < params_.n; i++) {
+        ZZ coef = rep(sk.s_.coeff(static_cast<long>(i)));
+        // Convert to centered representation: if coef > q/2, it's negative
+        if (coef > params_.q / 2) {
+            sk.coeffs_[i] = coef - params_.q;  // Makes it negative
+        } else {
+            sk.coeffs_[i] = coef;
+        }
+    }
+    
     return sk;
 }
 
 BGVPublicKey BGVContext::generate_public_key(const BGVSecretKey& sk) {
     BGVPublicKey pk;
     
-    // DEBUG: Check sk.s_ before modulus change
-    std::cerr << "DEBUG gen_pk (before init): sk.s_[0] = " << rep(sk.s_.coeff(0)) 
-              << ", sk.s_[3] = " << rep(sk.s_.coeff(3)) << "\n";
-    
     // CRITICAL: Set modulus to q for key generation
     ZZ_p::init(params_.q);
     
-    // DEBUG: Check sk.s_ after modulus change
-    std::cerr << "DEBUG gen_pk (after init): sk.s_[0] = " << rep(sk.s_.coeff(0)) 
-              << ", sk.s_[3] = " << rep(sk.s_.coeff(3)) << "\n";
-    
-    // Convert secret key to current modulus q
+    // Convert secret key from stored ZZ coefficients to ZZ_pX
+    // This is modulus-safe because we use the ZZ coefficients directly
     ZZ_pX sk_q;
-    for (long j = 0; j <= sk.s_.degree(); j++) {
-        ZZ coef = rep(sk.s_.coeff(j));
+    long sk_degree = sk.degree();
+    for (long j = 0; j <= sk_degree; j++) {
+        ZZ coef = sk.coefficients()[static_cast<size_t>(j)];
+        if (coef < 0) {
+            coef += params_.q;  // Convert negative to positive mod q
+        }
         SetCoeff(sk_q, j, conv<ZZ_p>(coef));
     }
-    
-    // DEBUG: Verify sk_q matches sk.s_
-    std::cerr << "DEBUG gen_pk: sk_q[0] = " << rep(coeff(sk_q, 0))
-              << ", sk_q[1] = " << rep(coeff(sk_q, 1)) << "\n";
     
     // Sample uniform a ∈ R_q
     pk.a_ = sample_uniform();
@@ -563,21 +592,6 @@ BGVPublicKey BGVContext::generate_public_key(const BGVSecretKey& sk) {
     // Reduce mod Φ_m(X)
     PlainRem(pk.b_.poly(), pk.b_.poly(), cyclotomic_);
     
-    // DEBUG: Print public key generation values
-    long sk_degree = deg(sk_q);
-    std::cerr << "DEBUG keygen: sk_degree = " << sk_degree << "\n";
-    std::cerr << "DEBUG keygen: a[0] = " << rep(coeff(pk.a_.poly(), 0))
-              << ", s[0] = " << rep(coeff(sk_q, 0))
-              << ", as[0] = " << rep(coeff(as, 0))
-              << ", te[0] = " << rep(coeff(te, 0))
-              << ", b[0] = " << rep(coeff(pk.b_.poly(), 0)) << "\n";
-    // Print a few more s coefficients
-    std::cerr << "DEBUG keygen: s[1..5] = ";
-    for (int i = 1; i <= 5 && i <= sk_degree; ++i) {
-        std::cerr << rep(coeff(sk_q, i)) << " ";
-    }
-    std::cerr << "\n";
-    
     return pk;
 }
 
@@ -587,13 +601,31 @@ BGVRelinKey BGVContext::generate_relin_key(const BGVSecretKey& sk) {
     // CRITICAL: Set modulus to q for relin key generation
     ZZ_p::init(params_.q);
     
+    // Convert secret key from stored ZZ coefficients to ZZ_pX
+    // This is modulus-safe because we use the ZZ coefficients directly
+    ZZ_pX sk_q;
+    long sk_degree = sk.degree();
+    for (long j = 0; j <= sk_degree; j++) {
+        ZZ coef = sk.coefficients()[static_cast<size_t>(j)];
+        if (coef < 0) {
+            coef += params_.q;  // Convert negative to positive mod q
+        }
+        SetCoeff(sk_q, j, conv<ZZ_p>(coef));
+    }
+    RingElement s_ring;
+    s_ring.poly() = sk_q;
+    
     // Relinearization key: encryptions of s^2 under key s
     // Using digit decomposition with base w
     
     const size_t num_digits = 3;  // Number of decomposition digits
-    ZZ base = kctsb::power(to_ZZ(2), 60);  // Digit base
     
-    RingElement s2 = sk.s_ * sk.s_;
+    // CRITICAL: Calculate base dynamically - MUST match decompose() in evaluator!
+    double log_q = kctsb::log(params_.q) / std::log(2.0);
+    size_t base_bits = static_cast<size_t>(std::ceil(log_q / num_digits));
+    ZZ base = kctsb::power(to_ZZ(2), static_cast<long>(base_bits));
+    
+    RingElement s2 = s_ring * s_ring;
     PlainRem(s2.poly(), s2.poly(), cyclotomic_);
     
     for (size_t i = 0; i < num_digits; i++) {
@@ -604,7 +636,7 @@ BGVRelinKey BGVContext::generate_relin_key(const BGVSecretKey& sk) {
         RingElement e = sample_error();
         
         // Compute b_i = -a_i*s + t*e_i + base^i * s^2
-        RingElement as = a * sk.s_;
+        RingElement as = a * s_ring;
         PlainRem(as.poly(), as.poly(), cyclotomic_);
         
         ZZ_pX te = e.poly() * conv<ZZ_p>(static_cast<long>(params_.t));
@@ -748,12 +780,6 @@ BGVCiphertext BGVContext::encrypt(const BGVPublicKey& pk,
     c0.poly() = bu + te0 + pt_in_q;
     PlainRem(c0.poly(), c0.poly(), cyclotomic_);
     
-    // DEBUG: Print intermediate values
-    std::cerr << "DEBUG encrypt: m[0] = " << rep(coeff(pt_in_q, 0))
-              << ", bu[0] = " << rep(coeff(bu, 0))
-              << ", te0[0] = " << rep(coeff(te0, 0))
-              << ", c0[0] = " << rep(coeff(c0.poly(), 0)) << "\n";
-    
     // c_1 = a*u + t*e_1 (mod Φ_m(X))
     RingElement c1;
     ZZ_pX au;
@@ -764,11 +790,6 @@ BGVCiphertext BGVContext::encrypt(const BGVPublicKey& pk,
     
     c1.poly() = au + te1;
     PlainRem(c1.poly(), c1.poly(), cyclotomic_);
-    
-    // DEBUG: Print c1 and expected c1*s
-    std::cerr << "DEBUG encrypt: au[0] = " << rep(coeff(au, 0))
-              << ", te1[0] = " << rep(coeff(te1, 0))
-              << ", c1[0] = " << rep(coeff(c1.poly(), 0)) << "\n";
     
     ct.push_back(c0);
     ct.push_back(c1);
@@ -788,47 +809,43 @@ BGVPlaintext BGVContext::decrypt(const BGVSecretKey& sk,
     // All ring operations must be performed mod q
     ZZ_p::init(params_.q);
     
-    // Convert ciphertext polynomials to current modulus context
-    // This ensures coefficients are correctly interpreted mod q
-    ZZ_pX c0_q;
-    for (long j = 0; j <= ct[0].degree(); j++) {
-        ZZ coef = rep(ct[0].coeff(j));
-        SetCoeff(c0_q, j, conv<ZZ_p>(coef));
-    }
-    
-    // Similarly convert secret key power
+    // Convert secret key from stored ZZ coefficients to ZZ_pX
+    // This is modulus-safe because we use the ZZ coefficients directly
     ZZ_pX s_q;
-    for (long j = 0; j <= sk.power(1).degree(); j++) {
-        ZZ coef = rep(sk.power(1).coeff(j));
+    long sk_degree = sk.degree();
+    for (long j = 0; j <= sk_degree; j++) {
+        ZZ coef = sk.coefficients()[static_cast<size_t>(j)];
+        if (coef < 0) {
+            coef += params_.q;  // Convert negative to positive mod q
+        }
         SetCoeff(s_q, j, conv<ZZ_p>(coef));
     }
     
-    // DEBUG: Print secret key coefficients
-    std::cerr << "DEBUG decrypt: s_q[0] = " << rep(coeff(s_q, 0))
-              << ", s_q[1] = " << rep(coeff(s_q, 1)) 
-              << ", s_q[3] = " << rep(coeff(s_q, 3)) << "\n";
+    // Compute m = c_0 + c_1*s + c_2*s^2 + ... (mod Φ_m(X), mod q)
+    // Using Horner's method: result = c[n-1], then result = result*s + c[i] for i = n-2..0
+    ZZ_pX result;
     
-    ZZ_pX c1_q;
-    for (long j = 0; j <= ct[1].degree(); j++) {
-        ZZ coef = rep(ct[1].coeff(j));
-        SetCoeff(c1_q, j, conv<ZZ_p>(coef));
+    // Start from the highest component
+    for (long k = static_cast<long>(ct.size()) - 1; k >= 0; k--) {
+        // Convert c[k] to current modulus
+        ZZ_pX ck_q;
+        for (long j = 0; j <= ct[static_cast<size_t>(k)].degree(); j++) {
+            ZZ coef = rep(ct[static_cast<size_t>(k)].coeff(j));
+            SetCoeff(ck_q, j, conv<ZZ_p>(coef));
+        }
+        
+        if (k == static_cast<long>(ct.size()) - 1) {
+            // Initialize with highest component
+            result = ck_q;
+        } else {
+            // result = result * s + c[k]
+            ZZ_pX temp;
+            PlainMul(temp, result, s_q);
+            PlainRem(temp, temp, cyclotomic_);
+            result = temp + ck_q;
+            PlainRem(result, result, cyclotomic_);
+        }
     }
-    
-    // Compute m = c_0 + c_1*s (mod Φ_m(X), mod q)
-    ZZ_pX c1s;
-    PlainMul(c1s, c1_q, s_q);
-    PlainRem(c1s, c1s, cyclotomic_);
-    
-    // DEBUG: Print intermediate values
-    std::cerr << "DEBUG decrypt: c0[0] = " << rep(coeff(c0_q, 0)) 
-              << ", c1s[0] = " << rep(coeff(c1s, 0)) << "\n";
-    
-    ZZ_pX result = c0_q + c1s;
-    PlainRem(result, result, cyclotomic_);
-    
-    // DEBUG: Print intermediate value
-    std::cerr << "DEBUG decrypt: result[0] mod q = " << rep(coeff(result, 0)) 
-              << ", t = " << params_.t << ", expected mod t = " << (rep(coeff(result, 0)) % to_ZZ(params_.t)) << "\n";
     
     // Reduce coefficients mod t with proper centered representation
     // BGV requires: first interpret coefficients in centered range [-q/2, q/2)
@@ -927,6 +944,9 @@ BGVCiphertext BGVContext::encrypt_zero(const BGVPublicKey& pk) {
 double BGVContext::noise_budget(const BGVSecretKey& sk, 
                                  const BGVCiphertext& ct) {
     // Compute actual noise and return bits of remaining budget
+    // 
+    // TEMPORARY FIX: Use the old sk.power() method to avoid modulus issues
+    // This is not ideal but works for now until we fix the modulus context management
     
     // Decrypt without mod t reduction to get raw polynomial
     RingElement raw = ct[0];
@@ -943,13 +963,22 @@ double BGVContext::noise_budget(const BGVSecretKey& sk,
     
     // Estimate: noise magnitude is max coefficient after mod t reduction
     ZZ max_coef = conv<ZZ>(0);
-    ZZ t = to_ZZ(static_cast<unsigned long>(params_.t));
+    ZZ t_modulus = to_ZZ(static_cast<unsigned long>(params_.t));
     
+    // Extract coefficients as ZZ (integers) before modular reduction
     for (long i = 0; i <= raw.degree(); i++) {
-        ZZ coef = rep(raw.coeff(i)) % t;
-        // Centered reduction
-        if (coef > t / 2) coef = t - coef;
-        if (coef > max_coef) max_coef = coef;
+        // rep() extracts the ZZ representation in [0, q)
+        ZZ coef_zz = rep(raw.coeff(i));
+        
+        // Reduce mod t with centered representation
+        ZZ coef_mod_t = coef_zz % t_modulus;
+        if (coef_mod_t > t_modulus / 2) {
+            coef_mod_t = t_modulus - coef_mod_t;
+        }
+        
+        if (coef_mod_t > max_coef) {
+            max_coef = coef_mod_t;
+        }
     }
     
     // Noise budget = log2(q/2) - log2(noise)
