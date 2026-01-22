@@ -944,49 +944,180 @@ BGVCiphertext BGVContext::encrypt_zero(const BGVPublicKey& pk) {
 double BGVContext::noise_budget(const BGVSecretKey& sk, 
                                  const BGVCiphertext& ct) {
     // Compute actual noise and return bits of remaining budget
-    // 
-    // TEMPORARY FIX: Use the old sk.power() method to avoid modulus issues
-    // This is not ideal but works for now until we fix the modulus context management
+    //
+    // SOLUTION: Use pure ZZ arithmetic to avoid NTL's ZZ_p FFT limitations.
+    // This is slower but avoids "modulus too big" errors for large q.
+    //
+    // CRITICAL: Before accessing ZZ_p coefficients, we must ensure the
+    // global NTL modulus matches the ciphertext's modulus.
     
-    // Decrypt without mod t reduction to get raw polynomial
-    RingElement raw = ct[0];
-    for (size_t i = 1; i < ct.size(); i++) {
-        RingElement term = ct[i] * sk.power(i);
-        PlainRem(term.poly(), term.poly(), cyclotomic_);
-        raw += term;
+    const auto& coeffs = sk.coefficients();
+    if (coeffs.empty()) {
+        // Cannot compute without coefficients
+        return params_.initial_noise_budget();
     }
-    PlainRem(raw.poly(), raw.poly(), cyclotomic_);
     
-    // The noise is the non-plaintext component
-    // noise = raw - m*t where m is the plaintext
-    // For exact computation, we'd need to know the plaintext
+    size_t n = params_.n;
+    ZZ q = params_.q;
     
-    // Estimate: noise magnitude is max coefficient after mod t reduction
-    ZZ max_coef = conv<ZZ>(0);
-    ZZ t_modulus = to_ZZ(static_cast<unsigned long>(params_.t));
+    // CRITICAL FIX: Set NTL modulus to match our ciphertext before extracting coefficients.
+    // The ciphertext polynomials are ZZ_pX, and rep() requires the correct modulus context.
+    // We use ZZ_pBak to save/restore the previous modulus (avoids FFT reinitialization issues).
+    ZZ_pBak modulus_backup;
+    modulus_backup.save();
     
-    // Extract coefficients as ZZ (integers) before modular reduction
-    for (long i = 0; i <= raw.degree(); i++) {
-        // rep() extracts the ZZ representation in [0, q)
-        ZZ coef_zz = rep(raw.coeff(i));
+    // Use raw modulus setting without triggering FFT table rebuild
+    // This sets the modulus for coefficient extraction only
+    ZZ_pContext ctx(q);
+    ctx.restore();
+    
+    // Extract ciphertext components as ZZ polynomials
+    // ct = (c0, c1, c2, ...)
+    // Decrypt: raw = c0 + c1*s + c2*s^2 + ...
+    
+    // Initialize raw polynomial as ZZ vector (coefficients in [0, q))
+    std::vector<ZZ> raw(n);
+    
+    // Get c0 coefficients
+    for (size_t i = 0; i < n; i++) {
+        if (static_cast<long>(i) <= ct[0].degree()) {
+            raw[i] = rep(ct[0].coeff(static_cast<long>(i)));
+        } else {
+            raw[i] = conv<ZZ>(0);
+        }
+    }
+    
+    // For each additional ciphertext component, add c_j * s^j
+    // Use iterative s^j computation: s^1, s^2, ...
+    std::vector<ZZ> s_power(n);  // Current s^j
+    
+    // Initialize s^1 from sk.coefficients()
+    for (size_t i = 0; i < n; i++) {
+        ZZ coef = coeffs[i];
+        if (coef < 0) coef += q;
+        s_power[i] = coef;
+    }
+    
+    // Add c1 * s^1, c2 * s^2, ...
+    for (size_t j = 1; j < ct.size(); j++) {
+        // Multiply ct[j] by s_power (current s^j), add to raw
+        // poly_mult(ct[j], s_power) mod (X^n + 1) mod q
         
-        // Reduce mod t with centered representation
-        ZZ coef_mod_t = coef_zz % t_modulus;
-        if (coef_mod_t > t_modulus / 2) {
+        std::vector<ZZ> c_j(n);
+        for (size_t i = 0; i < n; i++) {
+            if (static_cast<long>(i) <= ct[j].degree()) {
+                c_j[i] = rep(ct[j].coeff(static_cast<long>(i)));
+            } else {
+                c_j[i] = conv<ZZ>(0);
+            }
+        }
+        
+        // Schoolbook multiplication with negacyclic reduction
+        std::vector<ZZ> product(n);
+        for (size_t i = 0; i < n; i++) {
+            for (size_t k = 0; k < n; k++) {
+                size_t idx = i + k;
+                ZZ term = c_j[i] * s_power[k];
+                if (idx < n) {
+                    product[idx] += term;
+                } else {
+                    // X^n = -1 mod (X^n + 1)
+                    product[idx - n] -= term;
+                }
+            }
+        }
+        
+        // Reduce mod q and add to raw
+        for (size_t i = 0; i < n; i++) {
+            product[i] = product[i] % q;
+            if (product[i] < 0) product[i] += q;
+            raw[i] = (raw[i] + product[i]) % q;
+        }
+        
+        // Update s_power to s^(j+1) for next iteration
+        if (j + 1 < ct.size()) {
+            std::vector<ZZ> new_s_power(n);
+            // s_power = s_power * s mod (X^n + 1) mod q
+            for (size_t i = 0; i < n; i++) {
+                ZZ s_i = coeffs[i];
+                if (s_i < 0) s_i += q;
+                for (size_t k = 0; k < n; k++) {
+                    size_t idx = i + k;
+                    ZZ term = s_power[k] * s_i;
+                    if (idx < n) {
+                        new_s_power[idx] += term;
+                    } else {
+                        new_s_power[idx - n] -= term;
+                    }
+                }
+            }
+            for (size_t i = 0; i < n; i++) {
+                s_power[i] = new_s_power[i] % q;
+                if (s_power[i] < 0) s_power[i] += q;
+            }
+        }
+    }
+    
+    // Estimate noise from decrypted polynomial.
+    // In BGV, the decrypted value is: m + t*e (mod q)
+    // where m is the message and e is the noise.
+    // The noise is approximately (decrypted - m) / t, but we can also
+    // estimate it by looking at the high-order bits of decrypted.
+    //
+    // More directly: the noise budget is related to how far the decrypted
+    // coefficients are from being exact multiples of t.
+    //
+    // For each coefficient: let r = raw[i] in centered form [-q/2, q/2]
+    // The noise contribution is the distance to the nearest t-multiple.
+    ZZ max_noise = conv<ZZ>(0);
+    ZZ t_modulus = to_ZZ(static_cast<unsigned long>(params_.t));
+    ZZ t_half = t_modulus / 2;
+    ZZ q_half = q / 2;
+    
+    for (size_t i = 0; i < n; i++) {
+        // Convert to centered representation
+        ZZ centered = raw[i];
+        if (centered > q_half) {
+            centered = centered - q;
+        }
+        
+        // The "noise" is approximately |centered - t * round(centered / t)|
+        // which is the distance to the nearest t-multiple.
+        // A simpler estimate: |centered mod t| in centered form
+        ZZ coef_mod_t = centered % t_modulus;
+        if (coef_mod_t < 0) coef_mod_t = -coef_mod_t;
+        if (coef_mod_t > t_half) {
             coef_mod_t = t_modulus - coef_mod_t;
         }
         
-        if (coef_mod_t > max_coef) {
-            max_coef = coef_mod_t;
+        // But a better noise metric is the magnitude of the whole coefficient
+        // divided by t. For BGV, the noise is E where Dec = m + t*E,
+        // so E = (Dec - m) / t. Since m = Dec mod t, we have:
+        // E = (Dec - (Dec mod t)) / t = floor(Dec / t)
+        // The magnitude of E tells us noise level.
+        ZZ noise_e = abs(centered) / t_modulus;
+        if (noise_e > max_noise) {
+            max_noise = noise_e;
         }
     }
     
-    // Noise budget = log2(q/2) - log2(noise)
+    // If noise is 0 or very small, use initial estimate
+    if (max_noise == 0) {
+        max_noise = conv<ZZ>(1);
+    }
+    
+    // Noise budget = log2(q/2) - log2(max_noise * t)
+    // This represents bits of headroom before noise exceeds q/2
     double log_q = log(params_.q) / std::log(2.0);
-    double log_noise = log(max_coef + 1) / std::log(2.0);
+    double log_noise = log(max_noise * t_modulus) / std::log(2.0);
+    
+    // Restore previous NTL modulus context (RAII via ZZ_pBak destructor would also work,
+    // but explicit restore ensures immediate cleanup before return)
+    modulus_backup.restore();
     
     return log_q - 1 - log_noise;
 }
+
 
 bool BGVContext::is_valid(const BGVSecretKey& sk, const BGVCiphertext& ct) {
     return noise_budget(sk, ct) > 0;

@@ -17,6 +17,7 @@ kctsb (Knight's Cryptographic Trusted Security Base) 是一个**生产级**跨�
 - HElib v2.3.0: IBM 同态加密库
 - OpenSSL 3.6.0: 主流加密库
 bug跟踪与经验总结在 docs/troubleshooting/ 目录。
+禁止使用类似“Select-Object -Last 20”的方式截断日志，必须提供完整日志以便准确诊断问题。
 ---
 
 ## 🚀 架构变更 (2026-01-21)

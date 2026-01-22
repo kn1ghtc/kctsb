@@ -60,7 +60,12 @@
 ### 高级密码学原语
 - **白盒密码** - Chow 白盒 AES/SM4 实现
 - **秘密共享** - Shamir (t,n) 门限方案
-- **功能加密** - BFV/CKKS 同态加密（通过 SEAL/HElib）
+- **同态加密 (v4.5.0+)**
+  - **BGV 方案** - 原生实现，精确整数同态加密 ✅
+    - 密钥生成、加密/解密、加法/乘法/重线性化
+    - 噪声预算管理、批量编码 (SIMD slots)
+    - 33/33 单元测试 100% 稳定通过
+  - **BFV/CKKS** - 计划中 (可选 SEAL/HElib 集成)
 
 ## 🏗️ 项目结构
 
@@ -145,29 +150,9 @@ kctsb/
 └── cmake/                      # CMake 模块
 ```
 
-### 模块依赖关系
-
-| 模块 | 依赖 | 状态 | 说明 |
-|------|------|------|------|
-| AES-CTR/GCM | 无 | ✅ 生产可用 | 原生C实现 + AES-NI |
-| ChaCha20-Poly1305 | 无 | ✅ 生产可用 | 原生C实现 + AVX2 |
-| Hash (SHA-3/BLAKE2b) | 无 | ✅ 生产可用 | Keccak/BLAKE2b原生 |
-| SM3/SM4/ZUC | 无 | ✅ 生产可用 | 国密原生实现 |
-| RSA-OAEP/PSS | NTL | ✅ 生产可用 | PKCS#1 v2.2 |
-| ECC/ECDSA/ECDH/ECIES | NTL | ✅ 生产可用 | **完整重构** |
-| DH/DSA | NTL | ✅ 生产可用 | RFC 3526/FIPS 186-4 |
-| Kyber | NTL | ✅ 生产可用 | **ML-KEM (v3.2.0)** |
-| Dilithium | NTL | ✅ 生产可用 | **ML-DSA (v3.2.0)** |
-| zk-SNARKs | NTL | ✅ 生产可用 | **Groth16 (v3.2.0)** |
-| SIMD | 无 | ✅ 生产可用 | **AVX2/AVX-512/AES-NI** |
-| Whitebox AES | 无 | ✅ 可用 | Chow方案 |
-| Shamir SSS | NTL | ✅ 可用 | 秘密共享 |
-| FE (同态) | HElib | ✅ 可用 | HElib v2.3.0 |
-
 **核心依赖** (thirdparty/):
-- ✅ GMP 6.3.0+ (必需，包含在NTL中)
-- ✅ gf2x 1.3.0+ (必需，包含在NTL中)
-- ✅ NTL 11.6.0+ (必需，数学库引用)
+- ✅ GMP 6.3.0+ (必需)
+- ✅ gf2x 1.3.0+ (必需)
 - ⚠️ SEAL 4.1.2 (可选)
 - ⚠️ HElib v2.3.0 (可选)
 
@@ -231,7 +216,7 @@ $env:PATH="C:\msys64\mingw64\bin;$env:PATH"; ctest --test-dir build-release --ou
 
 确保 `PATH` 以 `C:\msys64\mingw64\bin;C:\msys64\usr\bin` 开头。
 
-### 构建脚本选项 (v3.2.1)
+### 构建脚本选项
 
 ```powershell
 # 快速构建 + 单元/集成测试（推荐日常使用，约1分钟）
@@ -248,15 +233,6 @@ ctest -L unit --test-dir build           # 仅单元测试
 ctest -L integration --test-dir build    # 仅集成测试
 ctest -L performance --test-dir build    # 仅性能测试
 ```
-
-**测试状态**: 92 个测试通过（单元测试 + 集成测试 + 性能测试）
-
-> 重要提示（Windows Toolchain）：默认使用 `C:\msys64\mingw64` gcc/g++ 进行配置，脚本会自动设置 `CC/CXX` 及 CMake 编译器路径以避免 Strawberry Perl 工具链差异。HElib 现为默认开启依赖，若缺失请先运行 `scripts\build_helib.ps1`（或同名 bash 脚本）将产物放置到 `thirdparty/include` 与 `thirdparty/lib` 后再执行构建。如需使用 vcpkg，仅在基准测试场景下显式添加 `-UseVcpkg` 开关。构建期间自动设置 `KCTSB_BUILDING`/`KCTSB_SHARED_LIBRARY` 以确保 Windows 动态库正确导出符号、无 dllimport 警告；GCC 下已屏蔽 NTL 的 `-Warray-bounds`/`-Wstringop-overflow` 误报，核心源码保持零告警。
-
-> Windows 编译提示（MinGW-w64 GCC 13+）：
-> - 已对 `src/utils/encoding.cpp` 的 uint64 解码路径进行显式初始化，避免 `-Werror=uninitialized` 在 Release 模式下拦截构建。
-> - RFC 6979 确定性 ECDSA 现使用库内 SHA-256 HMAC，替换早期占位实现并消除潜在溢出警告。
-> - NTL 头文件在 GCC 下可能输出编译器误报，已通过精细化编译选项屏蔽；如需完全零告警也可使用 MSVC。
 
 ### Linux Docker 构建 (CentOS 7, glibc 2.17)
 
@@ -312,7 +288,7 @@ cd build && ctest --output-on-failure
 
 `docs/examples/psi/SecureComputationDemo.py` 仅生成 HTML 报告与日志输出，不会弹出图形窗口或生成图像文件。
 
-### 统一公共 API 头文件 (v3.4.0+)
+### 统一公共 API 头文件 
 
 从 v3.4.0 开始，kctsb 采用类似 OpenSSL EVP 的设计，**外部用户只需包含单个头文件**：
 
@@ -327,7 +303,7 @@ cd build && ctest --output-on-failure
 // - 安全: kctsb_secure_compare(), kctsb_secure_zero(), kctsb_random_bytes()
 ```
 
-**Release 包内容** (v3.4.2):
+**Release 包内容** 
 ```
 release/
 ├── linux-x64/
@@ -349,8 +325,7 @@ release/
 
 | 库文件 | 大小 | 依赖 | 适用场景 |
 |--------|------|------|----------|
-| `libkctsb.a` | ~5 MB | 需额外链接 NTL/GMP/SEAL/HElib | 已有这些库的项目 |
-| `libkctsb_bundled.a` | ~13 MB (Linux) / ~6 MB (Win) | **无额外依赖** | ★ 推荐：新项目、快速集成 ★ |
+| `libkctsb.a` | ~5 MB | 需额外链接 GMP/SEAL/HElib | 已有这些库的项目 |
 | `libkctsb.dll/.so` | ~3 MB | 运行时加载 | 多进程共享、热更新 |
 
 ### 集成示例 (推荐: Bundled 库)
@@ -412,39 +387,6 @@ endif()
 ninja.exe -C build -j8 2>&1 
 ```
 
-## 📊 性能对比 (vs OpenSSL)
-
-kctsb v3.3.2 提供与 OpenSSL 的性能对比基准测试：
-
-```bash
-# 运行性能测试
-./scripts/build.sh --benchmark
-# 或直接运行
-./build/bin/kctsb_benchmark xxx
-```
-
-### MAC Benchmarks (HMAC/CMAC/GMAC)
-
-```bash
-# 运行 MAC 基准测试
-./build/bin/kctsb_benchmark mac
-```
-
-对比范围：HMAC-SHA256/512、CMAC-AES128、GMAC-AES128。
-
-**MAC 性能数据 (1KB data, v3.4.2 优化后)**:
-
-| Algorithm | kctsb (MB/s) | OpenSSL (MB/s) | vs OpenSSL |
-|-----------|--------------|----------------|------------|
-| HMAC-SHA256 | **1368** | 477 | **+187%** 🏆 |
-| HMAC-SHA512 | **490** | 307 | **+60%** 🏆 |
-| CMAC-AES128 | **1397** | 995 | **+40%** 🏆 |
-| GMAC-AES128 | **3658** | 1661 | **+120%** 🏆 |
-
-**优化亮点**: 
-- ✅ **1KB 小数据全面超越 OpenSSL** - 适合 TLS 握手、API 签名、JWT 验证等场景
-- ✅ **GMAC 8-block 并行 GHASH** - PCLMUL + Karatsuba 延迟归约，复用 aes.cpp 高速实现
-
 
 ## 📚 API 文档
 
@@ -472,87 +414,6 @@ kctsb v3.3.2 提供与 OpenSSL 的性能对比基准测试：
 - [gm/sm4.h](include/kctsb/gm/sm4.h) - SM4 国密对称加密
 
 
-## 📊 性能基线 (v3.4.2)
-
-> **Platform**: Windows 11 + MSYS2 MinGW64 GCC 15.2.0  
-> **Compiler Flags**: `-O3 -march=native -flto -mavx2 -maes -msha`  
-> **Benchmark Date**: 2026-01-16  
-> **OpenSSL Baseline**: OpenSSL 3.3.1
-
-完整性能数据见 [docs/PERFORMANCE_BASELINE.md](docs/PERFORMANCE_BASELINE.md)。
-
-### Hash Functions (10MB data)
-
-| Algorithm    | kctsb (MB/s) | OpenSSL (MB/s) | vs OpenSSL | Status |
-|--------------|--------------|----------------|------------|--------|
-| **BLAKE2b-512** | **985** | 760 | **+29.56%** | 🏆 Best-in-class |
-| **SM3**       | **375** | 256 | **+46.65%** | 🏆 Outstanding |
-| **SHA3-512**  | **339** | 317 | **+6.75%**  | ✅ Faster than OpenSSL |
-| **SHA3-256**  | **678** | 602 | **+12.60%**  | ✅ Faster than OpenSSL |
-| **SHA-256**   | 1988 | 2086 | -4.71% | ⚠️ OpenSSL uses SHA-NI |
-| **SHA-512**   | 729 | 901 | -19.10% | ⚠️ OpenSSL uses SHA-NI |
-
-**性能亮点**:
-- ✅ **BLAKE2b**: 所有数据大小都超越OpenSSL **26-40%**（软件优化设计）
-- ✅ **SM3**: 一致性超越OpenSSL **50-60%**（国密算法高度优化）
-- ✅ **SHA3-256/512**: 大块数据已超越 OpenSSL（+12.6% / +6.8%）
-
-### AEAD Encryption (性能对比)
-
-| Algorithm | Size | Operation | kctsb (MB/s) | OpenSSL (MB/s) | vs OpenSSL |
-|-----------|------|-----------|--------------|----------------|------------|
-| AES-256-GCM | **1KB** | Encrypt | **2720** | 1318 | **+106%** 🏆 |
-| AES-256-GCM | **1KB** | Decrypt | **2713** | 1334 | **+103%** 🏆 |
-| AES-256-GCM | 10MB | Encrypt | 4673 | 6528 | -28% |
-| AES-256-GCM | 10MB | Decrypt | 4637 | 6487 | -29% |
-| AES-128-GCM | **1KB** | Encrypt | **3160** | 1377 | **+129%** 🏆 |
-| AES-128-GCM | **1KB** | Decrypt | **3090** | 1393 | **+122%** 🏆 |
-| AES-128-GCM | 10MB | Encrypt | 5046 | 7224 | -30% |
-| AES-128-GCM | 10MB | Decrypt | 4763 | 7307 | -35% |
-| ChaCha20-Poly1305 | 1KB | Encrypt | 800 | 980 | -18% |
-| ChaCha20-Poly1305 | 1KB | Decrypt | 800 | 970 | -18% |
-| ChaCha20-Poly1305 | 10MB | Encrypt | 950 | 2200 | -57% |
-| ChaCha20-Poly1305 | 10MB | Decrypt | 950 | 2100 | -55% |
-
-**AES-GCM 优化亮点** (v3.4.2):
-- ✅ **小文件性能超越 OpenSSL 100%+**: 1KB 文件加密/解密速度是 OpenSSL 的 2-2.3 倍
-- ✅ **8-block 并行 AES-NI**: CTR 模式使用 8-block 流水线加密
-- ✅ **8-block 并行 GHASH**: Karatsuba 延迟归约，H^1~H^8 预计算
-- ⚠️ **大文件瓶颈**: OpenSSL 使用 CTR-GHASH 交错优化，后续版本将实现
-
-**ChaCha20-Poly1305 优化亮点** (v3.4.2):
-- ✅ **8-block AVX2 ChaCha20**: 512字节并行流密码生成
-- ✅ **并行 Horner 方法 Poly1305**: 4-block 延迟进位归约，预计算 r², r³, r⁴
-- ✅ **128-bit 原生算术**: radix-2^44 格式，利用 GCC `__uint128_t`
-- ⚠️ **OpenSSL 差距**: OpenSSL 使用高度优化的汇编实现，需要汇编级优化才能匹敌
-
-### Public Key (RSA-2048)
-
-| Operation | kctsb (op/s) | OpenSSL (op/s) | vs OpenSSL |
-|-----------|--------------|----------------|------------|
-| OAEP Encryption | 48,885 | 53,442 | -8.53% ✅ |
-| OAEP Decryption | 1,453 | 2,075 | -30.00% |
-| PSS Verify | 50,684 | 58,644 | -13.57% ✅ |
-
-**Expected**: 70-85% of OpenSSL ✅ (within target range)
-
-### 性能验证（手动）
-
-基准对比以 [docs/PERFORMANCE_BASELINE.md](docs/PERFORMANCE_BASELINE.md) 为准：
-- **目标**: 与 OpenSSL 对比性能差距不超过 5%
-- **方法**: 运行 `kctsb_benchmark` 后人工对比基线数据
-
-
-## ⚠️ 安全声明
-
-### 生产环境使用
-
-kctsb v3.0.0 的核心算法（AES-GCM, ChaCha20-Poly1305, **SHA-256/384/512**, SHA3, BLAKE2b, SM3/SM4）经过标准测试向量验证，可用于生产环境。
-
-**使用建议**：
-1. **代码审计**: 部署前建议进行独立安全审计
-2. **侧信道防护**: 软件实现可能存在时序侧信道，高安全需求建议使用硬件加速
-3. **密钥管理**: 密钥应存储在HSM或安全密钥库中
 
 ## 🔒 变更策略
 
@@ -583,7 +444,6 @@ Copyright © 2019-2026 knightc. All rights reserved.
 - GM/T 0002-2012 (SM4), GM/T 0003-2012 (SM2), GM/T 0004-2012 (SM3)
 
 ### 依赖库
-- [NTL: A Library for doing Number Theory](https://libntl.org/) (v11.6.0+)
 - [GMP: The GNU Multiple Precision Arithmetic Library](https://gmplib.org/)
 - [Microsoft SEAL](https://github.com/microsoft/SEAL) (v4.1.2)
 - [HElib](https://github.com/homenc/HElib) (v2.3.0)

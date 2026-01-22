@@ -11,11 +11,17 @@
 
 cmake_minimum_required(VERSION 3.20)
 
-# Require OpenSSL for benchmarks
+# Require OpenSSL for main benchmarks (vs OpenSSL comparison)
+# BGV benchmark does NOT require OpenSSL and is configured separately below
 if(NOT OPENSSL_FOUND)
-    message(WARNING "OpenSSL not found, benchmarks will not be built")
-    return()
+    message(WARNING "OpenSSL not found, main benchmarks will not be built")
+    # Do NOT return() - still build BGV benchmark below
+    set(SKIP_MAIN_BENCHMARKS TRUE)
+else()
+    set(SKIP_MAIN_BENCHMARKS FALSE)
 endif()
+
+if(NOT SKIP_MAIN_BENCHMARKS)
 
 # Benchmark sources - all algorithms (RSA/ECC/SM2 bignum modules are always built)
 # Note: v4.1+ integrates NTL/GMP source code, so bignum modules are always available
@@ -123,6 +129,8 @@ else()
 endif()
 
 message(STATUS "Benchmarks configured: kctsb vs OpenSSL comparison")
+
+endif()  # SKIP_MAIN_BENCHMARKS
 
 # ============================================================================
 # BGV Homomorphic Encryption Benchmark (standalone, no OpenSSL required)
