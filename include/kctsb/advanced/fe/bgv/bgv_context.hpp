@@ -25,6 +25,12 @@
 
 namespace kctsb {
 namespace fhe {
+
+// Forward declaration for CKKS friend class access
+namespace ckks {
+class CKKSContext;
+}  // namespace ckks
+
 namespace bgv {
 
 // Forward declaration
@@ -161,6 +167,7 @@ private:
     RingElement a_;  ///< Second component
     
     friend class BGVContext;
+    friend class ckks::CKKSContext;  // Allow CKKS to set public key without t factor
 };
 
 /**

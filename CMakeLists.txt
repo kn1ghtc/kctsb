@@ -757,8 +757,13 @@ if(KCTSB_ENABLE_BGV)
         ${KCTSB_SRC_DIR}/advanced/fe/bfv/bfv_context.cpp
     )
     
-    list(APPEND KCTSB_ADVANCED_SOURCES ${KCTSB_NTT_SOURCES} ${KCTSB_BGV_SOURCES} ${KCTSB_BFV_SOURCES})
-    message(STATUS "✓ Native BGV/BFV homomorphic encryption enabled (with NTT acceleration)")
+    # CKKS-specific sources (v4.8.0+)
+    set(KCTSB_CKKS_SOURCES
+        ${KCTSB_SRC_DIR}/advanced/fe/ckks/ckks_context.cpp
+    )
+    
+    list(APPEND KCTSB_ADVANCED_SOURCES ${KCTSB_NTT_SOURCES} ${KCTSB_BGV_SOURCES} ${KCTSB_BFV_SOURCES} ${KCTSB_CKKS_SOURCES})
+    message(STATUS "✓ Native BGV/BFV/CKKS homomorphic encryption enabled (with NTT acceleration)")
 else()
     message(STATUS "⚠ Native BGV/BFV disabled (set KCTSB_ENABLE_BGV=ON to enable)")
 endif()

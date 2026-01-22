@@ -409,6 +409,31 @@ if(KCTSB_ENABLE_BGV)
         endif()
     endif()
     gtest_discover_tests(test_bfv PROPERTIES LABELS "unit;fhe;bfv")
+    
+    # CKKS Homomorphic Encryption tests (v4.8.0)
+    add_executable(test_ckks unit/fhe/test_ckks.cpp)
+    if(TARGET kctsb_static)
+        target_link_libraries(test_ckks PRIVATE
+            kctsb_static
+            GTest::gtest_main
+        )
+    else()
+        target_link_libraries(test_ckks PRIVATE
+            kctsb
+            GTest::gtest_main
+        )
+    endif()
+    target_include_directories(test_ckks PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/src
+    )
+    if(NTL_FOUND)
+        target_link_libraries(test_ckks PRIVATE ${NTL_LIBRARY})
+        if(GMP_FOUND)
+            target_link_libraries(test_ckks PRIVATE ${GMP_LIBRARY})
+        endif()
+    endif()
+    gtest_discover_tests(test_ckks PROPERTIES LABELS "unit;fhe;ckks")
 endif()
 
 # ============================================================================
@@ -422,7 +447,7 @@ else()
     message(STATUS "  Unit Tests:        test_aes, test_hash, test_sha, test_security_boundaries (bignum disabled)")
 endif()
 if(KCTSB_ENABLE_BGV)
-    message(STATUS "  FHE Tests:         test_bgv, test_bfv (BGV/BFV homomorphic encryption)")
+    message(STATUS "  FHE Tests:         test_bgv, test_bfv, test_ckks (BGV/BFV/CKKS homomorphic encryption)")
 else()
     message(STATUS "  FHE Tests:         (disabled - set KCTSB_ENABLE_BGV=ON)")
 endif()
