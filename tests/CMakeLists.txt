@@ -241,6 +241,26 @@ target_include_directories(test_ecc PRIVATE
 target_compile_definitions(test_ecc PRIVATE KCTSB_HAS_BIGNUM_MODULES)
 gtest_discover_tests(test_ecc PROPERTIES LABELS "unit;crypto;ecc")
 
+# fe256 Debug Tests - Enable KCTSB_DEBUG_FE256 for fe256 path validation
+add_executable(test_fe256_debug unit/crypto/test_fe256_debug.cpp)
+if(TARGET kctsb_static)
+    target_link_libraries(test_fe256_debug PRIVATE
+        kctsb_static
+        GTest::gtest_main
+    )
+else()
+    target_link_libraries(test_fe256_debug PRIVATE
+        kctsb
+        GTest::gtest_main
+    )
+endif()
+target_include_directories(test_fe256_debug PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/src
+)
+target_compile_definitions(test_fe256_debug PRIVATE KCTSB_HAS_BIGNUM_MODULES KCTSB_DEBUG_FE256=1)
+gtest_discover_tests(test_fe256_debug PROPERTIES LABELS "unit;crypto;debug")
+
 # ============================================================================
 # ADVANCED CRYPTOGRAPHY TESTS - BGV Homomorphic Encryption (v4.7.0)
 # Label: "unit;fhe" - Run with: ctest -L fhe

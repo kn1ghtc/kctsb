@@ -10,7 +10,7 @@
 # - NTL源码完全集成，去除NTL品牌标识
 # - 动态库编译模式：链接预编译的 GMP/gf2x 共享库
 # - 编译优化：Ninja + 并行8路 + 增量编译
-# - 精简bignum模块：删除浮点精度(RR/xdouble/quad_float)
+# - ✓ 启用浮点精度模块(RR/xdouble/quad_float) 支持CKKS同态加密
 # - SEAL/HElib 仅作为 benchmark 对比（动态链接）
 # ============================================================================
 
@@ -637,11 +637,7 @@ file(GLOB BIGNUM_RING_SOURCES ${KCTSB_SRC_DIR}/math/bignum/ring/*.cpp)
 # Vector and Matrix sources - essential for linear algebra
 file(GLOB BIGNUM_VECTOR_SOURCES ${KCTSB_SRC_DIR}/math/bignum/vector/*.cpp)
 file(GLOB BIGNUM_MATRIX_SOURCES ${KCTSB_SRC_DIR}/math/bignum/matrix/*.cpp)
-# v4.0.1: Exclude RR-dependent vectors and matrices (RR module excluded)
-list(FILTER BIGNUM_VECTOR_SOURCES EXCLUDE REGEX "vec_RR\\.cpp$")
-list(FILTER BIGNUM_VECTOR_SOURCES EXCLUDE REGEX "vec_xdouble\\.cpp$")
-list(FILTER BIGNUM_VECTOR_SOURCES EXCLUDE REGEX "vec_quad_float\\.cpp$")
-list(FILTER BIGNUM_MATRIX_SOURCES EXCLUDE REGEX "mat_RR\\.cpp$")
+# v4.9.0: All precision types enabled (vec_RR, mat_RR for CKKS support)
 
 # Polynomial sources - GF2X is essential for security algorithms
 file(GLOB BIGNUM_POLY_SOURCES ${KCTSB_SRC_DIR}/math/bignum/poly/*.cpp)
@@ -649,20 +645,15 @@ file(GLOB BIGNUM_POLY_SOURCES ${KCTSB_SRC_DIR}/math/bignum/poly/*.cpp)
 # FFT sources - needed for efficient polynomial multiplication
 file(GLOB BIGNUM_FFT_SOURCES ${KCTSB_SRC_DIR}/math/bignum/fft/*.cpp)
 
-# v4.0.1: EXCLUDE precision directory entirely (RR, xdouble, quad_float not needed)
-# These are arbitrary precision real numbers - kctsb uses integer arithmetic only
-set(BIGNUM_PRECISION_SOURCES "")
-message(STATUS "  Note: Precision modules (RR, xdouble, quad_float) excluded - not needed")
+# v4.9.0: ENABLE precision modules for CKKS homomorphic encryption support
+# Precision modules provide arbitrary precision floating-point arithmetic
+file(GLOB BIGNUM_PRECISION_SOURCES ${KCTSB_SRC_DIR}/math/bignum/precision/*.cpp)
+message(STATUS "  ✓ Precision modules (RR, xdouble, quad_float) enabled for CKKS support")
 
-# Lattice sources - only basic LLL needed, exclude extended precision variants
+# Lattice sources - include all LLL variants for advanced cryptography
 file(GLOB BIGNUM_LATTICE_SOURCES ${KCTSB_SRC_DIR}/math/bignum/lattice/*.cpp)
-# Exclude Givens rotation variants and extended precision LLL
-list(FILTER BIGNUM_LATTICE_SOURCES EXCLUDE REGEX "G_LLL_.*\\.cpp$")
-list(FILTER BIGNUM_LATTICE_SOURCES EXCLUDE REGEX "LLL_QP\\.cpp$")
-list(FILTER BIGNUM_LATTICE_SOURCES EXCLUDE REGEX "LLL_RR\\.cpp$")
-list(FILTER BIGNUM_LATTICE_SOURCES EXCLUDE REGEX "LLL_XD\\.cpp$")
-# v4.0.1: Exclude LLL_FP.cpp - depends on RR module which is excluded
-list(FILTER BIGNUM_LATTICE_SOURCES EXCLUDE REGEX "LLL_FP\\.cpp$")
+# v4.9.0: All precision LLL variants enabled (LLL_FP, LLL_RR, LLL_QP, LLL_XD, G_LLL_*)
+# These are needed for advanced lattice-based cryptography and CKKS
 
 set(BIGNUM_ALL_SOURCES
     ${BIGNUM_CORE_SOURCES}
@@ -706,8 +697,8 @@ list(APPEND KCTSB_ADVANCED_SOURCES ${KCTSB_PSI_SOURCES})
 
 # FE sources - BGV is native, HElib only for comparison benchmarks
 # v4.2.0: Native BGV implementation (no external HE library dependency)
-# TODO: Re-enable after fixing kctsb bignum API compatibility
-option(KCTSB_ENABLE_BGV "Enable native BGV homomorphic encryption" OFF)
+# v4.9.0: BGV enabled by default for production homomorphic encryption
+option(KCTSB_ENABLE_BGV "Enable native BGV homomorphic encryption" ON)
 if(KCTSB_ENABLE_BGV)
     set(KCTSB_BGV_SOURCES
         ${KCTSB_SRC_DIR}/advanced/fe/bgv/bgv_context.cpp

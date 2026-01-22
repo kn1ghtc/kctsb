@@ -318,6 +318,181 @@ fe256_sqr_wide_asm:
     pop rbx
     ret
 
+# ============================================================================
+# fe256_mul_wide_asm
+#
+# 256-bit multiplication: r = a * b (512-bit result)
+# Schoolbook multiplication optimized for x86_64
+#
+# Input:  ARG1 = r (result pointer, 8 limbs)
+#         ARG2 = a (input pointer, 4 limbs)
+#         ARG3 = b (input pointer, 4 limbs)
+# ============================================================================
+
+.globl fe256_mul_wide_asm
+.align 32
+fe256_mul_wide_asm:
+    push rbx
+    push r12
+    push r13
+    push r14
+    push r15
+    push rbp
+    
+#ifdef _WIN32
+    # Windows: rcx=r, rdx=a, r8=b
+    mov rdi, rcx             # r -> rdi
+    mov rsi, rdx             # a -> rsi
+    mov rbp, r8              # b -> rbp
+#else
+    # System V: rdi=r, rsi=a, rdx=b
+    mov rbp, rdx             # b -> rbp (save rdx before it's clobbered)
+#endif
+    
+    # Load a[0..3] into r8..r11
+    mov r8,  [rsi]           # a[0]
+    mov r9,  [rsi + 8]       # a[1]
+    mov r10, [rsi + 16]      # a[2]
+    mov r11, [rsi + 24]      # a[3]
+    
+    # Column 0: a[0] * b[0]
+    mov rax, r8
+    mul qword ptr [rbp]      # rdx:rax = a[0] * b[0]
+    mov [rdi], rax           # r[0]
+    mov r12, rdx             # acc0
+    xor r13d, r13d           # acc1 = 0
+    
+    # Column 1: a[0]*b[1] + a[1]*b[0]
+    mov rax, r8
+    mul qword ptr [rbp + 8]  # a[0] * b[1]
+    add r12, rax
+    adc r13, rdx
+    xor r14d, r14d
+    adc r14, 0
+    
+    mov rax, r9
+    mul qword ptr [rbp]      # a[1] * b[0]
+    add r12, rax
+    adc r13, rdx
+    adc r14, 0
+    
+    mov [rdi + 8], r12       # r[1]
+    mov r12, r13
+    mov r13, r14
+    xor r14d, r14d
+    
+    # Column 2: a[0]*b[2] + a[1]*b[1] + a[2]*b[0]
+    mov rax, r8
+    mul qword ptr [rbp + 16] # a[0] * b[2]
+    add r12, rax
+    adc r13, rdx
+    adc r14, 0
+    
+    mov rax, r9
+    mul qword ptr [rbp + 8]  # a[1] * b[1]
+    add r12, rax
+    adc r13, rdx
+    adc r14, 0
+    
+    mov rax, r10
+    mul qword ptr [rbp]      # a[2] * b[0]
+    add r12, rax
+    adc r13, rdx
+    adc r14, 0
+    
+    mov [rdi + 16], r12      # r[2]
+    mov r12, r13
+    mov r13, r14
+    xor r14d, r14d
+    
+    # Column 3: a[0]*b[3] + a[1]*b[2] + a[2]*b[1] + a[3]*b[0]
+    mov rax, r8
+    mul qword ptr [rbp + 24] # a[0] * b[3]
+    add r12, rax
+    adc r13, rdx
+    adc r14, 0
+    
+    mov rax, r9
+    mul qword ptr [rbp + 16] # a[1] * b[2]
+    add r12, rax
+    adc r13, rdx
+    adc r14, 0
+    
+    mov rax, r10
+    mul qword ptr [rbp + 8]  # a[2] * b[1]
+    add r12, rax
+    adc r13, rdx
+    adc r14, 0
+    
+    mov rax, r11
+    mul qword ptr [rbp]      # a[3] * b[0]
+    add r12, rax
+    adc r13, rdx
+    adc r14, 0
+    
+    mov [rdi + 24], r12      # r[3]
+    mov r12, r13
+    mov r13, r14
+    xor r14d, r14d
+    
+    # Column 4: a[1]*b[3] + a[2]*b[2] + a[3]*b[1]
+    mov rax, r9
+    mul qword ptr [rbp + 24] # a[1] * b[3]
+    add r12, rax
+    adc r13, rdx
+    adc r14, 0
+    
+    mov rax, r10
+    mul qword ptr [rbp + 16] # a[2] * b[2]
+    add r12, rax
+    adc r13, rdx
+    adc r14, 0
+    
+    mov rax, r11
+    mul qword ptr [rbp + 8]  # a[3] * b[1]
+    add r12, rax
+    adc r13, rdx
+    adc r14, 0
+    
+    mov [rdi + 32], r12      # r[4]
+    mov r12, r13
+    mov r13, r14
+    xor r14d, r14d
+    
+    # Column 5: a[2]*b[3] + a[3]*b[2]
+    mov rax, r10
+    mul qword ptr [rbp + 24] # a[2] * b[3]
+    add r12, rax
+    adc r13, rdx
+    adc r14, 0
+    
+    mov rax, r11
+    mul qword ptr [rbp + 16] # a[3] * b[2]
+    add r12, rax
+    adc r13, rdx
+    adc r14, 0
+    
+    mov [rdi + 40], r12      # r[5]
+    mov r12, r13
+    mov r13, r14
+    
+    # Column 6: a[3]*b[3]
+    mov rax, r11
+    mul qword ptr [rbp + 24] # a[3] * b[3]
+    add r12, rax
+    adc r13, rdx
+    
+    mov [rdi + 48], r12      # r[6]
+    mov [rdi + 56], r13      # r[7]
+    
+    pop rbp
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rbx
+    ret
+
 #endif /* __x86_64__ */
 
 # Prevent executable stack on Linux

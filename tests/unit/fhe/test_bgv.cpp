@@ -200,6 +200,115 @@ TEST_F(BGVTest, PolyEncode) {
 // Encryption/Decryption Tests
 // ============================================================================
 
+// Manual verification test - check each step of BGV encrypt/decrypt
+TEST_F(BGVTest, ManualVerifyEncryptDecrypt) {
+    using namespace kctsb;
+    
+    // Use fresh keys for this test
+    std::cerr << "\n=== GENERATING NEW KEYS ===\n";
+    auto sk = context_->generate_secret_key();
+    
+    // Print secret key coefficients BEFORE public key generation
+    ZZ_p::init(params_.q);
+    std::cerr << "sk.s[0] = " << rep(coeff(sk.data().poly(), 0)) << "\n";
+    std::cerr << "sk.s[1] = " << rep(coeff(sk.data().poly(), 1)) << "\n";
+    std::cerr << "sk.s[2] = " << rep(coeff(sk.data().poly(), 2)) << "\n";
+    
+    auto pk = context_->generate_public_key(sk);
+    
+    // Print secret key coefficients AFTER public key generation
+    std::cerr << "After pk gen - sk.s[0] = " << rep(coeff(sk.data().poly(), 0)) << "\n";
+    std::cerr << "After pk gen - sk.s[1] = " << rep(coeff(sk.data().poly(), 1)) << "\n";
+    
+    // Simple message: just put 42 in coefficient 0
+    ZZ_p::init(to_ZZ(params_.t));
+    BGVPlaintext pt;
+    SetCoeff(pt.data().poly(), 0, conv<ZZ_p>(42));
+    
+    // Now encrypt - ensure we're in mod q context
+    ZZ_p::init(params_.q);
+    auto ct = context_->encrypt(pk, pt);
+    
+    // Get c0, c1
+    const auto& c0 = ct[0];
+    const auto& c1 = ct[1];
+    
+    // Get secret key s
+    const auto& s = sk.data();
+    
+    std::cerr << "\n=== CHECKING s AFTER ENCRYPT ===\n";
+    std::cerr << "s[0] after encrypt = " << rep(coeff(s.poly(), 0)) << "\n";
+    std::cerr << "s[1] after encrypt = " << rep(coeff(s.poly(), 1)) << "\n";
+    
+    // Convert all to current context
+    ZZ_pX s_q, c0_q, c1_q;
+    for (long j = 0; j <= deg(s.poly()); j++) {
+        SetCoeff(s_q, j, conv<ZZ_p>(rep(coeff(s.poly(), j))));
+    }
+    for (long j = 0; j <= deg(c0.poly()); j++) {
+        SetCoeff(c0_q, j, conv<ZZ_p>(rep(coeff(c0.poly(), j))));
+    }
+    for (long j = 0; j <= deg(c1.poly()); j++) {
+        SetCoeff(c1_q, j, conv<ZZ_p>(rep(coeff(c1.poly(), j))));
+    }
+    
+    // Compute c1*s
+    ZZ_pX c1s;
+    PlainMul(c1s, c1_q, s_q);
+    ZZ_pX cyclotomic;
+    SetCoeff(cyclotomic, 0, conv<ZZ_p>(1));
+    SetCoeff(cyclotomic, params_.n, conv<ZZ_p>(1));
+    PlainRem(c1s, c1s, cyclotomic);
+    
+    // Compute result
+    ZZ_pX result = c0_q + c1s;
+    PlainRem(result, result, cyclotomic);
+    
+    ZZ r0 = rep(coeff(result, 0));
+    ZZ t = to_ZZ(params_.t);
+    ZZ r0_mod_t = r0 % t;
+    
+    std::cerr << "\n=== FINAL VERIFICATION ===\n";
+    std::cerr << "c0[0] = " << rep(coeff(c0_q, 0)) << "\n";
+    std::cerr << "c1[0] = " << rep(coeff(c1_q, 0)) << "\n";
+    std::cerr << "s[0] = " << rep(coeff(s_q, 0)) << "\n";
+    std::cerr << "c1s[0] = " << rep(coeff(c1s, 0)) << "\n";
+    std::cerr << "result[0] = " << r0 << "\n";
+    std::cerr << "result[0] mod t = " << r0_mod_t << "\n";
+    std::cerr << "Expected: 42\n";
+    
+    // Also compute what c0 + c1*s SHOULD be:
+    // c0 + c1*s = (b*u + te0 + m) + (a*u + te1)*s
+    //           = b*u + a*u*s + m + t*(e0 + e1*s)
+    //           = (-a*s + te)*u + a*s*u + m + t*(...)
+    //           = t*e*u + m + t*(...)
+    //           = m + t*(noise)
+    // So (c0 + c1*s) mod t should equal m
+    
+    // Check if noise is too large
+    // If r0 > q/2, it's negative
+    ZZ q = params_.q;
+    ZZ q_half = q / 2;
+    if (r0 > q_half) {
+        std::cerr << "Note: r0 is negative (> q/2)\n";
+        ZZ r0_neg = r0 - q;  // Convert to signed
+        std::cerr << "r0 (signed) = " << r0_neg << "\n";
+        // For centered reduction
+        ZZ r0_mod_t_signed = r0_neg % t;
+        if (r0_mod_t_signed < 0) r0_mod_t_signed += t;
+        std::cerr << "r0 mod t (centered) = " << r0_mod_t_signed << "\n";
+    }
+    
+    // Now verify through normal decrypt
+    auto pt_dec = context_->decrypt(sk, ct);
+    int64_t decoded = encoder_->decode_int(pt_dec);
+    
+    std::cerr << "Decoded via normal decrypt: " << decoded << "\n";
+    std::cerr << "=== END VERIFICATION ===\n\n";
+    
+    EXPECT_EQ(decoded, 42);
+}
+
 TEST_F(BGVTest, EncryptDecryptSingle) {
     // Debug: Print parameters
     std::cout << "Debug: t=" << params_.t << ", q=" << params_.q << ", n=" << params_.n << "\n";

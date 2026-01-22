@@ -3,33 +3,27 @@
 > **项目**: kctsb - Knight's Cryptographic Trusted Security Base  
 > **版本**: 4.2.0  
 > **更新时间**: 2026-01-21 (Beijing Time, UTC+8)  
-> **重大变更**: ECC模块精简、删除fe256加速层、测试目录规范化
 
 ---
 
 ## 🎯 项目概述
 
 kctsb (Knight's Cryptographic Trusted Security Base) 是一个**生产级**跨平台C++密码学和安全算法库，可用于安全研究、生产部署和算法验证。
-
+参考项目（源码在deps目录）：
+- NTL 11.6.0: 高性能数论库
+- GMP 6.3.0: 多精度整数运算
+- gf2x 1.3.0: 二进制多项式运算
+- SEAL 4.1.2: 微软同态加密库
+- HElib v2.3.0: IBM 同态加密库
+- OpenSSL 3.6.0: 主流加密库
+bug跟踪与经验总结在 docs/troubleshooting/ 目录。
 ---
 
 ## 🚀 架构变更 (2026-01-21)
 
 ### 1. ECC模块精简
-
 **删除fe256加速层，简化架构：**
-
-移除了之前的 fe256* 系列文件（6个），回归简洁的bignum实现：
-
-| 已删除文件 | 原功能 | 替代方案 |
-|------------|--------|----------|
-| `fe256.cpp` | secp256k1/SM2场运算 | 使用ZZ_p (ecc_curve.cpp) |
-| `fe256_p256.cpp` | P-256 Solinas reduction | 使用ZZ_p (ecc_curve.cpp) |
-| `fe256_point.cpp` | Jacobian点运算 | 保留在ecc_curve.cpp |
-| `fe256.h` | 场运算声明 | 不需要 |
-| `fe256_point.h` | 点运算声明 | 不需要 |
-| `fe256_ecc_fast.h` | 快速路径转换 | 不需要 |
-
+移除了之前的 fe256* 系列文件（6个）临时保存在temp_restore目录，回归单文件原则的实现：
 **当前ECC模块结构（精简后）：**
 ```
 src/crypto/ecc/
@@ -40,11 +34,6 @@ src/crypto/ecc/
 └── asm/
     └── fe256_x86_64.S # x86_64汇编优化（可选）
 ```
-
-**设计原则：**
-- 使用NTL/ZZ_p进行大数运算，代码简洁可维护
-- Montgomery ladder标量乘法，抗时序攻击
-- 额外的加速层增加复杂度，收益有限，故移除
 
 ### 2. 测试目录规范
 
@@ -67,7 +56,7 @@ tests/
 └── performance/       # 性能测试
 ```
 
-### 3. 增量编译优化（保留自v4.6.0）
+### 3. 增量编译优化
 
 **默认关闭测试和基准测试构建，加速日常开发迭代：**
 
@@ -92,13 +81,12 @@ ctest --test-dir build --output-on-failure
 
 ---
 
-## 🚀 v4.1.0 架构变更 (2026-01-19)
+## 🚀 v4.1.0 架构变更
 
 ### 1. NTL 源码完全集成
 
 - 原 NTL 库源码已完全集成到 `src/math/bignum/` 目录
 - 所有 `NTL_*` 宏逐步迁移为 `KCTSB_*` 前缀
-- 删除浮点精度模块（RR、xdouble、quad_float）- kctsb 只使用整数运算
 - 头文件从 117 个精简到 ~90 个
 
 ### 2. 动态库编译模式
@@ -820,8 +808,6 @@ kctsb_error_t kctsb_sha256(const uint8_t* data, size_t len,
 
 1. **代码审计**: 生产环境部署前，建议进行独立的安全代码审计
 2. **侧信道防护**: 
-   - 当前 AES-GCM 和 ChaCha20 实现为软件实现，可能存在时间侧信道
-   - 高安全需求建议使用硬件 AES-NI 指令或 HSM
 3. **内存安全**: 
    - 使用 `kctsb_secure_memzero()` 清理敏感数据
    - 避免在日志中输出密钥材料

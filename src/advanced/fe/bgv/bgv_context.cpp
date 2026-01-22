@@ -172,10 +172,12 @@ BGVParams TOY_PARAMS() {
     params.sigma = 3.2;
     params.security = SecurityLevel::NONE;
     
-    // Use single small prime for testing (avoids FFT precision issues)
-    // Prime p = 12289 = 1 + 3*4096 = 1 mod 512 (NTT-friendly)
-    params.primes = {12289};
-    params.q = conv<ZZ>(12289);
+    // Use larger prime for sufficient noise budget
+    // q/(2t) determines max noise coefficient
+    // With q=786433 and t=257: q/(2t) ≈ 1530 (much better!)
+    // Prime 786433 = 1 + 3*2^18 = 1 mod 512 (NTT-friendly)
+    params.primes = {786433};
+    params.q = conv<ZZ>(786433);
     
     return params;
 }
@@ -539,6 +541,10 @@ BGVPublicKey BGVContext::generate_public_key(const BGVSecretKey& sk) {
         SetCoeff(sk_q, j, conv<ZZ_p>(coef));
     }
     
+    // DEBUG: Verify sk_q matches sk.s_
+    std::cerr << "DEBUG gen_pk: sk_q[0] = " << rep(coeff(sk_q, 0))
+              << ", sk_q[1] = " << rep(coeff(sk_q, 1)) << "\n";
+    
     // Sample uniform a ∈ R_q
     pk.a_ = sample_uniform();
     
@@ -797,6 +803,11 @@ BGVPlaintext BGVContext::decrypt(const BGVSecretKey& sk,
         SetCoeff(s_q, j, conv<ZZ_p>(coef));
     }
     
+    // DEBUG: Print secret key coefficients
+    std::cerr << "DEBUG decrypt: s_q[0] = " << rep(coeff(s_q, 0))
+              << ", s_q[1] = " << rep(coeff(s_q, 1)) 
+              << ", s_q[3] = " << rep(coeff(s_q, 3)) << "\n";
+    
     ZZ_pX c1_q;
     for (long j = 0; j <= ct[1].degree(); j++) {
         ZZ coef = rep(ct[1].coeff(j));
@@ -819,28 +830,45 @@ BGVPlaintext BGVContext::decrypt(const BGVSecretKey& sk,
     std::cerr << "DEBUG decrypt: result[0] mod q = " << rep(coeff(result, 0)) 
               << ", t = " << params_.t << ", expected mod t = " << (rep(coeff(result, 0)) % to_ZZ(params_.t)) << "\n";
     
-    // Reduce coefficients mod t with centered reduction
+    // Reduce coefficients mod t with proper centered representation
+    // BGV requires: first interpret coefficients in centered range [-q/2, q/2)
+    // then reduce mod t
     BGVPlaintext pt;
     ZZ t = to_ZZ(static_cast<unsigned long>(params_.t));
     ZZ t_half = t / 2;
+    ZZ q = params_.q;
+    ZZ q_half = q / 2;
     
     for (long i = 0; i <= deg(result); i++) {
-        ZZ coef = rep(coeff(result, i));
-        coef = coef % t;
+        ZZ coef = rep(coeff(result, i));  // In range [0, q-1]
         
-        // Centered reduction: if coef > t/2, coef -= t
-        if (coef > t_half) {
-            coef -= t;
+        // CRITICAL: Convert to centered representation [-q/2, q/2) FIRST
+        // This is essential for correct BGV decryption!
+        if (coef > q_half) {
+            coef -= q;  // Now in range [-q/2, 0)
+        }
+        // Now coef is in range (-q/2, q/2]
+        
+        // Now reduce mod t with proper handling of negative numbers
+        // C++ % can return negative for negative inputs, so we need to handle this
+        ZZ coef_mod_t = coef % t;
+        if (coef_mod_t < 0) {
+            coef_mod_t += t;  // Ensure positive representative
         }
         
-        // Now convert back to mod t (positive representative)
-        if (coef < 0) {
-            coef += t;
+        // Centered reduction for mod t: if coef_mod_t > t/2, subtract t
+        if (coef_mod_t > t_half) {
+            coef_mod_t -= t;
+        }
+        
+        // Convert back to positive representative for storage
+        if (coef_mod_t < 0) {
+            coef_mod_t += t;
         }
         
         ZZ_pPush push;
         ZZ_p::init(t);
-        SetCoeff(pt.data().poly(), i, conv<ZZ_p>(coef));
+        SetCoeff(pt.data().poly(), i, conv<ZZ_p>(coef_mod_t));
     }
     
     return pt;
