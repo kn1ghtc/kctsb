@@ -48,7 +48,8 @@ endif()
 
 # Link SEAL if available
 if(KCTSB_ENABLE_SEAL AND SEAL_FOUND)
-    target_link_libraries(kctsb_cli PRIVATE SEAL::seal)
+    # Use library path directly for MinGW compatibility
+    target_link_libraries(kctsb_cli PRIVATE "${SEAL_LIBRARY}")
     target_compile_definitions(kctsb_cli PRIVATE KCTSB_ENABLE_SEAL)
 endif()
 

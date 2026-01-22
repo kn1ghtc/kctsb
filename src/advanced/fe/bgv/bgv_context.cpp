@@ -7,6 +7,9 @@
  * @author knightc
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
  * @license Apache-2.0
+ * 
+ * @security v4.6.0: Added ModulusGuard RAII protection and context versioning
+ *           to prevent global state pollution (Chapter 6 lessons).
  */
 
 #include "kctsb/advanced/fe/bgv/bgv_context.hpp"
@@ -18,6 +21,30 @@
 namespace kctsb {
 namespace fhe {
 namespace bgv {
+
+// ============================================================================
+// Static Member Initialization
+// ============================================================================
+
+/// Global context version counter (starts at 1, 0 reserved for "uninitialized")
+std::atomic<uint64_t> BGVContext::global_version_counter_{1};
+
+// ============================================================================
+// ModulusGuard Implementation (v4.6.0 Security Hardening)
+// ============================================================================
+
+ModulusGuard::ModulusGuard(const ZZ& q)
+    : backup_()
+{
+    backup_.save();
+    if (q > 1) {
+        ZZ_p::init(q);
+    }
+}
+
+ModulusGuard::~ModulusGuard() {
+    backup_.restore();
+}
 
 // ============================================================================
 // BGVParams Implementation
@@ -357,7 +384,18 @@ size_t BGVCiphertext::byte_size() const {
 // BGVSecretKey Implementation
 // ============================================================================
 
-const RingElement& BGVSecretKey::power(size_t k) const {
+/**
+ * @brief Get power of secret key s^k with context version validation
+ * 
+ * @param k Power exponent (must be >= 1)
+ * @param ctx_version Context version for cache validation (0 = skip validation)
+ * @return Reference to s^k polynomial
+ * 
+ * @security v4.6.0: Implements Chapter 6.3 cache invalidation mechanism.
+ *           If ctx_version differs from cached version, cache is invalidated
+ *           and powers are recomputed under the current modulus context.
+ */
+const RingElement& BGVSecretKey::power(size_t k, uint64_t ctx_version) const {
     if (k == 0) {
         // Return 1 (constant polynomial)
         static RingElement one;
@@ -366,6 +404,13 @@ const RingElement& BGVSecretKey::power(size_t k) const {
     }
     if (k == 1) {
         return s_;
+    }
+    
+    // v4.6.0: Check cache validity based on context version
+    if (ctx_version != 0 && cached_ctx_version_ != ctx_version) {
+        // Context has changed - invalidate cache
+        invalidate_power_cache();
+        cached_ctx_version_ = ctx_version;
     }
     
     // Compute s^k if not cached
@@ -378,6 +423,14 @@ const RingElement& BGVSecretKey::power(size_t k) const {
     }
     
     return powers_[k - 1];
+}
+
+/**
+ * @brief Invalidate cached power computations
+ * @security v4.6.0: Part of cache invalidation mechanism (Chapter 6.3)
+ */
+void BGVSecretKey::invalidate_power_cache() const {
+    powers_.clear();
 }
 
 long BGVSecretKey::degree() const {
@@ -438,7 +491,9 @@ size_t BGVPublicKey::byte_size() const {
 // ============================================================================
 
 BGVContext::BGVContext(const BGVParams& params) 
-    : params_(params) {
+    : params_(params)
+    , version_(global_version_counter_.fetch_add(1))  // v4.6.0: Unique version for cache invalidation
+{
     
     if (!params_.validate()) {
         throw std::invalid_argument("Invalid BGV parameters");
@@ -461,6 +516,11 @@ BGVContext::~BGVContext() {
 
 BGVContext::BGVContext(BGVContext&& other) noexcept = default;
 BGVContext& BGVContext::operator=(BGVContext&& other) noexcept = default;
+
+/// @brief Get the ciphertext modulus for this context
+const ZZ& BGVContext::modulus() const {
+    return params_.q;
+}
 
 void BGVContext::initialize_ring() {
     // Set up the polynomial ring R_q = Z_q[X]/(Φ_m(X))

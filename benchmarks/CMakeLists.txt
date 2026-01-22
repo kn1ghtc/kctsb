@@ -153,21 +153,25 @@ if(KCTSB_ENABLE_BGV)
         target_link_libraries(kctsb_benchmark_bgv PRIVATE kctsb_shared)
     endif()
 
-    # Optional: SEAL comparison
-    if(KCTSB_ENABLE_SEAL AND SEAL_FOUND)
-        target_include_directories(kctsb_benchmark_bgv PRIVATE ${SEAL_INCLUDE_DIRS})
-        target_link_libraries(kctsb_benchmark_bgv PRIVATE SEAL::seal)
-        target_compile_definitions(kctsb_benchmark_bgv PRIVATE KCTSB_HAS_SEAL=1)
-        if(WIN32)
-            target_link_libraries(kctsb_benchmark_bgv PRIVATE bcrypt)
-        endif()
-    endif()
-
-    # Optional: HElib comparison
-    if(KCTSB_ENABLE_HELIB AND HELIB_FOUND)
-        target_link_libraries(kctsb_benchmark_bgv PRIVATE helib::helib)
-        target_compile_definitions(kctsb_benchmark_bgv PRIVATE KCTSB_HAS_HELIB=1)
-    endif()
+    # SEAL/HElib comparison DISABLED until headers are properly built
+    # SEAL requires seal/util/config.h which is generated during SEAL build
+    # HElib requires built helib headers
+    # For now, only benchmark native kctsb BGV implementation
+    # TODO: Build SEAL and HElib from source to enable comparison benchmarks
+    #
+    # if(KCTSB_ENABLE_SEAL AND SEAL_FOUND AND EXISTS "${SEAL_INCLUDE_DIRS}/seal/util/config.h")
+    #     target_include_directories(kctsb_benchmark_bgv PRIVATE ${SEAL_INCLUDE_DIRS})
+    #     target_link_libraries(kctsb_benchmark_bgv PRIVATE "${SEAL_LIBRARY}")
+    #     target_compile_definitions(kctsb_benchmark_bgv PRIVATE KCTSB_HAS_SEAL=1)
+    #     if(WIN32)
+    #         target_link_libraries(kctsb_benchmark_bgv PRIVATE bcrypt)
+    #     endif()
+    # endif()
+    #
+    # if(KCTSB_ENABLE_HELIB AND HELIB_FOUND)
+    #     target_link_libraries(kctsb_benchmark_bgv PRIVATE "${HELIB_LIBRARY}")
+    #     target_compile_definitions(kctsb_benchmark_bgv PRIVATE KCTSB_HAS_HELIB=1)
+    # endif()
 
     set_target_properties(kctsb_benchmark_bgv PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin

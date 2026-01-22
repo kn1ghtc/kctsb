@@ -9,6 +9,9 @@
  * @author knightc
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
  * @license Apache-2.0
+ * 
+ * @security v4.6.0: Added ModulusGuard and context versioning to prevent
+ *           global state pollution (Chapter 6 lessons from troubleshooting).
  */
 
 #ifndef KCTSB_ADVANCED_FE_BGV_CONTEXT_HPP
@@ -18,10 +21,54 @@
 #include <random>
 #include <functional>
 #include <map>
+#include <atomic>
 
 namespace kctsb {
 namespace fhe {
 namespace bgv {
+
+// Forward declaration
+class BGVContext;
+
+/**
+ * @brief RAII guard for NTL modulus context protection
+ * 
+ * Saves the current ZZ_p modulus on construction and restores it on destruction.
+ * This prevents "modulus pollution" when switching between different BGV contexts
+ * or when BGV operations are called from code with different modulus expectations.
+ * 
+ * @security v4.6.0: Implements Chapter 6.1 recommendation - explicit modulus protection
+ * 
+ * Usage:
+ * @code
+ * void some_bgv_operation() {
+ *     ModulusGuard guard(ciphertext_modulus_);  // Saves current, sets new
+ *     // ... operations using ciphertext_modulus_ ...
+ * }  // guard destructor restores original modulus
+ * @endcode
+ */
+class ModulusGuard {
+public:
+    /**
+     * @brief Construct guard with specific modulus
+     * @param q New modulus to set (must be > 1)
+     */
+    explicit ModulusGuard(const ZZ& q);
+    
+    /**
+     * @brief Destructor - restores original modulus
+     */
+    ~ModulusGuard();
+    
+    // Non-copyable, non-movable (RAII semantics)
+    ModulusGuard(const ModulusGuard&) = delete;
+    ModulusGuard& operator=(const ModulusGuard&) = delete;
+    ModulusGuard(ModulusGuard&&) = delete;
+    ModulusGuard& operator=(ModulusGuard&&) = delete;
+
+private:
+    ZZ_pBak backup_;  ///< Saved modulus state
+};
 
 /**
  * @brief BGV Secret Key
@@ -31,6 +78,8 @@ namespace bgv {
  * 
  * IMPORTANT: Coefficients are stored as ZZ (not ZZ_p) to avoid
  * dependency on NTL's global modulus state.
+ * 
+ * @security v4.6.0: Added context-aware power caching with version validation
  */
 class BGVSecretKey {
 public:
@@ -48,8 +97,24 @@ public:
     /// Polynomial degree
     long degree() const;
     
-    /// Powers of secret key (for decryption of higher-degree ciphertexts)
-    const RingElement& power(size_t k) const;
+    /**
+     * @brief Get power of secret key s^k (with context version validation)
+     * @param k Power exponent
+     * @param ctx_version Context version for cache validation
+     * @return Reference to cached s^k
+     * 
+     * @security v4.6.0: Cache is invalidated if context version changes
+     *           (Chapter 6.3 recommendation)
+     */
+    const RingElement& power(size_t k, uint64_t ctx_version = 0) const;
+    
+    /**
+     * @brief Invalidate cached power computations
+     * 
+     * Call this when switching contexts or when the modulus changes.
+     * @security v4.6.0: Part of cache invalidation mechanism
+     */
+    void invalidate_power_cache() const;
     
     /// Serialize (CAUTION: contains secret material)
     std::vector<uint8_t> serialize() const;
@@ -62,6 +127,7 @@ private:
     RingElement s_;                        ///< Secret polynomial (for backward compat)
     std::vector<ZZ> coeffs_;               ///< Modulus-independent coefficients
     mutable std::vector<RingElement> powers_;  ///< Cached powers s^k
+    mutable uint64_t cached_ctx_version_ = 0;  ///< Context version for cache validation
     
     friend class BGVContext;
 };
@@ -155,6 +221,10 @@ private:
  * - Key generation (secret, public, relinearization, Galois)
  * - Encryption and decryption
  * - Ring arithmetic setup
+ * 
+ * @security v4.6.0: Added context versioning for cache invalidation
+ *           (Chapter 6.3 recommendation). Each context instance has a unique
+ *           version number that increases monotonically across all contexts.
  */
 class BGVContext {
 public:
@@ -274,6 +344,22 @@ public:
      */
     bool is_valid(const BGVSecretKey& sk, const BGVCiphertext& ct);
     
+    // ==================== Context Version Control ====================
+    
+    /**
+     * @brief Get unique context version number
+     * @return Monotonically increasing version number
+     * 
+     * @security v4.6.0: Used for cache invalidation (Chapter 6.3)
+     */
+    uint64_t version() const { return version_; }
+    
+    /**
+     * @brief Get the ciphertext modulus for this context
+     * @return Current ciphertext modulus q
+     */
+    const ZZ& modulus() const;
+    
     // ==================== Ring Operations ====================
     
     /**
@@ -313,6 +399,10 @@ public:
 private:
     BGVParams params_;
     ZZ_pX cyclotomic_;      ///< Φ_m(X)
+    uint64_t version_;      ///< Unique context version for cache invalidation
+    
+    /// Global version counter (monotonically increasing)
+    static std::atomic<uint64_t> global_version_counter_;
     
     // RNS components for each level
     struct LevelContext {

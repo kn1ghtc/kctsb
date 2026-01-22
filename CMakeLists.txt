@@ -313,8 +313,9 @@ option(KCTSB_ENABLE_GMP "Enable GMP (required)" ON)
 option(KCTSB_ENABLE_GF2X "Enable gf2x (required for GF2X)" ON)
 
 # Optional dependencies (仅 benchmark 对比使用)
-option(KCTSB_ENABLE_SEAL "Enable Microsoft SEAL (benchmark only)" OFF)
-option(KCTSB_ENABLE_HELIB "Enable HElib (benchmark only)" OFF)
+# v4.6.0: Enable SEAL/HElib for performance comparison benchmarks
+option(KCTSB_ENABLE_SEAL "Enable Microsoft SEAL (benchmark only)" ON)
+option(KCTSB_ENABLE_HELIB "Enable HElib (benchmark only)" ON)
 
 # Benchmark-only dependency
 option(KCTSB_ENABLE_OPENSSL "Enable OpenSSL (benchmarks only)" ON)
@@ -449,65 +450,99 @@ endif()
 
 # -----------------------------------------------------------------------------
 # SEAL Detection (Optional)
+# Priority: 1) deps/SEAL source, 2) thirdparty prebuilt
 # -----------------------------------------------------------------------------
 if(KCTSB_ENABLE_SEAL)
+    # First try deps/SEAL source directory (contains headers)
     find_path(SEAL_INCLUDE_DIRS seal/seal.h
-        HINTS "${KCTSB_THIRDPARTY_PLATFORM_DIR}/include/SEAL-4.1"
+        HINTS "${CMAKE_CURRENT_SOURCE_DIR}/deps/SEAL/native/src"
+              "${KCTSB_THIRDPARTY_PLATFORM_DIR}/include/SEAL-4.1"
               "${KCTSB_THIRDPARTY_DIR}/include/SEAL-4.1")
     
-    find_library(SEAL_LIBRARY NAMES seal-4.1 seal
+    find_library(SEAL_LIBRARY NAMES seal-4.1 seal libseal-4.1
         HINTS "${KCTSB_THIRDPARTY_PLATFORM_DIR}/lib"
-              "${KCTSB_THIRDPARTY_DIR}/lib")
+              "${KCTSB_THIRDPARTY_DIR}/lib"
+              "${CMAKE_CURRENT_SOURCE_DIR}/deps/SEAL/build/lib")
     
     if(SEAL_INCLUDE_DIRS AND SEAL_LIBRARY)
         set(SEAL_FOUND TRUE)
-        message(STATUS "✓ SEAL found: ${SEAL_LIBRARY}")
-        add_definitions(-DKCTSB_HAS_SEAL)
+        message(STATUS "✓ SEAL found:")
+        message(STATUS "  - Include: ${SEAL_INCLUDE_DIRS}")
+        message(STATUS "  - Library: ${SEAL_LIBRARY}")
+        # NOTE: Don't use global add_definitions() - SEAL headers require config.h
+        # which is generated during SEAL build. Each target that uses SEAL should
+        # explicitly add KCTSB_HAS_SEAL definition only after verifying config.h exists.
+        # add_definitions(-DKCTSB_HAS_SEAL)  # DISABLED - see note above
         
         if(NOT TARGET SEAL::seal)
             get_filename_component(SEAL_LIB_EXT "${SEAL_LIBRARY}" EXT)
             if(SEAL_LIB_EXT STREQUAL ".a" OR SEAL_LIB_EXT STREQUAL ".lib")
-                add_library(SEAL::seal STATIC IMPORTED)
+                add_library(SEAL::seal STATIC IMPORTED GLOBAL)
+                # For MinGW static libraries, use IMPORTED_LOCATION directly
+                set_target_properties(SEAL::seal PROPERTIES
+                    IMPORTED_LOCATION "${SEAL_LIBRARY}"
+                    INTERFACE_INCLUDE_DIRECTORIES "${SEAL_INCLUDE_DIRS}"
+                    IMPORTED_LINK_INTERFACE_LANGUAGES "CXX")
             else()
-                add_library(SEAL::seal SHARED IMPORTED)
+                add_library(SEAL::seal SHARED IMPORTED GLOBAL)
+                set_target_properties(SEAL::seal PROPERTIES
+                    IMPORTED_LOCATION "${SEAL_LIBRARY}"
+                    INTERFACE_INCLUDE_DIRECTORIES "${SEAL_INCLUDE_DIRS}")
             endif()
-            set_target_properties(SEAL::seal PROPERTIES
-                IMPORTED_LOCATION "${SEAL_LIBRARY}"
-                INTERFACE_INCLUDE_DIRECTORIES "${SEAL_INCLUDE_DIRS}")
         endif()
     else()
         message(STATUS "⚠ SEAL not found (optional)")
+        message(STATUS "  - Include search: ${CMAKE_CURRENT_SOURCE_DIR}/deps/SEAL/native/src")
+        message(STATUS "  - Library search: ${KCTSB_THIRDPARTY_PLATFORM_DIR}/lib")
         set(KCTSB_ENABLE_SEAL OFF)
     endif()
 endif()
 
 # -----------------------------------------------------------------------------
 # HElib Detection (Optional)
+# Priority: 1) deps/HElib source, 2) thirdparty prebuilt
 # -----------------------------------------------------------------------------
 if(KCTSB_ENABLE_HELIB)
-    kctsb_find_thirdparty_inc(HELIB_INCLUDE_DIRS helib/helib.h)
-    find_library(HELIB_LIBRARY NAMES helib
+    # First try deps/HElib source directory (contains headers)
+    find_path(HELIB_INCLUDE_DIRS helib/helib.h
+        HINTS "${CMAKE_CURRENT_SOURCE_DIR}/deps/HElib/include"
+              "${KCTSB_THIRDPARTY_PLATFORM_DIR}/include")
+    
+    find_library(HELIB_LIBRARY NAMES helib libhelib
         HINTS "${KCTSB_THIRDPARTY_PLATFORM_DIR}/lib"
-              "${KCTSB_THIRDPARTY_DIR}/lib")
+              "${KCTSB_THIRDPARTY_DIR}/lib"
+              "${CMAKE_CURRENT_SOURCE_DIR}/deps/HElib/build/lib")
     
     if(HELIB_INCLUDE_DIRS AND HELIB_LIBRARY)
         set(HELIB_FOUND TRUE)
-        message(STATUS "✓ HElib found: ${HELIB_LIBRARY}")
-        add_definitions(-DKCTSB_HAS_HELIB)
+        message(STATUS "✓ HElib found:")
+        message(STATUS "  - Include: ${HELIB_INCLUDE_DIRS}")
+        message(STATUS "  - Library: ${HELIB_LIBRARY}")
+        # NOTE: Don't use global add_definitions() - HElib headers may require
+        # additional build-time generated files. Each target that uses HElib should
+        # explicitly add KCTSB_HAS_HELIB definition.
+        # add_definitions(-DKCTSB_HAS_HELIB)  # DISABLED - see note above
         
         if(NOT TARGET helib::helib)
             get_filename_component(HELIB_LIB_EXT "${HELIB_LIBRARY}" EXT)
             if(HELIB_LIB_EXT STREQUAL ".a" OR HELIB_LIB_EXT STREQUAL ".lib")
-                add_library(helib::helib STATIC IMPORTED)
+                add_library(helib::helib STATIC IMPORTED GLOBAL)
+                # For MinGW static libraries, use IMPORTED_LOCATION directly
+                set_target_properties(helib::helib PROPERTIES
+                    IMPORTED_LOCATION "${HELIB_LIBRARY}"
+                    INTERFACE_INCLUDE_DIRECTORIES "${HELIB_INCLUDE_DIRS}"
+                    IMPORTED_LINK_INTERFACE_LANGUAGES "CXX")
             else()
-                add_library(helib::helib SHARED IMPORTED)
+                add_library(helib::helib SHARED IMPORTED GLOBAL)
+                set_target_properties(helib::helib PROPERTIES
+                    IMPORTED_LOCATION "${HELIB_LIBRARY}"
+                    INTERFACE_INCLUDE_DIRECTORIES "${HELIB_INCLUDE_DIRS}")
             endif()
-            set_target_properties(helib::helib PROPERTIES
-                IMPORTED_LOCATION "${HELIB_LIBRARY}"
-                INTERFACE_INCLUDE_DIRECTORIES "${HELIB_INCLUDE_DIRS}")
         endif()
     else()
         message(STATUS "⚠ HElib not found (optional)")
+        message(STATUS "  - Include search: ${CMAKE_CURRENT_SOURCE_DIR}/deps/HElib/include")
+        message(STATUS "  - Library search: ${KCTSB_THIRDPARTY_PLATFORM_DIR}/lib")
         set(KCTSB_ENABLE_HELIB OFF)
     endif()
 endif()
@@ -689,10 +724,13 @@ set(KCTSB_ADVANCED_SOURCES
 )
 
 # PSI sources
+# Note: seal_pir.cpp requires SEAL headers to be built first (generates config.h)
+# For now, only include piano_psi.cpp which has no external dependencies
 set(KCTSB_PSI_SOURCES ${KCTSB_SRC_DIR}/advanced/psi/piano_psi.cpp)
-if(KCTSB_ENABLE_SEAL AND SEAL_FOUND)
-    list(APPEND KCTSB_PSI_SOURCES ${KCTSB_SRC_DIR}/advanced/psi/seal_pir.cpp)
-endif()
+# TODO: Enable seal_pir.cpp after SEAL is properly built with config.h
+# if(KCTSB_ENABLE_SEAL AND SEAL_FOUND AND EXISTS "${SEAL_INCLUDE_DIRS}/seal/util/config.h")
+#     list(APPEND KCTSB_PSI_SOURCES ${KCTSB_SRC_DIR}/advanced/psi/seal_pir.cpp)
+# endif()
 list(APPEND KCTSB_ADVANCED_SOURCES ${KCTSB_PSI_SOURCES})
 
 # FE sources - BGV is native, HElib only for comparison benchmarks
@@ -712,13 +750,15 @@ else()
 endif()
 
 # Legacy FE sources (require HElib for comparison only)
-if(KCTSB_ENABLE_HELIB AND HELIB_FOUND)
-    set(KCTSB_FE_LEGACY_SOURCES
-        ${KCTSB_SRC_DIR}/advanced/fe/kc_fe.cpp
-        ${KCTSB_SRC_DIR}/advanced/fe/gentryHE_int.cpp
-    )
-    list(APPEND KCTSB_ADVANCED_SOURCES ${KCTSB_FE_LEGACY_SOURCES})
-endif()
+# Note: These files require HElib headers which need HElib to be built first
+# Disabled until HElib is properly built
+# if(KCTSB_ENABLE_HELIB AND HELIB_FOUND AND EXISTS "${HELIB_INCLUDE_DIRS}/helib/helib.h")
+#     set(KCTSB_FE_LEGACY_SOURCES
+#         ${KCTSB_SRC_DIR}/advanced/fe/kc_fe.cpp
+#         ${KCTSB_SRC_DIR}/advanced/fe/gentryHE_int.cpp
+#     )
+#     list(APPEND KCTSB_ADVANCED_SOURCES ${KCTSB_FE_LEGACY_SOURCES})
+# endif()
 
 # Utils
 file(GLOB_RECURSE KCTSB_UTIL_SOURCES ${KCTSB_SRC_DIR}/utils/*.cpp)
@@ -785,16 +825,18 @@ if(KCTSB_BUILD_STATIC)
         target_link_libraries(kctsb_static PUBLIC gf2x::gf2x)
     endif()
     
-    # Dynamic dependencies (SEAL, HElib as shared)
+    # Dynamic dependencies (SEAL, HElib - use library path directly for MinGW compatibility)
     if(KCTSB_ENABLE_SEAL AND SEAL_FOUND)
         target_include_directories(kctsb_static PUBLIC ${SEAL_INCLUDE_DIRS})
-        target_link_libraries(kctsb_static PUBLIC SEAL::seal)
+        # Use library path directly instead of IMPORTED target for MinGW static libs
+        target_link_libraries(kctsb_static PUBLIC "${SEAL_LIBRARY}")
         if(WIN32)
             target_link_libraries(kctsb_static PRIVATE bcrypt)
         endif()
     endif()
     if(KCTSB_ENABLE_HELIB AND HELIB_FOUND)
-        target_link_libraries(kctsb_static PUBLIC helib::helib)
+        # Use library path directly instead of IMPORTED target
+        target_link_libraries(kctsb_static PUBLIC "${HELIB_LIBRARY}")
     endif()
     
     # Platform libraries
@@ -840,10 +882,12 @@ if(KCTSB_BUILD_SHARED)
     endif()
     if(KCTSB_ENABLE_SEAL AND SEAL_FOUND)
         target_include_directories(kctsb_shared PUBLIC ${SEAL_INCLUDE_DIRS})
-        target_link_libraries(kctsb_shared PUBLIC SEAL::seal)
+        # Use library path directly for MinGW compatibility
+        target_link_libraries(kctsb_shared PUBLIC "${SEAL_LIBRARY}")
     endif()
     if(KCTSB_ENABLE_HELIB AND HELIB_FOUND)
-        target_link_libraries(kctsb_shared PUBLIC helib::helib)
+        # Use library path directly for MinGW compatibility
+        target_link_libraries(kctsb_shared PUBLIC "${HELIB_LIBRARY}")
     endif()
     if(APPLE)
         target_link_libraries(kctsb_shared PRIVATE "-framework Security")
