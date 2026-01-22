@@ -417,9 +417,9 @@ public:
 
 ---
 
-## 5. 演进路线图
+## 5. 演进路线图 4.6.0
 
-### Phase 1: BGV 基础 (v4.6.0)
+### Phase 1: BGV 基础
 
 - [ ] NTT 核心实现 + AVX2 加速
 - [ ] RNS 基转换
@@ -429,21 +429,21 @@ public:
 - [ ] 单元测试 (NIST 测试向量)
 - [ ] Benchmark vs SEAL BGV
 
-### Phase 2: BFV + PIR (v4.6.1)
+### Phase 2: BFV + PIR 
 
 - [ ] BFV 方案实现
 - [ ] Native PIR (替代 SEAL-PIR)
 - [ ] BatchEncoder (SIMD 批量处理)
 - [ ] 性能优化 (目标: SEAL 80%)
 
-### Phase 3: CKKS + PSI (v4.6.2)
+### Phase 3: CKKS + PSI 
 
 - [ ] CKKS 编码器
 - [ ] CKKS rescale
 - [ ] OT-based PSI
 - [ ] 完整 PSI/PIR 测试套件
 
-### Phase 4: 生产加固 (v4.6.3)
+### Phase 4: 生产加固
 
 - [ ] 安全审计
 - [ ] API 稳定化

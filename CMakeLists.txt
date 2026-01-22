@@ -742,6 +742,7 @@ if(KCTSB_ENABLE_BGV)
     set(KCTSB_NTT_SOURCES
         ${KCTSB_SRC_DIR}/advanced/fe/common/ntt.cpp
         ${KCTSB_SRC_DIR}/advanced/fe/common/rns.cpp
+        ${KCTSB_SRC_DIR}/advanced/fe/common/ntt_poly_ops.cpp
     )
     
     # BGV-specific sources

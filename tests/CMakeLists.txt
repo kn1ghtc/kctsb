@@ -306,6 +306,25 @@ if(KCTSB_ENABLE_BGV)
     )
     gtest_discover_tests(test_rns PROPERTIES LABELS "unit;fhe;rns")
     
+    # NTT Polynomial Operations tests (v4.6.0 Phase 1)
+    add_executable(test_ntt_poly_ops unit/fhe/test_ntt_poly_ops.cpp)
+    if(TARGET kctsb_static)
+        target_link_libraries(test_ntt_poly_ops PRIVATE
+            kctsb_static
+            GTest::gtest_main
+        )
+    else()
+        target_link_libraries(test_ntt_poly_ops PRIVATE
+            kctsb
+            GTest::gtest_main
+        )
+    endif()
+    target_include_directories(test_ntt_poly_ops PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/src
+    )
+    gtest_discover_tests(test_ntt_poly_ops PROPERTIES LABELS "unit;fhe;ntt_poly_ops")
+    
     # BGV Homomorphic Encryption tests (v4.2.0)
     add_executable(test_bgv unit/fhe/test_bgv.cpp)
     # BGV requires static library for full NTL/bignum access

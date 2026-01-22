@@ -3,6 +3,7 @@
  * @brief BGV Homomorphic Evaluation Implementation
  * 
  * Implements homomorphic arithmetic operations on BGV ciphertexts.
+ * v4.6.0: Added NTT acceleration for polynomial multiplication.
  * 
  * @author knightc
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
@@ -10,6 +11,7 @@
  */
 
 #include "kctsb/advanced/fe/bgv/bgv_evaluator.hpp"
+#include "kctsb/advanced/fe/bgv/bgv_ntt_helper.hpp"
 #include <stdexcept>
 #include <algorithm>
 
@@ -182,14 +184,54 @@ void BGVEvaluator::negate_inplace(BGVCiphertext& ct) const {
 // Multiplication Operations
 // ============================================================================
 
+/**
+ * @brief Helper to multiply two polynomials with optional NTT acceleration
+ * 
+ * Uses NTT O(n log n) when RNS primes are available and NTT-compatible,
+ * otherwise falls back to schoolbook O(n²) multiplication.
+ * 
+ * @note v4.6.0: NTT infrastructure ready, but disabled pending full RNS-CRT implementation.
+ *       Single-prime NTT is mathematically incorrect for multi-prime q = prod(q_i).
+ */
+[[maybe_unused]]
+static ZZ_pX multiply_poly_accelerated(
+    const ZZ_pX& a,
+    const ZZ_pX& b,
+    size_t n,
+    uint64_t prime,
+    const ZZ_pX& cyclotomic,
+    bool use_ntt)
+{
+    if (use_ntt) {
+        // NTT-accelerated multiplication O(n log n)
+        return multiply_ntt(a, b, n, prime);
+    } else {
+        // Fallback: schoolbook multiplication O(n²)
+        ZZ_pX product;
+        PlainMul(product, a, b);
+        PlainRem(product, product, cyclotomic);
+        return product;
+    }
+}
+
 BGVCiphertext BGVEvaluator::multiply(const BGVCiphertext& ct1,
                                       const BGVCiphertext& ct2) const {
     if (!is_compatible(ct1, ct2)) {
         throw std::invalid_argument("Ciphertexts not compatible");
     }
     
+    const auto& params = context_.params();
+    
+    // TODO v4.6.0: Enable NTT acceleration once full RNS-CRT is implemented
+    // Current issue: Single-prime NTT loses information when q = prod(q_i)
+    // Correct approach requires:
+    // 1. Convert polynomial to RNS representation (one per prime)
+    // 2. NTT multiply in each RNS level independently  
+    // 3. CRT reconstruct back to coefficient mod full q
+    // For now, use schoolbook multiplication which is correct but O(n²)
+    
     // CRITICAL: Set the modulus context before polynomial operations
-    ZZ_p::init(context_.params().q);
+    ZZ_p::init(params.q);
     
     // Result has size = ct1.size() + ct2.size() - 1
     // For fresh ciphertexts: 2 + 2 - 1 = 3 components
@@ -201,7 +243,6 @@ BGVCiphertext BGVEvaluator::multiply(const BGVCiphertext& ct1,
     }
     
     // Convert ciphertext polynomials to current modulus context
-    // This ensures coefficients are correctly interpreted mod q
     std::vector<ZZ_pX> ct1_q(ct1.size()), ct2_q(ct2.size());
     for (size_t i = 0; i < ct1.size(); i++) {
         for (long j = 0; j <= ct1[i].degree(); j++) {
