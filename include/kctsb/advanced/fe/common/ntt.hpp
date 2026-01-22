@@ -8,7 +8,7 @@
  * Implements:
  * - Cooley-Tukey FFT algorithm with NTT primes
  * - Barrett reduction for modular arithmetic
- * - Optional AVX2 vectorization (4x parallel uint64_t)
+ * - AVX2 vectorization for 4x parallel uint64_t operations
  * 
  * @author knightc
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
@@ -23,6 +23,12 @@
 #include <cstddef>
 #include <vector>
 #include <memory>
+
+// Detect AVX2 support
+#if defined(__AVX2__) && defined(__x86_64__)
+    #define KCTSB_HAS_AVX2 1
+    #include <immintrin.h>
+#endif
 
 namespace kctsb {
 namespace fhe {
@@ -109,6 +115,64 @@ uint64_t pow_mod(uint64_t base, uint64_t exp, uint64_t q);
  * @throws std::invalid_argument if gcd(a, q) != 1
  */
 uint64_t inv_mod(uint64_t a, uint64_t q);
+
+// ============================================================================
+// AVX2 Vectorized Operations (4x parallel uint64_t)
+// ============================================================================
+
+#ifdef KCTSB_HAS_AVX2
+
+/**
+ * @brief AVX2 vectorized modular addition (4 elements in parallel)
+ * @param a First operand (4 x uint64_t, each < q)
+ * @param b Second operand (4 x uint64_t, each < q)
+ * @param q Modulus (broadcasted)
+ * @return (a + b) mod q for each lane
+ */
+inline __m256i add_mod_avx2(__m256i a, __m256i b, __m256i q) {
+    __m256i sum = _mm256_add_epi64(a, b);
+    // Create mask: sum >= q
+    __m256i mask = _mm256_or_si256(
+        _mm256_cmpgt_epi64(sum, q),
+        _mm256_cmpeq_epi64(sum, q)
+    );
+    // Subtract q if sum >= q
+    __m256i diff = _mm256_sub_epi64(sum, q);
+    return _mm256_blendv_epi8(sum, diff, mask);
+}
+
+/**
+ * @brief AVX2 vectorized modular subtraction (4 elements in parallel)
+ * @param a First operand (4 x uint64_t, each < q)
+ * @param b Second operand (4 x uint64_t, each < q)
+ * @param q Modulus (broadcasted)
+ * @return (a - b) mod q for each lane
+ */
+inline __m256i sub_mod_avx2(__m256i a, __m256i b, __m256i q) {
+    __m256i diff = _mm256_sub_epi64(a, b);
+    // Create mask: a < b (need to add q)
+    __m256i mask = _mm256_cmpgt_epi64(b, a);
+    // Add q if a < b
+    __m256i sum = _mm256_add_epi64(diff, q);
+    return _mm256_blendv_epi8(diff, sum, mask);
+}
+
+/**
+ * @brief AVX2 vectorized modular multiplication (4 elements in parallel)
+ * 
+ * Uses Barrett reduction approximation for fast modular multiplication.
+ * Note: This is a simplified version that works for moduli < 2^32.
+ * For larger moduli, fall back to scalar mul_mod_barrett.
+ * 
+ * @param a First operand (4 x uint64_t, each < q)
+ * @param b Second operand (4 x uint64_t, each < q)
+ * @param q Modulus (broadcasted)
+ * @param mu Barrett constant (broadcasted)
+ * @return (a * b) mod q for each lane
+ */
+__m256i mul_mod_avx2(__m256i a, __m256i b, __m256i q, __m256i mu);
+
+#endif  // KCTSB_HAS_AVX2
 
 // ============================================================================
 // Primitive Root Finding
@@ -242,6 +306,36 @@ public:
      * @param data Input/output array of n evaluations
      */
     void inverse_negacyclic(uint64_t* data) const;
+    
+#ifdef KCTSB_HAS_AVX2
+    /**
+     * @brief AVX2-accelerated forward NTT
+     * 
+     * Uses AVX2 SIMD for 4x parallel butterfly operations.
+     * Falls back to scalar for n < 8 or non-aligned data.
+     * 
+     * @param data Input/output array (must be 32-byte aligned for best performance)
+     */
+    void forward_avx2(uint64_t* data) const;
+    
+    /**
+     * @brief AVX2-accelerated inverse NTT
+     * @param data Input/output array
+     */
+    void inverse_avx2(uint64_t* data) const;
+    
+    /**
+     * @brief AVX2-accelerated negacyclic forward NTT
+     * @param data Input/output array
+     */
+    void forward_negacyclic_avx2(uint64_t* data) const;
+    
+    /**
+     * @brief AVX2-accelerated negacyclic inverse NTT
+     * @param data Input/output array
+     */
+    void inverse_negacyclic_avx2(uint64_t* data) const;
+#endif  // KCTSB_HAS_AVX2
 
 private:
     size_t n_;                       ///< Polynomial degree
@@ -359,6 +453,41 @@ void poly_multiply_negacyclic_ntt_inplace(
     const uint64_t* b,
     size_t n,
     uint64_t q);
+
+#ifdef KCTSB_HAS_AVX2
+
+/**
+ * @brief AVX2-accelerated negacyclic polynomial multiplication
+ * 
+ * Uses AVX2 SIMD for both NTT and pointwise multiplication.
+ * Best performance for n >= 8 and 32-byte aligned data.
+ * 
+ * @param a First polynomial coefficients
+ * @param b Second polynomial coefficients  
+ * @param n Polynomial degree (power of 2)
+ * @param q Modulus
+ * @return Result polynomial
+ */
+std::vector<uint64_t> poly_multiply_negacyclic_ntt_avx2(
+    const uint64_t* a,
+    const uint64_t* b,
+    size_t n,
+    uint64_t q);
+
+/**
+ * @brief AVX2-accelerated in-place negacyclic multiplication
+ * @param a First polynomial (input/output)
+ * @param b Second polynomial (input only)
+ * @param n Polynomial degree
+ * @param q Modulus
+ */
+void poly_multiply_negacyclic_ntt_inplace_avx2(
+    uint64_t* a,
+    const uint64_t* b,
+    size_t n,
+    uint64_t q);
+
+#endif  // KCTSB_HAS_AVX2
 
 }  // namespace ntt
 }  // namespace fhe

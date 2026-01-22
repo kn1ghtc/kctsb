@@ -459,6 +459,153 @@ TEST(NTTPerformanceTest, LargerDegree) {
 }
 
 // ============================================================================
+// AVX2 Tests (Conditional Compilation)
+// ============================================================================
+
+#ifdef KCTSB_HAS_AVX2
+
+TEST(NTTAvx2Test, AddModAvx2) {
+    uint64_t q = 65537;
+    __m256i q_vec = _mm256_set1_epi64x(static_cast<int64_t>(q));
+    
+    // Test add_mod_avx2
+    alignas(32) uint64_t a_arr[4] = {1000, 60000, 65530, 32768};
+    alignas(32) uint64_t b_arr[4] = {2000, 6000, 10, 32769};
+    
+    __m256i a = _mm256_load_si256(reinterpret_cast<const __m256i*>(a_arr));
+    __m256i b = _mm256_load_si256(reinterpret_cast<const __m256i*>(b_arr));
+    
+    __m256i result = add_mod_avx2(a, b, q_vec);
+    
+    alignas(32) uint64_t result_arr[4];
+    _mm256_store_si256(reinterpret_cast<__m256i*>(result_arr), result);
+    
+    for (int i = 0; i < 4; ++i) {
+        EXPECT_EQ(result_arr[i], add_mod(a_arr[i], b_arr[i], q)) 
+            << "AddMod mismatch at lane " << i;
+    }
+}
+
+TEST(NTTAvx2Test, SubModAvx2) {
+    uint64_t q = 65537;
+    __m256i q_vec = _mm256_set1_epi64x(static_cast<int64_t>(q));
+    
+    // Test sub_mod_avx2  
+    alignas(32) uint64_t a_arr[4] = {1000, 60000, 5, 0};
+    alignas(32) uint64_t b_arr[4] = {500, 61000, 10, 1};
+    
+    __m256i a = _mm256_load_si256(reinterpret_cast<const __m256i*>(a_arr));
+    __m256i b = _mm256_load_si256(reinterpret_cast<const __m256i*>(b_arr));
+    
+    __m256i result = sub_mod_avx2(a, b, q_vec);
+    
+    alignas(32) uint64_t result_arr[4];
+    _mm256_store_si256(reinterpret_cast<__m256i*>(result_arr), result);
+    
+    for (int i = 0; i < 4; ++i) {
+        EXPECT_EQ(result_arr[i], sub_mod(a_arr[i], b_arr[i], q))
+            << "SubMod mismatch at lane " << i;
+    }
+}
+
+TEST(NTTAvx2Test, ForwardInverseIdentity) {
+    size_t n = 16;
+    uint64_t q = TEST_PRIME_257;
+    
+    const NTTTable& ntt = NTTTableCache::instance().get(n, q);
+    
+    std::vector<uint64_t> original = {1, 2, 3, 4, 5, 6, 7, 8, 
+                                       9, 10, 11, 12, 13, 14, 15, 16};
+    std::vector<uint64_t> data = original;
+    
+    ntt.forward_avx2(data.data());
+    ntt.inverse_avx2(data.data());
+    
+    for (size_t i = 0; i < n; ++i) {
+        EXPECT_EQ(data[i], original[i]) << "AVX2 identity mismatch at index " << i;
+    }
+}
+
+TEST(NTTAvx2Test, NegacyclicForwardInverseIdentity) {
+    size_t n = 32;
+    uint64_t q = TEST_PRIME_257;
+    
+    const NTTTable& ntt = NTTTableCache::instance().get(n, q);
+    
+    std::vector<uint64_t> original(n);
+    for (size_t i = 0; i < n; ++i) {
+        original[i] = i + 1;
+    }
+    std::vector<uint64_t> data = original;
+    
+    ntt.forward_negacyclic_avx2(data.data());
+    ntt.inverse_negacyclic_avx2(data.data());
+    
+    for (size_t i = 0; i < n; ++i) {
+        EXPECT_EQ(data[i], original[i]) << "AVX2 negacyclic identity mismatch at index " << i;
+    }
+}
+
+TEST(NTTAvx2Test, NegacyclicMultiplyMatchesScalar) {
+    size_t n = 64;
+    uint64_t q = TEST_PRIME_257;
+    
+    // Random-ish test data
+    std::vector<uint64_t> a(n), b(n);
+    for (size_t i = 0; i < n; ++i) {
+        a[i] = (i * 123 + 456) % q;
+        b[i] = (i * 789 + 321) % q;
+    }
+    
+    // Scalar NTT
+    auto c_scalar = poly_multiply_negacyclic_ntt(a.data(), b.data(), n, q);
+    
+    // AVX2 NTT
+    auto c_avx2 = poly_multiply_negacyclic_ntt_avx2(a.data(), b.data(), n, q);
+    
+    // Results should match
+    for (size_t i = 0; i < n; ++i) {
+        EXPECT_EQ(c_avx2[i], c_scalar[i]) << "AVX2 multiply mismatch at index " << i;
+    }
+}
+
+TEST(NTTAvx2Test, InplaceNegacyclicMultiply) {
+    size_t n = 128;
+    uint64_t q = TEST_PRIME_LARGE;
+    
+    std::vector<uint64_t> a(n), b(n);
+    for (size_t i = 0; i < n; ++i) {
+        a[i] = (i * 17 + 42) % q;
+        b[i] = (i * 31 + 13) % q;
+    }
+    
+    auto c_ref = poly_multiply_negacyclic_ntt(a.data(), b.data(), n, q);
+    
+    std::vector<uint64_t> a_copy = a;
+    poly_multiply_negacyclic_ntt_inplace_avx2(a_copy.data(), b.data(), n, q);
+    
+    for (size_t i = 0; i < n; ++i) {
+        EXPECT_EQ(a_copy[i], c_ref[i]) << "AVX2 inplace mismatch at index " << i;
+    }
+}
+
+TEST(NTTAvx2Test, LargerDegreePerformance) {
+    // Test with larger degree to exercise more AVX2 code paths
+    size_t n = 1024;
+    uint64_t q = TEST_PRIME_LARGE;
+    
+    std::vector<uint64_t> a(n, 1);
+    std::vector<uint64_t> b(n, 2);
+    
+    EXPECT_NO_THROW({
+        auto c = poly_multiply_negacyclic_ntt_avx2(a.data(), b.data(), n, q);
+        EXPECT_EQ(c.size(), n);
+    });
+}
+
+#endif  // KCTSB_HAS_AVX2
+
+// ============================================================================
 // Main
 // ============================================================================
 
