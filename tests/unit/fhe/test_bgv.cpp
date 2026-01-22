@@ -15,8 +15,15 @@
 #include <random>
 
 #include "kctsb/advanced/fe/bgv/bgv.hpp"
+#include "kctsb/advanced/fe/bgv/bgv_ntt_helper.hpp"  // For RNS-NTT-CRT tests
+#include "kctsb/advanced/fe/common/ntt.hpp"
 
 using namespace kctsb::fhe::bgv;
+using kctsb::ZZ;
+using kctsb::ZZ_p;
+using kctsb::ZZ_pX;
+using kctsb::conv;
+using kctsb::NumBits;
 
 // ============================================================================
 // Test Fixtures
@@ -75,6 +82,25 @@ TEST(BGVParamsTest, CreateStandardParams) {
     EXPECT_TRUE(params.validate());
     EXPECT_EQ(params.t, 65537u);
     EXPECT_EQ(params.L, 4u);  // depth + 1
+}
+
+// Critical test: Q must equal product of primes
+TEST(BGVParamsTest, QEqualsProductOfPrimes) {
+    // Test with SECURITY_128_DEPTH_5
+    auto params = StandardParams::SECURITY_128_DEPTH_5();
+    
+    // Use kctsb::fhe::bgv::to_ZZ to handle uint64_t properly on Windows LLP64
+    using kctsb::fhe::bgv::to_ZZ;
+    
+    // Compute product of primes
+    ZZ product = to_ZZ(1);
+    for (uint64_t p : params.primes) {
+        product *= to_ZZ(p);
+    }
+    
+    EXPECT_EQ(params.primes.size(), static_cast<size_t>(params.L));
+    EXPECT_EQ(NumBits(params.q), NumBits(product));
+    ASSERT_EQ(params.q, product) << "Q must equal product of primes!";
 }
 
 // ============================================================================
@@ -945,6 +971,221 @@ TEST(BGVSecurityTest, AlternatingContextOperations) {
     EXPECT_EQ(res_a, vals[0] * vals[0] + vals[0]) << "Context A corrupted";
     EXPECT_EQ(res_b, vals[1] * vals[1] + vals[1]) << "Context B corrupted";
     EXPECT_EQ(res_c, vals[2] * vals[2] + vals[2]) << "Context C corrupted";
+}
+
+// ============================================================================
+// RNS-NTT-CRT Diagnostic Tests
+// ============================================================================
+
+// Test multiply_rns_ntt_crt function directly
+TEST(BGVNTTCRTTest, DiagnoseRNS_NTT_CRT_WithToyParams) {
+    using namespace kctsb;
+    using namespace kctsb::fhe::bgv;
+    using namespace kctsb::fhe::ntt;
+    
+    auto params = StandardParams::TOY_PARAMS();
+    size_t n = params.n;
+    const auto& primes = params.primes;
+    const ZZ& Q = params.q;
+    
+    std::cerr << "\n=== RNS-NTT-CRT Diagnostic (TOY_PARAMS) ===\n";
+    std::cerr << "n = " << n << "\n";
+    std::cerr << "Primes: ";
+    for (auto p : primes) std::cerr << p << " ";
+    std::cerr << "\nQ = " << Q << "\n";
+    
+    // Create simple polynomials: a = 1 + x, b = 1 + x
+    ZZ_p::init(Q);
+    ZZ_pX a, b;
+    SetCoeff(a, 0, conv<ZZ_p>(1));
+    SetCoeff(a, 1, conv<ZZ_p>(1));
+    SetCoeff(b, 0, conv<ZZ_p>(1));
+    SetCoeff(b, 1, conv<ZZ_p>(1));
+    
+    // NTT-CRT multiplication
+    auto result_ntt = multiply_rns_ntt_crt(a, b, n, primes, Q);
+    
+    // Schoolbook reference
+    ZZ_pX cyclotomic;
+    SetCoeff(cyclotomic, 0, conv<ZZ_p>(1));
+    SetCoeff(cyclotomic, n, conv<ZZ_p>(1));
+    
+    ZZ_pX result_ref;
+    PlainMul(result_ref, a, b);
+    PlainRem(result_ref, result_ref, cyclotomic);
+    
+    // Compare
+    bool match = true;
+    for (long i = 0; i < static_cast<long>(n); ++i) {
+        ZZ coef_ntt = IsZero(coeff(result_ntt, i)) ? ZZ(0) : rep(coeff(result_ntt, i));
+        ZZ coef_ref = IsZero(coeff(result_ref, i)) ? ZZ(0) : rep(coeff(result_ref, i));
+        if (coef_ntt != coef_ref) {
+            if (match) {
+                std::cerr << "Mismatches found:\n";
+            }
+            std::cerr << "  coef[" << i << "]: NTT=" << coef_ntt << ", REF=" << coef_ref << "\n";
+            match = false;
+        }
+    }
+    
+    EXPECT_TRUE(match) << "RNS-NTT-CRT result differs from schoolbook reference";
+}
+
+TEST(BGVNTTCRTTest, DiagnoseRNS_NTT_CRT_WithSecurity128) {
+    using namespace kctsb;
+    using namespace kctsb::fhe::bgv;
+    using namespace kctsb::fhe::ntt;
+    
+    auto params = StandardParams::SECURITY_128_DEPTH_5();
+    size_t n = params.n;
+    const auto& primes = params.primes;
+    const ZZ& Q = params.q;
+    
+    std::cerr << "\n=== RNS-NTT-CRT Diagnostic (SECURITY_128) ===\n";
+    std::cerr << "n = " << n << "\n";
+    std::cerr << "Primes: ";
+    for (auto p : primes) std::cerr << p << " ";
+    std::cerr << "\nQ bits = " << NumBits(Q) << "\n";
+    
+    // Create simple polynomials: a = 1 + x, b = 1 + x
+    ZZ_p::init(Q);
+    ZZ_pX a, b;
+    SetCoeff(a, 0, conv<ZZ_p>(1));
+    SetCoeff(a, 1, conv<ZZ_p>(1));
+    SetCoeff(b, 0, conv<ZZ_p>(1));
+    SetCoeff(b, 1, conv<ZZ_p>(1));
+    
+    // NTT-CRT multiplication
+    std::cerr << "Running NTT-CRT multiply...\n";
+    auto result_ntt = multiply_rns_ntt_crt(a, b, n, primes, Q);
+    
+    // Expected: (1+x)^2 = 1 + 2x + x^2
+    std::cerr << "Checking result coefficients...\n";
+    
+    ZZ coef0 = IsZero(coeff(result_ntt, 0)) ? ZZ(0) : rep(coeff(result_ntt, 0));
+    ZZ coef1 = IsZero(coeff(result_ntt, 1)) ? ZZ(0) : rep(coeff(result_ntt, 1));
+    ZZ coef2 = IsZero(coeff(result_ntt, 2)) ? ZZ(0) : rep(coeff(result_ntt, 2));
+    
+    std::cerr << "coef[0] = " << coef0 << " (expected 1)\n";
+    std::cerr << "coef[1] = " << coef1 << " (expected 2)\n";
+    std::cerr << "coef[2] = " << coef2 << " (expected 1)\n";
+    
+    EXPECT_EQ(coef0, ZZ(1)) << "Constant term should be 1";
+    EXPECT_EQ(coef1, ZZ(2)) << "x term should be 2";
+    EXPECT_EQ(coef2, ZZ(1)) << "x^2 term should be 1";
+}
+
+// Test with random large polynomials 
+TEST(BGVNTTCRTTest, RandomPolynomialMultiply) {
+    using namespace kctsb;
+    using namespace kctsb::fhe::bgv;
+    using namespace kctsb::fhe::ntt;
+    
+    auto params = StandardParams::SECURITY_128_DEPTH_5();
+    size_t n = params.n;
+    const auto& primes = params.primes;
+    const ZZ& Q = params.q;
+    
+    std::cerr << "\n=== Random Polynomial Multiply Test (positive only) ===\n";
+    
+    // Create random polynomials with POSITIVE small coefficients only
+    ZZ_p::init(Q);
+    ZZ_pX a, b;
+    std::mt19937 rng(42);
+    std::uniform_int_distribution<int> dist(0, 100);  // Only positive!
+    
+    for (size_t i = 0; i < 10; ++i) {
+        SetCoeff(a, i, conv<ZZ_p>(to_ZZ(dist(rng))));
+    }
+    for (size_t i = 0; i < 10; ++i) {
+        SetCoeff(b, i, conv<ZZ_p>(to_ZZ(dist(rng))));
+    }
+    
+    // NTT-CRT multiplication
+    auto result_ntt = multiply_rns_ntt_crt(a, b, n, primes, Q);
+    
+    // Schoolbook reference
+    ZZ_pX cyclotomic;
+    SetCoeff(cyclotomic, 0, conv<ZZ_p>(1));
+    SetCoeff(cyclotomic, n, conv<ZZ_p>(1));
+    
+    ZZ_pX result_ref;
+    PlainMul(result_ref, a, b);
+    PlainRem(result_ref, result_ref, cyclotomic);
+    
+    // Compare first 20 coefficients
+    int mismatches = 0;
+    for (long i = 0; i < 20; ++i) {
+        ZZ coef_ntt = IsZero(coeff(result_ntt, i)) ? ZZ(0) : rep(coeff(result_ntt, i));
+        ZZ coef_ref = IsZero(coeff(result_ref, i)) ? ZZ(0) : rep(coeff(result_ref, i));
+        if (coef_ntt != coef_ref) {
+            std::cerr << "Mismatch at coef[" << i << "]: NTT=" << coef_ntt << ", REF=" << coef_ref << "\n";
+            ++mismatches;
+        }
+    }
+    
+    EXPECT_EQ(mismatches, 0) << "Found " << mismatches << " coefficient mismatches";
+}
+
+// Test with NEGATIVE coefficients (the original failing case)
+TEST(BGVNTTCRTTest, NegativeCoefficientMultiply) {
+    using namespace kctsb::fhe::bgv;
+    using namespace kctsb::fhe::ntt;
+    
+    auto params = StandardParams::SECURITY_128_DEPTH_5();
+    size_t n = params.n;
+    const auto& primes = params.primes;
+    const ZZ& Q = params.q;
+    
+    std::cerr << "\n=== Parameter Verification ===\n";
+    std::cerr << "n = " << n << "\n";
+    std::cerr << "L = " << params.L << "\n";
+    std::cerr << "Number of primes: " << primes.size() << "\n";
+    std::cerr << "Primes:\n";
+    
+    // Verify Q = product of primes - use fully qualified to_ZZ
+    ZZ Q_computed = kctsb::fhe::bgv::to_ZZ(1);
+    for (size_t i = 0; i < primes.size(); ++i) {
+        std::cerr << "  primes[" << i << "] = " << primes[i] << "\n";
+        Q_computed *= kctsb::fhe::bgv::to_ZZ(primes[i]);
+    }
+    
+    std::cerr << "\nQ from params: " << Q << " (" << NumBits(Q) << " bits)\n";
+    std::cerr << "Q from primes: " << Q_computed << " (" << NumBits(Q_computed) << " bits)\n";
+    
+    ASSERT_EQ(Q, Q_computed) << "Q must equal product of primes!";
+    
+    // Simple test: a = -5 (represented as Q-5), b = 3
+    // Expected: a * b = -15 (represented as Q-15)
+    ZZ_p::init(Q);
+    ZZ_pX a, b;
+    
+    // a = Q - 5 (represents -5 in Z_Q)
+    ZZ a_val = Q - kctsb::fhe::bgv::to_ZZ(5);
+    SetCoeff(a, 0, conv<ZZ_p>(a_val));
+    // b = 3
+    SetCoeff(b, 0, conv<ZZ_p>(kctsb::fhe::bgv::to_ZZ(3)));
+    
+    // NTT-CRT multiplication
+    auto result_ntt = multiply_rns_ntt_crt(a, b, n, primes, Q);
+    
+    // Schoolbook reference
+    ZZ_pX cyclotomic;
+    SetCoeff(cyclotomic, 0, conv<ZZ_p>(1));
+    SetCoeff(cyclotomic, n, conv<ZZ_p>(1));
+    
+    ZZ_pX result_ref;
+    PlainMul(result_ref, a, b);
+    PlainRem(result_ref, result_ref, cyclotomic);
+    
+    ZZ coef_ntt = IsZero(coeff(result_ntt, 0)) ? ZZ(0) : rep(coeff(result_ntt, 0));
+    ZZ coef_ref = IsZero(coeff(result_ref, 0)) ? ZZ(0) : rep(coeff(result_ref, 0));
+    
+    // Verify: (Q-5) * 3 = Q*3 - 15 ≡ -15 (mod Q) = Q - 15
+    ZZ expected = Q - kctsb::fhe::bgv::to_ZZ(15);
+    
+    EXPECT_EQ(coef_ntt, expected) << "NTT-CRT should compute (Q-5)*3 = Q-15";
+    EXPECT_EQ(coef_ntt, coef_ref) << "NTT-CRT should match schoolbook for negative numbers";
 }
 
 // ============================================================================

@@ -222,6 +222,22 @@ endif()
 target_include_directories(test_bgv_benchmark PRIVATE ${CMAKE_SOURCE_DIR}/include)
 gtest_discover_tests(test_bgv_benchmark PROPERTIES LABELS "performance;fhe")
 
+# BFV Benchmark Tests (v4.7.0 Phase 2)
+add_executable(test_bfv_benchmark benchmark/test_bfv_benchmark.cpp)
+if(TARGET kctsb_static)
+    target_link_libraries(test_bfv_benchmark PRIVATE
+        kctsb_static
+        GTest::gtest_main
+    )
+else()
+    target_link_libraries(test_bfv_benchmark PRIVATE
+        kctsb
+        GTest::gtest_main
+    )
+endif()
+target_include_directories(test_bfv_benchmark PRIVATE ${CMAKE_SOURCE_DIR}/include)
+gtest_discover_tests(test_bfv_benchmark PROPERTIES LABELS "performance;fhe")
+
 # ============================================================================
 # SECURITY BOUNDARY TESTS - Input validation and overflow protection
 # Label: "unit;security" - Run with: ctest -L security
@@ -368,6 +384,31 @@ if(KCTSB_ENABLE_BGV)
         endif()
     endif()
     gtest_discover_tests(test_bgv PROPERTIES LABELS "unit;fhe;bgv")
+    
+    # BFV Homomorphic Encryption tests (v4.7.0)
+    add_executable(test_bfv unit/fhe/test_bfv.cpp)
+    if(TARGET kctsb_static)
+        target_link_libraries(test_bfv PRIVATE
+            kctsb_static
+            GTest::gtest_main
+        )
+    else()
+        target_link_libraries(test_bfv PRIVATE
+            kctsb
+            GTest::gtest_main
+        )
+    endif()
+    target_include_directories(test_bfv PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/src
+    )
+    if(NTL_FOUND)
+        target_link_libraries(test_bfv PRIVATE ${NTL_LIBRARY})
+        if(GMP_FOUND)
+            target_link_libraries(test_bfv PRIVATE ${GMP_LIBRARY})
+        endif()
+    endif()
+    gtest_discover_tests(test_bfv PROPERTIES LABELS "unit;fhe;bfv")
 endif()
 
 # ============================================================================
@@ -381,7 +422,7 @@ else()
     message(STATUS "  Unit Tests:        test_aes, test_hash, test_sha, test_security_boundaries (bignum disabled)")
 endif()
 if(KCTSB_ENABLE_BGV)
-    message(STATUS "  FHE Tests:         test_bgv (BGV homomorphic encryption)")
+    message(STATUS "  FHE Tests:         test_bgv, test_bfv (BGV/BFV homomorphic encryption)")
 else()
     message(STATUS "  FHE Tests:         (disabled - set KCTSB_ENABLE_BGV=ON)")
 endif()

@@ -751,10 +751,16 @@ if(KCTSB_ENABLE_BGV)
         ${KCTSB_SRC_DIR}/advanced/fe/bgv/bgv_evaluator.cpp
         ${KCTSB_SRC_DIR}/advanced/fe/bgv/bgv_encoder.cpp
     )
-    list(APPEND KCTSB_ADVANCED_SOURCES ${KCTSB_NTT_SOURCES} ${KCTSB_BGV_SOURCES})
-    message(STATUS "✓ Native BGV homomorphic encryption enabled (with NTT acceleration)")
+    
+    # BFV-specific sources (v4.7.0+)
+    set(KCTSB_BFV_SOURCES
+        ${KCTSB_SRC_DIR}/advanced/fe/bfv/bfv_context.cpp
+    )
+    
+    list(APPEND KCTSB_ADVANCED_SOURCES ${KCTSB_NTT_SOURCES} ${KCTSB_BGV_SOURCES} ${KCTSB_BFV_SOURCES})
+    message(STATUS "✓ Native BGV/BFV homomorphic encryption enabled (with NTT acceleration)")
 else()
-    message(STATUS "⚠ Native BGV disabled (set KCTSB_ENABLE_BGV=ON to enable)")
+    message(STATUS "⚠ Native BGV/BFV disabled (set KCTSB_ENABLE_BGV=ON to enable)")
 endif()
 
 # Legacy FE sources (require HElib for comparison only)

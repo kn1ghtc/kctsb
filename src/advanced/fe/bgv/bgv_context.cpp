@@ -161,24 +161,80 @@ BGVParams BGVParams::create_standard(SecurityLevel security,
     }
     
     // Generate NTT-friendly primes: q_i = 1 (mod 2n)
-    // Each prime ~60 bits for efficient modular arithmetic
+    // 
+    // CRITICAL: Use 50-bit primes to avoid overflow in 64-bit multiplication
+    // 60-bit * 60-bit = 120 bits > 64 bits → OVERFLOW!
+    // 50-bit * 50-bit = 100 bits, fits in __uint128_t for Barrett reduction
+    //
+    // For n=8192 (128-bit security, depth 5):
+    // - 2n = 16384
+    // - Need 6 primes of ~50 bits each for depth 5
+    // - Total q ≈ 2^300, sufficient for noise management
+    //
+    // SEAL uses similar approach: multiple ~60-bit primes with __uint128_t arithmetic
+    // We use 50-bit for simpler 64-bit implementation
     params.primes.clear();
-    uint64_t prime_bits = 60;
-    uint64_t candidate = (1ULL << prime_bits) - (1ULL << prime_bits) % (2 * params.n) + 1;
     
-    for (uint32_t i = 0; i < params.L && params.primes.size() < params.L; i++) {
-        // Find next prime = 1 mod 2n
-        while (!ProbPrime(to_ZZ(candidate))) {
-            candidate += 2 * params.n;
+    // Pre-computed NTT-friendly primes for common ring degrees
+    // Each prime p = 1 (mod 2n) to support negacyclic NTT
+    // All primes are verified with sympy.isprime()
+    if (params.n == 4096) {
+        // 50-bit primes ≡ 1 (mod 8192), verified
+        params.primes = {
+            1125899906949121ULL,
+            1125899906990081ULL,
+            1125899907063809ULL,
+            1125899907096577ULL,
+            1125899907145729ULL,
+            1125899907219457ULL,
+        };
+    } else if (params.n == 8192) {
+        // 50-bit primes ≡ 1 (mod 16384), verified
+        params.primes = {
+            1125899906990081ULL,
+            1125899907219457ULL,
+            1125899907776513ULL,
+            1125899908005889ULL,
+            1125899908022273ULL,
+            1125899908612097ULL,
+        };
+    } else if (params.n == 16384) {
+        // 50-bit primes ≡ 1 (mod 32768), verified
+        params.primes = {
+            1125899908022273ULL,
+            1125899908612097ULL,
+            1125899909038081ULL,
+            1125899909398529ULL,
+            1125899910316033ULL,
+            1125899911168001ULL,
+        };
+    } else {
+        // Fallback: Generate primes dynamically (slower but works)
+        // Use 50-bit primes
+        uint64_t prime_bits = 50;
+        uint64_t two_n = 2 * params.n;
+        uint64_t candidate = (1ULL << prime_bits) - (1ULL << prime_bits) % two_n + 1;
+        
+        for (uint32_t i = 0; i < params.L && params.primes.size() < params.L; i++) {
+            while (!ProbPrime(to_ZZ(candidate))) {
+                candidate += two_n;
+            }
+            params.primes.push_back(candidate);
+            candidate += two_n;
         }
-        params.primes.push_back(candidate);
-        candidate += 2 * params.n;
+    }
+    
+    // Keep only L primes for the required depth
+    while (params.primes.size() > params.L) {
+        params.primes.pop_back();
     }
     
     // Compute q = product of primes
+    // CRITICAL: Use to_ZZ(uint64_t) for proper 64-bit handling on Windows LLP64
+    // where long is only 32 bits. Direct multiplication would truncate 50-bit primes!
     params.q = conv<ZZ>(1);
     for (uint64_t p : params.primes) {
-        params.q *= p;
+        params.q *= to_ZZ(p);
     }
     
     return params;

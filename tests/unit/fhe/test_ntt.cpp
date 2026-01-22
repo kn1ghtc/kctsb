@@ -606,6 +606,170 @@ TEST(NTTAvx2Test, LargerDegreePerformance) {
 #endif  // KCTSB_HAS_AVX2
 
 // ============================================================================
+// 50-bit Prime NTT Tests (for BGV/BFV real-world scenarios)
+// ============================================================================
+
+namespace {
+
+// 50-bit NTT-friendly primes for n=8192 (verified with sympy)
+constexpr uint64_t TEST_PRIME_50BIT_1 = 1125899906990081ULL;  // p-1 divisible by 2*8192
+constexpr uint64_t TEST_PRIME_50BIT_2 = 1125899907219457ULL;  
+constexpr uint64_t TEST_PRIME_50BIT_3 = 1125899907776513ULL;
+
+// Smaller ring for faster schoolbook reference
+constexpr size_t TEST_N_FOR_50BIT = 256;
+constexpr size_t TEST_N_LARGE_50BIT = 8192;
+
+/**
+ * @brief Reference schoolbook multiplication in ring Z_q[x]/(x^n + 1)
+ */
+std::vector<uint64_t> schoolbook_negacyclic(
+    const std::vector<uint64_t>& a,
+    const std::vector<uint64_t>& b,
+    size_t n,
+    uint64_t q)
+{
+    std::vector<uint64_t> result(n, 0);
+    
+    for (size_t i = 0; i < n; ++i) {
+        for (size_t j = 0; j < n; ++j) {
+            __uint128_t product = static_cast<__uint128_t>(a[i]) * b[j];
+            size_t idx = (i + j) % n;
+            
+            // For x^n + 1, terms with i+j >= n get negated
+            if (i + j >= n) {
+                uint64_t val = static_cast<uint64_t>(product % q);
+                if (result[idx] >= val) {
+                    result[idx] -= val;
+                } else {
+                    result[idx] = q - (val - result[idx]);
+                }
+            } else {
+                result[idx] = (result[idx] + static_cast<uint64_t>(product % q)) % q;
+            }
+        }
+    }
+    
+    return result;
+}
+
+}  // anonymous namespace
+
+TEST(NTT50BitTest, IsPrimeNTTFriendlyForN8192) {
+    // Verify our 50-bit primes are NTT-friendly for n=8192
+    EXPECT_TRUE(is_ntt_prime(TEST_PRIME_50BIT_1, TEST_N_LARGE_50BIT))
+        << "Prime " << TEST_PRIME_50BIT_1 << " should be NTT-friendly for n=8192";
+    EXPECT_TRUE(is_ntt_prime(TEST_PRIME_50BIT_2, TEST_N_LARGE_50BIT))
+        << "Prime " << TEST_PRIME_50BIT_2 << " should be NTT-friendly for n=8192";
+    EXPECT_TRUE(is_ntt_prime(TEST_PRIME_50BIT_3, TEST_N_LARGE_50BIT))
+        << "Prime " << TEST_PRIME_50BIT_3 << " should be NTT-friendly for n=8192";
+}
+
+TEST(NTT50BitTest, NTTTableCreation) {
+    // Verify NTT table can be created for 50-bit primes
+    EXPECT_NO_THROW({
+        const NTTTable& ntt = NTTTableCache::instance().get(TEST_N_LARGE_50BIT, TEST_PRIME_50BIT_1);
+        EXPECT_EQ(ntt.degree(), TEST_N_LARGE_50BIT);
+        EXPECT_EQ(ntt.modulus(), TEST_PRIME_50BIT_1);
+    });
+}
+
+TEST(NTT50BitTest, ForwardInverseRoundTrip) {
+    const size_t n = TEST_N_FOR_50BIT;
+    const uint64_t q = TEST_PRIME_50BIT_1;
+    
+    std::mt19937_64 rng(12345);
+    std::uniform_int_distribution<uint64_t> dist(0, q - 1);
+    
+    std::vector<uint64_t> original(n);
+    for (size_t i = 0; i < n; ++i) {
+        original[i] = dist(rng);
+    }
+    
+    std::vector<uint64_t> data = original;
+    const NTTTable& ntt = NTTTableCache::instance().get(n, q);
+    
+    ntt.forward_negacyclic(data.data());
+    ntt.inverse_negacyclic(data.data());
+    
+    for (size_t i = 0; i < n; ++i) {
+        EXPECT_EQ(data[i], original[i]) << "Mismatch at coefficient " << i;
+    }
+}
+
+TEST(NTT50BitTest, SimpleMultiply) {
+    // (1 + x) * (1 + x) = 1 + 2x + x^2
+    const size_t n = TEST_N_FOR_50BIT;
+    const uint64_t q = TEST_PRIME_50BIT_1;
+    
+    std::vector<uint64_t> a(n, 0);
+    std::vector<uint64_t> b(n, 0);
+    a[0] = 1; a[1] = 1;
+    b[0] = 1; b[1] = 1;
+    
+    auto result = poly_multiply_negacyclic_ntt(a.data(), b.data(), n, q);
+    
+    EXPECT_EQ(result[0], 1) << "Constant term should be 1";
+    EXPECT_EQ(result[1], 2) << "x term should be 2";
+    EXPECT_EQ(result[2], 1) << "x^2 term should be 1";
+    
+    for (size_t i = 3; i < n; ++i) {
+        EXPECT_EQ(result[i], 0) << "Higher terms should be 0";
+    }
+}
+
+TEST(NTT50BitTest, MultiplyAgainstSchoolbook_SmallDegree) {
+    // Compare NTT vs schoolbook at n=256 with 50-bit prime
+    const size_t n = TEST_N_FOR_50BIT;
+    const uint64_t q = TEST_PRIME_50BIT_1;
+    
+    std::mt19937_64 rng(42);
+    std::uniform_int_distribution<uint64_t> dist(0, q - 1);
+    
+    std::vector<uint64_t> a(n), b(n);
+    for (size_t i = 0; i < n; ++i) {
+        a[i] = dist(rng);
+        b[i] = dist(rng);
+    }
+    
+    auto result_ntt = poly_multiply_negacyclic_ntt(a.data(), b.data(), n, q);
+    auto result_ref = schoolbook_negacyclic(a, b, n, q);
+    
+    for (size_t i = 0; i < n; ++i) {
+        EXPECT_EQ(result_ntt[i], result_ref[i]) 
+            << "Mismatch at coefficient " << i;
+    }
+}
+
+TEST(NTT50BitTest, MultiplyWithLargeCoefficients) {
+    // Test with coefficients close to the modulus
+    const size_t n = 64;
+    const uint64_t q = TEST_PRIME_50BIT_1;
+    
+    std::mt19937_64 rng(12345);
+    std::uniform_int_distribution<uint64_t> dist(q - 10000, q - 1);
+    
+    std::vector<uint64_t> a(n), b(n);
+    for (size_t i = 0; i < n; ++i) {
+        a[i] = dist(rng);
+        b[i] = dist(rng);
+    }
+    
+    auto result_ntt = poly_multiply_negacyclic_ntt(a.data(), b.data(), n, q);
+    auto result_ref = schoolbook_negacyclic(a, b, n, q);
+    
+    size_t mismatch_count = 0;
+    for (size_t i = 0; i < n; ++i) {
+        if (result_ntt[i] != result_ref[i]) {
+            ++mismatch_count;
+        }
+    }
+    
+    EXPECT_EQ(mismatch_count, 0) 
+        << "Mismatches with large coefficients: " << mismatch_count << "/" << n;
+}
+
+// ============================================================================
 // Main
 // ============================================================================
 

@@ -221,9 +221,11 @@ BGVCiphertext BGVEvaluator::multiply(const BGVCiphertext& ct1,
     
     const auto& params = context_.params();
     size_t n = params.n;
-    const auto& primes = params.primes;
+    [[maybe_unused]] const auto& primes = params.primes;
     
     // Check if we can use NTT acceleration with full RNS-CRT
+    // LLP64 bugs fixed (2026-01-22): to_ZZ(uint64_t) and zz_to_uint64() now handle
+    // 50-bit primes correctly on Windows. NTT acceleration is enabled.
     bool use_ntt = can_use_ntt(n, primes) && !primes.empty();
     
     // Result has size = ct1.size() + ct2.size() - 1

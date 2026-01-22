@@ -168,28 +168,64 @@ inline std::vector<ZZ_pX> multiply_rns_ntt(
 }
 
 /**
- * @brief Reduce polynomial coefficients modulo a prime
+ * @brief Convert ZZ to uint64_t safely
  * 
- * Useful when converting from large modulus to RNS representation.
+ * Handles Windows LLP64 where to_ulong() only returns 32-bit unsigned long.
  * 
- * @param poly Input polynomial (coefficients as ZZ)
+ * @param z Input ZZ (must be non-negative and fit in 64 bits)
+ * @return 64-bit unsigned integer value
+ */
+inline uint64_t zz_to_uint64(const ZZ& z) {
+    if (IsZero(z)) return 0;
+    if (sign(z) < 0) {
+        throw std::runtime_error("zz_to_uint64: negative value");
+    }
+    if (NumBits(z) > 64) {
+        throw std::runtime_error("zz_to_uint64: value too large for uint64_t");
+    }
+    
+    // Split into high and low 32-bit parts
+    ZZ high = z >> 32;
+    ZZ low = z & to_ZZ(0xFFFFFFFFULL);
+    
+    uint64_t result = 0;
+    if (!IsZero(high)) {
+        result = static_cast<uint64_t>(to_ulong(high)) << 32;
+    }
+    result |= static_cast<uint64_t>(to_ulong(low));
+    return result;
+}
+
+/**
+ * @brief Reduce polynomial coefficients modulo a prime for RNS decomposition
+ * 
+ * Converts from large modulus Q to small modulus q for RNS representation.
+ * Simply takes z mod q for each coefficient z.
+ * 
+ * @param poly Input polynomial (coefficients in [0, Q))
+ * @param n Ring degree
  * @param q Target modulus
- * @return Polynomial with coefficients reduced mod q
+ * @return Polynomial with coefficients reduced mod q (all in [0, q))
  */
 inline std::vector<uint64_t> reduce_to_prime(const ZZ_pX& poly, size_t n, uint64_t q) {
     std::vector<uint64_t> result(n, 0);
     
     long degree = deg(poly);
+    ZZ q_zz = to_ZZ(q);
+    
     for (long i = 0; i <= degree && static_cast<size_t>(i) < n; ++i) {
         ZZ_p c = coeff(poly, i);
-        ZZ z = rep(c);
+        ZZ z = rep(c);  // z is in [0, Q)
         
-        // Reduce mod q
-        ZZ reduced = z % to_ZZ(q);
+        // Simple reduction mod q
+        ZZ reduced = z % q_zz;
+        
         if (IsZero(reduced)) {
             result[i] = 0;
         } else {
-            result[i] = to_ulong(reduced);
+            // CRITICAL: Use zz_to_uint64 instead of to_ulong for LLP64 compatibility
+            // to_ulong() on Windows returns 32-bit unsigned long, truncating 50-bit values!
+            result[i] = zz_to_uint64(reduced);
         }
     }
     
