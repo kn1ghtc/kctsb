@@ -193,3 +193,103 @@ if(KCTSB_ENABLE_BGV)
 else()
     message(STATUS "BGV benchmark skipped: KCTSB_ENABLE_BGV is OFF")
 endif()
+
+# ============================================================================
+# BFV Benchmark (Phase 2 - placeholder until BFV module is implemented)
+# ============================================================================
+
+if(KCTSB_ENABLE_BFV OR KCTSB_HAS_SEAL)
+    add_executable(kctsb_benchmark_bfv benchmark_bfv.cpp)
+
+    target_include_directories(kctsb_benchmark_bfv PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/src
+        ${CMAKE_SOURCE_DIR}/thirdparty/include
+    )
+
+    if(TARGET kctsb_static)
+        target_link_libraries(kctsb_benchmark_bfv PRIVATE kctsb_static)
+    elseif(TARGET kctsb_shared)
+        target_link_libraries(kctsb_benchmark_bfv PRIVATE kctsb_shared)
+    endif()
+
+    # SEAL comparison (if available)
+    if(KCTSB_ENABLE_SEAL AND SEAL_FOUND)
+        target_include_directories(kctsb_benchmark_bfv PRIVATE ${SEAL_INCLUDE_DIRS})
+        target_link_libraries(kctsb_benchmark_bfv PRIVATE "${SEAL_LIBRARY}")
+        target_compile_definitions(kctsb_benchmark_bfv PRIVATE KCTSB_HAS_SEAL=1)
+        if(WIN32)
+            target_link_libraries(kctsb_benchmark_bfv PRIVATE bcrypt)
+        endif()
+    endif()
+
+    set_target_properties(kctsb_benchmark_bfv PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+    )
+
+    if(MSVC)
+        target_compile_options(kctsb_benchmark_bfv PRIVATE /O2 /fp:fast /utf-8)
+    else()
+        target_compile_options(kctsb_benchmark_bfv PRIVATE
+            -O3 -march=native
+            -finput-charset=UTF-8
+            -fexec-charset=UTF-8
+            -Wno-conversion
+            -Wno-sign-conversion
+        )
+    endif()
+
+    message(STATUS "BFV benchmark configured")
+else()
+    message(STATUS "BFV benchmark skipped: KCTSB_ENABLE_BFV is OFF and no SEAL")
+endif()
+
+# ============================================================================
+# CKKS Benchmark (Phase 3 - placeholder until CKKS module is implemented)
+# ============================================================================
+
+if(KCTSB_ENABLE_CKKS OR KCTSB_HAS_SEAL)
+    add_executable(kctsb_benchmark_ckks benchmark_ckks.cpp)
+
+    target_include_directories(kctsb_benchmark_ckks PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/src
+        ${CMAKE_SOURCE_DIR}/thirdparty/include
+    )
+
+    if(TARGET kctsb_static)
+        target_link_libraries(kctsb_benchmark_ckks PRIVATE kctsb_static)
+    elseif(TARGET kctsb_shared)
+        target_link_libraries(kctsb_benchmark_ckks PRIVATE kctsb_shared)
+    endif()
+
+    # SEAL comparison (if available)
+    if(KCTSB_ENABLE_SEAL AND SEAL_FOUND)
+        target_include_directories(kctsb_benchmark_ckks PRIVATE ${SEAL_INCLUDE_DIRS})
+        target_link_libraries(kctsb_benchmark_ckks PRIVATE "${SEAL_LIBRARY}")
+        target_compile_definitions(kctsb_benchmark_ckks PRIVATE KCTSB_HAS_SEAL=1)
+        if(WIN32)
+            target_link_libraries(kctsb_benchmark_ckks PRIVATE bcrypt)
+        endif()
+    endif()
+
+    set_target_properties(kctsb_benchmark_ckks PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+    )
+
+    if(MSVC)
+        target_compile_options(kctsb_benchmark_ckks PRIVATE /O2 /fp:fast /utf-8)
+    else()
+        target_compile_options(kctsb_benchmark_ckks PRIVATE
+            -O3 -march=native
+            -finput-charset=UTF-8
+            -fexec-charset=UTF-8
+            -Wno-conversion
+            -Wno-sign-conversion
+        )
+    endif()
+
+    message(STATUS "CKKS benchmark configured")
+else()
+    message(STATUS "CKKS benchmark skipped: KCTSB_ENABLE_CKKS is OFF and no SEAL")
+endif()

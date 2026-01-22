@@ -205,6 +205,23 @@ endif()
 target_include_directories(test_benchmark PRIVATE ${CMAKE_SOURCE_DIR}/include)
 gtest_discover_tests(test_benchmark PROPERTIES LABELS "performance")
 
+# BGV Benchmark Tests (n=32768 for internal testing)
+# For SEAL/HElib comparison use benchmarks/benchmark_bgv.cpp with n=8192
+add_executable(test_bgv_benchmark benchmark/test_bgv_benchmark.cpp)
+if(TARGET kctsb_static)
+    target_link_libraries(test_bgv_benchmark PRIVATE
+        kctsb_static
+        GTest::gtest_main
+    )
+else()
+    target_link_libraries(test_bgv_benchmark PRIVATE
+        kctsb
+        GTest::gtest_main
+    )
+endif()
+target_include_directories(test_bgv_benchmark PRIVATE ${CMAKE_SOURCE_DIR}/include)
+gtest_discover_tests(test_bgv_benchmark PROPERTIES LABELS "performance;fhe")
+
 # ============================================================================
 # SECURITY BOUNDARY TESTS - Input validation and overflow protection
 # Label: "unit;security" - Run with: ctest -L security
