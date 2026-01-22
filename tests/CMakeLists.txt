@@ -287,6 +287,25 @@ if(KCTSB_ENABLE_BGV)
     )
     gtest_discover_tests(test_ntt PROPERTIES LABELS "unit;fhe;ntt")
     
+    # RNS (Residue Number System) tests (v4.6.0 Phase 1)
+    add_executable(test_rns unit/fhe/test_rns.cpp)
+    if(TARGET kctsb_static)
+        target_link_libraries(test_rns PRIVATE
+            kctsb_static
+            GTest::gtest_main
+        )
+    else()
+        target_link_libraries(test_rns PRIVATE
+            kctsb
+            GTest::gtest_main
+        )
+    endif()
+    target_include_directories(test_rns PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/src
+    )
+    gtest_discover_tests(test_rns PROPERTIES LABELS "unit;fhe;rns")
+    
     # BGV Homomorphic Encryption tests (v4.2.0)
     add_executable(test_bgv unit/fhe/test_bgv.cpp)
     # BGV requires static library for full NTL/bignum access

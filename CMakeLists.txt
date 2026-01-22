@@ -741,6 +741,7 @@ if(KCTSB_ENABLE_BGV)
     # NTT common sources (shared by BGV/BFV/CKKS)
     set(KCTSB_NTT_SOURCES
         ${KCTSB_SRC_DIR}/advanced/fe/common/ntt.cpp
+        ${KCTSB_SRC_DIR}/advanced/fe/common/rns.cpp
     )
     
     # BGV-specific sources
