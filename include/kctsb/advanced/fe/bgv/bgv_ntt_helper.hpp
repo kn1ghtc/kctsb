@@ -233,6 +233,46 @@ inline std::vector<uint64_t> reduce_to_prime(const ZZ_pX& poly, size_t n, uint64
 }
 
 /**
+ * @brief CRT precomputed constants for fast reconstruction
+ * 
+ * Precomputes all CRT constants to avoid repeated computation during 
+ * polynomial coefficient reconstruction.
+ * 
+ * @since v4.9.0 Performance optimization
+ */
+struct CRTConstants {
+    ZZ Q;                           ///< Full modulus Q = prod(q_i)
+    std::vector<ZZ> Q_i;            ///< Q_i = Q / q_i for each prime
+    std::vector<uint64_t> Q_i_inv;  ///< Q_i^{-1} mod q_i for each prime
+    std::vector<uint64_t> primes;   ///< RNS primes
+    
+    /**
+     * @brief Precompute CRT constants for given primes
+     * @param rns_primes RNS prime moduli
+     */
+    explicit CRTConstants(const std::vector<uint64_t>& rns_primes) 
+        : primes(rns_primes) {
+        size_t k = primes.size();
+        
+        // Compute Q = prod(q_i)
+        Q = conv<ZZ>(1);
+        for (uint64_t q : primes) {
+            Q *= to_ZZ(q);
+        }
+        
+        // Precompute Q_i and Q_i_inv for each prime
+        Q_i.resize(k);
+        Q_i_inv.resize(k);
+        for (size_t i = 0; i < k; ++i) {
+            ZZ q_i = to_ZZ(primes[i]);
+            Q_i[i] = Q / q_i;
+            ZZ inv = InvMod(Q_i[i] % q_i, q_i);
+            Q_i_inv[i] = zz_to_uint64(inv);
+        }
+    }
+};
+
+/**
  * @brief CRT reconstruction of a coefficient from RNS representation
  * 
  * Given residues r_0, r_1, ..., r_{k-1} where r_i = x mod q_i,
@@ -276,9 +316,39 @@ inline ZZ crt_reconstruct(
 }
 
 /**
+ * @brief Fast CRT reconstruction using precomputed constants
+ * 
+ * Uses precomputed CRT constants to avoid repeated computation.
+ * This is significantly faster when reconstructing many coefficients.
+ * 
+ * @param residues Residues [r_0, r_1, ..., r_{k-1}]
+ * @param crt Precomputed CRT constants
+ * @return Reconstructed value mod Q
+ * @since v4.9.0 Performance optimization
+ */
+inline ZZ crt_reconstruct_fast(
+    const std::vector<uint64_t>& residues,
+    const CRTConstants& crt)
+{
+    size_t k = crt.primes.size();
+    
+    // CRT reconstruction with precomputed constants
+    ZZ result = conv<ZZ>(0);
+    for (size_t i = 0; i < k; ++i) {
+        // r_i * Q_i * Q_i_inv (lazy accumulation)
+        ZZ term = to_ZZ(residues[i]) * crt.Q_i[i];
+        term *= to_ZZ(crt.Q_i_inv[i]);
+        result += term;
+    }
+    
+    return result % crt.Q;
+}
+
+/**
  * @brief CRT reconstruct polynomial from RNS representation
  * 
  * Reconstructs a polynomial mod Q from its RNS components mod each q_i.
+ * Optimized v4.9.0: Uses precomputed CRT constants for batch efficiency.
  * 
  * @param rns_polys Polynomials in RNS representation [poly mod q_0, poly mod q_1, ...]
  * @param n Ring degree
@@ -292,23 +362,39 @@ inline ZZ_pX crt_reconstruct_poly(
     const std::vector<uint64_t>& primes,
     const ZZ& Q)
 {
+    // Precompute CRT constants once for all n coefficients
+    CRTConstants crt(primes);
+    
     // Set modulus context to full Q
     ZZ_p::init(Q);
     
     ZZ_pX result;
     clear(result);
     
+    // Preallocate residues vector to avoid repeated allocation
+    std::vector<uint64_t> residues(primes.size());
+    
     for (size_t j = 0; j < n; ++j) {
         // Collect residues for coefficient j
-        std::vector<uint64_t> residues(primes.size());
         for (size_t i = 0; i < primes.size(); ++i) {
             residues[i] = rns_polys[i][j];
         }
         
-        // CRT reconstruct coefficient j
-        ZZ coef = crt_reconstruct(residues, primes);
-        if (!IsZero(coef)) {
-            SetCoeff(result, static_cast<long>(j), conv<ZZ_p>(coef));
+        // Check if all residues are zero (skip ZZ operations)
+        bool all_zero = true;
+        for (size_t i = 0; i < primes.size(); ++i) {
+            if (residues[i] != 0) {
+                all_zero = false;
+                break;
+            }
+        }
+        
+        if (!all_zero) {
+            // CRT reconstruct coefficient j using precomputed constants
+            ZZ coef = crt_reconstruct_fast(residues, crt);
+            if (!IsZero(coef)) {
+                SetCoeff(result, static_cast<long>(j), conv<ZZ_p>(coef));
+            }
         }
     }
     

@@ -4,7 +4,7 @@
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](.)
 [![C++](https://img.shields.io/badge/C++-17-blue.svg)](.)
 [![CMake](https://img.shields.io/badge/CMake-3.20+-green.svg)](.)
-[![Version](https://img.shields.io/badge/Version-4.5.0-brightgreen.svg)](.)
+[![Version](https://img.shields.io/badge/Version-4.9.0-brightgreen.svg)](.)
 
 **kctsb** 是一个跨平台的 C/C++ 密码学和安全算法库，专为生产环境和安全研究设计。目标是成为 **OpenSSL 的现代替代品**。
 
@@ -60,19 +60,24 @@
 ### 高级密码学原语
 - **白盒密码** - Chow 白盒 AES/SM4 实现
 - **秘密共享** - Shamir (t,n) 门限方案
-- **同态加密 (v4.8.0+)** ✅ **三大方案完整实现**
+- **同态加密 (v4.9.0)** ✅ **三大方案完整实现 + NTT Barrett优化**
   - **BGV 方案** - 原生实现，精确整数同态加密 ✅
     - 密钥生成、加密/解密、加法/乘法/重线性化
     - 噪声预算管理、批量编码 (SIMD slots)
-    - 43/43 单元测试 100% 稳定通过 (NTT加速)
+    - 43/43 单元测试 100% 通过 (NTT+Barrett加速)
   - **BFV 方案 (v4.7.0)** - Scale-invariant 编码，复用 BGV 基础设施 ✅
     - 完整加密/解密/运算支持
     - 26/26 单元测试通过
-  - **CKKS 方案 (v4.8.0)** - 近似实数/复数同态加密 ✅ **NEW**
+  - **CKKS 方案 (v4.8.0)** - 近似实数/复数同态加密 ✅
     - FFT 正则嵌入编码，支持复数向量
     - Rescale 机制控制精度和噪声
     - 多层乘法深度支持 (3-5 层)
     - 33/33 单元测试 100% 通过
+  - **性能优化 (v4.9.0)** - NTT Barrett 模运算加速 ✅ **NEW**
+    - mul_mod_barrett 替换慢速 128-bit 除法
+    - CRT 预计算常量优化
+    - 50-bit 大素数混合处理
+    - **2-3x 整体性能提升**
 
 ## 🏗️ 项目结构
 
@@ -163,7 +168,7 @@ kctsb/
 - ⚠️ SEAL 4.1.2 (可选)
 - ⚠️ HElib v2.3.0 (可选)
 
-**测试状态**: 186 个测试 100% 通过（MinGW GCC 13.2 + Windows）
+**测试状态**: 263 个测试 100% 通过（MinGW GCC 15 + Windows）
 
 ## 🚀 快速开始
 

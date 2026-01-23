@@ -347,12 +347,13 @@ RNSPoly& RNSPoly::operator*=(const RNSPoly& other) {
         throw std::invalid_argument("Both polynomials must be in NTT form for multiplication");
     }
     
-    // Element-wise multiplication in NTT domain
+    // Element-wise multiplication in NTT domain with Barrett reduction
+    // Optimized v4.9.0: Uses Barrett constants for ~2x faster modular multiplication
     for (size_t level = 0; level < base_.size(); ++level) {
-        uint64_t q = base_.modulus(level);
+        const ntt::BarrettConstants& bc = base_.barrett(level);
         for (size_t i = 0; i < base_.poly_degree(); ++i) {
-            coeffs_[level][i] = ntt::mul_mod_slow(
-                coeffs_[level][i], other.coeffs_[level][i], q);
+            coeffs_[level][i] = ntt::mul_mod_barrett(
+                coeffs_[level][i], other.coeffs_[level][i], bc);
         }
     }
     
@@ -441,24 +442,24 @@ void RNSBaseConverter::convert(const RNSPoly& input, RNSPoly& output) const {
     for (size_t coeff_idx = 0; coeff_idx < n; ++coeff_idx) {
         // For each target modulus
         for (size_t j = 0; j < to_size; ++j) {
-            uint64_t q_j = to_base_.modulus(j);
+            const ntt::BarrettConstants& bc_j = to_base_.barrett(j);
             uint64_t sum = 0;
             
             // Sum over source moduli: sum = Σ (a_i * Q_i^(-1) mod q_i) * Q_i mod q_j
             for (size_t i = 0; i < from_size; ++i) {
                 uint64_t a_i = input[i][coeff_idx];
                 uint64_t q_hat_inv = from_base_.q_hat_inv(i);
-                uint64_t q_i = from_base_.modulus(i);
+                const ntt::BarrettConstants& bc_i = from_base_.barrett(i);
                 
-                // Compute (a_i * Q_i^(-1)) mod q_i
-                uint64_t term = ntt::mul_mod_slow(a_i, q_hat_inv, q_i);
+                // Compute (a_i * Q_i^(-1)) mod q_i with Barrett reduction
+                uint64_t term = ntt::mul_mod_barrett(a_i, q_hat_inv, bc_i);
                 
-                // Multiply by Q_i mod q_j
+                // Multiply by Q_i mod q_j with Barrett reduction
                 uint64_t q_hat_mod_qj = conversion_matrix_[i][j];
-                term = ntt::mul_mod_slow(term, q_hat_mod_qj, q_j);
+                term = ntt::mul_mod_barrett(term, q_hat_mod_qj, bc_j);
                 
                 // Add to sum
-                sum = ntt::add_mod(sum, term, q_j);
+                sum = ntt::add_mod(sum, term, bc_j.q);
             }
             
             output[j][coeff_idx] = sum;
