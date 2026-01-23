@@ -4,7 +4,7 @@
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](.)
 [![C++](https://img.shields.io/badge/C++-17-blue.svg)](.)
 [![CMake](https://img.shields.io/badge/CMake-3.20+-green.svg)](.)
-[![Version](https://img.shields.io/badge/Version-4.9.1-brightgreen.svg)](.)
+[![Version](https://img.shields.io/badge/Version-4.10.0-brightgreen.svg)](.)
 
 **kctsb** 是一个跨平台的 C/C++ 密码学和安全算法库，专为生产环境和安全研究设计。目标是成为 **OpenSSL 的现代替代品**。
 
@@ -73,12 +73,17 @@
     - Rescale 机制控制精度和噪声
     - 多层乘法深度支持 (3-5 层)
     - 33/33 单元测试 100% 通过
-  - **性能优化 (v4.9.1)** - Harvey NTT + RNSPoly 架构 ✅ **NEW**
+  - **性能优化 (v4.9.1)** - Harvey NTT + RNSPoly 架构 ✅
     - **Harvey NTT 算法**: SEAL-style lazy reduction, 正确的 Gentleman-Sande 逆NTT
     - **RNSPoly 类**: 独立的 RNS 多项式基础设施，NTT 变换支持
     - 单次 NTT (n=4096): **22 μs** (接近 SEAL ~10 μs)
     - 多项式乘法 (n=1024, L=3): **72 μs** (107x vs schoolbook)
     - **409/409 测试 100% 通过**
+  - **BGV EvaluatorV2 (v4.10.0 Phase 4c)** - 纯 RNS 实现 🚧 **IN PROGRESS**
+    - 零 ZZ_pX 依赖，全程 RNS 操作
+    - 密钥/密文均存储在 NTT domain
+    - 目标性能：50x+ 加速（Encrypt < 50ms, Multiply < 20ms）
+    - 当前状态：核心框架完成，3/13 测试通过（密钥生成），待调优解密缩放逻辑
 
 ## 🏗️ 项目结构
 
