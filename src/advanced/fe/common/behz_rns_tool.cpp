@@ -682,29 +682,36 @@ void BEHZRNSTool::multiply_and_rescale(const uint64_t* input, uint64_t* output) 
     std::vector<uint64_t> temp_bsk_m_tilde((Bsk_size + 1) * n_);  // Bsk ∪ {m_tilde}
     std::vector<uint64_t> temp_bsk(Bsk_size * n_);                 // Bsk
     std::vector<uint64_t> temp_q_bsk((L + Bsk_size) * n_);        // Q ∪ Bsk
+    std::vector<uint64_t> input_t(L * n_);                         // c * t in Q
     
-    // Step 1: Multiply input by t (the tensor product already has this factor)
-    // For BFV: the input is the tensor product, we need to compute round(c * t / Q)
-    // But actually, the tensor product is c0*c0 + c0*c1*s + c1*c0*s + c1*c1*s^2
-    // Each component needs rescaling by t/Q
+    // Step 1: Multiply input by t in RNS domain
+    // For BFV: we compute round(c * t / Q) where c is the tensor product component
+    // First: c' = c * t mod each q_i
+    for (size_t i = 0; i < L; i++) {
+        const uint64_t* src = input + i * n_;
+        uint64_t* dst = input_t.data() + i * n_;
+        const Modulus& qi = q_base_[i];
+        uint64_t t_mod_qi = t_ % qi.value();
+        
+        for (size_t c = 0; c < n_; c++) {
+            dst[c] = multiply_uint_mod(src[c], t_mod_qi, qi);
+        }
+    }
     
-    // For now, assume input is already c * t (caller responsibility)
-    // TODO: Integrate t multiplication here for full BEHZ pipeline
-    
-    // Step 2: Extend to Bsk ∪ {m_tilde}
-    fastbconv_m_tilde(input, temp_bsk_m_tilde.data());
+    // Step 2: Extend c * t to Bsk ∪ {m_tilde}
+    fastbconv_m_tilde(input_t.data(), temp_bsk_m_tilde.data());
     
     // Step 3: Montgomery reduction to get result in Bsk
     sm_mrq(temp_bsk_m_tilde.data(), temp_bsk.data());
     
     // Step 4: Combine Q and Bsk representations for fast_floor
-    // Copy input (Q representation) to temp
-    std::copy(input, input + L * n_, temp_q_bsk.data());
+    // Copy input*t (Q representation) to temp
+    std::copy(input_t.data(), input_t.data() + L * n_, temp_q_bsk.data());
     // Copy Bsk representation
     std::copy(temp_bsk.data(), temp_bsk.data() + Bsk_size * n_, 
               temp_q_bsk.data() + L * n_);
     
-    // Step 5: Fast floor: floor(x / Q) in Bsk
+    // Step 5: Fast floor: floor(c * t / Q) in Bsk
     fast_floor(temp_q_bsk.data(), temp_bsk.data());
     
     // Step 6: Convert back to Q

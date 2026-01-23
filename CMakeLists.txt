@@ -21,7 +21,7 @@ cmake_minimum_required(VERSION 3.20)
 set(CMAKE_BUILD_PARALLEL_LEVEL 8 CACHE STRING "Default parallel build level")
 
 project(kctsb
-    VERSION 4.10.0
+    VERSION 4.12.0
     DESCRIPTION "Production-grade cryptographic algorithms library with integrated bignum math"
     LANGUAGES C CXX
 )

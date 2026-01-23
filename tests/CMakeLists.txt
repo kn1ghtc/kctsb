@@ -432,6 +432,25 @@ if(KCTSB_ENABLE_BGV)
     )
     gtest_discover_tests(test_bfv_evaluator PROPERTIES LABELS "unit;fhe;bfv;rns")
     
+    # BEHZ RNS Tool tests (v4.12.0)
+    add_executable(test_behz_rns_tool advanced/fe/common/test_behz_rns_tool.cpp)
+    if(TARGET kctsb_static)
+        target_link_libraries(test_behz_rns_tool PRIVATE
+            kctsb_static
+            GTest::gtest_main
+        )
+    else()
+        target_link_libraries(test_behz_rns_tool PRIVATE
+            kctsb
+            GTest::gtest_main
+        )
+    endif()
+    target_include_directories(test_behz_rns_tool PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/src
+    )
+    gtest_discover_tests(test_behz_rns_tool PROPERTIES LABELS "unit;fhe;behz;rns")
+    
     # Legacy BFV Homomorphic Encryption tests (v4.11.0: Disabled, NTL-based)
     # TODO: Re-enable after BFV is migrated to pure RNS
     # add_executable(test_bfv unit/fhe/test_bfv.cpp)

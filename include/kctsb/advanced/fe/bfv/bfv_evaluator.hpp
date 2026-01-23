@@ -29,6 +29,7 @@
 #include "kctsb/advanced/fe/bfv/bfv_types.hpp"
 #include "kctsb/advanced/fe/common/rns_poly.hpp"
 #include "kctsb/advanced/fe/common/rns_poly_utils.hpp"
+#include "kctsb/advanced/fe/common/behz_rns_tool.hpp"
 #include <random>
 #include <memory>
 
@@ -215,9 +216,21 @@ public:
      */
     std::vector<uint64_t> get_delta() const;
     
+    /**
+     * @brief Initialize BEHZ tool for ciphertext multiplication
+     * @note Call this before first multiply operation
+     */
+    void init_behz_tool();
+    
+    /**
+     * @brief Check if BEHZ tool is initialized
+     */
+    bool has_behz_tool() const noexcept { return behz_tool_ != nullptr; }
+    
 private:
     const RNSContext* context_;
     uint64_t plaintext_modulus_;
+    std::unique_ptr<BEHZRNSTool> behz_tool_;  ///< BEHZ tool for multiplication rescaling
     
     /**
      * @brief Decompose RNS polynomial into base-P digits
