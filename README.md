@@ -60,33 +60,25 @@
 ### 高级密码学原语
 - **白盒密码** - Chow 白盒 AES/SM4 实现
 - **秘密共享** - Shamir (t,n) 门限方案
-- **同态加密 (v4.9.0)** ✅ **三大方案完整实现 + NTT Barrett优化**
+- **同态加密** ✅ **三大方案完整实现 + NTT Barrett优化**
   - **BGV 方案** - 原生实现，精确整数同态加密 ✅
     - 密钥生成、加密/解密、加法/乘法/重线性化
     - 噪声预算管理、批量编码 (SIMD slots)
-    - 43/43 单元测试 100% 通过 (NTT+Barrett加速)
-  - **BFV 方案 (v4.7.0)** - Scale-invariant 编码，复用 BGV 基础设施 ✅
+    - NTT+Barrett加速
+  - **BFV 方案** - Scale-invariant 编码，复用 BGV 基础设施 ✅
     - 完整加密/解密/运算支持
-    - 26/26 单元测试通过
-  - **CKKS 方案 (v4.8.0)** - 近似实数/复数同态加密 ✅
+  - **CKKS 方案** - 近似实数/复数同态加密 ✅
     - FFT 正则嵌入编码，支持复数向量
     - Rescale 机制控制精度和噪声
     - 多层乘法深度支持 (3-5 层)
-    - 33/33 单元测试 100% 通过
-  - **性能优化 (v4.9.1)** - Harvey NTT + RNSPoly 架构 ✅
+  - **性能优化** - Harvey NTT + RNSPoly 架构 ✅
     - **Harvey NTT 算法**: SEAL-style lazy reduction, 正确的 Gentleman-Sande 逆NTT
     - **RNSPoly 类**: 独立的 RNS 多项式基础设施，NTT 变换支持
-    - 单次 NTT (n=4096): **22 μs** (接近 SEAL ~10 μs)
-    - 多项式乘法 (n=1024, L=3): **72 μs** (107x vs schoolbook)
-    - **409/409 测试 100% 通过**
-  - **BGV EvaluatorV2 (v4.10.0)** - 纯 RNS 实现 ✅ **完成**
+  - **BGV EvaluatorV2** - 纯 RNS 实现 ✅ **完成**
     - 零 ZZ_pX 依赖，全程 RNS 操作
     - 密钥/密文均存储在 NTT domain
     - `__int128` 高精度 CRT 重建，支持任意模数数量
     - BGV 正确编码：误差乘以明文模 t
-    - 🚀 **性能超越 SEAL 2.5 倍！** Multiply+Relin: 7-9ms (n=8192) vs SEAL ~18ms
-    - **14/14 单元测试 100% 通过**
-    - **424/424 完整测试套件通过**
 
 ## 🏗️ 项目结构
 
@@ -95,6 +87,9 @@ kctsb/
 ├── CMakeLists.txt              # 主构建配置 (CMake 3.20+, Ninja推荐)
 ├── README.md                   # 项目文档
 ├── AGENTS.md                   # AI开发指南
+├── FHE_PERFORMANCE.md          # FHE 性能规范 
+├── OPENSSL_PERFORMANCE.md      # OpenSSL 性能规范 
+├── deps/                       # 第三方benchmark参考源码 (NTL, openssl, SEAL, HElib)
 ├── LICENSE                     # Apache 2.0 许可证
 │
 ├── include/                    # ★所有头文件在这里★
@@ -177,7 +172,6 @@ kctsb/
 - ⚠️ SEAL 4.1.2 (可选)
 - ⚠️ HElib v2.3.0 (可选)
 
-**测试状态**: 263 个测试 100% 通过（MinGW GCC 15 + Windows）
 
 ## 🚀 快速开始
 
@@ -309,20 +303,6 @@ cd build && ctest --output-on-failure
 
 `docs/examples/psi/SecureComputationDemo.py` 仅生成 HTML 报告与日志输出，不会弹出图形窗口或生成图像文件。
 
-### 统一公共 API 头文件 
-
-从 v3.4.0 开始，kctsb 采用类似 OpenSSL EVP 的设计，**外部用户只需包含单个头文件**：
-
-```c
-// 外部用户只需要这一个头文件
-#include <kctsb_api.h>
-
-// 所有公共 API 都在这个头文件中定义：
-// - 哈希: kctsb_sha256(), kctsb_sha3_256(), kctsb_blake2b(), kctsb_sm3()
-// - AEAD: kctsb_aes_gcm_encrypt/decrypt(), kctsb_chacha20_poly1305_*(), kctsb_sm4_gcm_*()
-// - MAC: kctsb_hmac_sha256(), kctsb_cmac_aes()
-// - 安全: kctsb_secure_compare(), kctsb_secure_zero(), kctsb_random_bytes()
-```
 
 **Release 包内容** 
 ```
@@ -342,12 +322,6 @@ release/
     └── include/kctsb_api.h          # 唯一公共头文件
 ```
 
-### 库文件选择指南
-
-| 库文件 | 大小 | 依赖 | 适用场景 |
-|--------|------|------|----------|
-| `libkctsb.a` | ~5 MB | 需额外链接 GMP/SEAL/HElib | 已有这些库的项目 |
-| `libkctsb.dll/.so` | ~3 MB | 运行时加载 | 多进程共享、热更新 |
 
 ### 集成示例 (推荐: Bundled 库)
 
@@ -466,5 +440,3 @@ Copyright © 2019-2026 knightc. All rights reserved.
 
 ### 依赖库
 - [GMP: The GNU Multiple Precision Arithmetic Library](https://gmplib.org/)
-- [Microsoft SEAL](https://github.com/microsoft/SEAL) (v4.1.2)
-- [HElib](https://github.com/homenc/HElib) (v2.3.0)

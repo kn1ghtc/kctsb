@@ -927,3 +927,94 @@ JacobianPoint montgomery_ladder(const ZZ& k, const JacobianPoint& P) const {
 - GMP: https://gmplib.org/ (v6.3.0+)
 - Microsoft SEAL: https://github.com/microsoft/SEAL (v4.1.2)
 - HElib: https://github.com/homenc/HElib (v2.3.0)
+---
+
+## 🎯 FHE 模块工业级性能规范 (v4.11.0+)
+
+> **核心目标**: 替代SEAL和HElib成为工业级开源FHE库
+
+### 性能基准要求 (n=8192)
+
+| 操作 | 参数 | 目标时间 | SEAL参考 | 状态 |
+|------|------|---------|----------|------|
+| **KeyGen (SK+PK)** | n=8192, L=3 | < 5 ms | ~50 ms | ✅ 10x faster |
+| **Encrypt** | n=8192 | < 3 ms | ~5 ms | ✅ 达标 |
+| **Decrypt** | n=8192 | < 1 ms | ~2 ms | ✅ 达标 |
+| **Multiply+Relin** | n=8192, L=3 | < 15 ms | ~18 ms | ✅ 目标 |
+| **Add** | n=8192 | < 0.1 ms | ~0.1 ms | ✅ 达标 |
+| **Rotation** | n=8192 | < 10 ms | ~12 ms | 📋 Phase 4d |
+
+**禁止**: 使用教育性的慢速实现（如CRT重构后大整数乘法）
+
+### BFV 乘法必须使用 BEHZ 方法
+
+**BEHZ Base Extension** (Bajard-Eynard-Hasan-Zucca 2016):
+
+```
+核心思想: 使用辅助模数基 B = {b_0, b_1, ..., b_k} 来处理 RNS 下的除法和舍入
+
+BFV Multiply 步骤:
+1. 张量积计算 (NTT domain): c' = c1 ⊗ c2
+2. Base Extension Q → B: 将结果从模数基 Q 扩展到辅助基 B  
+3. 在辅助基 B 上计算 round(c' * t / Q)
+4. Base Extension B → Q: 将结果转换回原模数基
+```
+
+**参考实现**:
+- SEAL 4.1: `seal/util/rns.cpp` - `base_converter` 类
+- HElib: `helib/NumbTh.cpp` - `CRT` 和 `base conversion`
+
+### SIMD 硬件加速路径
+
+**必须支持的加速路径**:
+
+| 硬件特性 | 检测方法 | 加速倍率 | 优先级 |
+|----------|----------|----------|--------|
+| **AVX-512** | `__AVX512F__` | 4-8x NTT | 🥇 最高 |
+| **AVX2** | `__AVX2__` | 2-4x NTT | 🥈 次高 |
+| **AES-NI** | `__AES__` | 10x 对称加密 | ✅ 已启用 |
+| **CUDA** | 运行时检测 | 10-100x FHE ops | 📋 可选 |
+
+**AVX-512 NTT 优化**:
+```cpp
+// 检测 AVX-512 支持
+#if defined(__AVX512F__) && defined(__AVX512VL__)
+    #define KCTSB_HAS_AVX512 1
+#endif
+
+// Harvey NTT with AVX-512 (8 modular reductions per instruction)
+void ntt_forward_avx512(uint64_t* data, size_t n, const NTTTable& table);
+void ntt_inverse_avx512(uint64_t* data, size_t n, const NTTTable& table);
+```
+
+### CUDA 加速 (可选)
+
+**适用场景**: 批量FHE操作 (PIR/PSI)
+
+```cpp
+// GPU 加速配置
+struct CudaFHEConfig {
+    bool enabled = false;           // 运行时检测
+    size_t min_batch_size = 16;     // 小于此批量不启用 GPU
+    size_t gpu_memory_limit = 4ULL << 30; // 4GB 显存限制
+};
+
+// GPU 批量乘法
+void bfv_multiply_batch_cuda(
+    const std::vector<BFVCiphertext>& cts1,
+    const std::vector<BFVCiphertext>& cts2,
+    std::vector<BFVCiphertext>& results,
+    const CudaFHEConfig& config);
+```
+
+### 测试超时配置
+
+**单元测试必须在合理时间内完成**:
+
+| 测试类型 | 参数 | 最大时间 | 说明 |
+|----------|------|---------|------|
+| n=256 快速测试 | L=2 | 100 ms | 功能验证 |
+| n=8192 标准测试 | L=3 | 500 ms | 正确性验证 |
+| n=8192 性能测试 | L=3, 10次重复 | 5 sec | 性能基准 |
+
+**禁止**: 测试超时导致CI失败

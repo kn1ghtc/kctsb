@@ -413,7 +413,26 @@ if(KCTSB_ENABLE_BGV)
     )
     gtest_discover_tests(test_bgv_evaluator PROPERTIES LABELS "unit;fhe;bgv;rns")
     
-    # BFV Homomorphic Encryption tests (v4.11.0: Temporarily disabled, pending RNS migration)
+    # BFV Evaluator Pure RNS tests (v4.11.0 Phase 4d)
+    add_executable(test_bfv_evaluator advanced/fe/bfv/test_bfv_evaluator.cpp)
+    if(TARGET kctsb_static)
+        target_link_libraries(test_bfv_evaluator PRIVATE
+            kctsb_static
+            GTest::gtest_main
+        )
+    else()
+        target_link_libraries(test_bfv_evaluator PRIVATE
+            kctsb
+            GTest::gtest_main
+        )
+    endif()
+    target_include_directories(test_bfv_evaluator PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/src
+    )
+    gtest_discover_tests(test_bfv_evaluator PROPERTIES LABELS "unit;fhe;bfv;rns")
+    
+    # Legacy BFV Homomorphic Encryption tests (v4.11.0: Disabled, NTL-based)
     # TODO: Re-enable after BFV is migrated to pure RNS
     # add_executable(test_bfv unit/fhe/test_bfv.cpp)
     # if(TARGET kctsb_static)

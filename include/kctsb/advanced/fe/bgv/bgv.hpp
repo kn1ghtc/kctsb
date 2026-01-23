@@ -101,7 +101,7 @@ inline std::unique_ptr<RNSContext> SECURITY_128_N4096() {
         0xFFFFFFFE00000001ULL,  // ~64 bits
         0xFFFFFFFD00000001ULL   // ~64 bits
     };
-    return std::make_unique<RNSContext>(4096, primes);
+    return std::make_unique<RNSContext>(12, primes);  // log_n = 12 means n = 4096
 }
 
 /**
@@ -116,7 +116,7 @@ inline std::unique_ptr<RNSContext> SECURITY_128_N8192() {
         0xFFFFFFFC00000001ULL,
         0xFFFFFFFB00000001ULL
     };
-    return std::make_unique<RNSContext>(8192, primes);
+    return std::make_unique<RNSContext>(13, primes);  // log_n = 13 means n = 8192
 }
 
 /**
@@ -133,7 +133,7 @@ inline std::unique_ptr<RNSContext> SECURITY_128_N16384() {
         0xFFFFFFFA00000001ULL,
         0xFFFFFFF900000001ULL
     };
-    return std::make_unique<RNSContext>(16384, primes);
+    return std::make_unique<RNSContext>(14, primes);  // log_n = 14 means n = 16384
 }
 
 }  // namespace StandardParams
