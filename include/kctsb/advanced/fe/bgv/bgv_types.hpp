@@ -1,344 +1,130 @@
 /**
  * @file bgv_types.hpp
- * @brief BGV Homomorphic Encryption Scheme - Type Definitions
+ * @brief BGV Type Definitions (Pure RNS Implementation)
  * 
- * Core type definitions for the Brakerski-Gentry-Vaikuntanathan (BGV) scheme.
- * This is a native implementation using kctsb's bignum library (NTL-based).
- * 
- * References:
- * - Brakerski, Gentry, Vaikuntanathan: "(Leveled) Fully Homomorphic Encryption 
- *   without Bootstrapping" (ITCS 2012)
- * - Fan, Vercauteren: "Somewhat Practical Fully Homomorphic Encryption" (IACR 2012)
- * - Smart, Vercauteren: "Fully Homomorphic SIMD Operations" (DCC 2014)
+ * Defines key and ciphertext types for BGV FHE using RNSPoly representation.
+ * This is a zero-ZZ_pX implementation where all data stays in RNS form.
  * 
  * @author knightc
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
  * @license Apache-2.0
+ * @version v4.11.0
+ * @since Phase 4d - Pure RNS migration
  */
 
-#ifndef KCTSB_ADVANCED_FE_BGV_TYPES_HPP
-#define KCTSB_ADVANCED_FE_BGV_TYPES_HPP
+#ifndef KCTSB_FHE_BGV_TYPES_HPP
+#define KCTSB_FHE_BGV_TYPES_HPP
 
+#include "kctsb/advanced/fe/common/rns_poly.hpp"
 #include <vector>
-#include <memory>
-#include <string>
 #include <cstdint>
-#include <limits>
-#include <cmath>
-
-// kctsb bignum types (NTL-compatible API)
-#include "kctsb/math/bignum/ZZ.h"
-#include "kctsb/math/bignum/ZZ_p.h"
-#include "kctsb/math/bignum/ZZ_pX.h"
-#include "kctsb/math/bignum/ZZ_pE.h"
-#include "kctsb/math/bignum/ZZ_pEX.h"
-#include "kctsb/math/bignum/vec_ZZ.h"
-#include "kctsb/math/bignum/vec_ZZ_p.h"
-#include "kctsb/math/bignum/vec_ZZ_pE.h"
-#include "kctsb/math/bignum/mat_ZZ.h"
 
 namespace kctsb {
 namespace fhe {
 namespace bgv {
 
-// Use kctsb namespace types (compatible with NTL API)
-using kctsb::ZZ;
-using kctsb::ZZ_p;
-using kctsb::ZZ_pX;
-using kctsb::ZZ_pE;
-using kctsb::ZZ_pEX;
-using kctsb::vec_ZZ;
-using kctsb::vec_ZZ_p;
-using kctsb::vec_ZZ_pE;
-using kctsb::mat_ZZ;
-using kctsb::conv;
-using kctsb::IsZero;
-using kctsb::IsOne;
-using kctsb::SetCoeff;
-using kctsb::coeff;
-using kctsb::deg;
-using kctsb::rem;
-using kctsb::power;
-using kctsb::clear;
-using kctsb::ProbPrime;
-using kctsb::to_ulong;
-using kctsb::to_long;
-using kctsb::to_double;
-
-// Helper functions for uint64_t conversion (LLP64 compatibility)
-inline ZZ to_ZZ(uint64_t val) {
-    // Handle uint64_t on LLP64 (Windows) where unsigned long is 32-bit
-    if (val <= static_cast<uint64_t>(std::numeric_limits<unsigned long>::max())) {
-        return conv<ZZ>(static_cast<unsigned long>(val));
-    }
-    // For larger values, construct from two 32-bit parts
-    ZZ result = conv<ZZ>(static_cast<unsigned long>(val >> 32));
-    result <<= 32;
-    result += conv<ZZ>(static_cast<unsigned long>(val & 0xFFFFFFFFULL));
-    return result;
-}
-
-inline double to_dbl(uint64_t val) {
-    return static_cast<double>(val);
-}
-
-// Forward declarations
-class BGVContext;
-class BGVSecretKey;
-class BGVPublicKey;
-class BGVRelinKey;
-class BGVGaloisKey;
-class BGVCiphertext;
-class BGVPlaintext;
-class BGVEncoder;
-class BGVEvaluator;
-
 /**
- * @brief Security level enumeration
+ * @brief BGV Secret Key (Pure RNS)
  * 
- * Defines post-quantum security levels based on LWE hardness estimates.
- * Higher levels require larger parameters and are slower.
+ * Contains the secret polynomial s in NTT domain.
+ * Always stored in NTT form for fast operations.
  */
-enum class SecurityLevel {
-    NONE = 0,           ///< No security guarantee (for testing only)
-    CLASSICAL_128 = 1,  ///< 128-bit classical security
-    CLASSICAL_192 = 2,  ///< 192-bit classical security  
-    CLASSICAL_256 = 3,  ///< 256-bit classical security
-    QUANTUM_128 = 4,    ///< 128-bit post-quantum security
-    QUANTUM_192 = 5,    ///< 192-bit post-quantum security
-    QUANTUM_256 = 6     ///< 256-bit post-quantum security
+struct BGVSecretKey {
+    RNSPoly s;              ///< Secret polynomial (NTT domain)
+    bool is_ntt_form;       ///< Always true
+    
+    BGVSecretKey() : is_ntt_form(false) {}
+    explicit BGVSecretKey(RNSPoly&& sk) 
+        : s(std::move(sk)), is_ntt_form(true) {}
 };
 
 /**
- * @brief BGV scheme parameters
+ * @brief BGV Public Key (Pure RNS)
  * 
- * Configures the polynomial ring R_q = Z_q[X]/(Φ_m(X)) for the BGV scheme.
- * 
- * Notation:
- * - m: cyclotomic ring index (Φ_m(X) is the m-th cyclotomic polynomial)
- * - n: polynomial degree = φ(m)
- * - q: ciphertext modulus (product of primes in RNS decomposition)
- * - t: plaintext modulus
- * - L: number of modulus levels (determines multiplicative depth)
+ * Contains pk = (pk0, pk1) = (-(a*s + t*e), a) both in NTT domain.
+ * Encryption uses pk*u + t*noise + m.
  */
-struct BGVParams {
-    // Ring parameters
-    uint64_t m = 0;              ///< Cyclotomic index (determines n = φ(m))
-    uint64_t n = 0;              ///< Polynomial degree = φ(m)
+struct BGVPublicKey {
+    RNSPoly pk0;            ///< -(a*s + t*e) in NTT domain
+    RNSPoly pk1;            ///< a in NTT domain
+    bool is_ntt_form;       ///< Always true
     
-    // Moduli
-    ZZ q;                        ///< Ciphertext modulus
-    uint64_t t = 0;              ///< Plaintext modulus (typically small prime)
-    
-    // RNS decomposition (for faster modular arithmetic)
-    std::vector<uint64_t> primes;  ///< List of NTT-friendly primes q = q_1 * ... * q_L
-    uint32_t L = 0;                ///< Number of levels (primes)
-    
-    // Error distribution
-    double sigma = 3.2;          ///< Standard deviation for discrete Gaussian
-    uint32_t hamming_weight = 0; ///< Hamming weight for secret key (0 = dense)
-    
-    // Security
-    SecurityLevel security = SecurityLevel::CLASSICAL_128;
-    
-    /**
-     * @brief Get the slot count for batching (SIMD)
-     * @return Number of plaintext slots = n / ord_t(m)
-     */
-    uint64_t slot_count() const;
-    
-    /**
-     * @brief Calculate noise budget in bits
-     * @return Maximum noise before decryption fails
-     */
-    double initial_noise_budget() const;
-    
-    /**
-     * @brief Validate parameter consistency
-     * @return true if parameters are valid
-     */
-    bool validate() const;
-    
-    /**
-     * @brief Create standard parameters for given security and depth
-     * @param security Target security level
-     * @param mult_depth Required multiplicative depth
-     * @param t Plaintext modulus
-     * @return Configured parameters
-     */
-    static BGVParams create_standard(SecurityLevel security, 
-                                      uint32_t mult_depth,
-                                      uint64_t t = 65537);
+    BGVPublicKey() : is_ntt_form(false) {}
+    BGVPublicKey(RNSPoly&& p0, RNSPoly&& p1)
+        : pk0(std::move(p0)), pk1(std::move(p1)), is_ntt_form(true) {}
 };
 
 /**
- * @brief Standard parameter sets
+ * @brief BGV Relinearization Key (Pure RNS)
  * 
- * Pre-defined parameter sets for common use cases.
- * Based on HElib and SEAL standard parameters.
+ * Key switching key for relinearization: (ksk0_i, ksk1_i)
+ * Used to reduce ciphertext size from 3 to 2 after multiplication.
  */
-namespace StandardParams {
-    /// Small parameters for testing (INSECURE)
-    BGVParams TOY_PARAMS();
+struct BGVRelinKey {
+    std::vector<RNSPoly> ksk0;  ///< First components (NTT domain)
+    std::vector<RNSPoly> ksk1;  ///< Second components (NTT domain)
+    uint64_t decomp_base;       ///< Decomposition base (typically 2^16 or 2^20)
+    bool is_ntt_form;           ///< Always true
     
-    /// 128-bit security, depth 3
-    BGVParams SECURITY_128_DEPTH_3();
-    
-    /// 128-bit security, depth 5  
-    BGVParams SECURITY_128_DEPTH_5();
-    
-    /// 192-bit security, depth 5
-    BGVParams SECURITY_192_DEPTH_5();
-}
-
-/**
- * @brief Polynomial element in R_q
- * 
- * Represents a polynomial in the ring Z_q[X]/(Φ_m(X)).
- * Stored in coefficient representation (power basis).
- */
-class RingElement {
-public:
-    RingElement() = default;
-    explicit RingElement(const ZZ_pX& poly);
-    RingElement(const RingElement& other) = default;
-    RingElement(RingElement&& other) noexcept = default;
-    RingElement& operator=(const RingElement& other) = default;
-    RingElement& operator=(RingElement&& other) noexcept = default;
-    
-    /// Access underlying polynomial
-    const ZZ_pX& poly() const { return poly_; }
-    ZZ_pX& poly() { return poly_; }
-    
-    /// Coefficient access
-    ZZ_p coeff(long i) const;
-    void set_coeff(long i, const ZZ_p& val);
-    
-    /// Degree
-    long degree() const;
-    
-    /// Ring operations
-    RingElement operator+(const RingElement& other) const;
-    RingElement operator-(const RingElement& other) const;
-    RingElement operator*(const RingElement& other) const;
-    RingElement operator-() const;
-    
-    RingElement& operator+=(const RingElement& other);
-    RingElement& operator-=(const RingElement& other);
-    RingElement& operator*=(const RingElement& other);
-    
-    /// Scalar operations
-    RingElement operator*(const ZZ_p& scalar) const;
-    RingElement& operator*=(const ZZ_p& scalar);
-    
-    /// Comparison
-    bool operator==(const RingElement& other) const;
-    bool operator!=(const RingElement& other) const { return !(*this == other); }
-    
-    /// Utility
-    bool is_zero() const;
-    void clear();
-    
-    /// Modular reduction (reduce coefficients mod new modulus)
-    RingElement reduce_mod(const ZZ& new_mod) const;
-    
-    /// NTT transform (for faster multiplication)
-    void to_ntt();
-    void from_ntt();
-    bool is_ntt() const { return is_ntt_; }
-
-private:
-    ZZ_pX poly_;           ///< Coefficient representation
-    bool is_ntt_ = false;  ///< True if in NTT domain
-    
-    friend class BGVContext;
+    BGVRelinKey() : decomp_base(0), is_ntt_form(false) {}
+    BGVRelinKey(std::vector<RNSPoly>&& k0, std::vector<RNSPoly>&& k1, uint64_t base)
+        : ksk0(std::move(k0)), ksk1(std::move(k1)), decomp_base(base), is_ntt_form(true) {}
 };
 
 /**
- * @brief BGV Plaintext
+ * @brief BGV Ciphertext (Pure RNS)
  * 
- * Represents a plaintext element in the ring R_t = Z_t[X]/(Φ_m(X)).
- * Can encode:
- * - Single integers (coefficient encoding)
- * - Vectors of integers (SIMD/batching with CRT)
+ * Contains (c0, c1) or (c0, c1, c2, ...) polynomials in NTT domain.
+ * - Fresh ciphertext: size = 2
+ * - After multiplication: size = 3
+ * - After relinearization: size = 2 again
  */
-class BGVPlaintext {
-public:
-    BGVPlaintext() = default;
-    explicit BGVPlaintext(const RingElement& elem);
-    explicit BGVPlaintext(uint64_t value);
-    explicit BGVPlaintext(const std::vector<int64_t>& values);
+struct BGVCiphertext {
+    std::vector<RNSPoly> data;  ///< Ciphertext polynomials (NTT domain)
+    bool is_ntt_form;           ///< Always true
+    int level;                  ///< Current modulus level (0 = highest)
+    int noise_budget;           ///< Remaining noise budget (bits)
     
-    /// Access encoded polynomial
-    const RingElement& data() const { return data_; }
-    RingElement& data() { return data_; }
+    BGVCiphertext() : is_ntt_form(false), level(0), noise_budget(0) {}
     
-    /// Check if SIMD encoded
-    bool is_batched() const { return is_batched_; }
+    size_t size() const { return data.size(); }
     
-    /// Get slot values (after decoding)
-    std::vector<int64_t> decode_slots() const;
+    RNSPoly& operator[](size_t i) { return data[i]; }
+    const RNSPoly& operator[](size_t i) const { return data[i]; }
     
-    /// Get single value (coefficient 0)
-    int64_t decode_single() const;
-
-private:
-    RingElement data_;
-    bool is_batched_ = false;
-    
-    friend class BGVEncoder;
+    void push_back(RNSPoly&& poly) { data.push_back(std::move(poly)); }
+    void resize(size_t new_size) { data.resize(new_size); }
 };
 
 /**
- * @brief BGV Ciphertext
+ * @brief BGV Plaintext (Simple uint64_t vector)
  * 
- * A ciphertext is a vector of ring elements (c_0, c_1, ..., c_k) where k >= 1.
- * Fresh ciphertexts have k=1 (two elements).
- * After multiplication, k increases (requires relinearization).
- * 
- * Decryption: m = [c_0 + c_1*s + c_2*s^2 + ...]_t
+ * Plaintext data before encoding/after decoding.
+ * Coefficient form, not RNS.
  */
-class BGVCiphertext {
-public:
-    BGVCiphertext() = default;
-    
-    /// Number of polynomial components
-    size_t size() const { return polys_.size(); }
-    
-    /// Access components
-    const RingElement& operator[](size_t i) const { return polys_[i]; }
-    RingElement& operator[](size_t i) { return polys_[i]; }
-    
-    /// Add new component
-    void push_back(const RingElement& elem);
-    void push_back(RingElement&& elem);
-    
-    /// Current modulus level
-    uint32_t level() const { return level_; }
-    void set_level(uint32_t lvl) { level_ = lvl; }
-    
-    /// Noise budget estimate (in bits)
-    double noise_budget() const { return noise_budget_; }
-    void set_noise_budget(double budget) { noise_budget_ = budget; }
-    
-    /// Serialization
-    std::vector<uint8_t> serialize() const;
-    static BGVCiphertext deserialize(const std::vector<uint8_t>& data);
-    
-    /// Size in bytes
-    size_t byte_size() const;
+using BGVPlaintext = std::vector<uint64_t>;
 
-private:
-    std::vector<RingElement> polys_;
-    uint32_t level_ = 0;
-    double noise_budget_ = 0.0;
-    
-    friend class BGVContext;
-    friend class BGVEvaluator;
-};
+// ============================================================================
+// Backward Compatibility Aliases (for v4.10.0 code)
+// ============================================================================
+
+/// @deprecated Use BGVSecretKey instead
+using BGVSecretKeyV2 = BGVSecretKey;
+
+/// @deprecated Use BGVPublicKey instead
+using BGVPublicKeyV2 = BGVPublicKey;
+
+/// @deprecated Use BGVRelinKey instead
+using BGVRelinKeyV2 = BGVRelinKey;
+
+/// @deprecated Use BGVCiphertext instead
+using BGVCiphertextV2 = BGVCiphertext;
+
+/// @deprecated Use BGVPlaintext instead
+using BGVPlaintextV2 = BGVPlaintext;
 
 } // namespace bgv
 } // namespace fhe
 } // namespace kctsb
 
-#endif // KCTSB_ADVANCED_FE_BGV_TYPES_HPP
+#endif // KCTSB_FHE_BGV_TYPES_HPP

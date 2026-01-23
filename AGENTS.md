@@ -1,8 +1,8 @@
 # AGENTS.md - kctsb AI Development Guidelines
 
 > **项目**: kctsb - Knight's Cryptographic Trusted Security Base  
-> **版本**: 4.2.0  
-> **更新时间**: 2026-01-21 (Beijing Time, UTC+8)  
+> **版本**: 4.11.0  
+> **更新时间**: 2026-01-23 (Beijing Time, UTC+8)  
 
 ---
 
@@ -552,6 +552,41 @@ std::reverse(output, output + len);  // ❌ 分散实现，难以维护
 ---
 
 ## 开发约束
+
+### 📁 文件版本管理规范 (v4.11.0+)
+
+**核心原则**: 不使用 V1/V2/V3 等版本后缀作为文件名，最新版本直接使用主文件名。
+
+| 规则 | 说明 | 示例 |
+|------|------|------|
+| **主文件名** | 最新/生产版本使用无版本后缀的文件名 | `bgv_evaluator.cpp` (不是 `bgv_evaluator_v2.cpp`) |
+| **历史备份** | 需要保留旧版本时使用 `.bak` 后缀 | `bgv_evaluator.cpp.bak_v1` |
+| **中间状态清理** | 开发完成后删除中间版本文件 | 删除 `bgv_evaluator_v1.cpp`, `bgv_evaluator_v2.cpp` |
+| **版本迁移** | 新版本完成后，旧版本归档到 `.bak` | `mv old.cpp old.cpp.bak_vX` |
+
+**实施流程**:
+```bash
+# 1. 开发新版本时，可以临时使用 _v2 后缀
+bgv_evaluator.cpp       # 当前生产版本
+bgv_evaluator_v2.cpp    # 开发中的新版本
+
+# 2. 新版本完成并测试通过后
+mv bgv_evaluator.cpp bgv_evaluator.cpp.bak_v1   # 备份旧版本
+mv bgv_evaluator_v2.cpp bgv_evaluator.cpp       # 新版本成为主文件
+
+# 3. 清理中间文件
+rm *_v2.cpp *_v2.hpp    # 删除已迁移的中间版本
+```
+
+**禁止**:
+- ❌ 同时维护 `xxx.cpp` 和 `xxx_v2.cpp` 作为生产代码
+- ❌ 使用 `xxx_new.cpp`, `xxx_final.cpp` 等命名
+- ❌ 在 include/ 目录保留多个版本的头文件
+
+**允许**:
+- ✅ 开发期间临时使用 `_v2` 后缀
+- ✅ 使用 `.bak_vX` 保留历史版本供参考
+- ✅ 在 `docs/archive/` 存放历史设计文档
 
 ### 跨平台数据类型安全 ⚠️
 

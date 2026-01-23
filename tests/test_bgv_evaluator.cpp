@@ -1,17 +1,17 @@
 /**
- * @file test_bgv_evaluator_v2.cpp
- * @brief Unit Tests for BGV EvaluatorV2 (Pure RNS)
+ * @file test_bgv_evaluator.cpp
+ * @brief Unit Tests for BGV Evaluator (Pure RNS)
  * 
  * Tests all operations of the high-performance RNS-based BGV evaluator.
  * 
  * @author knightc
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
  * @license Apache-2.0
- * @version v4.10.0
+ * @version v4.11.0
  */
 
 #include <gtest/gtest.h>
-#include "kctsb/advanced/fe/bgv/bgv_evaluator_v2.hpp"
+#include "kctsb/advanced/fe/bgv/bgv_evaluator.hpp"
 #include "kctsb/advanced/fe/common/rns_poly.hpp"
 #include <random>
 
@@ -22,7 +22,7 @@ using namespace kctsb::fhe::bgv;
 // Test Fixture
 // ============================================================================
 
-class BGVEvaluatorV2Test : public ::testing::Test {
+class BGVEvaluatorTest : public ::testing::Test {
 protected:
     void SetUp() override {
         // Use small parameters for fast testing
@@ -30,7 +30,7 @@ protected:
         primes_ = {65537, 114689};  // Two 17-bit primes
         
         context_ = std::make_unique<RNSContext>(log_n_, primes_);
-        evaluator_ = std::make_unique<BGVEvaluatorV2>(context_.get(), 256);
+        evaluator_ = std::make_unique<BGVEvaluator>(context_.get(), 256);
         
         rng_.seed(12345);
     }
@@ -38,7 +38,7 @@ protected:
     int log_n_;
     std::vector<uint64_t> primes_;
     std::unique_ptr<RNSContext> context_;
-    std::unique_ptr<BGVEvaluatorV2> evaluator_;
+    std::unique_ptr<BGVEvaluator> evaluator_;
     std::mt19937_64 rng_;
 };
 
@@ -46,7 +46,7 @@ protected:
 // Key Generation Tests
 // ============================================================================
 
-TEST_F(BGVEvaluatorV2Test, SecretKeyGeneration) {
+TEST_F(BGVEvaluatorTest, SecretKeyGeneration) {
     auto sk = evaluator_->generate_secret_key(rng_);
     
     EXPECT_TRUE(sk.is_ntt_form);
@@ -55,7 +55,7 @@ TEST_F(BGVEvaluatorV2Test, SecretKeyGeneration) {
     EXPECT_TRUE(sk.s.is_ntt_form());
 }
 
-TEST_F(BGVEvaluatorV2Test, PublicKeyGeneration) {
+TEST_F(BGVEvaluatorTest, PublicKeyGeneration) {
     auto sk = evaluator_->generate_secret_key(rng_);
     auto pk = evaluator_->generate_public_key(sk, rng_);
     
@@ -66,7 +66,7 @@ TEST_F(BGVEvaluatorV2Test, PublicKeyGeneration) {
     EXPECT_TRUE(pk.pk1.is_ntt_form());
 }
 
-TEST_F(BGVEvaluatorV2Test, RelinKeyGeneration) {
+TEST_F(BGVEvaluatorTest, RelinKeyGeneration) {
     auto sk = evaluator_->generate_secret_key(rng_);
     auto rk = evaluator_->generate_relin_key(sk, rng_);
     
@@ -85,12 +85,12 @@ TEST_F(BGVEvaluatorV2Test, RelinKeyGeneration) {
 // Encryption / Decryption Tests
 // ============================================================================
 
-TEST_F(BGVEvaluatorV2Test, EncryptDecryptZero) {
+TEST_F(BGVEvaluatorTest, EncryptDecryptZero) {
     auto sk = evaluator_->generate_secret_key(rng_);
     auto pk = evaluator_->generate_public_key(sk, rng_);
     
     // Encrypt zero plaintext
-    BGVPlaintextV2 pt_zero(16, 0);
+    BGVPlaintext pt_zero(16, 0);
     auto ct = evaluator_->encrypt(pt_zero, pk, rng_);
     
     EXPECT_TRUE(ct.is_ntt_form);
@@ -110,12 +110,12 @@ TEST_F(BGVEvaluatorV2Test, EncryptDecryptZero) {
     EXPECT_GT(zero_count, 10);  // At least 10/16 should be zero
 }
 
-TEST_F(BGVEvaluatorV2Test, EncryptDecryptSimple) {
+TEST_F(BGVEvaluatorTest, EncryptDecryptSimple) {
     auto sk = evaluator_->generate_secret_key(rng_);
     auto pk = evaluator_->generate_public_key(sk, rng_);
     
     // Simple plaintext: [1, 2, 3, 4, ...]
-    BGVPlaintextV2 pt(16);
+    BGVPlaintext pt(16);
     for (size_t i = 0; i < 16; ++i) {
         pt[i] = i + 1;
     }
@@ -149,13 +149,13 @@ TEST_F(BGVEvaluatorV2Test, EncryptDecryptSimple) {
 // Homomorphic Addition Tests
 // ============================================================================
 
-TEST_F(BGVEvaluatorV2Test, Addition) {
+TEST_F(BGVEvaluatorTest, Addition) {
     auto sk = evaluator_->generate_secret_key(rng_);
     auto pk = evaluator_->generate_public_key(sk, rng_);
     
     // Encrypt two plaintexts
-    BGVPlaintextV2 pt1(16, 5);   // [5, 5, 5, ...]
-    BGVPlaintextV2 pt2(16, 3);   // [3, 3, 3, ...]
+    BGVPlaintext pt1(16, 5);   // [5, 5, 5, ...]
+    BGVPlaintext pt2(16, 3);   // [3, 3, 3, ...]
     
     auto ct1 = evaluator_->encrypt(pt1, pk, rng_);
     auto ct2 = evaluator_->encrypt(pt2, pk, rng_);
@@ -182,12 +182,12 @@ TEST_F(BGVEvaluatorV2Test, Addition) {
     }
 }
 
-TEST_F(BGVEvaluatorV2Test, AdditionInplace) {
+TEST_F(BGVEvaluatorTest, AdditionInplace) {
     auto sk = evaluator_->generate_secret_key(rng_);
     auto pk = evaluator_->generate_public_key(sk, rng_);
     
-    BGVPlaintextV2 pt1(16, 7);
-    BGVPlaintextV2 pt2(16, 4);
+    BGVPlaintext pt1(16, 7);
+    BGVPlaintext pt2(16, 4);
     
     auto ct1 = evaluator_->encrypt(pt1, pk, rng_);
     auto ct2 = evaluator_->encrypt(pt2, pk, rng_);
@@ -213,12 +213,12 @@ TEST_F(BGVEvaluatorV2Test, AdditionInplace) {
 // Homomorphic Subtraction Tests
 // ============================================================================
 
-TEST_F(BGVEvaluatorV2Test, Subtraction) {
+TEST_F(BGVEvaluatorTest, Subtraction) {
     auto sk = evaluator_->generate_secret_key(rng_);
     auto pk = evaluator_->generate_public_key(sk, rng_);
     
-    BGVPlaintextV2 pt1(16, 10);
-    BGVPlaintextV2 pt2(16, 3);
+    BGVPlaintext pt1(16, 10);
+    BGVPlaintext pt2(16, 3);
     
     auto ct1 = evaluator_->encrypt(pt1, pk, rng_);
     auto ct2 = evaluator_->encrypt(pt2, pk, rng_);
@@ -243,7 +243,7 @@ TEST_F(BGVEvaluatorV2Test, Subtraction) {
 // Homomorphic Multiplication Tests
 // ============================================================================
 
-TEST_F(BGVEvaluatorV2Test, Multiplication) {
+TEST_F(BGVEvaluatorTest, Multiplication) {
     // Note: With tiny parameters (n=16, 2 moduli), noise budget is very limited.
     // This test verifies multiplication completes successfully and produces
     // plausible results, but exact values may not match due to noise.
@@ -253,8 +253,8 @@ TEST_F(BGVEvaluatorV2Test, Multiplication) {
     auto pk = evaluator_->generate_public_key(sk, rng_);
     
     // Small values to avoid overflow
-    BGVPlaintextV2 pt1(16, 3);
-    BGVPlaintextV2 pt2(16, 4);
+    BGVPlaintext pt1(16, 3);
+    BGVPlaintext pt2(16, 4);
     
     auto ct1 = evaluator_->encrypt(pt1, pk, rng_);
     auto ct2 = evaluator_->encrypt(pt2, pk, rng_);
@@ -284,14 +284,14 @@ TEST_F(BGVEvaluatorV2Test, Multiplication) {
     std::cout << std::endl;
 }
 
-TEST_F(BGVEvaluatorV2Test, MultiplyAndRelinearize) {
+TEST_F(BGVEvaluatorTest, MultiplyAndRelinearize) {
     // See Multiplication test note about small parameters and noise budget
     auto sk = evaluator_->generate_secret_key(rng_);
     auto pk = evaluator_->generate_public_key(sk, rng_);
     auto rk = evaluator_->generate_relin_key(sk, rng_);
     
-    BGVPlaintextV2 pt1(16, 5);
-    BGVPlaintextV2 pt2(16, 2);
+    BGVPlaintext pt1(16, 5);
+    BGVPlaintext pt2(16, 2);
     
     auto ct1 = evaluator_->encrypt(pt1, pk, rng_);
     auto ct2 = evaluator_->encrypt(pt2, pk, rng_);
@@ -319,16 +319,16 @@ TEST_F(BGVEvaluatorV2Test, MultiplyAndRelinearize) {
 // Complex Operation Tests
 // ============================================================================
 
-TEST_F(BGVEvaluatorV2Test, MultipleOperations) {
+TEST_F(BGVEvaluatorTest, MultipleOperations) {
     // See Multiplication test note about small parameters and noise budget
     auto sk = evaluator_->generate_secret_key(rng_);
     auto pk = evaluator_->generate_public_key(sk, rng_);
     auto rk = evaluator_->generate_relin_key(sk, rng_);
     
     // Compute (a + b) * c where a=2, b=3, c=4
-    BGVPlaintextV2 pt_a(16, 2);
-    BGVPlaintextV2 pt_b(16, 3);
-    BGVPlaintextV2 pt_c(16, 4);
+    BGVPlaintext pt_a(16, 2);
+    BGVPlaintext pt_b(16, 3);
+    BGVPlaintext pt_c(16, 4);
     
     auto ct_a = evaluator_->encrypt(pt_a, pk, rng_);
     auto ct_b = evaluator_->encrypt(pt_b, pk, rng_);
@@ -354,11 +354,11 @@ TEST_F(BGVEvaluatorV2Test, MultipleOperations) {
     std::cout << std::endl;
 }
 
-TEST_F(BGVEvaluatorV2Test, Negation) {
+TEST_F(BGVEvaluatorTest, Negation) {
     auto sk = evaluator_->generate_secret_key(rng_);
     auto pk = evaluator_->generate_public_key(sk, rng_);
     
-    BGVPlaintextV2 pt(16, 7);
+    BGVPlaintext pt(16, 7);
     auto ct = evaluator_->encrypt(pt, pk, rng_);
     
     evaluator_->negate_inplace(ct);
@@ -382,10 +382,10 @@ TEST_F(BGVEvaluatorV2Test, Negation) {
 // Performance Indicator Test (Not Strict)
 // ============================================================================
 
-TEST_F(BGVEvaluatorV2Test, PerformanceIndicator) {
+TEST_F(BGVEvaluatorTest, PerformanceIndicator) {
     // Use slightly larger parameters to get meaningful timing
     RNSContext ctx_perf(8, {65537, 114689});  // n = 256
-    BGVEvaluatorV2 eval_perf(&ctx_perf, 256);
+    BGVEvaluator eval_perf(&ctx_perf, 256);
     
     std::mt19937_64 rng_perf(54321);
     
@@ -393,8 +393,8 @@ TEST_F(BGVEvaluatorV2Test, PerformanceIndicator) {
     auto pk = eval_perf.generate_public_key(sk, rng_perf);
     auto rk = eval_perf.generate_relin_key(sk, rng_perf);
     
-    BGVPlaintextV2 pt1(256, 5);
-    BGVPlaintextV2 pt2(256, 3);
+    BGVPlaintext pt1(256, 5);
+    BGVPlaintext pt2(256, 3);
     
     auto ct1 = eval_perf.encrypt(pt1, pk, rng_perf);
     auto ct2 = eval_perf.encrypt(pt2, pk, rng_perf);
@@ -418,7 +418,7 @@ TEST_F(BGVEvaluatorV2Test, PerformanceIndicator) {
 // Large Parameter Test (n=8192, SEAL baseline comparison)
 // ============================================================================
 
-TEST(BGVEvaluatorV2LargeTest, N8192_Baseline) {
+TEST(BGVEvaluatorLargeTest, N8192_Baseline) {
     // 50-bit NTT-friendly primes for n=8192 (verified with sympy)
     // These are the actual primes used in BGV with SECURITY_128 params
     constexpr uint64_t PRIME_50BIT_1 = 1125899906990081ULL;
@@ -427,9 +427,9 @@ TEST(BGVEvaluatorV2LargeTest, N8192_Baseline) {
     
     // n = 8192 = 2^13
     RNSContext ctx_large(13, {PRIME_50BIT_1, PRIME_50BIT_2, PRIME_50BIT_3});
-    BGVEvaluatorV2 eval_large(&ctx_large, 65537);  // Standard plaintext modulus
+    BGVEvaluator eval_large(&ctx_large, 65537);  // Standard plaintext modulus
     
-    std::cout << "\n=== BGV EvaluatorV2 Baseline (n=8192) ===\n";
+    std::cout << "\n=== BGV Evaluator Baseline (n=8192) ===\n";
     std::cout << "  Ring degree (n): " << ctx_large.n() << "\n";
     std::cout << "  Moduli count (L): " << ctx_large.level_count() << "\n";
     std::cout << "  Plaintext modulus (t): 65537\n\n";
@@ -459,8 +459,8 @@ TEST(BGVEvaluatorV2LargeTest, N8192_Baseline) {
               << " ms\n";
     
     // Encrypt/Decrypt timing
-    BGVPlaintextV2 pt1(8192, 42);
-    BGVPlaintextV2 pt2(8192, 7);
+    BGVPlaintext pt1(8192, 42);
+    BGVPlaintext pt2(8192, 7);
     
     start = std::chrono::high_resolution_clock::now();
     auto ct1 = eval_large.encrypt(pt1, pk, rng);

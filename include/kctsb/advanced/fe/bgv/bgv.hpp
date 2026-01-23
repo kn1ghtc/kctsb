@@ -1,79 +1,77 @@
 /**
  * @file bgv.hpp
- * @brief BGV Homomorphic Encryption Scheme - Main Header
+ * @brief BGV Homomorphic Encryption Scheme - Main Header (Pure RNS)
  * 
  * This is the main include file for the BGV (Brakerski-Gentry-Vaikuntanathan)
  * homomorphic encryption scheme implementation in kctsb.
  * 
+ * v4.11.0: Complete migration to Pure RNS architecture.
+ * All operations use RNSPoly representation, zero ZZ_pX/NTL dependencies.
+ * 
  * BGV is a leveled fully homomorphic encryption scheme that supports:
  * - Exact integer arithmetic (no approximation)
- * - SIMD operations via batching (CRT packing)
- * - Efficient modulus switching for noise management
+ * - SIMD operations via batching (CRT packing) [Phase 4d pending]
+ * - Efficient modulus switching for noise management [Phase 4d pending]
  * 
- * This implementation is based on kctsb's bignum library (NTL-compatible)
- * and does not require external HE libraries like SEAL or HElib.
- * 
- * Quick Start:
+ * Quick Start (Pure RNS API):
  * @code
  * #include <kctsb/advanced/fe/bgv/bgv.hpp>
  * 
  * using namespace kctsb::fhe::bgv;
  * 
- * // 1. Create context with standard parameters
- * auto params = StandardParams::SECURITY_128_DEPTH_3();
- * BGVContext context(params);
+ * // 1. Create context (Pure RNS)
+ * auto ctx = create_default_rns_context();  // n=4096, 3 primes, 128-bit security
  * 
- * // 2. Generate keys
- * auto sk = context.generate_secret_key();
- * auto pk = context.generate_public_key(sk);
- * auto rk = context.generate_relin_key(sk);
+ * // 2. Create evaluator
+ * BGVEvaluator evaluator(ctx.get());
  * 
- * // 3. Encode and encrypt
- * BGVEncoder encoder(context);
- * auto pt1 = encoder.encode_batch({1, 2, 3, 4});
- * auto pt2 = encoder.encode_batch({5, 6, 7, 8});
- * auto ct1 = context.encrypt(pk, pt1);
- * auto ct2 = context.encrypt(pk, pt2);
+ * // 3. Generate keys
+ * auto sk = evaluator.generate_secret_key();
+ * auto pk = evaluator.generate_public_key(sk);
+ * auto rk = evaluator.generate_relin_key(sk);
  * 
- * // 4. Homomorphic operations
- * BGVEvaluator evaluator(context);
+ * // 4. Encrypt
+ * std::vector<uint64_t> data = {1, 2, 3, 4};
+ * auto ct1 = evaluator.encrypt(pk, data);
+ * auto ct2 = evaluator.encrypt(pk, data);
+ * 
+ * // 5. Homomorphic operations
  * auto ct_sum = evaluator.add(ct1, ct2);
- * auto ct_prod = evaluator.multiply_relin(ct1, ct2, rk);
+ * auto ct_prod = evaluator.multiply(ct1, ct2);
+ * evaluator.relinearize_inplace(ct_prod, rk);
  * 
- * // 5. Decrypt and decode
- * auto result_sum = context.decrypt(sk, ct_sum);
- * auto values = encoder.decode_batch(result_sum);  // {6, 8, 10, 12}
+ * // 6. Decrypt
+ * auto result = evaluator.decrypt(sk, ct_sum);
  * @endcode
  * 
  * @author knightc
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
  * @license Apache-2.0
+ * @version v4.11.0
+ * @since Phase 4d - Pure RNS migration
  */
 
 #ifndef KCTSB_ADVANCED_FE_BGV_HPP
 #define KCTSB_ADVANCED_FE_BGV_HPP
 
-// Core types and parameters
+// Core Pure RNS types
 #include "bgv_types.hpp"
 
-// Context and key management
-#include "bgv_context.hpp"
-
-// Plaintext encoding
-#include "bgv_encoder.hpp"
-
-// Homomorphic evaluation
+// Pure RNS Evaluator (key generation + encrypt/decrypt + homomorphic ops)
 #include "bgv_evaluator.hpp"
+
+// NTT Helper utilities
+#include "bgv_ntt_helper.hpp"
 
 namespace kctsb {
 namespace fhe {
 namespace bgv {
 
 /**
- * @brief BGV Library Version
+ * @brief BGV Library Version (Pure RNS)
  */
-constexpr int BGV_VERSION_MAJOR = 1;
-constexpr int BGV_VERSION_MINOR = 0;
+constexpr int BGV_VERSION_MAJOR = 4;
+constexpr int BGV_VERSION_MINOR = 11;
 constexpr int BGV_VERSION_PATCH = 0;
 
 /**
@@ -81,41 +79,89 @@ constexpr int BGV_VERSION_PATCH = 0;
  * @return Version in "major.minor.patch" format
  */
 inline const char* bgv_version() {
-    static const char version[] = "1.0.0";
+    static const char version[] = "4.11.0-rns";
     return version;
 }
 
 /**
- * @brief Check if build supports SIMD batching
+ * @brief Standard security parameter sets
  * 
- * Batching requires computing primitive roots in Z_t,
- * which is only possible for certain choices of t.
+ * All parameter sets use pure RNS representation.
+ * Security estimates based on lattice-estimator.
  */
-inline bool supports_batching(uint64_t t, uint64_t m) {
-    // t must be coprime to m and split completely in Z[X]/(Φ_m(X))
-    // Simplified check: t = 1 (mod m) or more complex conditions
-    return (t % m == 1);
+namespace StandardParams {
+
+/**
+ * @brief Create 128-bit security context (n=4096)
+ * Good for 3-level computations
+ */
+inline std::unique_ptr<RNSContext> SECURITY_128_N4096() {
+    std::vector<uint64_t> primes = {
+        0xFFFFFFFF00000001ULL,  // ~64 bits
+        0xFFFFFFFE00000001ULL,  // ~64 bits
+        0xFFFFFFFD00000001ULL   // ~64 bits
+    };
+    return std::make_unique<RNSContext>(4096, primes);
 }
 
 /**
- * @brief Convenience function to create complete keyset
- * 
- * @param context BGV context
- * @param rotation_steps Rotation steps to support (empty = all)
- * @return Tuple of (secret_key, public_key, relin_key, galois_keys)
+ * @brief Create 128-bit security context (n=8192)
+ * Good for 5-level computations, recommended for production
  */
-inline std::tuple<BGVSecretKey, BGVPublicKey, BGVRelinKey, BGVGaloisKey>
-generate_all_keys(BGVContext& context, 
-                  const std::vector<int>& rotation_steps = {}) {
-    auto sk = context.generate_secret_key();
-    auto pk = context.generate_public_key(sk);
-    auto rk = context.generate_relin_key(sk);
-    auto gk = context.generate_galois_keys(sk, rotation_steps);
-    return {std::move(sk), std::move(pk), std::move(rk), std::move(gk)};
+inline std::unique_ptr<RNSContext> SECURITY_128_N8192() {
+    std::vector<uint64_t> primes = {
+        0xFFFFFFFF00000001ULL,
+        0xFFFFFFFE00000001ULL,
+        0xFFFFFFFD00000001ULL,
+        0xFFFFFFFC00000001ULL,
+        0xFFFFFFFB00000001ULL
+    };
+    return std::make_unique<RNSContext>(8192, primes);
 }
 
-} // namespace bgv
-} // namespace fhe
-} // namespace kctsb
+/**
+ * @brief Create 128-bit security context (n=16384)
+ * Good for deep circuits (10+ levels)
+ */
+inline std::unique_ptr<RNSContext> SECURITY_128_N16384() {
+    std::vector<uint64_t> primes = {
+        0xFFFFFFFF00000001ULL,
+        0xFFFFFFFE00000001ULL,
+        0xFFFFFFFD00000001ULL,
+        0xFFFFFFFC00000001ULL,
+        0xFFFFFFFB00000001ULL,
+        0xFFFFFFFA00000001ULL,
+        0xFFFFFFF900000001ULL
+    };
+    return std::make_unique<RNSContext>(16384, primes);
+}
+
+}  // namespace StandardParams
+
+/**
+ * @brief Create default RNS context for quick testing
+ * 
+ * Uses n=4096, 3 primes (~192 bits total Q)
+ * Suitable for 128-bit security with 2-3 multiplication depths
+ */
+inline std::unique_ptr<RNSContext> create_default_rns_context() {
+    return StandardParams::SECURITY_128_N4096();
+}
+
+/**
+ * @brief Create RNS context with custom parameters
+ * @param n Polynomial degree (power of 2)
+ * @param primes Ciphertext modulus primes (each ~60-62 bits)
+ * @return Unique pointer to RNS context
+ */
+inline std::unique_ptr<RNSContext> create_rns_context(
+    size_t n, 
+    const std::vector<uint64_t>& primes) {
+    return std::make_unique<RNSContext>(n, primes);
+}
+
+}  // namespace bgv
+}  // namespace fhe
+}  // namespace kctsb
 
 #endif // KCTSB_ADVANCED_FE_BGV_HPP

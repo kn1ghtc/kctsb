@@ -745,26 +745,28 @@ if(KCTSB_ENABLE_BGV)
         ${KCTSB_SRC_DIR}/advanced/fe/common/rns_poly_utils.cpp
     )
     
-    # BGV-specific sources
+    # BGV-specific sources (v4.11.0: Pure RNS implementation)
+    # Note: bgv_context.cpp and bgv_encoder.cpp are NTL-based legacy files,
+    #       backed up as .bak_ntl_legacy. Only pure RNS bgv_evaluator.cpp is used.
     set(KCTSB_BGV_SOURCES
-        ${KCTSB_SRC_DIR}/advanced/fe/bgv/bgv_context.cpp
         ${KCTSB_SRC_DIR}/advanced/fe/bgv/bgv_evaluator.cpp
-        ${KCTSB_SRC_DIR}/advanced/fe/bgv/bgv_evaluator_v2.cpp
-        ${KCTSB_SRC_DIR}/advanced/fe/bgv/bgv_encoder.cpp
     )
     
-    # BFV-specific sources (v4.7.0+)
+    # BFV-specific sources (v4.11.0: Temporarily disabled, pending RNS migration)
+    # TODO: Phase 4d BFV migration to pure RNS
     set(KCTSB_BFV_SOURCES
-        ${KCTSB_SRC_DIR}/advanced/fe/bfv/bfv_context.cpp
+        # ${KCTSB_SRC_DIR}/advanced/fe/bfv/bfv_context.cpp  # Requires old BGVEvaluator
     )
     
-    # CKKS-specific sources (v4.8.0+)
+    # CKKS-specific sources (v4.11.0: Temporarily disabled, pending RNS migration)
+    # TODO: Phase 4d CKKS migration to pure RNS
     set(KCTSB_CKKS_SOURCES
-        ${KCTSB_SRC_DIR}/advanced/fe/ckks/ckks_context.cpp
+        # ${KCTSB_SRC_DIR}/advanced/fe/ckks/ckks_context.cpp  # Requires old BGVEvaluator
     )
     
-    list(APPEND KCTSB_ADVANCED_SOURCES ${KCTSB_NTT_SOURCES} ${KCTSB_BGV_SOURCES} ${KCTSB_BFV_SOURCES} ${KCTSB_CKKS_SOURCES})
-    message(STATUS "✓ Native BGV/BFV/CKKS homomorphic encryption enabled (with NTT acceleration)")
+    # v4.11.0: Only BGV Pure RNS enabled
+    list(APPEND KCTSB_ADVANCED_SOURCES ${KCTSB_NTT_SOURCES} ${KCTSB_BGV_SOURCES})
+    message(STATUS "✓ BGV Pure RNS homomorphic encryption enabled (BFV/CKKS pending migration)")
 else()
     message(STATUS "⚠ Native BGV/BFV disabled (set KCTSB_ENABLE_BGV=ON to enable)")
 endif()
