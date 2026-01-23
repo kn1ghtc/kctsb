@@ -103,20 +103,33 @@ void sample_gaussian_rns(RNSPoly* out, std::mt19937_64& rng, double sigma);
 void crt_reconstruct_rns(const RNSPoly& poly, std::vector<uint64_t>& out);
 
 /**
- * @brief Convert coefficient to balanced/centered representative mod modulus
+ * @brief Reduce x modulo modulus to [0, modulus)
  * 
- * Maps x in [0, modulus) to [-modulus/2, modulus/2) by choosing the
- * representative with smallest absolute value.
- * 
- * @param x Input value in [0, modulus)
+ * @param x Input value
  * @param modulus Modulus value
- * @return Balanced representative
- * 
- * @example
- * balance_mod(250, 256) -> -6  (250 = 256 - 6)
- * balance_mod(10, 256)  -> 10  (10 < 128)
+ * @return x mod modulus
  */
 uint64_t balance_mod(uint64_t x, uint64_t modulus);
+
+/**
+ * @brief CRT reconstruction returning full __int128 precision
+ * 
+ * Same as crt_reconstruct_rns but returns __int128 values to
+ * preserve full precision for BGV scaling calculations.
+ * 
+ * @param poly RNS polynomial in coefficient form
+ * @param out Output coefficient vector with __int128 precision
+ * @note Input polynomial must NOT be in NTT form
+ */
+void crt_reconstruct_rns_128(const RNSPoly& poly, std::vector<__int128>& out);
+
+/**
+ * @brief Compute product of all RNS moduli Q = q_0 * q_1 * ... * q_{L-1}
+ * 
+ * @param context RNS context
+ * @return Product Q as __int128
+ */
+__int128 compute_Q_product(const RNSContext* context);
 
 } // namespace fhe
 } // namespace kctsb

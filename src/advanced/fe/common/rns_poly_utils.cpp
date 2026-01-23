@@ -143,7 +143,7 @@ void sample_gaussian_rns(RNSPoly* out, std::mt19937_64& rng, double sigma) {
 }
 
 // ============================================================================
-// CRT Reconstruction
+// CRT Reconstruction (Multi-Precision using __int128)
 // ============================================================================
 
 void crt_reconstruct_rns(const RNSPoly& poly, std::vector<uint64_t>& out) {
@@ -170,51 +170,131 @@ void crt_reconstruct_rns(const RNSPoly& poly, std::vector<uint64_t>& out) {
         return;
     }
     
-    // Multi-modulus CRT reconstruction
-    // For small test parameters (2 moduli < 2^17 each), we can use uint64_t
-    // Formula: x = (x_0 + q_0 * [(x_1 - x_0) * q_0^{-1}]_q1) mod Q
+    // Multi-modulus CRT reconstruction using __int128 for precision
+    // Uses iterative CRT: start with x = x_0, then combine with x_1, x_2, ...
+    // Formula: x = x_prev + Q_prev * [(x_i - x_prev) * Q_prev^{-1}]_qi
     
+    // Start with first modulus
     const uint64_t* data0 = poly.data(0);
-    const uint64_t* data1 = poly.data(1);
-    
     uint64_t q0 = context->modulus(0).value();
-    uint64_t q1 = context->modulus(1).value();
     
-    // Compute q0^{-1} mod q1
-    Modulus mod_q1(q1);
-    uint64_t q0_inv = inv_mod(q0 % q1, mod_q1);
-    
+    // Initialize with values from first residue
+    std::vector<__int128> result(n);
     for (size_t i = 0; i < n; ++i) {
-        uint64_t x0 = data0[i];
-        uint64_t x1 = data1[i];
+        result[i] = static_cast<__int128>(data0[i]);
+    }
+    
+    // Accumulate product of moduli
+    __int128 Q_prev = q0;
+    
+    // Iteratively combine with remaining moduli
+    for (size_t level = 1; level < L; ++level) {
+        uint64_t qi = context->modulus(level).value();
+        const uint64_t* data_i = poly.data(level);
         
-        // k = (x1 - x0) * q0^{-1} mod q1
-        uint64_t diff = (x1 + q1 - (x0 % q1)) % q1;
-        uint64_t k = multiply_uint_mod(diff, q0_inv, mod_q1);
+        // Compute Q_prev^{-1} mod qi
+        Modulus mod_qi(qi);
+        uint64_t Q_prev_mod_qi = static_cast<uint64_t>(Q_prev % qi);
+        uint64_t Q_prev_inv = inv_mod(Q_prev_mod_qi, mod_qi);
         
-        // x = x0 + q0 * k
-        // Note: This can overflow uint64_t, but for test parameters it's OK
-        // Production code should use multi-precision arithmetic
-        out[i] = x0 + q0 * k;
+        for (size_t j = 0; j < n; ++j) {
+            // x_prev mod qi
+            uint64_t result_mod_qi = static_cast<uint64_t>((result[j] % qi + qi) % qi);
+            
+            // diff = (x_i - x_prev) mod qi
+            uint64_t diff = (data_i[j] + qi - result_mod_qi) % qi;
+            
+            // k = diff * Q_prev^{-1} mod qi
+            uint64_t k = multiply_uint_mod(diff, Q_prev_inv, mod_qi);
+            
+            // result = x_prev + Q_prev * k
+            result[j] = result[j] + Q_prev * static_cast<__int128>(k);
+        }
+        
+        Q_prev *= qi;
+    }
+    
+    // Store final result (may need to reduce for output)
+    // Note: result[i] is in [0, Q), but we return as uint64_t
+    // Caller should handle potential overflow for very large Q
+    for (size_t i = 0; i < n; ++i) {
+        // For values that fit in uint64_t, just cast
+        // For larger values, we keep the low bits (caller will scale anyway)
+        out[i] = static_cast<uint64_t>(result[i]);
     }
 }
 
 uint64_t balance_mod(uint64_t x, uint64_t modulus) {
-    if (x == 0) return 0;
+    if (x == 0 || modulus == 0) return 0;
     
-    uint64_t half_mod = modulus / 2;
-    
-    // For modulo plaintext_modulus reduction
     // First reduce x modulo modulus
     x = x % modulus;
     
-    if (x <= half_mod) {
-        return x;  // Positive representative
-    } else {
-        // Return as-is, caller interprets as needed
-        // Note: For plaintext, we return the value in [0, modulus)
-        return x;
+    // Return value in [0, modulus)
+    // For signed interpretation, caller should check if x > modulus/2
+    return x;
+}
+
+void crt_reconstruct_rns_128(const RNSPoly& poly, std::vector<__int128>& out) {
+    if (poly.empty()) {
+        throw std::invalid_argument("Cannot reconstruct from empty polynomial");
     }
+    
+    if (poly.is_ntt_form()) {
+        throw std::invalid_argument("Polynomial must be in coefficient form for CRT reconstruction");
+    }
+    
+    const RNSContext* context = poly.context();
+    size_t n = context->n();
+    size_t L = poly.current_level();
+    
+    if (out.size() < n) {
+        out.resize(n);
+    }
+    
+    if (L == 1) {
+        const uint64_t* data = poly.data(0);
+        for (size_t i = 0; i < n; ++i) {
+            out[i] = static_cast<__int128>(data[i]);
+        }
+        return;
+    }
+    
+    // Same algorithm as crt_reconstruct_rns but returns full __int128
+    const uint64_t* data0 = poly.data(0);
+    uint64_t q0 = context->modulus(0).value();
+    
+    for (size_t i = 0; i < n; ++i) {
+        out[i] = static_cast<__int128>(data0[i]);
+    }
+    
+    __int128 Q_prev = q0;
+    
+    for (size_t level = 1; level < L; ++level) {
+        uint64_t qi = context->modulus(level).value();
+        const uint64_t* data_i = poly.data(level);
+        
+        Modulus mod_qi(qi);
+        uint64_t Q_prev_mod_qi = static_cast<uint64_t>(Q_prev % qi);
+        uint64_t Q_prev_inv = inv_mod(Q_prev_mod_qi, mod_qi);
+        
+        for (size_t j = 0; j < n; ++j) {
+            uint64_t result_mod_qi = static_cast<uint64_t>((out[j] % qi + qi) % qi);
+            uint64_t diff = (data_i[j] + qi - result_mod_qi) % qi;
+            uint64_t k = multiply_uint_mod(diff, Q_prev_inv, mod_qi);
+            out[j] = out[j] + Q_prev * static_cast<__int128>(k);
+        }
+        
+        Q_prev *= qi;
+    }
+}
+
+__int128 compute_Q_product(const RNSContext* context) {
+    __int128 Q = 1;
+    for (size_t level = 0; level < context->level_count(); ++level) {
+        Q *= context->modulus(level).value();
+    }
+    return Q;
 }
 
 } // namespace fhe

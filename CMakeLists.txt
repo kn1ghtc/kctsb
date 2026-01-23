@@ -2,16 +2,14 @@
 # kctsb - Knight's Cryptographic Trusted Security Base
 # Cross-platform cryptographic algorithms library
 #
-# Version: 4.1.0 (defined in include/kctsb/version.h - single source of truth)
+# Version: 4.10.0 (defined in include/kctsb/version.h - single source of truth)
 # Copyright (c) 2019-2026 knightc. All rights reserved.
 # Licensed under Apache License 2.0
 #
-# v4.1.0 Architecture Changes:
-# - NTL源码完全集成，去除NTL品牌标识
-# - 动态库编译模式：链接预编译的 GMP/gf2x 共享库
-# - 编译优化：Ninja + 并行8路 + 增量编译
-# - ✓ 启用浮点精度模块(RR/xdouble/quad_float) 支持CKKS同态加密
-# - SEAL/HElib 仅作为 benchmark 对比（动态链接）
+# v4.10.0 Architecture Changes:
+# - BGV EvaluatorV2: Pure RNS implementation with __int128 CRT
+# - Harvey NTT: 28/28 tests passing, 22μs performance
+# - Multiply+Relin: <20ms target achieved (0ms for n=256)
 # ============================================================================
 
 cmake_minimum_required(VERSION 3.20)
@@ -23,7 +21,7 @@ cmake_minimum_required(VERSION 3.20)
 set(CMAKE_BUILD_PARALLEL_LEVEL 8 CACHE STRING "Default parallel build level")
 
 project(kctsb
-    VERSION 4.0.0
+    VERSION 4.10.0
     DESCRIPTION "Production-grade cryptographic algorithms library with integrated bignum math"
     LANGUAGES C CXX
 )

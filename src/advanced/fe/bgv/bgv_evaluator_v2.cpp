@@ -58,7 +58,8 @@ BGVPublicKeyV2 BGVEvaluatorV2::generate_public_key(
         throw std::invalid_argument("Secret key must be in NTT form");
     }
     
-    // pk = (-(a*s + e), a)
+    // BGV public key: pk = (-(a*s + t*e), a)
+    // Note: Error is scaled by t for BGV scheme
     
     // 1. Sample random polynomial a (uniform mod q)
     RNSPoly a(context_);
@@ -68,9 +69,12 @@ BGVPublicKeyV2 BGVEvaluatorV2::generate_public_key(
     // 2. Sample small error e ~ Gaussian(σ = 3.2)
     RNSPoly e(context_);
     sample_gaussian_rns(&e, rng, 3.2);
+    
+    // 3. Scale error by plaintext modulus t (BGV specific)
+    poly_multiply_scalar_inplace(e, plaintext_modulus_);
     e.ntt_transform();
     
-    // 3. Compute pk0 = -(a*s + e)
+    // 4. Compute pk0 = -(a*s + t*e)
     // Both a and sk.s are in NTT form, so use component-wise multiply
     RNSPoly as = a * sk.s;
     RNSPoly pk0 = as + e;
@@ -146,7 +150,8 @@ BGVCiphertextV2 BGVEvaluatorV2::encrypt(
         throw std::invalid_argument("Public key must be in NTT form");
     }
     
-    // ct = pk * u + (m, e1)
+    // BGV encryption: ct = pk * u + (m + t*e0, t*e1)
+    // This gives c0 + c1*s = m + t*e (error scaled by t)
     
     // 1. Convert plaintext to RNSPoly
     RNSPoly m(context_, plaintext);
@@ -162,16 +167,20 @@ BGVCiphertextV2 BGVEvaluatorV2::encrypt(
     RNSPoly e1(context_);
     sample_gaussian_rns(&e0, rng, 3.2);
     sample_gaussian_rns(&e1, rng, 3.2);
+    
+    // 4. Scale errors by t (BGV specific)
+    poly_multiply_scalar_inplace(e0, plaintext_modulus_);
+    poly_multiply_scalar_inplace(e1, plaintext_modulus_);
     e0.ntt_transform();
     e1.ntt_transform();
     
-    // 4. Compute ciphertext components (NTT domain)
-    // c0 = pk0 * u + e0 + m
+    // 5. Compute ciphertext components (NTT domain)
+    // c0 = pk0 * u + t*e0 + m
     RNSPoly c0 = pk.pk0 * u;
     poly_add_inplace(c0, e0);
     poly_add_inplace(c0, m);
     
-    // c1 = pk1 * u + e1
+    // c1 = pk1 * u + t*e1
     RNSPoly c1 = pk.pk1 * u;
     poly_add_inplace(c1, e1);
     
@@ -197,7 +206,10 @@ BGVPlaintextV2 BGVEvaluatorV2::decrypt(
         throw std::invalid_argument("Both ciphertext and secret key must be in NTT form");
     }
     
-    // Decrypt: m ≈ c0 + c1 * s (mod q)
+    // BGV Decrypt: m = (c0 + c1 * s) mod t
+    // Unlike BFV, BGV encodes plaintext directly without scaling
+    // Result: c0 + c1*s = m + e (where e is small noise)
+    // We simply reduce mod t to recover m
     
     // 1. Compute c1 * s (NTT domain)
     RNSPoly c1s = ct[1] * sk.s;
@@ -208,24 +220,42 @@ BGVPlaintextV2 BGVEvaluatorV2::decrypt(
     // 3. Transform back to coefficient domain
     m_rns.intt_transform();
     
-    // 4. CRT reconstruct to get ZZ coefficients
+    // 4. CRT reconstruct with full precision
     size_t n = context_->n();
-    std::vector<uint64_t> coeffs(n);
-    crt_reconstruct_rns(m_rns, coeffs);
+    std::vector<__int128> coeffs_128(n);
+    crt_reconstruct_rns_128(m_rns, coeffs_128);
     
-    // 5. Reduce modulo plaintext modulus
-    // For BGV, the plaintext is scaled by plaintext_modulus in encryption
-    // So we need to divide and round
+    // 5. Compute Q = product of all moduli for centering
+    __int128 Q = compute_Q_product(context_);
+    __int128 half_Q = Q / 2;
+    uint64_t t = plaintext_modulus_;
+    
+    // 6. BGV decryption: simply reduce mod t (with centering)
+    // The decryption result is m + e where |e| << t
+    // So (m + e) mod t ≈ m for small enough noise
     BGVPlaintextV2 plaintext(n);
     for (size_t i = 0; i < n; ++i) {
-        // Simple modulo reduction (no scaling needed for this implementation)
-        plaintext[i] = coeffs[i] % plaintext_modulus_;
+        __int128 coeff = coeffs_128[i];
         
-        // Handle large values that should wrap around
-        if (plaintext[i] > plaintext_modulus_ / 2) {
-            plaintext[i] = plaintext_modulus_ - plaintext[i];
-            plaintext[i] = plaintext_modulus_ - plaintext[i]; // Double wrap to stay positive
+        // Center: if coeff > Q/2, it represents coeff - Q (negative)
+        if (coeff > half_Q) {
+            coeff = coeff - Q;
         }
+        
+        // Now coeff is in [-Q/2, Q/2), reduce mod t
+        // For centered mod t: result in [0, t)
+        __int128 result;
+        if (coeff >= 0) {
+            result = coeff % static_cast<__int128>(t);
+        } else {
+            // For negative: (-5) mod 256 = 251
+            result = coeff % static_cast<__int128>(t);
+            if (result < 0) {
+                result += t;
+            }
+        }
+        
+        plaintext[i] = static_cast<uint64_t>(result);
     }
     
     return plaintext;
@@ -383,8 +413,11 @@ void BGVEvaluatorV2::relinearize_inplace(
     
     auto decomposed = decompose_rns(ct[2], rk.decomp_base);
     
+    // Initialize accumulators in NTT form (since decomposed is in NTT)
     RNSPoly c0_relin(context_);
     RNSPoly c1_relin(context_);
+    c0_relin.ntt_transform();  // Convert to NTT form for addition
+    c1_relin.ntt_transform();  // Convert to NTT form for addition
     
     size_t num_digits = std::min(decomposed.size(), rk.ksk0.size());
     
