@@ -2,22 +2,82 @@
  * @file ntt_poly_ops.cpp
  * @brief NTT-Accelerated Polynomial Operations Implementation
  * 
+ * Updated to use Harvey NTT implementation for Phase 4b optimization.
+ * 
  * @author knightc
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
  * @license Apache-2.0
- * @version v4.6.0
+ * @version v4.9.1
  */
 
 #include "kctsb/advanced/fe/common/ntt_poly_ops.hpp"
+#include "kctsb/advanced/fe/common/ntt_harvey.hpp"
 #include <algorithm>
 #include <stdexcept>
+#include <unordered_map>
+#include <mutex>
 
 namespace kctsb {
 namespace fhe {
 namespace ntt {
 
 // ============================================================================
-// High-Performance Polynomial Operations
+// NTT Tables Cache for ntt_poly_ops
+// ============================================================================
+
+namespace {
+
+/**
+ * @brief Thread-safe cache for NTT tables
+ * 
+ * Uses hash map for O(1) lookup by (n, q) pair.
+ */
+class NTTTablesCache {
+public:
+    static NTTTablesCache& instance() {
+        static NTTTablesCache cache;
+        return cache;
+    }
+    
+    /**
+     * @brief Get or create NTT tables for given parameters
+     */
+    const NTTTables& get(size_t n, uint64_t q) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        
+        uint64_t key = make_key(n, q);
+        auto it = tables_.find(key);
+        if (it != tables_.end()) {
+            return *it->second;
+        }
+        
+        // Compute log2(n)
+        int log_n = 0;
+        size_t temp = n;
+        while (temp > 1) {
+            temp >>= 1;
+            ++log_n;
+        }
+        
+        auto tables = std::make_unique<NTTTables>(log_n, Modulus(q));
+        const NTTTables& ref = *tables;
+        tables_[key] = std::move(tables);
+        return ref;
+    }
+    
+private:
+    static uint64_t make_key(size_t n, uint64_t q) {
+        return (static_cast<uint64_t>(n) << 48) ^ q;
+    }
+    
+    std::mutex mutex_;
+    std::unordered_map<uint64_t, std::unique_ptr<NTTTables>> tables_;
+};
+
+} // anonymous namespace
+
+// ============================================================================
+// High-Performance Polynomial Operations (Harvey NTT)
 // ============================================================================
 
 std::vector<uint64_t> multiply_poly_ntt(
@@ -34,8 +94,28 @@ std::vector<uint64_t> multiply_poly_ntt(
         throw std::invalid_argument("Modulus is not NTT-friendly for degree n");
     }
     
-    // Use negacyclic NTT for x^n + 1 ring
-    return poly_multiply_negacyclic_ntt(a.data(), b.data(), n, q);
+    // Get or create Harvey NTT tables
+    const NTTTables& tables = NTTTablesCache::instance().get(n, q);
+    const Modulus& mod = tables.modulus();
+    
+    // Copy inputs (NTT is in-place)
+    std::vector<uint64_t> a_ntt(a);
+    std::vector<uint64_t> b_ntt(b);
+    
+    // Forward NTT using Harvey algorithm
+    ntt_negacyclic_harvey(a_ntt.data(), tables);
+    ntt_negacyclic_harvey(b_ntt.data(), tables);
+    
+    // Point-wise multiplication with modular reduction
+    std::vector<uint64_t> c_ntt(n);
+    for (size_t i = 0; i < n; ++i) {
+        c_ntt[i] = multiply_uint_mod(a_ntt[i], b_ntt[i], mod);
+    }
+    
+    // Inverse NTT using Harvey algorithm (includes n^{-1} scaling)
+    inverse_ntt_negacyclic_harvey(c_ntt.data(), tables);
+    
+    return c_ntt;
 }
 
 void multiply_poly_ntt_inplace(
@@ -53,7 +133,24 @@ void multiply_poly_ntt_inplace(
         throw std::invalid_argument("Modulus is not NTT-friendly");
     }
     
-    poly_multiply_negacyclic_ntt_inplace(a.data(), b.data(), n, q);
+    // Get or create Harvey NTT tables
+    const NTTTables& tables = NTTTablesCache::instance().get(n, q);
+    const Modulus& mod = tables.modulus();
+    
+    // Copy b (need to preserve original)
+    std::vector<uint64_t> b_ntt(b);
+    
+    // Forward NTT using Harvey algorithm
+    ntt_negacyclic_harvey(a.data(), tables);
+    ntt_negacyclic_harvey(b_ntt.data(), tables);
+    
+    // Point-wise multiplication
+    for (size_t i = 0; i < n; ++i) {
+        a[i] = multiply_uint_mod(a[i], b_ntt[i], mod);
+    }
+    
+    // Inverse NTT using Harvey algorithm
+    inverse_ntt_negacyclic_harvey(a.data(), tables);
 }
 
 void add_poly_mod(
@@ -70,8 +167,9 @@ void add_poly_mod(
     
     result.resize(n);
     
+    Modulus mod(q);
     for (size_t i = 0; i < n; ++i) {
-        result[i] = add_mod(a[i], b[i], q);
+        result[i] = add_uint_mod(a[i], b[i], mod);
     }
 }
 
@@ -89,8 +187,9 @@ void sub_poly_mod(
     
     result.resize(n);
     
+    Modulus mod(q);
     for (size_t i = 0; i < n; ++i) {
-        result[i] = sub_mod(a[i], b[i], q);
+        result[i] = sub_uint_mod(a[i], b[i], mod);
     }
 }
 
@@ -98,10 +197,9 @@ void negate_poly_mod(
     std::vector<uint64_t>& poly,
     uint64_t q)
 {
+    Modulus mod(q);
     for (auto& coeff : poly) {
-        if (coeff != 0) {
-            coeff = q - coeff;
-        }
+        coeff = negate_uint_mod(coeff, mod);
     }
 }
 
@@ -110,8 +208,12 @@ void scalar_mul_poly_mod(
     uint64_t scalar,
     uint64_t q)
 {
+    Modulus mod(q);
+    MultiplyUIntModOperand operand;
+    operand.set(scalar, mod);
+    
     for (auto& coeff : poly) {
-        coeff = mul_mod_slow(coeff, scalar, q);
+        coeff = multiply_uint_mod(coeff, operand, mod);
     }
 }
 
@@ -141,7 +243,7 @@ std::vector<std::vector<uint64_t>> multiply_poly_ntt_rns(
 }
 
 // ============================================================================
-// Conversion Utilities
+// Conversion Utilities (Harvey NTT)
 // ============================================================================
 
 void to_ntt_form(
@@ -153,8 +255,8 @@ void to_ntt_form(
         throw std::invalid_argument("Coefficient count must match degree");
     }
     
-    const NTTTable& ntt = NTTTableCache::instance().get(n, q);
-    ntt.forward_negacyclic(coeffs.data());
+    const NTTTables& tables = NTTTablesCache::instance().get(n, q);
+    ntt_negacyclic_harvey(coeffs.data(), tables);
 }
 
 void from_ntt_form(
@@ -166,8 +268,8 @@ void from_ntt_form(
         throw std::invalid_argument("NTT value count must match degree");
     }
     
-    const NTTTable& ntt = NTTTableCache::instance().get(n, q);
-    ntt.inverse_negacyclic(ntt_vals.data());
+    const NTTTables& tables = NTTTablesCache::instance().get(n, q);
+    inverse_ntt_negacyclic_harvey(ntt_vals.data(), tables);
 }
 
 }  // namespace ntt

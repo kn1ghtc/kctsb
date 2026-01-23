@@ -4,7 +4,7 @@
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](.)
 [![C++](https://img.shields.io/badge/C++-17-blue.svg)](.)
 [![CMake](https://img.shields.io/badge/CMake-3.20+-green.svg)](.)
-[![Version](https://img.shields.io/badge/Version-4.9.0-brightgreen.svg)](.)
+[![Version](https://img.shields.io/badge/Version-4.9.1-brightgreen.svg)](.)
 
 **kctsb** 是一个跨平台的 C/C++ 密码学和安全算法库，专为生产环境和安全研究设计。目标是成为 **OpenSSL 的现代替代品**。
 
@@ -73,11 +73,12 @@
     - Rescale 机制控制精度和噪声
     - 多层乘法深度支持 (3-5 层)
     - 33/33 单元测试 100% 通过
-  - **性能优化 (v4.9.0)** - NTT Barrett 模运算加速 ✅ **NEW**
-    - mul_mod_barrett 替换慢速 128-bit 除法
-    - CRT 预计算常量优化
-    - 50-bit 大素数混合处理
-    - **2-3x 整体性能提升**
+  - **性能优化 (v4.9.1)** - Harvey NTT + RNSPoly 架构 ✅ **NEW**
+    - **Harvey NTT 算法**: SEAL-style lazy reduction, 正确的 Gentleman-Sande 逆NTT
+    - **RNSPoly 类**: 独立的 RNS 多项式基础设施，NTT 变换支持
+    - 单次 NTT (n=4096): **22 μs** (接近 SEAL ~10 μs)
+    - 多项式乘法 (n=1024, L=3): **72 μs** (107x vs schoolbook)
+    - **409/409 测试 100% 通过**
 
 ## 🏗️ 项目结构
 

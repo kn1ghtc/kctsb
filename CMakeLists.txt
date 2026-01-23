@@ -743,6 +743,7 @@ if(KCTSB_ENABLE_BGV)
         ${KCTSB_SRC_DIR}/advanced/fe/common/ntt.cpp
         ${KCTSB_SRC_DIR}/advanced/fe/common/rns.cpp
         ${KCTSB_SRC_DIR}/advanced/fe/common/ntt_poly_ops.cpp
+        ${KCTSB_SRC_DIR}/advanced/fe/common/ntt_harvey.cpp
     )
     
     # BGV-specific sources

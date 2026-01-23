@@ -434,6 +434,31 @@ if(KCTSB_ENABLE_BGV)
         endif()
     endif()
     gtest_discover_tests(test_ckks PROPERTIES LABELS "unit;fhe;ckks")
+    
+    # Harvey NTT Optimized Implementation tests (v4.9.1 Phase 4b)
+    add_executable(test_ntt_harvey test_ntt_harvey.cpp)
+    if(TARGET kctsb_static)
+        target_link_libraries(test_ntt_harvey PRIVATE
+            kctsb_static
+            GTest::gtest_main
+        )
+    else()
+        target_link_libraries(test_ntt_harvey PRIVATE
+            kctsb
+            GTest::gtest_main
+        )
+    endif()
+    target_include_directories(test_ntt_harvey PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/src
+    )
+    # Enable AVX2 if available
+    if(NOT MSVC)
+        target_compile_options(test_ntt_harvey PRIVATE -mavx2)
+    else()
+        target_compile_options(test_ntt_harvey PRIVATE /arch:AVX2)
+    endif()
+    gtest_discover_tests(test_ntt_harvey PROPERTIES LABELS "unit;fhe;ntt_harvey")
 endif()
 
 # ============================================================================
