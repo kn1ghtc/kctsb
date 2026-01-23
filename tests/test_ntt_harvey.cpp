@@ -332,10 +332,9 @@ TEST_F(HarveyNTTTest, LazyNTTCorrectness) {
     }
 }
 
-// NOTE: AVX2 forward NTT has indexing bug, disabled until fixed
-// TODO: Fix ntt_negacyclic_harvey_avx2() to match scalar implementation
+// AVX2 forward NTT correctness test (fixed indexing bug in v4.10.0)
 #ifdef __AVX2__
-TEST_F(HarveyNTTTest, DISABLED_AVX2Correctness) {
+TEST_F(HarveyNTTTest, AVX2Correctness) {
     std::mt19937_64 rng(99999);
     std::uniform_int_distribution<uint64_t> dist(0, prime_ - 1);
     

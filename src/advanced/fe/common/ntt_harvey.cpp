@@ -372,11 +372,12 @@ void ntt_negacyclic_harvey_avx2(uint64_t* operand, const NTTTables& tables) {
             size_t j2 = j1 + t;
             
             // Process 4 butterflies at a time when possible
-            size_t j = j1;
-            for (; j + 4 <= j2; j += 4) {
-                // Load x and y
-                __m256i vx = _mm256_loadu_si256((__m256i*)(operand + j));
-                __m256i vy = _mm256_loadu_si256((__m256i*)(operand + j + t));
+            // FIX: Use offset within butterfly group instead of absolute index
+            size_t offset = 0;
+            for (; offset + 4 <= t; offset += 4) {
+                // Load x and y using correct indices
+                __m256i vx = _mm256_loadu_si256((__m256i*)(operand + j1 + offset));
+                __m256i vy = _mm256_loadu_si256((__m256i*)(operand + j2 + offset));
                 
                 // Guard x
                 __m256i mask = _mm256_cmpgt_epi64(vx, _mm256_sub_epi64(v2q, _mm256_set1_epi64x(1)));
@@ -404,25 +405,25 @@ void ntt_negacyclic_harvey_avx2(uint64_t* operand, const NTTTables& tables) {
                 // y' = x - wt + 2q
                 __m256i vy_new = _mm256_add_epi64(_mm256_sub_epi64(vx, vwt), v2q);
                 
-                _mm256_storeu_si256((__m256i*)(operand + j), vx_new);
-                _mm256_storeu_si256((__m256i*)(operand + j + t), vy_new);
+                _mm256_storeu_si256((__m256i*)(operand + j1 + offset), vx_new);
+                _mm256_storeu_si256((__m256i*)(operand + j2 + offset), vy_new);
             }
             
             // Handle remaining elements
-            for (; j < j2; ++j) {
-                uint64_t x = operand[j];
-                uint64_t y = operand[j + t];
+            for (; offset < t; ++offset) {
+                uint64_t x = operand[j1 + offset];
+                uint64_t y = operand[j2 + offset];
                 
                 x = guard(x, two_q);
                 uint64_t wt = multiply_uint_mod_lazy(y, w, tables.modulus());
                 
-                operand[j] = x + wt;
-                operand[j + t] = x + two_q - wt;
+                operand[j1 + offset] = x + wt;
+                operand[j2 + offset] = x + two_q - wt;
             }
         }
     }
     
-    // Final guard
+    // Final guard to [0, 2q)
     for (size_t i = 0; i + 4 <= n; i += 4) {
         __m256i v = _mm256_loadu_si256((__m256i*)(operand + i));
         __m256i mask = _mm256_cmpgt_epi64(v, _mm256_sub_epi64(v2q, _mm256_set1_epi64x(1)));
@@ -431,6 +432,17 @@ void ntt_negacyclic_harvey_avx2(uint64_t* operand, const NTTTables& tables) {
     }
     for (size_t i = (n / 4) * 4; i < n; ++i) {
         operand[i] = guard(operand[i], two_q);
+    }
+    
+    // Final reduction to [0, q) to match non-lazy behavior
+    for (size_t i = 0; i + 4 <= n; i += 4) {
+        __m256i v = _mm256_loadu_si256((__m256i*)(operand + i));
+        __m256i mask = _mm256_cmpgt_epi64(v, _mm256_sub_epi64(vq, _mm256_set1_epi64x(1)));
+        v = _mm256_sub_epi64(v, _mm256_and_si256(vq, mask));
+        _mm256_storeu_si256((__m256i*)(operand + i), v);
+    }
+    for (size_t i = (n / 4) * 4; i < n; ++i) {
+        if (operand[i] >= q) operand[i] -= q;
     }
 }
 

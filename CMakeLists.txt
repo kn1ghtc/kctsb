@@ -744,12 +744,14 @@ if(KCTSB_ENABLE_BGV)
         ${KCTSB_SRC_DIR}/advanced/fe/common/rns.cpp
         ${KCTSB_SRC_DIR}/advanced/fe/common/ntt_poly_ops.cpp
         ${KCTSB_SRC_DIR}/advanced/fe/common/ntt_harvey.cpp
+        ${KCTSB_SRC_DIR}/advanced/fe/common/rns_poly_utils.cpp
     )
     
     # BGV-specific sources
     set(KCTSB_BGV_SOURCES
         ${KCTSB_SRC_DIR}/advanced/fe/bgv/bgv_context.cpp
         ${KCTSB_SRC_DIR}/advanced/fe/bgv/bgv_evaluator.cpp
+        ${KCTSB_SRC_DIR}/advanced/fe/bgv/bgv_evaluator_v2.cpp
         ${KCTSB_SRC_DIR}/advanced/fe/bgv/bgv_encoder.cpp
     )
     

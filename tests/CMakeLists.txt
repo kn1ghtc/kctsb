@@ -385,6 +385,25 @@ if(KCTSB_ENABLE_BGV)
     endif()
     gtest_discover_tests(test_bgv PROPERTIES LABELS "unit;fhe;bgv")
     
+    # BGV EvaluatorV2 Pure RNS tests (v4.10.0 Phase 4c)
+    add_executable(test_bgv_evaluator_v2 test_bgv_evaluator_v2.cpp)
+    if(TARGET kctsb_static)
+        target_link_libraries(test_bgv_evaluator_v2 PRIVATE
+            kctsb_static
+            GTest::gtest_main
+        )
+    else()
+        target_link_libraries(test_bgv_evaluator_v2 PRIVATE
+            kctsb
+            GTest::gtest_main
+        )
+    endif()
+    target_include_directories(test_bgv_evaluator_v2 PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/src
+    )
+    gtest_discover_tests(test_bgv_evaluator_v2 PROPERTIES LABELS "unit;fhe;bgv;rns")
+    
     # BFV Homomorphic Encryption tests (v4.7.0)
     add_executable(test_bfv unit/fhe/test_bfv.cpp)
     if(TARGET kctsb_static)
