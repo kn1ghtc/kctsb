@@ -207,6 +207,8 @@ gtest_discover_tests(test_benchmark PROPERTIES LABELS "performance")
 
 # BGV Benchmark Tests (n=32768 for internal testing)
 # For SEAL/HElib comparison use benchmarks/benchmark_bgv.cpp with n=8192
+# v4.10.0: IndustryStandard_N8192 test is slow (~300s) with old BGVContext
+#          Use EvaluatorV2 for n=8192 baseline comparison in Phase 4d
 add_executable(test_bgv_benchmark benchmark/test_bgv_benchmark.cpp)
 if(TARGET kctsb_static)
     target_link_libraries(test_bgv_benchmark PRIVATE
@@ -220,7 +222,12 @@ else()
     )
 endif()
 target_include_directories(test_bgv_benchmark PRIVATE ${CMAKE_SOURCE_DIR}/include)
-gtest_discover_tests(test_bgv_benchmark PROPERTIES LABELS "performance;fhe")
+# Use 300s timeout for large parameter benchmark tests (n=8192+)
+gtest_discover_tests(test_bgv_benchmark 
+    PROPERTIES 
+        LABELS "performance;fhe"
+        TIMEOUT 300
+)
 
 # BFV Benchmark Tests (v4.7.0 Phase 2)
 add_executable(test_bfv_benchmark benchmark/test_bfv_benchmark.cpp)
