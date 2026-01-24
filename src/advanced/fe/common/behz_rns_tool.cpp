@@ -27,10 +27,126 @@ namespace kctsb {
 namespace fhe {
 
 // ============================================================================
-// Prime Generation for Auxiliary Base
+// Precomputed NTT-Friendly Primes for BEHZ Auxiliary Base
 // ============================================================================
+// These primes satisfy: p = k * 2n + 1 (NTT-friendly)
+// Pre-generated to avoid expensive Miller-Rabin search at runtime
+// Verified coprime with common Q primes (50-bit)
 
 namespace {
+
+/**
+ * @brief Precomputed NTT-friendly primes for BEHZ auxiliary base
+ * 
+ * Each prime p satisfies:
+ * 1. (p - 1) % (2 * n) == 0 (NTT-friendly)
+ * 2. Has a small generator (g <= 10) for fast NTT table initialization
+ * 3. Coprime with common Q primes (50-bit SEAL-compatible primes)
+ * 
+ * Generated using sympy.isprime() and generator verification.
+ * These are 52-bit primes to avoid collision with 50-bit Q primes.
+ */
+constexpr uint64_t PRECOMPUTED_BEHZ_PRIMES_N16[] = {
+    // n=16: (p-1) % 32 == 0, 52-bit primes with small generators
+    2251799813685313ULL,  // generator=5
+    2251799813685889ULL,  // generator=7
+    2251799813686337ULL,  // generator=3
+    2251799813687873ULL,  // generator=5
+    2251799813688449ULL,  // generator=3
+    2251799813688577ULL,  // generator=7
+    2251799813690209ULL,  // generator=7
+    2251799813690657ULL,  // generator=3
+};
+
+constexpr uint64_t PRECOMPUTED_BEHZ_PRIMES_N8192[] = {
+    // n=8192: (p-1) % 16384 == 0, 52-bit primes with small generators
+    2251799814045697ULL,  // generator=5
+    2251799814291457ULL,  // generator=10
+    2251799814356993ULL,  // generator=3
+    2251799814799361ULL,  // generator=6
+    2251799814930433ULL,  // generator=5
+    2251799815094273ULL,  // generator=3
+    2251799815176193ULL,  // generator=5
+    2251799815241729ULL,  // generator=3
+};
+
+constexpr uint64_t PRECOMPUTED_BEHZ_PRIMES_N16384[] = {
+    // n=16384: (p-1) % 32768 == 0, 52-bit primes with small generators
+    2251799814045697ULL,  // generator=5
+    2251799814799361ULL,  // generator=6
+    2251799814930433ULL,  // generator=5
+    2251799815094273ULL,  // generator=3
+    2251799815487489ULL,  // generator=3
+    2251799815520257ULL,  // generator=10
+    2251799816568833ULL,  // generator=3
+    2251799818731521ULL,  // generator=6
+};
+
+constexpr uint64_t PRECOMPUTED_BEHZ_PRIMES_N32768[] = {
+    // n=32768: (p-1) % 65536 == 0, 52-bit primes with small generators
+    2251799814799361ULL,  // generator=6
+    2251799814930433ULL,  // generator=5
+    2251799815520257ULL,  // generator=10
+    2251799816568833ULL,  // generator=3
+    2251799818731521ULL,  // generator=6
+    2251799818862593ULL,  // generator=5
+    2251799818928129ULL,  // generator=3
+    2251799819517953ULL,  // generator=3
+};
+
+/**
+ * @brief Get precomputed BEHZ primes for given n
+ * @param n Polynomial degree
+ * @param count Number of primes needed
+ * @param avoid Primes to avoid (existing Q primes)
+ * @return Vector of coprime NTT-friendly primes, empty if not precomputed
+ */
+std::vector<uint64_t> get_precomputed_behz_primes(size_t n, size_t count,
+                                                   const std::vector<uint64_t>& avoid) {
+    const uint64_t* primes = nullptr;
+    size_t primes_count = 0;
+    
+    switch (n) {
+        case 16:
+            primes = PRECOMPUTED_BEHZ_PRIMES_N16;
+            primes_count = sizeof(PRECOMPUTED_BEHZ_PRIMES_N16) / sizeof(uint64_t);
+            break;
+        case 8192:
+            primes = PRECOMPUTED_BEHZ_PRIMES_N8192;
+            primes_count = sizeof(PRECOMPUTED_BEHZ_PRIMES_N8192) / sizeof(uint64_t);
+            break;
+        case 16384:
+            primes = PRECOMPUTED_BEHZ_PRIMES_N16384;
+            primes_count = sizeof(PRECOMPUTED_BEHZ_PRIMES_N16384) / sizeof(uint64_t);
+            break;
+        case 32768:
+            primes = PRECOMPUTED_BEHZ_PRIMES_N32768;
+            primes_count = sizeof(PRECOMPUTED_BEHZ_PRIMES_N32768) / sizeof(uint64_t);
+            break;
+        default:
+            return {};  // Fall back to dynamic generation
+    }
+    
+    // Filter out primes that conflict with Q primes
+    std::vector<uint64_t> result;
+    for (size_t i = 0; i < primes_count && result.size() < count; ++i) {
+        uint64_t p = primes[i];
+        bool valid = true;
+        
+        for (uint64_t a : avoid) {
+            if (p == a || std::__gcd(p, a) != 1) {
+                valid = false;
+                break;
+            }
+        }
+        
+        if (valid) {
+            result.push_back(p);
+        }
+    }
+    
+    return result.size() >= count ? result : std::vector<uint64_t>{};
+}
 
 /**
  * @brief Check if a number is prime using Miller-Rabin
@@ -126,9 +242,21 @@ uint64_t find_ntt_prime(int min_bits, size_t degree, const std::vector<uint64_t>
  * @param count Number of primes needed
  * @param degree Polynomial degree
  * @param avoid Existing primes to avoid
+ * 
+ * Performance: Uses precomputed prime table when available, falling back
+ * to Miller-Rabin search only for non-standard n values.
  */
 std::vector<uint64_t> generate_aux_primes(size_t count, size_t degree, 
                                           const std::vector<uint64_t>& avoid) {
+    // Try precomputed primes first (O(1) lookup vs O(n) Miller-Rabin)
+    auto precomputed = get_precomputed_behz_primes(degree, count, avoid);
+    if (!precomputed.empty() && precomputed.size() >= count) {
+        precomputed.resize(count);
+        return precomputed;
+    }
+    
+    // Fall back to dynamic generation for non-standard n or insufficient primes
+    
     std::vector<uint64_t> result;
     std::vector<uint64_t> all_avoid = avoid;
     

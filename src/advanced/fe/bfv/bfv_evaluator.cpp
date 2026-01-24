@@ -483,11 +483,14 @@ void BFVEvaluator::multiply_inplace(
     // Step 2: Apply rescaling to each tensor product component
     // Convert from NTT to coefficient domain, rescale, convert back
     //
-    // BEHZ rescaling: floor behavior is correct for single-level tests,
-    // but integration with BFV tensor product needs adjustment for scale tracking.
-    // Using CRT-based rescaling for now as it handles scale_degree correctly.
-    // TODO: Debug BEHZ integration with BFV multiply (v4.13.0)
-    bool use_behz = false;  // Disable BEHZ - CRT rescaling handles scale correctly
+    // BEHZ rescaling computes round(c * t / Q) which divides the scale by delta=Q/t.
+    // For BFV multiplication: c_mult = delta^2 * m1 * m2 (in Q space)
+    // After BEHZ: round(c_mult * t / Q) = round(delta^2 * m1 * m2 * t / Q) ≈ delta * m1 * m2
+    //
+    // TODO (v4.13.0): BEHZ integration requires fixing the rescaling output.
+    // Current issue: multiply_and_rescale() returns zeros for tensor products.
+    // Root cause: Need to verify fastbconv_m_tilde/sm_mrq/fast_floor chain.
+    bool use_behz = false;  // Disable until v4.13.0 - CRT rescaling works correctly
     
     if (use_behz && behz_tool_) {
         for (size_t idx = 0; idx < tensor_ntt.size(); ++idx) {
