@@ -242,8 +242,11 @@ void ntt_negacyclic_harvey_lazy(uint64_t* operand, const NTTTables& tables) {
 }
 
 void ntt_negacyclic_harvey(uint64_t* operand, const NTTTables& tables) {
-#ifdef __AVX2__
-    // Prefer AVX2 implementation for better performance
+#if defined(__AVX512F__) && defined(__AVX512VL__)
+    // Prefer AVX-512 implementation for best performance
+    ntt_negacyclic_harvey_avx512(operand, tables);
+#elif defined(__AVX2__)
+    // Fall back to AVX2 implementation
     ntt_negacyclic_harvey_avx2(operand, tables);
 #else
     // First do lazy NTT
@@ -331,7 +334,10 @@ void inverse_ntt_negacyclic_harvey_lazy(uint64_t* operand, const NTTTables& tabl
 }
 
 void inverse_ntt_negacyclic_harvey(uint64_t* operand, const NTTTables& tables) {
-#ifdef __AVX2__
+#if defined(__AVX512F__) && defined(__AVX512VL__)
+    // Prefer AVX-512 implementation for best performance
+    inverse_ntt_negacyclic_harvey_avx512(operand, tables);
+#elif defined(__AVX2__)
     // Use AVX2 accelerated version when available
     inverse_ntt_negacyclic_harvey_avx2(operand, tables);
 #else
@@ -577,6 +583,236 @@ void inverse_ntt_negacyclic_harvey_avx2(uint64_t* operand, const NTTTables& tabl
 }
 
 #endif // __AVX2__
+
+// ============================================================================
+// AVX-512 Accelerated NTT (v4.13.0+)
+// ============================================================================
+
+#if defined(__AVX512F__) && defined(__AVX512VL__)
+
+/**
+ * @brief AVX-512 forward NTT with Harvey lazy reduction
+ * 
+ * Processes 8 butterflies per iteration using 512-bit registers.
+ * Uses scalar fallback for modular multiplication (full AVX-512 IFMA
+ * would require AVX512IFMA which is less common).
+ */
+void ntt_negacyclic_harvey_avx512(uint64_t* operand, const NTTTables& tables) {
+    size_t n = tables.coeff_count();
+    uint64_t q = tables.modulus().value();
+    uint64_t two_q = tables.two_times_modulus();
+    const MultiplyUIntModOperand* root_powers = tables.root_powers();
+    
+    __m512i vq = _mm512_set1_epi64(static_cast<int64_t>(q));
+    __m512i v2q = _mm512_set1_epi64(static_cast<int64_t>(two_q));
+    
+    size_t t = n;
+    size_t root_index = 1;
+    
+    // Cooley-Tukey DIT NTT
+    for (size_t m = 1; m < n; m <<= 1) {
+        t >>= 1;
+        
+        for (size_t i = 0; i < m; ++i) {
+            const MultiplyUIntModOperand& w = root_powers[root_index++];
+            
+            size_t j1 = 2 * i * t;
+            size_t j2 = j1 + t;
+            
+            // Process 8 butterflies at a time when possible
+            size_t offset = 0;
+            for (; offset + 8 <= t; offset += 8) {
+                // Load 8 x values and 8 y values
+                __m512i vx = _mm512_loadu_si512(operand + j1 + offset);
+                __m512i vy = _mm512_loadu_si512(operand + j2 + offset);
+                
+                // Guard x to [0, 2q)
+                __mmask8 mask = _mm512_cmpgt_epi64_mask(vx, _mm512_sub_epi64(v2q, _mm512_set1_epi64(1)));
+                vx = _mm512_mask_sub_epi64(vx, mask, vx, v2q);
+                
+                // Compute w * y for each element (scalar fallback)
+                // AVX512IFMA would enable full vectorized 64-bit mod multiply
+                alignas(64) uint64_t y_arr[8], wt_arr[8];
+                _mm512_store_si512(y_arr, vy);
+                
+                for (int k = 0; k < 8; ++k) {
+                    wt_arr[k] = multiply_uint_mod_lazy(y_arr[k], w, tables.modulus());
+                }
+                
+                __m512i vwt = _mm512_load_si512(wt_arr);
+                
+                // x' = x + wt
+                __m512i vx_new = _mm512_add_epi64(vx, vwt);
+                
+                // y' = x - wt + 2q
+                __m512i vy_new = _mm512_add_epi64(_mm512_sub_epi64(vx, vwt), v2q);
+                
+                _mm512_storeu_si512(operand + j1 + offset, vx_new);
+                _mm512_storeu_si512(operand + j2 + offset, vy_new);
+            }
+            
+            // Handle remaining elements with AVX2 or scalar
+            for (; offset < t; ++offset) {
+                uint64_t x = operand[j1 + offset];
+                uint64_t y = operand[j2 + offset];
+                
+                x = guard(x, two_q);
+                uint64_t wt = multiply_uint_mod_lazy(y, w, tables.modulus());
+                
+                operand[j1 + offset] = x + wt;
+                operand[j2 + offset] = x + two_q - wt;
+            }
+        }
+    }
+    
+    // Final guard and reduction to [0, q)
+    for (size_t i = 0; i + 8 <= n; i += 8) {
+        __m512i v = _mm512_loadu_si512(operand + i);
+        
+        // Guard to [0, 2q)
+        __mmask8 mask2q = _mm512_cmpgt_epi64_mask(v, _mm512_sub_epi64(v2q, _mm512_set1_epi64(1)));
+        v = _mm512_mask_sub_epi64(v, mask2q, v, v2q);
+        
+        // Reduce to [0, q)
+        __mmask8 maskq = _mm512_cmpgt_epi64_mask(v, _mm512_sub_epi64(vq, _mm512_set1_epi64(1)));
+        v = _mm512_mask_sub_epi64(v, maskq, v, vq);
+        
+        _mm512_storeu_si512(operand + i, v);
+    }
+    
+    // Handle tail
+    for (size_t i = (n / 8) * 8; i < n; ++i) {
+        operand[i] = guard(operand[i], two_q);
+        if (operand[i] >= q) operand[i] -= q;
+    }
+}
+
+/**
+ * @brief AVX-512 inverse NTT with Harvey lazy reduction
+ * 
+ * Gentleman-Sande DIF with 8-wide vectorization.
+ */
+void inverse_ntt_negacyclic_harvey_avx512(uint64_t* operand, const NTTTables& tables) {
+    size_t n = tables.coeff_count();
+    uint64_t q = tables.modulus().value();
+    uint64_t two_q = tables.two_times_modulus();
+    const MultiplyUIntModOperand* inv_root_powers = tables.inv_root_powers();
+    
+    __m512i vq = _mm512_set1_epi64(static_cast<int64_t>(q));
+    __m512i v2q = _mm512_set1_epi64(static_cast<int64_t>(two_q));
+    
+    // Gentleman-Sande DIF inverse NTT
+    size_t gap = 1;
+    size_t m = n >> 1;
+    size_t root_index = 1;
+    
+    for (; m > 1; m >>= 1) {
+        size_t offset = 0;
+        
+        for (size_t i = 0; i < m; ++i) {
+            const MultiplyUIntModOperand& w = inv_root_powers[root_index++];
+            
+            uint64_t* x_ptr = operand + offset;
+            uint64_t* y_ptr = x_ptr + gap;
+            
+            // AVX-512 vectorized when gap >= 8
+            size_t j = 0;
+            for (; j + 8 <= gap; j += 8) {
+                __m512i vx = _mm512_loadu_si512(x_ptr + j);
+                __m512i vy = _mm512_loadu_si512(y_ptr + j);
+                
+                // x' = guard(x + y)
+                __m512i vsum = _mm512_add_epi64(vx, vy);
+                __mmask8 mask = _mm512_cmpgt_epi64_mask(vsum, _mm512_sub_epi64(v2q, _mm512_set1_epi64(1)));
+                vsum = _mm512_mask_sub_epi64(vsum, mask, vsum, v2q);
+                
+                // diff = x - y + 2q
+                __m512i vdiff = _mm512_add_epi64(_mm512_sub_epi64(vx, vy), v2q);
+                
+                // y' = diff * w (scalar fallback)
+                alignas(64) uint64_t diff_arr[8], ynew_arr[8];
+                _mm512_store_si512(diff_arr, vdiff);
+                
+                for (int k = 0; k < 8; ++k) {
+                    ynew_arr[k] = multiply_uint_mod_lazy(diff_arr[k], w, tables.modulus());
+                }
+                
+                _mm512_storeu_si512(x_ptr + j, vsum);
+                _mm512_storeu_si512(y_ptr + j, _mm512_load_si512(ynew_arr));
+            }
+            
+            // Remaining elements
+            for (; j < gap; ++j) {
+                uint64_t x = x_ptr[j];
+                uint64_t y = y_ptr[j];
+                
+                x_ptr[j] = guard(x + y, two_q);
+                y_ptr[j] = multiply_uint_mod_lazy(x + two_q - y, w, tables.modulus());
+            }
+            
+            offset += gap << 1;
+        }
+        
+        gap <<= 1;
+    }
+    
+    // Final iteration with m = 1, incorporating n^{-1} scaling
+    const MultiplyUIntModOperand& inv_n = tables.inv_degree_modulo();
+    const MultiplyUIntModOperand& w = inv_root_powers[root_index];
+    
+    MultiplyUIntModOperand scaled_w;
+    scaled_w.set(multiply_uint_mod(w.operand, inv_n, tables.modulus()), tables.modulus());
+    
+    uint64_t* x_ptr = operand;
+    uint64_t* y_ptr = x_ptr + gap;
+    
+    // Vectorized final iteration
+    size_t j = 0;
+    for (; j + 8 <= gap; j += 8) {
+        __m512i vx = _mm512_loadu_si512(x_ptr + j);
+        __m512i vy = _mm512_loadu_si512(y_ptr + j);
+        
+        // Guard x
+        __mmask8 mask = _mm512_cmpgt_epi64_mask(vx, _mm512_sub_epi64(v2q, _mm512_set1_epi64(1)));
+        vx = _mm512_mask_sub_epi64(vx, mask, vx, v2q);
+        
+        // Scalar for final operations
+        alignas(64) uint64_t x_arr[8], y_arr[8], xnew_arr[8], ynew_arr[8];
+        _mm512_store_si512(x_arr, vx);
+        _mm512_store_si512(y_arr, vy);
+        
+        for (int k = 0; k < 8; ++k) {
+            uint64_t sum = guard(x_arr[k] + y_arr[k], two_q);
+            xnew_arr[k] = multiply_uint_mod_lazy(sum, inv_n, tables.modulus());
+            ynew_arr[k] = multiply_uint_mod_lazy(x_arr[k] + two_q - y_arr[k], scaled_w, tables.modulus());
+        }
+        
+        _mm512_storeu_si512(x_ptr + j, _mm512_load_si512(xnew_arr));
+        _mm512_storeu_si512(y_ptr + j, _mm512_load_si512(ynew_arr));
+    }
+    
+    // Remaining scalar
+    for (; j < gap; ++j) {
+        uint64_t x = guard(x_ptr[j], two_q);
+        uint64_t y = y_ptr[j];
+        
+        x_ptr[j] = multiply_uint_mod_lazy(guard(x + y, two_q), inv_n, tables.modulus());
+        y_ptr[j] = multiply_uint_mod_lazy(x + two_q - y, scaled_w, tables.modulus());
+    }
+    
+    // Final reduction to [0, q)
+    for (size_t i = 0; i + 8 <= n; i += 8) {
+        __m512i v = _mm512_loadu_si512(operand + i);
+        __mmask8 maskq = _mm512_cmpgt_epi64_mask(v, _mm512_sub_epi64(vq, _mm512_set1_epi64(1)));
+        v = _mm512_mask_sub_epi64(v, maskq, v, vq);
+        _mm512_storeu_si512(operand + i, v);
+    }
+    for (size_t i = (n / 8) * 8; i < n; ++i) {
+        if (operand[i] >= q) operand[i] -= q;
+    }
+}
+
+#endif // __AVX512F__ && __AVX512VL__
 
 // ============================================================================
 // Factory Functions

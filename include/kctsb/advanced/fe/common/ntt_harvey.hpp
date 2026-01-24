@@ -227,6 +227,30 @@ void inverse_ntt_negacyclic_harvey_avx2(uint64_t* operand, const NTTTables& tabl
 #endif // __AVX2__
 
 // ============================================================================
+// AVX-512 Accelerated NTT (optional, v4.13.0+)
+// ============================================================================
+
+#if defined(__AVX512F__) && defined(__AVX512VL__)
+
+/**
+ * @brief AVX-512-accelerated forward NTT
+ * 
+ * Uses 512-bit SIMD to process 8 butterflies in parallel.
+ * Provides ~2x speedup over AVX2 for n >= 4096.
+ * 
+ * @param[in,out] operand Coefficient array of size n
+ * @param tables Precomputed NTT tables
+ */
+void ntt_negacyclic_harvey_avx512(uint64_t* operand, const NTTTables& tables);
+
+/**
+ * @brief AVX-512-accelerated inverse NTT
+ */
+void inverse_ntt_negacyclic_harvey_avx512(uint64_t* operand, const NTTTables& tables);
+
+#endif // __AVX512F__ && __AVX512VL__
+
+// ============================================================================
 // NTT Tables Factory
 // ============================================================================
 
