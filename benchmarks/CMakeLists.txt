@@ -153,21 +153,24 @@ if(KCTSB_ENABLE_BGV)
         target_link_libraries(kctsb_benchmark_bgv PRIVATE kctsb_shared)
     endif()
 
-    # SEAL/HElib comparison DISABLED until headers are properly built
-    # SEAL requires seal/util/config.h which is generated during SEAL build
-    # HElib requires built helib headers
-    # For now, only benchmark native kctsb BGV implementation
-    # TODO: Build SEAL and HElib from source to enable comparison benchmarks
-    #
-    # if(KCTSB_ENABLE_SEAL AND SEAL_FOUND AND EXISTS "${SEAL_INCLUDE_DIRS}/seal/util/config.h")
-    #     target_include_directories(kctsb_benchmark_bgv PRIVATE ${SEAL_INCLUDE_DIRS})
-    #     target_link_libraries(kctsb_benchmark_bgv PRIVATE "${SEAL_LIBRARY}")
-    #     target_compile_definitions(kctsb_benchmark_bgv PRIVATE KCTSB_HAS_SEAL=1)
-    #     if(WIN32)
-    #         target_link_libraries(kctsb_benchmark_bgv PRIVATE bcrypt)
-    #     endif()
-    # endif()
-    #
+    # SEAL comparison (enabled if headers and static library are available)
+    set(SEAL_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/thirdparty/win-x64/include/SEAL-4.1")
+    set(SEAL_LIBRARY "${CMAKE_SOURCE_DIR}/thirdparty/win-x64/lib/libseal-4.1.a")
+    
+    if(EXISTS "${SEAL_INCLUDE_DIR}/seal/util/config.h" AND EXISTS "${SEAL_LIBRARY}")
+        message(STATUS "SEAL 4.1 found - enabling comparison benchmarks")
+        target_include_directories(kctsb_benchmark_bgv PRIVATE ${SEAL_INCLUDE_DIR})
+        target_link_libraries(kctsb_benchmark_bgv PRIVATE "${SEAL_LIBRARY}")
+        target_compile_definitions(kctsb_benchmark_bgv PRIVATE KCTSB_HAS_SEAL=1)
+        if(WIN32)
+            # bcrypt for Windows CSPRNG used by SEAL
+            target_link_libraries(kctsb_benchmark_bgv PRIVATE bcrypt)
+        endif()
+    else()
+        message(STATUS "SEAL not found - skipping comparison benchmarks")
+    endif()
+    
+    # HElib comparison (disabled until headers are properly built)
     # if(KCTSB_ENABLE_HELIB AND HELIB_FOUND)
     #     target_link_libraries(kctsb_benchmark_bgv PRIVATE "${HELIB_LIBRARY}")
     #     target_compile_definitions(kctsb_benchmark_bgv PRIVATE KCTSB_HAS_HELIB=1)
