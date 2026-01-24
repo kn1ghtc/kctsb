@@ -530,6 +530,63 @@ void BEHZRNSTool::initialize() {
         inv_q_last_mod_q_[i].set(inv, q_base_[i]);
     }
     
+    // Precompute Q/2 mod q_i for rounding correction
+    // We need floor(Q/2) mod q_i, where Q = prod(q_j)
+    // 
+    // For correct computation:
+    // 1. Compute Q as multi-precision integer (L 64-bit words)
+    // 2. Compute Q/2 = Q >> 1 (since Q is odd, this truncates)
+    // 3. Reduce Q/2 mod each q_i
+    //
+    // Note: Q = product of odd primes, so Q is odd, Q/2 = (Q-1)/2
+    {
+        // Step 1: Compute Q as multi-precision integer
+        std::vector<uint64_t> Q_mp(L, 0);
+        Q_mp[0] = 1;
+        
+        for (size_t j = 0; j < L; j++) {
+            uint64_t qj = q_base_[j].value();
+            uint64_t carry = 0;
+            for (size_t k = 0; k < L; k++) {
+                __uint128_t wide = static_cast<__uint128_t>(Q_mp[k]) * qj + carry;
+                Q_mp[k] = static_cast<uint64_t>(wide);
+                carry = static_cast<uint64_t>(wide >> 64);
+            }
+        }
+        
+        // Step 2: Compute Q/2 = Q >> 1 (right shift by 1)
+        std::vector<uint64_t> half_Q_mp(L, 0);
+        uint64_t carry = 0;
+        for (int k = static_cast<int>(L) - 1; k >= 0; k--) {
+            half_Q_mp[k] = (Q_mp[k] >> 1) | (carry << 63);
+            carry = Q_mp[k] & 1;
+        }
+        
+        // Step 3: Reduce half_Q mod each q_i using Horner's method
+        half_q_mod_q_.resize(L);
+        for (size_t i = 0; i < L; i++) {
+            uint64_t qi = q_base_[i].value();
+            uint64_t result = 0;
+            for (int k = static_cast<int>(L) - 1; k >= 0; k--) {
+                __uint128_t wide = (static_cast<__uint128_t>(result) << 64) + half_Q_mp[k];
+                result = static_cast<uint64_t>(wide % qi);
+            }
+            half_q_mod_q_[i] = result;
+        }
+        
+        // Step 4: Reduce half_Q mod each Bsk modulus
+        half_q_mod_Bsk_.resize(bsk_base_.size());
+        for (size_t i = 0; i < bsk_base_.size(); i++) {
+            uint64_t bi = bsk_base_[i].value();
+            uint64_t result = 0;
+            for (int k = static_cast<int>(L) - 1; k >= 0; k--) {
+                __uint128_t wide = (static_cast<__uint128_t>(result) << 64) + half_Q_mp[k];
+                result = static_cast<uint64_t>(wide % bi);
+            }
+            half_q_mod_Bsk_[i] = result;
+        }
+    }
+    
     // Create NTT tables for Bsk base
     bsk_ntt_tables_.resize(bsk_base_.size());
     for (size_t i = 0; i < bsk_base_.size(); i++) {
@@ -680,22 +737,21 @@ void BEHZRNSTool::multiply_and_rescale(const uint64_t* input, uint64_t* output) 
     
     // BEHZ Rescaling: compute round(input * t / Q)
     // 
-    // Algorithm (simplified for correctness):
+    // Algorithm with proper rounding:
     // 1. Extend input to Bsk using SmMRq (Small Montgomery Reduction mod Q)
-    // 2. Multiply by t in both Q and Bsk representations
-    // 3. Compute floor((input * t) / Q) using fast_floor
+    // 2. Compute (input * t + Q/2) to convert floor to round
+    // 3. Compute floor((input * t + Q/2) / Q) using fast_floor
     // 4. Convert result back to Q using fastbconv_sk
-    // 5. Add 1 for rounding if needed (based on residual analysis)
     //
-    // Note: For BFV, the exact rounding behavior depends on the SEAL convention.
-    // SEAL uses floor, and correctness comes from the noise analysis.
+    // Rounding correction: round(x) = floor(x + 0.5) = floor((x + Q/2) / Q) when x is mod Q
+    // So we add Q/2 before the floor operation.
     
     // Allocate working memory
     std::vector<uint64_t> temp_bsk_m_tilde((Bsk_size + 1) * n_);  // Bsk ∪ {m_tilde}
     std::vector<uint64_t> temp_bsk(Bsk_size * n_);                 // Bsk
     std::vector<uint64_t> temp_q_bsk((L + Bsk_size) * n_);        // Q ∪ Bsk
-    std::vector<uint64_t> input_t(L * n_);                         // c * t in Q
-    std::vector<uint64_t> input_bsk_t(Bsk_size * n_);             // c * t in Bsk
+    std::vector<uint64_t> input_t(L * n_);                         // c * t + Q/2 in Q
+    std::vector<uint64_t> input_bsk_t(Bsk_size * n_);             // c * t + Q/2 in Bsk
     
     // Step 1: Extend input from Q to Bsk ∪ {m_tilde} using SmMRq
     fastbconv_m_tilde(input, temp_bsk_m_tilde.data());
@@ -703,27 +759,34 @@ void BEHZRNSTool::multiply_and_rescale(const uint64_t* input, uint64_t* output) 
     // Step 2: Montgomery reduction to get result in Bsk
     sm_mrq(temp_bsk_m_tilde.data(), temp_bsk.data());
     
-    // Step 3: Multiply by t in Q domain
+    // Step 3: Compute (input * t + Q/2) in Q domain for rounding
+    // Adding Q/2 converts floor(x/Q) to round(x/Q) = floor((x + Q/2)/Q)
     for (size_t i = 0; i < L; i++) {
         const uint64_t* src = input + i * n_;
         uint64_t* dst = input_t.data() + i * n_;
         const Modulus& qi = q_base_[i];
         uint64_t t_mod_qi = t_ % qi.value();
+        uint64_t half_q_i = half_q_mod_q_[i];
         
         for (size_t c = 0; c < n_; c++) {
-            dst[c] = multiply_uint_mod(src[c], t_mod_qi, qi);
+            // c * t + Q/2 mod q_i
+            uint64_t ct = multiply_uint_mod(src[c], t_mod_qi, qi);
+            dst[c] = add_uint_mod(ct, half_q_i, qi);
         }
     }
     
-    // Step 4: Multiply by t in Bsk domain
+    // Step 4: Compute (input * t + Q/2) in Bsk domain for rounding
     for (size_t i = 0; i < Bsk_size; i++) {
         const uint64_t* src = temp_bsk.data() + i * n_;
         uint64_t* dst = input_bsk_t.data() + i * n_;
         const Modulus& bi = bsk_base_[i];
         uint64_t t_mod_bi = t_ % bi.value();
+        uint64_t half_q_bi = half_q_mod_Bsk_[i];
         
         for (size_t c = 0; c < n_; c++) {
-            dst[c] = multiply_uint_mod(src[c], t_mod_bi, bi);
+            // c * t + Q/2 mod Bsk[i]
+            uint64_t ct = multiply_uint_mod(src[c], t_mod_bi, bi);
+            dst[c] = add_uint_mod(ct, half_q_bi, bi);
         }
     }
     
@@ -732,17 +795,11 @@ void BEHZRNSTool::multiply_and_rescale(const uint64_t* input, uint64_t* output) 
     std::copy(input_bsk_t.data(), input_bsk_t.data() + Bsk_size * n_, 
               temp_q_bsk.data() + L * n_);
     
-    // Step 6: Fast floor: floor(c * t / Q) in Bsk
+    // Step 6: Fast floor: floor((c * t + Q/2) / Q) in Bsk = round(c * t / Q)
     fast_floor(temp_q_bsk.data(), temp_bsk.data());
     
     // Step 7: Convert back to Q
     fastbconv_sk(temp_bsk.data(), output);
-    
-    // Step 8: Add rounding correction (+1) based on residual
-    // For proper rounding: if (c * t) mod Q >= Q/2, add 1 to result
-    // We approximate this by adding 1 if the least significant coefficient
-    // of input*t mod Q would round up. For simplicity in this version,
-    // we skip this and rely on the BFV noise margin.
 }
 
 void BEHZRNSTool::divide_and_round_q_last_inplace(uint64_t* data) const {

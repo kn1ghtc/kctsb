@@ -386,6 +386,10 @@ private:
     std::vector<MultiplyUIntModOperand> neg_inv_q_mod_t_gamma_;  // -Q^{-1} mod {t, gamma}
     std::vector<MultiplyUIntModOperand> inv_q_last_mod_q_;  // q_{L-1}^{-1} mod q_i
     
+    // Rounding correction: Q/2 mod q_i (for converting floor to round)
+    std::vector<uint64_t> half_q_mod_q_;           // (Q/2) mod q_i for rounding
+    std::vector<uint64_t> half_q_mod_Bsk_;         // (Q/2) mod Bsk[i] for rounding
+    
     // NTT tables for Bsk base
     std::vector<std::unique_ptr<ntt::NTTTable>> bsk_ntt_tables_;
 };
