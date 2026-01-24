@@ -99,10 +99,12 @@ namespace StandardParams {
  * Good for 3-level computations
  */
 inline std::unique_ptr<RNSContext> SECURITY_128_N4096() {
+    // NTT-friendly primes: p ≡ 1 (mod 2n), 60-bit for Barrett reduction
+    // These are standard SEAL-compatible primes
     std::vector<uint64_t> primes = {
-        0xFFFFFFFF00000001ULL,  // ~64 bits
-        0xFFFFFFFE00000001ULL,  // ~64 bits
-        0xFFFFFFFD00000001ULL   // ~64 bits
+        0x1FFFFFFFFFE00001ULL,  // 2^61 - 2^21 + 1 = 2305843009213325313 (61-bit)
+        0x1FFFFFFFFFC80001ULL,  // 2305843009213292545 (61-bit)  
+        0x1FFFFFFFFFB40001ULL   // 2305843009213259777 (61-bit)
     };
     return std::make_unique<RNSContext>(12, primes);  // log_n = 12 means n = 4096
 }
@@ -112,12 +114,13 @@ inline std::unique_ptr<RNSContext> SECURITY_128_N4096() {
  * Good for 5-level computations, recommended for production
  */
 inline std::unique_ptr<RNSContext> SECURITY_128_N8192() {
+    // NTT-friendly primes for n=8192: p ≡ 1 (mod 16384), max 61-bit for Barrett reduction
     std::vector<uint64_t> primes = {
-        0xFFFFFFFF00000001ULL,
-        0xFFFFFFFE00000001ULL,
-        0xFFFFFFFD00000001ULL,
-        0xFFFFFFFC00000001ULL,
-        0xFFFFFFFB00000001ULL
+        0x1FFFFFFFFFFA4001ULL,  // 2305843009213317121 (61-bit)
+        0x1FFFFFFFFFF74001ULL,  // 2305843009213120513 (61-bit)
+        0x1FFFFFFFFFF0C001ULL,  // 2305843009212694529 (61-bit)
+        0x1FFFFFFFFFEC4001ULL,  // 2305843009212399617 (61-bit)
+        0x1FFFFFFFFFE10001ULL   // 2305843009211662337 (61-bit)
     };
     return std::make_unique<RNSContext>(13, primes);  // log_n = 13 means n = 8192
 }
@@ -127,14 +130,15 @@ inline std::unique_ptr<RNSContext> SECURITY_128_N8192() {
  * Good for deep circuits (10+ levels)
  */
 inline std::unique_ptr<RNSContext> SECURITY_128_N16384() {
+    // NTT-friendly primes for n=16384: p ≡ 1 (mod 32768), max 61-bit for Barrett reduction
     std::vector<uint64_t> primes = {
-        0xFFFFFFFF00000001ULL,
-        0xFFFFFFFE00000001ULL,
-        0xFFFFFFFD00000001ULL,
-        0xFFFFFFFC00000001ULL,
-        0xFFFFFFFB00000001ULL,
-        0xFFFFFFFA00000001ULL,
-        0xFFFFFFF900000001ULL
+        0x1FFFFFFFFFE10001ULL,  // 2305843009211662337 (61-bit)
+        0x1FFFFFFFFFE00001ULL,  // 2305843009211596801 (61-bit)
+        0x1FFFFFFFFFDD0001ULL,  // 2305843009211400193 (61-bit)
+        0x1FFFFFFFFFD08001ULL,  // 2305843009210580993 (61-bit)
+        0x1FFFFFFFFFCF8001ULL,  // 2305843009210515457 (61-bit)
+        0x1FFFFFFFFFC80001ULL,  // 2305843009210023937 (61-bit)
+        0x1FFFFFFFFFB40001ULL   // 2305843009208713217 (61-bit)
     };
     return std::make_unique<RNSContext>(14, primes);  // log_n = 14 means n = 16384
 }

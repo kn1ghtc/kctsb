@@ -278,7 +278,50 @@ void benchmark_kctsb_bgv() {
     }
     std::cout << "\n";
     
-    // Test multiplication: 7 * 6 = 42
+    // Test multiplication WITHOUT relinearization first
+    auto ct_mul_norelin = evaluator.multiply(ct1, ct2);
+    auto pt_mul_norelin = evaluator.decrypt(ct_mul_norelin, sk);
+    bool mul_norelin_correct = (pt_mul_norelin[0] == 42);
+    std::cout << "Multiply (no relin): " << (mul_norelin_correct ? "PASS" : "FAIL");
+    if (!mul_norelin_correct) {
+        std::cout << " (got " << pt_mul_norelin[0] << ")";
+    }
+    std::cout << "\n";
+    
+    // Debug: verify key switching key correctness
+    // ksk0 + ksk1*s should equal s^2 (mod t)
+    {
+        kctsb::fhe::RNSPoly test = rk.ksk0[0] + (rk.ksk1[0] * sk.s);
+        kctsb::fhe::RNSPoly s2 = sk.s * sk.s;
+        
+        // Convert to coefficient domain
+        test.intt_transform();
+        kctsb::fhe::RNSPoly s2_coeff = s2;
+        s2_coeff.intt_transform();
+        
+        // Check difference mod t
+        uint64_t q0 = ctx->modulus(0).value();
+        const uint64_t* test_data = test.data(0);
+        const uint64_t* s2_data = s2_coeff.data(0);
+        
+        bool ksk_correct = true;
+        for (size_t i = 0; i < 10 && ksk_correct; ++i) {
+            int64_t d1 = static_cast<int64_t>(test_data[i]);
+            int64_t d2 = static_cast<int64_t>(s2_data[i]);
+            if (d1 > static_cast<int64_t>(q0/2)) d1 -= q0;
+            if (d2 > static_cast<int64_t>(q0/2)) d2 -= q0;
+            int64_t diff = d1 - d2;
+            if (diff < 0) diff = -diff;
+            // diff should be a multiple of t (noise * t)
+            // For small noise, diff should be small * t < some bound
+            if (diff > 1000 * static_cast<int64_t>(PLAINTEXT_MODULUS)) {
+                ksk_correct = false;
+            }
+        }
+        std::cout << "KSK correctness: " << (ksk_correct ? "PASS" : "FAIL") << "\n";
+    }
+    
+    // Test multiplication: 7 * 6 = 42 (with relinearization)
     auto ct_mul = evaluator.multiply(ct1, ct2);
     evaluator.relinearize_inplace(ct_mul, rk);
     auto pt_mul = evaluator.decrypt(ct_mul, sk);

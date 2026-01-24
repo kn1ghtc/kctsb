@@ -97,7 +97,7 @@ This document establishes performance baselines for kctsb's FHE implementation, 
 - [x] AVX2 NTT butterfly operations (enabled)
 - [ ] AVX-512 parallel coefficient processing
 - [ ] PCLMUL for GHASH/polynomial multiplication
-- [ ] Intel HEXL integration (optional)
+- [ ] Intel HEXL integration (enable optional acceleration)
 
 ### 6.3 Phase 3: GPU Acceleration (v4.14.0+)
 - [x] CUDA driver detection at runtime

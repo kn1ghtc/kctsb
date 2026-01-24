@@ -26,54 +26,112 @@ using namespace kctsb::fhe::bfv;
 // Test Fixtures
 // ============================================================================
 
+/**
+ * @brief Shared test fixture for small-parameter BFV tests (n=16)
+ * 
+ * Uses SetUpTestSuite/TearDownTestSuite to initialize RNSContext,
+ * BFVEvaluator, and BEHZ tool only ONCE for all tests in this suite.
+ * 
+ * BEHZ initialization is expensive because it searches for auxiliary
+ * NTT-friendly primes via Miller-Rabin primality testing.
+ */
 class BFVEvaluatorTest : public ::testing::Test {
 protected:
-    void SetUp() override {
-        // Use small parameters for fast testing (n=16)
-        log_n_ = 4;
-        primes_ = {65537, 114689};  // Two 17-bit primes
+    // Shared static resources (initialized once per test suite)
+    static inline std::unique_ptr<RNSContext> shared_context_;
+    static inline std::unique_ptr<BFVEvaluator> shared_evaluator_;
+    static inline bool initialized_ = false;
+    
+    static void SetUpTestSuite() {
+        if (initialized_) return;
         
-        context_ = std::make_unique<RNSContext>(log_n_, primes_);
+        // Use small parameters for fast testing (n=16)
+        int log_n = 4;
+        std::vector<uint64_t> primes = {65537, 114689};  // Two 17-bit primes
+        
+        shared_context_ = std::make_unique<RNSContext>(log_n, primes);
         
         // Create evaluator with t=256
-        evaluator_ = std::make_unique<BFVEvaluator>(context_.get(), 256);
+        shared_evaluator_ = std::make_unique<BFVEvaluator>(shared_context_.get(), 256);
         
-        // Initialize RNG
+        initialized_ = true;
+    }
+    
+    static void TearDownTestSuite() {
+        shared_evaluator_.reset();
+        shared_context_.reset();
+        initialized_ = false;
+    }
+    
+    void SetUp() override {
+        context_ = shared_context_.get();
+        evaluator_ = shared_evaluator_.get();
         rng_.seed(42);
     }
     
-    int log_n_;
-    std::vector<uint64_t> primes_;
-    std::unique_ptr<RNSContext> context_;
-    std::unique_ptr<BFVEvaluator> evaluator_;
+    const RNSContext* context_;
+    BFVEvaluator* evaluator_;
     std::mt19937_64 rng_;
 };
 
+/**
+ * @brief Shared test fixture for n=8192 BFV tests
+ * 
+ * Uses SetUpTestSuite/TearDownTestSuite to initialize RNSContext and
+ * NTT tables only ONCE for all tests in this suite, dramatically reducing
+ * test execution time (from ~15s per test to ~15s total for the suite).
+ * 
+ * NTT table generation is expensive for large n and 50-bit primes because
+ * it requires finding primitive roots of unity via trial-and-error.
+ */
 class BFVEvaluatorN8192Test : public ::testing::Test {
 protected:
-    void SetUp() override {
+    // Shared static resources (initialized once per test suite)
+    static inline std::unique_ptr<RNSContext> shared_context_;
+    static inline std::unique_ptr<BFVEvaluator> shared_evaluator_;
+    static inline bool initialized_ = false;
+    
+    /**
+     * @brief Initialize shared context ONCE for entire test suite
+     */
+    static void SetUpTestSuite() {
+        if (initialized_) return;
+        
         // Create RNS context for n=8192 (industry standard)
-        log_n_ = 13;  // log_n = 13 means n = 8192
+        int log_n = 13;  // log_n = 13 means n = 8192
         // Use same 50-bit NTT-friendly primes as BGV (verified with sympy)
-        primes_ = {
+        std::vector<uint64_t> primes = {
             1125899906990081ULL,  // PRIME_50BIT_1 (0x0004000000024001)
             1125899907219457ULL,  // PRIME_50BIT_2 (0x000400000005C001)
             1125899907776513ULL   // PRIME_50BIT_3 (0x00040000000E4001)
         };
         
-        context_ = std::make_unique<RNSContext>(log_n_, primes_);
+        shared_context_ = std::make_unique<RNSContext>(log_n, primes);
         
         // Create evaluator with t=65537 (common plaintext modulus)
-        evaluator_ = std::make_unique<BFVEvaluator>(context_.get(), 65537);
+        shared_evaluator_ = std::make_unique<BFVEvaluator>(shared_context_.get(), 65537);
         
-        // Initialize RNG
+        initialized_ = true;
+    }
+    
+    static void TearDownTestSuite() {
+        shared_evaluator_.reset();
+        shared_context_.reset();
+        initialized_ = false;
+    }
+    
+    void SetUp() override {
+        // Use shared resources
+        context_ = shared_context_.get();
+        evaluator_ = shared_evaluator_.get();
+        
+        // Each test gets its own RNG with consistent seed
         rng_.seed(12345);
     }
     
-    int log_n_;
-    std::vector<uint64_t> primes_;
-    std::unique_ptr<RNSContext> context_;
-    std::unique_ptr<BFVEvaluator> evaluator_;
+    // Per-test pointers to shared resources
+    const RNSContext* context_;
+    BFVEvaluator* evaluator_;
     std::mt19937_64 rng_;
 };
 
