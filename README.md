@@ -4,7 +4,7 @@
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](.)
 [![C++](https://img.shields.io/badge/C++-17-blue.svg)](.)
 [![CMake](https://img.shields.io/badge/CMake-3.20+-green.svg)](.)
-[![Version](https://img.shields.io/badge/Version-4.12.0-brightgreen.svg)](.)
+[![Version](https://img.shields.io/badge/Version-4.12.1-brightgreen.svg)](.)
 
 **kctsb** 是一个跨平台的 C/C++ 密码学和安全算法库，专为生产环境和安全研究设计。目标是成为 **OpenSSL 的现代替代品**。
 
@@ -80,6 +80,11 @@
     - 密钥/密文均存储在 NTT domain
     - `__int128` 高精度 CRT 重建，支持任意模数数量
     - BGV 正确编码：误差乘以明文模 t
+    - **工业级 Hybrid Key Switching** - digit decomposition 降低噪声增长
+  - **vs Microsoft SEAL 4.1 性能对比** (n=8192, t=65537) 📊
+    - Relin Key Gen: **4.46x 加速** (1.42ms vs 6.32ms)
+    - Mul + Relin: **1.46x 加速** (2.32ms vs 3.40ms)
+    - Encrypt: 0.97x (3.75ms vs 3.62ms)
   - **工业级参数推荐** (128-bit 安全性) 📋
     - 轻量级: `n=4096, L=3, 60-bit primes, t=65537` (≤3次乘法)
     - 标准级: `n=8192, L=5, 55-bit primes, t=65537` (≤5次乘法)  
