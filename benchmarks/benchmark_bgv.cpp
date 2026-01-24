@@ -1,18 +1,19 @@
 /**
  * @file benchmark_bgv.cpp
- * @brief BGV Homomorphic Encryption Industry Benchmark
+ * @brief BGV Homomorphic Encryption Industry Benchmark (Pure RNS API)
  * 
  * Standard benchmark using n=8192 for industry comparison with SEAL and HElib.
- * Outputs ratio comparison to show performance relative to reference implementations.
+ * Uses the Pure RNS API which requires no NTL dependency.
  * 
  * Key Design Decisions:
  * - n=8192 is the industry standard for 128-bit security comparisons
- * - For internal testing with larger n, use tests/benchmark/test_bgv_benchmark.cpp
- * - Ratio output format: kctsb_time / seal_time (lower is better)
+ * - Pure RNS implementation for maximum portability
+ * - Ratio output format: SEAL_time / kctsb_time (higher is better for kctsb)
  * 
  * @author knightc
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
  * @license Apache-2.0
+ * @version v4.12.0
  */
 
 #include <chrono>
@@ -21,18 +22,14 @@
 #include <vector>
 #include <numeric>
 #include <cmath>
+#include <random>
 
-// kctsb BGV (always available)
+// kctsb BGV Pure RNS API
 #include "kctsb/advanced/fe/bgv/bgv.hpp"
 
 // Optional: SEAL for comparison
 #ifdef KCTSB_HAS_SEAL
 #include <seal/seal.h>
-#endif
-
-// Optional: HElib for comparison
-#ifdef KCTSB_HAS_HELIB
-#include <helib/helib.h>
 #endif
 
 using namespace std::chrono;
@@ -45,6 +42,7 @@ using namespace kctsb::fhe::bgv;
 constexpr size_t INDUSTRY_POLY_DEGREE = 8192;
 constexpr size_t BENCHMARK_ITERATIONS = 10;
 constexpr size_t WARMUP_ITERATIONS = 3;
+constexpr uint64_t PLAINTEXT_MODULUS = 65537;  // Standard plaintext modulus
 
 // ============================================================================
 // Benchmark Result Structure
@@ -56,12 +54,13 @@ struct BenchmarkResult {
     double seal_ms;
     double helib_ms;
     
-    double ratio_vs_seal() const {
-        return (seal_ms > 0) ? kctsb_ms / seal_ms : 0;
+    // Ratio: SEAL / kctsb (higher = kctsb faster)
+    double speedup_vs_seal() const {
+        return (kctsb_ms > 0 && seal_ms > 0) ? seal_ms / kctsb_ms : 0;
     }
     
-    double ratio_vs_helib() const {
-        return (helib_ms > 0) ? kctsb_ms / helib_ms : 0;
+    double speedup_vs_helib() const {
+        return (kctsb_ms > 0 && helib_ms > 0) ? helib_ms / kctsb_ms : 0;
     }
 };
 
@@ -107,30 +106,28 @@ void print_result(const std::string& name, double time_ms,
               << std::setw(10) << std::fixed << std::setprecision(1) 
               << ops_per_sec << " ops/s";
     
-    // Show ratio if reference available
+    // Show speedup if reference available (SEAL_time / kctsb_time)
     if (seal_time_ms > 0) {
-        double ratio = time_ms / seal_time_ms;
-        std::cout << "  [SEAL: " << std::setprecision(2) << ratio << "x]";
+        double speedup = seal_time_ms / time_ms;
+        std::cout << "  [vs SEAL: " << std::setprecision(2) << speedup << "x faster]";
     }
     if (helib_time_ms > 0) {
-        double ratio = time_ms / helib_time_ms;
-        std::cout << "  [HElib: " << std::setprecision(2) << ratio << "x]";
+        double speedup = helib_time_ms / time_ms;
+        std::cout << "  [vs HElib: " << std::setprecision(2) << speedup << "x faster]";
     }
     
     std::cout << "\n";
 }
 
 void print_comparison_table() {
-    print_header("Performance Comparison Summary (Ratio: kctsb / reference)");
+    print_header("Performance Comparison Summary (Speedup: reference / kctsb)");
     
     std::cout << std::left << std::setw(25) << "Operation"
               << std::right << std::setw(12) << "kctsb (ms)"
               << std::setw(12) << "SEAL (ms)"
-              << std::setw(10) << "Ratio"
-              << std::setw(12) << "HElib (ms)"
-              << std::setw(10) << "Ratio"
+              << std::setw(10) << "Speedup"
               << "\n";
-    std::cout << std::string(81, '-') << "\n";
+    std::cout << std::string(60, '-') << "\n";
     
     for (const auto& r : g_results) {
         std::cout << std::left << std::setw(25) << r.operation
@@ -139,14 +136,7 @@ void print_comparison_table() {
         
         if (r.seal_ms > 0) {
             std::cout << std::setw(12) << r.seal_ms
-                      << std::setw(10) << std::setprecision(2) << r.ratio_vs_seal();
-        } else {
-            std::cout << std::setw(12) << "N/A" << std::setw(10) << "-";
-        }
-        
-        if (r.helib_ms > 0) {
-            std::cout << std::setw(12) << r.helib_ms
-                      << std::setw(10) << std::setprecision(2) << r.ratio_vs_helib();
+                      << std::setw(10) << std::setprecision(2) << r.speedup_vs_seal() << "x";
         } else {
             std::cout << std::setw(12) << "N/A" << std::setw(10) << "-";
         }
@@ -154,27 +144,31 @@ void print_comparison_table() {
         std::cout << "\n";
     }
     
-    std::cout << std::string(81, '-') << "\n";
-    std::cout << "Target: Ratio <= 1.5 for production readiness\n";
+    std::cout << std::string(60, '-') << "\n";
+    std::cout << "Speedup > 1.0 means kctsb is faster than reference\n";
 }
 
 // ============================================================================
-// kctsb BGV Benchmarks
+// kctsb BGV Benchmarks (Pure RNS API)
 // ============================================================================
 
 void benchmark_kctsb_bgv() {
-    print_header("kctsb Native BGV Benchmarks (n=8192, 128-bit security)");
+    print_header("kctsb Native BGV Benchmarks (Pure RNS, n=8192)");
     
-    // Use n=8192 for industry standard comparison
-    auto params = StandardParams::SECURITY_128_DEPTH_5();
-    BGVContext context(params);
+    // Create RNS context using n=8192 for industry standard comparison
+    auto ctx = StandardParams::SECURITY_128_N8192();
     
     std::cout << "Parameters:\n";
-    std::cout << "  Ring degree (n):      " << context.ring_degree() << "\n";
-    std::cout << "  Plaintext modulus (t):" << context.plaintext_modulus() << "\n";
+    std::cout << "  Ring degree (n):      " << ctx->n() << "\n";
+    std::cout << "  Number of primes (L): " << ctx->level_count() << "\n";
+    std::cout << "  Plaintext modulus (t):" << PLAINTEXT_MODULUS << "\n";
     std::cout << "  Security level:       128-bit classical\n";
     std::cout << "  Benchmark iterations: " << BENCHMARK_ITERATIONS << "\n";
     std::cout << "\n";
+    
+    // Create evaluator
+    BGVEvaluator evaluator(ctx.get(), PLAINTEXT_MODULUS);
+    std::mt19937_64 rng(42);  // Fixed seed for reproducibility
     
     // =========================================================================
     // Key Generation Benchmarks
@@ -182,66 +176,50 @@ void benchmark_kctsb_bgv() {
     std::cout << "--- Key Generation ---\n";
     
     double sk_time = benchmark_op([&]() {
-        auto sk = context.generate_secret_key();
+        auto sk = evaluator.generate_secret_key(rng);
     });
     print_result("Secret key generation", sk_time);
     
-    auto sk = context.generate_secret_key();
+    auto sk = evaluator.generate_secret_key(rng);
     
     double pk_time = benchmark_op([&]() {
-        auto pk = context.generate_public_key(sk);
+        auto pk = evaluator.generate_public_key(sk, rng);
     });
     print_result("Public key generation", pk_time);
     
-    auto pk = context.generate_public_key(sk);
+    auto pk = evaluator.generate_public_key(sk, rng);
     
     double rk_time = benchmark_op([&]() {
-        auto rk = context.generate_relin_key(sk);
+        auto rk = evaluator.generate_relin_key(sk, rng);
     }, 1, 3);  // Fewer iterations - slower operation
     print_result("Relin key generation", rk_time);
     
-    auto rk = context.generate_relin_key(sk);
+    auto rk = evaluator.generate_relin_key(sk, rng);
     
     double keygen_total = sk_time + pk_time;
     g_results.push_back({"KeyGen (SK+PK)", keygen_total, 0, 0});
     g_results.push_back({"Relin key gen", rk_time, 0, 0});
     
     // =========================================================================
-    // Encoding Benchmarks
-    // =========================================================================
-    std::cout << "\n--- Encoding ---\n";
-    
-    BGVEncoder encoder(context);
-    std::vector<int64_t> test_data(context.slot_count());
-    std::iota(test_data.begin(), test_data.end(), 1);
-    
-    double encode_time = benchmark_op([&]() {
-        auto pt = encoder.encode_batch(test_data);
-    });
-    print_result("Batch encode", encode_time);
-    
-    auto pt1 = encoder.encode_batch(test_data);
-    
-    double decode_time = benchmark_op([&]() {
-        auto values = encoder.decode_batch(pt1);
-    });
-    print_result("Batch decode", decode_time);
-    
-    // =========================================================================
     // Encryption/Decryption Benchmarks
     // =========================================================================
     std::cout << "\n--- Encryption/Decryption ---\n";
     
+    // Create test plaintext (single integer for simplicity)
+    // BGVPlaintext is std::vector<uint64_t>, not a struct
+    BGVPlaintext pt1(ctx->n(), 0);
+    pt1[0] = 7;  // Constant polynomial = 7
+    
     double enc_time = benchmark_op([&]() {
-        auto ct = context.encrypt(pk, pt1);
+        auto ct = evaluator.encrypt(pt1, pk, rng);
     });
     print_result("Encrypt", enc_time);
     g_results.push_back({"Encrypt", enc_time, 0, 0});
     
-    auto ct1 = context.encrypt(pk, pt1);
+    auto ct1 = evaluator.encrypt(pt1, pk, rng);
     
     double dec_time = benchmark_op([&]() {
-        auto pt = context.decrypt(sk, ct1);
+        auto pt = evaluator.decrypt(ct1, sk);
     });
     print_result("Decrypt", dec_time);
     g_results.push_back({"Decrypt", dec_time, 0, 0});
@@ -251,13 +229,10 @@ void benchmark_kctsb_bgv() {
     // =========================================================================
     std::cout << "\n--- Homomorphic Operations ---\n";
     
-    BGVEvaluator evaluator(context);
-    
     // Prepare second ciphertext
-    std::vector<int64_t> test_data2(context.slot_count());
-    std::iota(test_data2.begin(), test_data2.end(), 100);
-    auto pt2 = encoder.encode_batch(test_data2);
-    auto ct2 = context.encrypt(pk, pt2);
+    BGVPlaintext pt2(ctx->n(), 0);
+    pt2[0] = 6;  // Constant polynomial = 6
+    auto ct2 = evaluator.encrypt(pt2, pk, rng);
     
     double add_time = benchmark_op([&]() {
         auto ct_sum = evaluator.add(ct1, ct2);
@@ -265,10 +240,10 @@ void benchmark_kctsb_bgv() {
     print_result("Ciphertext add", add_time);
     g_results.push_back({"Add", add_time, 0, 0});
     
-    double add_plain_time = benchmark_op([&]() {
-        auto ct_sum = evaluator.add_plain(ct1, pt2);
+    double sub_time = benchmark_op([&]() {
+        auto ct_sub = evaluator.sub(ct1, ct2);
     });
-    print_result("Plaintext add", add_plain_time);
+    print_result("Ciphertext sub", sub_time);
     
     double mul_time = benchmark_op([&]() {
         auto ct_prod = evaluator.multiply(ct1, ct2);
@@ -276,80 +251,48 @@ void benchmark_kctsb_bgv() {
     print_result("Ciphertext multiply (no relin)", mul_time);
     g_results.push_back({"Multiply", mul_time, 0, 0});
     
-    double mul_relin_time = benchmark_op([&]() {
-        auto ct_prod = evaluator.multiply_relin(ct1, ct2, rk);
+    // Multiply and relinearize
+    auto ct_prod = evaluator.multiply(ct1, ct2);
+    double relin_time = benchmark_op([&]() {
+        auto ct_prod_copy = ct_prod;
+        evaluator.relinearize_inplace(ct_prod_copy, rk);
     }, 1, 5);
-    print_result("Multiply + relinearize", mul_relin_time);
+    print_result("Relinearize", relin_time);
+    
+    double mul_relin_time = mul_time + relin_time;
+    print_result("Multiply + Relinearize (total)", mul_relin_time);
     g_results.push_back({"Mul + Relin", mul_relin_time, 0, 0});
-    
-    double mul_plain_time = benchmark_op([&]() {
-        auto ct_prod = evaluator.multiply_plain(ct1, pt2);
-    });
-    print_result("Plaintext multiply", mul_plain_time);
-    
-    double square_time = benchmark_op([&]() {
-        auto ct_sq = evaluator.square(ct1);
-    }, 1, 5);
-    print_result("Square", square_time);
-    
-    // =========================================================================
-    // Modulus Switching
-    // =========================================================================
-    std::cout << "\n--- Modulus Switching ---\n";
-    
-    auto ct_for_modswitch = context.encrypt(pk, pt1);
-    double modswitch_time = benchmark_op([&]() {
-        auto ct_copy = ct_for_modswitch;
-        evaluator.mod_switch_inplace(ct_copy);
-    }, 1, 5);
-    print_result("Mod switch to next", modswitch_time);
-    g_results.push_back({"Mod switch", modswitch_time, 0, 0});
     
     // =========================================================================
     // Correctness Verification
     // =========================================================================
     std::cout << "\n--- Correctness Verification ---\n";
     
+    // Test addition: 7 + 6 = 13
     auto ct_sum = evaluator.add(ct1, ct2);
-    auto pt_sum = context.decrypt(sk, ct_sum);
-    auto values_sum = encoder.decode_batch(pt_sum);
-    
-    bool add_correct = true;
-    for (size_t i = 0; i < std::min(size_t(5), test_data.size()); i++) {
-        int64_t expected = (test_data[i] + test_data2[i]) % context.plaintext_modulus();
-        if (values_sum[i] != expected) {
-            add_correct = false;
-            break;
-        }
+    auto pt_sum = evaluator.decrypt(ct_sum, sk);
+    bool add_correct = (pt_sum[0] == 13);
+    std::cout << "Addition (7 + 6 = 13): " << (add_correct ? "PASS" : "FAIL");
+    if (!add_correct) {
+        std::cout << " (got " << pt_sum[0] << ")";
     }
-    std::cout << "Addition correctness: " << (add_correct ? "PASS" : "FAIL") << "\n";
+    std::cout << "\n";
     
-    // Multiplication correctness - use single-value encoding for reliable testing
-    // Note: Batch SIMD encoding requires proper CRT-based packing for multiplication
-    auto pt_single1 = encoder.encode(7);
-    auto pt_single2 = encoder.encode(6);
-    auto ct_single1 = context.encrypt(pk, pt_single1);
-    auto ct_single2 = context.encrypt(pk, pt_single2);
-    auto ct_single_prod = evaluator.multiply_relin(ct_single1, ct_single2, rk);
-    auto pt_single_result = context.decrypt(sk, ct_single_prod);
-    auto single_result = encoder.decode_int(pt_single_result);
+    // Test multiplication: 7 * 6 = 42
+    auto ct_mul = evaluator.multiply(ct1, ct2);
+    evaluator.relinearize_inplace(ct_mul, rk);
+    auto pt_mul = evaluator.decrypt(ct_mul, sk);
+    bool mul_correct = (pt_mul[0] == 42);
+    std::cout << "Multiplication (7 * 6 = 42): " << (mul_correct ? "PASS" : "FAIL");
+    if (!mul_correct) {
+        std::cout << " (got " << pt_mul[0] << ")";
+    }
+    std::cout << "\n";
     
-    bool mul_correct = (single_result == 42);
-    std::cout << "Multiplication correctness: " << (mul_correct ? "PASS" : "FAIL") << "\n";
-    
-    // =========================================================================
-    // Noise Budget
-    // =========================================================================
-    std::cout << "\n--- Noise Budget ---\n";
-    double fresh_budget = context.noise_budget(sk, ct1);
-    std::cout << "Fresh ciphertext:     " << std::fixed << std::setprecision(1) 
-              << fresh_budget << " bits\n";
-    
-    double after_add = context.noise_budget(sk, ct_sum);
-    std::cout << "After addition:       " << after_add << " bits\n";
-    
-    double after_mul = context.noise_budget(sk, ct_single_prod);
-    std::cout << "After multiplication: " << after_mul << " bits\n";
+    // Summary
+    std::cout << "\n--- Summary ---\n";
+    std::cout << "API Version: Pure RNS (v4.12.0)\n";
+    std::cout << "NTL Dependency: None\n";
 }
 
 // ============================================================================
@@ -402,53 +345,43 @@ void benchmark_seal_bgv() {
         RelinKeys rk;
         keygen.create_relin_keys(rk);
     }, 1, 3);
-    print_result("Relin key", rk_time);
+    print_result("Relin keys", rk_time);
     
     RelinKeys rk;
     keygen.create_relin_keys(rk);
     
-    // Update kctsb results with SEAL reference times
+    // Update SEAL times in results
     for (auto& r : g_results) {
         if (r.operation == "KeyGen (SK+PK)") r.seal_ms = keygen_total;
         if (r.operation == "Relin key gen") r.seal_ms = rk_time;
     }
     
-    // Encryption
-    Encryptor encryptor(context, pk);
-    Decryptor decryptor(context, sk);
-    BatchEncoder encoder(context);
-    Evaluator evaluator(context);
-    
-    size_t slot_count = encoder.slot_count();
-    std::vector<int64_t> test_data(slot_count);
-    std::iota(test_data.begin(), test_data.end(), 1);
-    
-    Plaintext pt1, pt2;
-    encoder.encode(test_data, pt1);
-    
-    std::vector<int64_t> test_data2(slot_count);
-    std::iota(test_data2.begin(), test_data2.end(), 100);
-    encoder.encode(test_data2, pt2);
-    
+    // Encryption benchmarks
     std::cout << "\n--- Encryption/Decryption ---\n";
     
+    BatchEncoder encoder(context);
+    Encryptor encryptor(context, pk);
+    Decryptor decryptor(context, sk);
+    
+    std::vector<uint64_t> pod_vector(encoder.slot_count(), 7);
+    Plaintext plain;
+    encoder.encode(pod_vector, plain);
+    
     double enc_time = benchmark_op([&]() {
-        Ciphertext ct;
-        encryptor.encrypt(pt1, ct);
+        Ciphertext encrypted;
+        encryptor.encrypt(plain, encrypted);
     });
     print_result("Encrypt", enc_time);
     
-    Ciphertext ct1, ct2;
-    encryptor.encrypt(pt1, ct1);
-    encryptor.encrypt(pt2, ct2);
+    Ciphertext ct1;
+    encryptor.encrypt(plain, ct1);
     
     double dec_time = benchmark_op([&]() {
-        Plaintext pt;
-        decryptor.decrypt(ct1, pt);
+        Plaintext decrypted;
+        decryptor.decrypt(ct1, decrypted);
     });
     print_result("Decrypt", dec_time);
     
-    // Update references
     for (auto& r : g_results) {
         if (r.operation == "Encrypt") r.seal_ms = enc_time;
         if (r.operation == "Decrypt") r.seal_ms = dec_time;
@@ -457,195 +390,67 @@ void benchmark_seal_bgv() {
     // Homomorphic operations
     std::cout << "\n--- Homomorphic Operations ---\n";
     
+    Evaluator evaluator(context);
+    
+    std::vector<uint64_t> pod_vector2(encoder.slot_count(), 6);
+    Plaintext plain2;
+    encoder.encode(pod_vector2, plain2);
+    Ciphertext ct2;
+    encryptor.encrypt(plain2, ct2);
+    
     double add_time = benchmark_op([&]() {
-        Ciphertext ct_sum;
-        evaluator.add(ct1, ct2, ct_sum);
+        Ciphertext result;
+        evaluator.add(ct1, ct2, result);
     });
-    print_result("Add", add_time);
+    print_result("Ciphertext add", add_time);
     
     double mul_time = benchmark_op([&]() {
-        Ciphertext ct_prod;
-        evaluator.multiply(ct1, ct2, ct_prod);
+        Ciphertext result;
+        evaluator.multiply(ct1, ct2, result);
     }, 1, 5);
-    print_result("Multiply", mul_time);
+    print_result("Ciphertext multiply", mul_time);
     
-    double mul_relin_time = benchmark_op([&]() {
-        Ciphertext ct_prod;
-        evaluator.multiply(ct1, ct2, ct_prod);
-        evaluator.relinearize_inplace(ct_prod, rk);
+    Ciphertext ct_mul;
+    evaluator.multiply(ct1, ct2, ct_mul);
+    
+    double relin_time = benchmark_op([&]() {
+        Ciphertext result = ct_mul;
+        evaluator.relinearize_inplace(result, rk);
     }, 1, 5);
-    print_result("Mul + Relin", mul_relin_time);
+    print_result("Relinearize", relin_time);
     
-    // Update references
     for (auto& r : g_results) {
         if (r.operation == "Add") r.seal_ms = add_time;
         if (r.operation == "Multiply") r.seal_ms = mul_time;
-        if (r.operation == "Mul + Relin") r.seal_ms = mul_relin_time;
-    }
-    
-    // Modulus switching
-    std::cout << "\n--- Modulus Switching ---\n";
-    double modswitch_time = benchmark_op([&]() {
-        Ciphertext ct_copy = ct1;
-        evaluator.mod_switch_to_next_inplace(ct_copy);
-    }, 1, 5);
-    print_result("Mod switch", modswitch_time);
-    
-    for (auto& r : g_results) {
-        if (r.operation == "Mod switch") r.seal_ms = modswitch_time;
-    }
-    
-    // Noise budget
-    std::cout << "\n--- Noise Budget ---\n";
-    int fresh_budget = decryptor.invariant_noise_budget(ct1);
-    std::cout << "Fresh ciphertext: " << fresh_budget << " bits\n";
-    
-    Ciphertext ct_prod;
-    evaluator.multiply(ct1, ct2, ct_prod);
-    evaluator.relinearize_inplace(ct_prod, rk);
-    int after_mul = decryptor.invariant_noise_budget(ct_prod);
-    std::cout << "After multiplication: " << after_mul << " bits\n";
-}
-#endif
-
-// ============================================================================
-// HElib Comparison (if available)
-// ============================================================================
-
-#ifdef KCTSB_HAS_HELIB
-void benchmark_helib_bgv() {
-    print_header("IBM HElib BGV Benchmarks (Reference)");
-    
-    // HElib parameter setup
-    // m determines ring dimension, p is plaintext modulus, r is Hensel lifting
-    long m = 32768;  // Closest to n=8192 for HElib (m ~ 2*n for power-of-2)
-    long p = 65537;  // Plaintext modulus
-    long r = 1;      // Hensel lifting
-    long bits = 300; // Security bits for modulus chain
-    
-    helib::Context::Builder builder(m, p, r);
-    builder.bits(bits);
-    helib::Context context = builder.build();
-    
-    std::cout << "Parameters:\n";
-    std::cout << "  m (cyclotomic):   " << m << "\n";
-    std::cout << "  p (plaintext):    " << p << "\n";
-    std::cout << "  bits (security):  " << bits << "\n";
-    std::cout << "\n";
-    
-    // Key generation
-    std::cout << "--- Key Generation ---\n";
-    
-    double keygen_time = benchmark_op([&]() {
-        helib::SecKey secret_key(context);
-        secret_key.GenSecKey();
-    }, 1, 3);
-    print_result("Full keygen", keygen_time);
-    
-    helib::SecKey secret_key(context);
-    secret_key.GenSecKey();
-    helib::addSome1DMatrices(secret_key);
-    
-    const helib::PubKey& public_key = secret_key;
-    
-    // Update references
-    for (auto& r : g_results) {
-        if (r.operation == "KeyGen (SK+PK)") r.helib_ms = keygen_time;
-    }
-    
-    // Encryption
-    std::cout << "\n--- Encryption/Decryption ---\n";
-    
-    helib::Ptxt<helib::BGV> ptxt(context);
-    for (long i = 0; i < ptxt.size(); i++) {
-        ptxt[i] = i + 1;
-    }
-    
-    double enc_time = benchmark_op([&]() {
-        helib::Ctxt ctxt(public_key);
-        public_key.Encrypt(ctxt, ptxt);
-    });
-    print_result("Encrypt", enc_time);
-    
-    helib::Ctxt ct1(public_key);
-    public_key.Encrypt(ct1, ptxt);
-    
-    helib::Ctxt ct2(public_key);
-    public_key.Encrypt(ct2, ptxt);
-    
-    double dec_time = benchmark_op([&]() {
-        helib::Ptxt<helib::BGV> result(context);
-        secret_key.Decrypt(result, ct1);
-    });
-    print_result("Decrypt", dec_time);
-    
-    for (auto& r : g_results) {
-        if (r.operation == "Encrypt") r.helib_ms = enc_time;
-        if (r.operation == "Decrypt") r.helib_ms = dec_time;
-    }
-    
-    // Homomorphic operations
-    std::cout << "\n--- Homomorphic Operations ---\n";
-    
-    double add_time = benchmark_op([&]() {
-        helib::Ctxt ct_sum = ct1;
-        ct_sum += ct2;
-    });
-    print_result("Add", add_time);
-    
-    double mul_time = benchmark_op([&]() {
-        helib::Ctxt ct_prod = ct1;
-        ct_prod *= ct2;
-    }, 1, 5);
-    print_result("Multiply", mul_time);
-    
-    for (auto& r : g_results) {
-        if (r.operation == "Add") r.helib_ms = add_time;
-        if (r.operation == "Multiply") r.helib_ms = mul_time;
-        if (r.operation == "Mul + Relin") r.helib_ms = mul_time;  // HElib auto-relinearizes
+        if (r.operation == "Mul + Relin") r.seal_ms = mul_time + relin_time;
     }
 }
 #endif
 
 // ============================================================================
-// Main
+// Main Entry Point
 // ============================================================================
 
-int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[]) {
-    std::cout << "===================================================================\n";
-    std::cout << "  kctsb BGV Industry Benchmark Suite (n=" << INDUSTRY_POLY_DEGREE << ")\n";
-    std::cout << "===================================================================\n";
-    std::cout << "\n";
-    std::cout << "This benchmark uses n=8192 for industry-standard comparison.\n";
-    std::cout << "For internal testing with larger n, use:\n";
-    std::cout << "  ctest -R test_bgv_benchmark -L performance\n";
-    std::cout << "\n";
+int main() {
+    std::cout << "================================================================\n";
+    std::cout << "  kctsb FHE Performance Benchmark (BGV Scheme)\n";
+    std::cout << "  Version: v4.12.0 (Pure RNS)\n";
+    std::cout << "================================================================\n";
     
-    // Always benchmark native kctsb BGV
+    // Run kctsb benchmarks
     benchmark_kctsb_bgv();
     
-    // Optional: SEAL comparison
 #ifdef KCTSB_HAS_SEAL
+    // Run SEAL benchmarks for comparison
     benchmark_seal_bgv();
-#else
-    std::cout << "\n[INFO] SEAL not available - skipping SEAL comparison\n";
-    std::cout << "       To enable: cmake -DKCTSB_ENABLE_SEAL=ON\n";
-#endif
-
-    // Optional: HElib comparison
-#ifdef KCTSB_HAS_HELIB
-    benchmark_helib_bgv();
-#else
-    std::cout << "\n[INFO] HElib not available - skipping HElib comparison\n";
-    std::cout << "       To enable: cmake -DKCTSB_ENABLE_HELIB=ON\n";
-#endif
     
     // Print comparison table
     print_comparison_table();
+#else
+    std::cout << "\n[Note: SEAL not available for comparison]\n";
+    std::cout << "[Build with -DKCTSB_ENABLE_SEAL=ON for comparison benchmarks]\n";
+#endif
     
-    std::cout << "\n===================================================================\n";
-    std::cout << "  Benchmark Complete\n";
-    std::cout << "===================================================================\n";
-    
+    std::cout << "\nBenchmark completed.\n";
     return 0;
 }

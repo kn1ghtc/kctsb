@@ -242,6 +242,10 @@ void ntt_negacyclic_harvey_lazy(uint64_t* operand, const NTTTables& tables) {
 }
 
 void ntt_negacyclic_harvey(uint64_t* operand, const NTTTables& tables) {
+#ifdef __AVX2__
+    // Prefer AVX2 implementation for better performance
+    ntt_negacyclic_harvey_avx2(operand, tables);
+#else
     // First do lazy NTT
     ntt_negacyclic_harvey_lazy(operand, tables);
     
@@ -254,6 +258,7 @@ void ntt_negacyclic_harvey(uint64_t* operand, const NTTTables& tables) {
             operand[i] -= q;
         }
     }
+#endif
 }
 
 // ============================================================================
@@ -326,6 +331,10 @@ void inverse_ntt_negacyclic_harvey_lazy(uint64_t* operand, const NTTTables& tabl
 }
 
 void inverse_ntt_negacyclic_harvey(uint64_t* operand, const NTTTables& tables) {
+#ifdef __AVX2__
+    // Use AVX2 accelerated version when available
+    inverse_ntt_negacyclic_harvey_avx2(operand, tables);
+#else
     // First do lazy inverse NTT
     inverse_ntt_negacyclic_harvey_lazy(operand, tables);
     
@@ -338,6 +347,7 @@ void inverse_ntt_negacyclic_harvey(uint64_t* operand, const NTTTables& tables) {
             operand[i] -= q;
         }
     }
+#endif
 }
 
 // ============================================================================

@@ -245,19 +245,19 @@ else()
 endif()
 
 # ============================================================================
-# CKKS Benchmark (Phase 3 - native CKKS implementation)
+# CKKS Benchmark (Phase 4 - pending migration to pure RNS)
 # ============================================================================
+# CKKS module is currently disabled - awaiting pure RNS migration
+# TODO: v4.14.0 - Re-enable after CKKS is migrated to pure RNS like BGV/BFV
 
-# CKKS is enabled when BGV is enabled (they share infrastructure)
-option(KCTSB_ENABLE_CKKS "Enable native CKKS benchmark" ON)
+option(KCTSB_ENABLE_CKKS "Enable native CKKS benchmark" OFF)
 
-if(KCTSB_ENABLE_CKKS OR KCTSB_HAS_SEAL)
+if(KCTSB_ENABLE_CKKS AND KCTSB_HAS_SEAL)
     add_executable(kctsb_benchmark_ckks benchmark_ckks.cpp)
 
     target_include_directories(kctsb_benchmark_ckks PRIVATE
         ${CMAKE_SOURCE_DIR}/include
         ${CMAKE_SOURCE_DIR}/src
-        ${CMAKE_SOURCE_DIR}/thirdparty/include
     )
     
     # Enable native CKKS when BGV is enabled (CKKS uses BGV infrastructure)

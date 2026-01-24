@@ -176,6 +176,64 @@ public:
     void negate_inplace(BGVCiphertext& ct);
     
     // ========================================================================
+    // Rotation Operations (Galois Automorphisms)
+    // ========================================================================
+    
+    /**
+     * @brief Generate Galois keys for rotation operations
+     * @param sk Secret key
+     * @param rng Random number generator
+     * @param steps Rotation steps to generate keys for (empty = all)
+     * @param decomp_base Decomposition base (default: 2^16)
+     * @return Galois keys for specified rotations
+     * 
+     * @note For n slots, generates keys for steps in [-n/2, n/2)
+     */
+    BGVGaloisKeys generate_galois_keys(const BGVSecretKey& sk,
+                                        std::mt19937_64& rng,
+                                        const std::vector<int>& steps = {},
+                                        uint64_t decomp_base = 65536);
+    
+    /**
+     * @brief Rotate ciphertext rows (slot rotation)
+     * @param ct Ciphertext
+     * @param steps Number of positions to rotate (positive = left, negative = right)
+     * @param gk Galois keys
+     * @return Rotated ciphertext
+     * 
+     * @note For n slots, valid steps are in [-n/2, n/2).
+     *       Rotation wraps around: rotate(x, n) == x
+     */
+    BGVCiphertext rotate_rows(const BGVCiphertext& ct,
+                               int steps,
+                               const BGVGaloisKeys& gk);
+    
+    /**
+     * @brief Rotate rows (in-place)
+     */
+    void rotate_rows_inplace(BGVCiphertext& ct,
+                              int steps,
+                              const BGVGaloisKeys& gk);
+    
+    /**
+     * @brief Swap columns (conjugate slots)
+     * @param ct Ciphertext
+     * @param gk Galois keys (must include column key)
+     * @return Ciphertext with swapped columns
+     * 
+     * @note For batched encoding, swaps the two column halves.
+     *       Mathematically: σ_{-1}(m(x)) = m(x^{-1}) = m(x^{2n-1})
+     */
+    BGVCiphertext rotate_columns(const BGVCiphertext& ct,
+                                  const BGVGaloisKeys& gk);
+    
+    /**
+     * @brief Swap columns (in-place)
+     */
+    void rotate_columns_inplace(BGVCiphertext& ct,
+                                 const BGVGaloisKeys& gk);
+    
+    // ========================================================================
     // Accessors
     // ========================================================================
     
@@ -193,6 +251,34 @@ private:
     
     int initial_noise_budget() const;
     int noise_budget_after_multiply() const;
+    
+    // ========================================================================
+    // Galois/Rotation Helpers
+    // ========================================================================
+    
+    /**
+     * @brief Compute Galois element for row rotation
+     * @param steps Number of slots to rotate
+     * @return Galois element k where σ_k(x) = x^k
+     */
+    uint64_t get_galois_elt_from_step(int steps) const;
+    
+    /**
+     * @brief Apply Galois automorphism to polynomial
+     * @param poly Input polynomial in coefficient form
+     * @param galois_elt Galois element k
+     * @return σ_k(poly) = poly(x^k) mod (x^n + 1)
+     */
+    RNSPoly apply_galois(const RNSPoly& poly, uint64_t galois_elt);
+    
+    /**
+     * @brief Key switching for Galois automorphism
+     * @param ct Ciphertext after Galois applied
+     * @param gk Galois key for this element
+     * @return Key-switched ciphertext
+     */
+    BGVCiphertext switch_key_galois(const BGVCiphertext& ct,
+                                     const BGVGaloisKey& gk);
 };
 
 // ============================================================================

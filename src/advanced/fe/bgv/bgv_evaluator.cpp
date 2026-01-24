@@ -524,6 +524,344 @@ int BGVEvaluator::noise_budget_after_multiply() const {
     return 12;
 }
 
+// ============================================================================
+// Rotation Operations (Galois Automorphisms)
+// ============================================================================
+
+uint64_t BGVEvaluator::get_galois_elt_from_step(int steps) const {
+    // For ring Z[x]/(x^n + 1), the Galois group is Z*_{2n}
+    // Generator for row rotations: g = 3 (or 5 for some parameters)
+    // For step k: element = g^k mod 2n
+    
+    size_t n = context_->n();
+    uint64_t m = 2 * n;  // Cyclotomic index 2n for x^n + 1
+    
+    if (steps == 0) {
+        return 1;  // Identity
+    }
+    
+    // Normalize steps to [0, n/2)
+    int slots = static_cast<int>(n / 2);
+    steps = ((steps % slots) + slots) % slots;
+    
+    // Generator for row rotations is 3 in Z*_{2n}
+    // But for standard batching, use 5 as generator for n/2 slots
+    uint64_t gen = 3;  // Standard generator
+    
+    uint64_t elt = 1;
+    for (int i = 0; i < steps; ++i) {
+        elt = (elt * gen) % m;
+    }
+    
+    return elt;
+}
+
+BGVGaloisKeys BGVEvaluator::generate_galois_keys(
+    const BGVSecretKey& sk,
+    std::mt19937_64& rng,
+    const std::vector<int>& steps,
+    uint64_t decomp_base)
+{
+    if (!sk.is_ntt_form) {
+        throw std::invalid_argument("Secret key must be in NTT form");
+    }
+    
+    BGVGaloisKeys galois_keys;
+    galois_keys.decomp_base = decomp_base;
+    
+    size_t n = context_->n();
+    uint64_t m = 2 * n;
+    
+    // Determine which Galois elements we need
+    std::vector<uint64_t> elts;
+    
+    if (steps.empty()) {
+        // Generate for all power-of-2 rotations + column swap
+        for (int i = 0; (1 << i) < static_cast<int>(n / 2); ++i) {
+            int step = 1 << i;
+            uint64_t elt = get_galois_elt_from_step(step);
+            if (elt != 1) {
+                elts.push_back(elt);
+            }
+        }
+        // Column swap: element = m - 1 = 2n - 1
+        elts.push_back(m - 1);
+    } else {
+        // Generate for specified steps
+        for (int step : steps) {
+            uint64_t elt = get_galois_elt_from_step(step);
+            if (elt != 1) {
+                elts.push_back(elt);
+            }
+        }
+    }
+    
+    // Generate key for each Galois element
+    for (uint64_t elt : elts) {
+        // σ_k(s) = s(x^k)
+        // Key switches from (c0, c1 * s(x^k)) to (c0', c1' * s)
+        
+        // Get sk in coefficient form
+        RNSPoly sk_coeff = sk.s;
+        sk_coeff.intt_transform();
+        
+        // Apply Galois automorphism to sk
+        RNSPoly sk_galois = apply_galois(sk_coeff, elt);
+        sk_galois.ntt_transform();
+        
+        // Generate key switching key: RLWE encryptions of sk_galois * base^i
+        size_t L = context_->level_count();
+        size_t num_digits = static_cast<size_t>(
+            std::ceil(std::log(static_cast<double>(context_->modulus(0).value())) / 
+                     std::log(static_cast<double>(decomp_base)))) * L;
+        if (num_digits == 0) num_digits = 1;
+        
+        std::vector<RNSPoly> ksk0, ksk1;
+        ksk0.reserve(num_digits);
+        ksk1.reserve(num_digits);
+        
+        RNSPoly power(context_);
+        // Initialize power to sk_galois
+        power = sk_galois;
+        
+        for (size_t d = 0; d < num_digits; ++d) {
+            // Sample random a
+            RNSPoly a(context_);
+            sample_uniform_rns(&a, rng);
+            a.ntt_transform();
+            
+            // Sample error e
+            RNSPoly e(context_);
+            sample_gaussian_rns(&e, rng, 3.2);
+            poly_multiply_scalar_inplace(e, plaintext_modulus_);
+            e.ntt_transform();
+            
+            // ksk0 = -(a*s + t*e) + power
+            // ksk1 = a
+            RNSPoly k0 = a * sk.s;
+            k0 = k0 + e;
+            poly_negate_inplace(k0);
+            k0 = k0 + power;
+            
+            ksk0.push_back(std::move(k0));
+            ksk1.push_back(std::move(a));
+            
+            // Update power *= base (in coefficient domain would be shifting)
+            // For simplicity, multiply by base in NTT domain
+            poly_multiply_scalar_inplace(power, decomp_base);
+        }
+        
+        BGVGaloisKey gk(std::move(ksk0), std::move(ksk1), elt, decomp_base);
+        galois_keys.keys[elt] = std::move(gk);
+    }
+    
+    return galois_keys;
+}
+
+RNSPoly BGVEvaluator::apply_galois(const RNSPoly& poly, uint64_t galois_elt) {
+    // Apply σ_k: p(x) → p(x^k) mod (x^n + 1)
+    // For each coefficient p_i, it moves to position (i * k) mod 2n
+    // If (i * k) >= n, negate due to x^n = -1
+    
+    size_t n = context_->n();
+    uint64_t m = 2 * n;
+    size_t L = context_->level_count();
+    
+    RNSPoly result(context_);
+    
+    // Must be in coefficient form
+    bool was_ntt = poly.is_ntt_form();
+    RNSPoly input = poly;
+    if (was_ntt) {
+        input.intt_transform();
+    }
+    
+    for (size_t level = 0; level < L; ++level) {
+        const uint64_t* src = input.data(level);
+        uint64_t* dst = result.data(level);
+        uint64_t q = context_->modulus(level).value();
+        
+        // Initialize output to zero
+        std::fill(dst, dst + n, 0);
+        
+        for (size_t i = 0; i < n; ++i) {
+            // New index = (i * galois_elt) mod 2n
+            uint64_t new_idx = (i * galois_elt) % m;
+            
+            if (new_idx < n) {
+                // Normal case
+                dst[new_idx] = (dst[new_idx] + src[i]) % q;
+            } else {
+                // Wrapping: x^{n+j} = -x^j
+                uint64_t wrapped_idx = new_idx - n;
+                // dst[wrapped_idx] -= src[i] mod q
+                dst[wrapped_idx] = (dst[wrapped_idx] + q - (src[i] % q)) % q;
+            }
+        }
+    }
+    
+    return result;
+}
+
+BGVCiphertext BGVEvaluator::switch_key_galois(
+    const BGVCiphertext& ct,
+    const BGVGaloisKey& gk)
+{
+    // Key switching: transform ct encrypted under s(x^k) to s(x)
+    // Input: (c0, c1) where c1 is multiplied with s(x^k)
+    // Output: (c0', c1') where c1' is multiplied with s(x)
+    
+    if (ct.size() != 2) {
+        throw std::invalid_argument("Key switching requires size-2 ciphertext");
+    }
+    
+    // Decompose c1 into digits
+    std::vector<RNSPoly> digits = decompose_rns(ct[1], gk.decomp_base);
+    
+    // Sum: c0' = c0 + sum(digit_i * ksk0_i)
+    //      c1' = sum(digit_i * ksk1_i)
+    
+    RNSPoly new_c0 = ct[0];
+    RNSPoly new_c1(context_);
+    
+    // Initialize c1 to zero and transform to NTT domain
+    size_t n = context_->n();
+    size_t L = context_->level_count();
+    for (size_t level = 0; level < L; ++level) {
+        std::fill(new_c1.data(level), new_c1.data(level) + n, 0);
+    }
+    // Zero polynomial is same in both domains, so just do NTT to set flag
+    new_c1.ntt_transform();
+    
+    size_t num_digits = std::min(digits.size(), gk.ksk0.size());
+    
+    for (size_t d = 0; d < num_digits; ++d) {
+        // digit * ksk0
+        RNSPoly term0 = digits[d] * gk.ksk0[d];
+        new_c0 = new_c0 + term0;
+        
+        // digit * ksk1
+        RNSPoly term1 = digits[d] * gk.ksk1[d];
+        new_c1 = new_c1 + term1;
+    }
+    
+    BGVCiphertext result;
+    result.data.push_back(std::move(new_c0));
+    result.data.push_back(std::move(new_c1));
+    result.is_ntt_form = true;
+    result.level = ct.level;
+    result.noise_budget = ct.noise_budget - 5;  // Key switching consumes some budget
+    
+    return result;
+}
+
+BGVCiphertext BGVEvaluator::rotate_rows(
+    const BGVCiphertext& ct,
+    int steps,
+    const BGVGaloisKeys& gk)
+{
+    BGVCiphertext result = ct;
+    rotate_rows_inplace(result, steps, gk);
+    return result;
+}
+
+void BGVEvaluator::rotate_rows_inplace(
+    BGVCiphertext& ct,
+    int steps,
+    const BGVGaloisKeys& gk)
+{
+    if (steps == 0) {
+        return;  // No rotation needed
+    }
+    
+    if (ct.size() != 2) {
+        throw std::invalid_argument("Rotation requires size-2 ciphertext");
+    }
+    
+    // Get Galois element for this rotation
+    uint64_t galois_elt = get_galois_elt_from_step(steps);
+    
+    if (!gk.has_key(galois_elt)) {
+        throw std::runtime_error("Galois key not available for step: " + 
+                                std::to_string(steps));
+    }
+    
+    const BGVGaloisKey& gkey = gk.get_key(galois_elt);
+    
+    // Apply Galois automorphism to both components
+    // Need coefficient form for Galois
+    RNSPoly c0 = ct[0];
+    RNSPoly c1 = ct[1];
+    
+    if (c0.is_ntt_form()) c0.intt_transform();
+    if (c1.is_ntt_form()) c1.intt_transform();
+    
+    RNSPoly c0_galois = apply_galois(c0, galois_elt);
+    RNSPoly c1_galois = apply_galois(c1, galois_elt);
+    
+    c0_galois.ntt_transform();
+    c1_galois.ntt_transform();
+    
+    // Build temporary ciphertext for key switching
+    BGVCiphertext temp;
+    temp.data.push_back(std::move(c0_galois));
+    temp.data.push_back(std::move(c1_galois));
+    temp.is_ntt_form = true;
+    temp.level = ct.level;
+    temp.noise_budget = ct.noise_budget;
+    
+    // Key switch to get result under original key
+    ct = switch_key_galois(temp, gkey);
+}
+
+BGVCiphertext BGVEvaluator::rotate_columns(
+    const BGVCiphertext& ct,
+    const BGVGaloisKeys& gk)
+{
+    BGVCiphertext result = ct;
+    rotate_columns_inplace(result, gk);
+    return result;
+}
+
+void BGVEvaluator::rotate_columns_inplace(
+    BGVCiphertext& ct,
+    const BGVGaloisKeys& gk)
+{
+    // Column swap uses Galois element 2n - 1
+    size_t n = context_->n();
+    uint64_t galois_elt = 2 * n - 1;
+    
+    if (!gk.has_key(galois_elt)) {
+        throw std::runtime_error("Column swap key not available");
+    }
+    
+    const BGVGaloisKey& gkey = gk.get_key(galois_elt);
+    
+    // Apply Galois automorphism to both components
+    RNSPoly c0 = ct[0];
+    RNSPoly c1 = ct[1];
+    
+    if (c0.is_ntt_form()) c0.intt_transform();
+    if (c1.is_ntt_form()) c1.intt_transform();
+    
+    RNSPoly c0_galois = apply_galois(c0, galois_elt);
+    RNSPoly c1_galois = apply_galois(c1, galois_elt);
+    
+    c0_galois.ntt_transform();
+    c1_galois.ntt_transform();
+    
+    // Build temporary ciphertext for key switching
+    BGVCiphertext temp;
+    temp.data.push_back(std::move(c0_galois));
+    temp.data.push_back(std::move(c1_galois));
+    temp.is_ntt_form = true;
+    temp.level = ct.level;
+    temp.noise_budget = ct.noise_budget;
+    
+    // Key switch
+    ct = switch_key_galois(temp, gkey);
+}
+
 } // namespace bgv
 } // namespace fhe
 } // namespace kctsb

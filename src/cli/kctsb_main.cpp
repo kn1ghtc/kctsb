@@ -33,6 +33,7 @@
 // kctsb core headers - kctsb.h includes all crypto headers
 #include "kctsb/kctsb.h"
 #include "kctsb/utils/console.h"
+#include "kctsb/utils/gpu_detect.hpp"
 
 // Subcommand handlers (forward declarations)
 int cmd_aes(int argc, char* argv[]);
@@ -115,7 +116,10 @@ void cmd_version() {
 #ifdef KCTSB_BENCHMARK_HAS_OPENSSL
     std::cout << "  - OpenSSL 3.6.0+ (Benchmark comparison only)\n";
 #endif
-    std::cout << "\n";
+
+    // GPU/CUDA status detection
+    auto gpu_status = kctsb::utils::detect_gpu_status();
+    kctsb::utils::print_gpu_status(gpu_status);
 }
 
 /**

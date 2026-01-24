@@ -222,12 +222,6 @@ add_definitions(
     -DKCTSB_THREADS           # Enable threading
     -DKCTSB_STD_CXX17         # C++17 standard
     -DKCTSB_EXCEPTIONS        # Enable exceptions
-    # 兼容层：保持旧宏以支持未迁移代码
-    -DNTL_GMP_LIP
-    -DNTL_GF2X_LIB
-    -DNTL_THREADS
-    -DNTL_STD_CXX17
-    -DNTL_EXCEPTIONS
 )
 
 # Hardware feature defines (编译器自动检测，不需要 HAVE_*.h 文件)
@@ -237,15 +231,6 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
         -DKCTSB_HAVE_BUILTIN_CLZL
         -DKCTSB_HAVE_ALIGNED_ARRAY
         -DKCTSB_HAVE_CHRONO_TIME
-        # 兼容层
-        -DNTL_HAVE_LL_TYPE
-        -DNTL_HAVE_BUILTIN_CLZL
-        -DNTL_HAVE_ALIGNED_ARRAY
-        -DNTL_HAVE_COPY_TRAITS1
-        -DNTL_HAVE_COPY_TRAITS2
-        -DNTL_HAVE_CHRONO_TIME
-        -DNTL_HAVE_COPY_TRAITS2
-        -DNTL_HAVE_CHRONO_TIME
     )
     # SIMD features (detected at compile time via __AVX2__ etc)
 endif()
@@ -274,7 +259,7 @@ if(NOT MSVC)
         "$<$<COMPILE_LANGUAGE:CXX>:-Wno-deprecated-copy>"
         "$<$<COMPILE_LANGUAGE:CXX>:-Wno-useless-cast>"
     )
-    # Suppress bignum-specific warnings (NTL-derived template-heavy code)
+    # Suppress bignum-specific warnings (template-heavy code)
     # These warnings are in verified mathematical code and safe to ignore
     add_compile_options(
         -Wno-double-promotion
@@ -282,6 +267,7 @@ if(NOT MSVC)
         -Wno-unused-but-set-variable
         -Wno-unused-function
         -Wno-misleading-indentation
+        -Wno-pedantic  # Suppress ISO C++ does not support __int128 warning
     )
 endif()
 

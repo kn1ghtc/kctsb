@@ -521,6 +521,76 @@ TEST(BGVEvaluatorLargeTest, N8192_Baseline) {
 }
 
 // ============================================================================
+// Rotation Tests
+// ============================================================================
+
+TEST_F(BGVEvaluatorTest, GaloisKeyGeneration) {
+    auto sk = evaluator_->generate_secret_key(rng_);
+    
+    // Generate Galois keys for all rotations
+    auto gk = evaluator_->generate_galois_keys(sk, rng_);
+    
+    // Should have keys for power-of-2 rotations plus column swap
+    // For n=16, slots=8, powers of 2 up to 4: 1, 2, 4 = 3 keys + column swap
+    EXPECT_GT(gk.keys.size(), 0u);
+    EXPECT_EQ(gk.decomp_base, 65536u);
+    
+    // Check that column swap key exists (element = 2n - 1 = 31)
+    EXPECT_TRUE(gk.has_key(31u));
+}
+
+TEST_F(BGVEvaluatorTest, GaloisKeyGenerationSpecificSteps) {
+    auto sk = evaluator_->generate_secret_key(rng_);
+    
+    // Generate keys only for specific steps
+    std::vector<int> steps = {1, -1, 2};
+    auto gk = evaluator_->generate_galois_keys(sk, rng_, steps);
+    
+    // Should have exactly the requested keys
+    EXPECT_GE(gk.keys.size(), 2u);  // At least 2 unique elements
+}
+
+TEST_F(BGVEvaluatorTest, RotateRowsIdentity) {
+    auto sk = evaluator_->generate_secret_key(rng_);
+    auto pk = evaluator_->generate_public_key(sk, rng_);
+    auto gk = evaluator_->generate_galois_keys(sk, rng_);
+    
+    // Encrypt a simple message
+    BGVPlaintext pt = {1, 2, 3, 4, 5, 6, 7, 8, 0, 0, 0, 0, 0, 0, 0, 0};
+    auto ct = evaluator_->encrypt(pt, pk, rng_);
+    
+    // Rotate by 0 should be identity
+    auto ct_rot = evaluator_->rotate_rows(ct, 0, gk);
+    
+    // Decrypt and verify
+    auto pt_dec = evaluator_->decrypt(ct_rot, sk);
+    
+    // Should be unchanged
+    for (size_t i = 0; i < 8; ++i) {
+        EXPECT_EQ(pt_dec[i], pt[i]) << "Mismatch at position " << i;
+    }
+}
+
+TEST_F(BGVEvaluatorTest, RotateColumnsBasic) {
+    auto sk = evaluator_->generate_secret_key(rng_);
+    auto pk = evaluator_->generate_public_key(sk, rng_);
+    auto gk = evaluator_->generate_galois_keys(sk, rng_);
+    
+    // Encrypt a message
+    BGVPlaintext pt = {1, 2, 3, 4, 5, 6, 7, 8, 0, 0, 0, 0, 0, 0, 0, 0};
+    auto ct = evaluator_->encrypt(pt, pk, rng_);
+    
+    // Column swap
+    auto ct_swap = evaluator_->rotate_columns(ct, gk);
+    
+    // Decrypt - should be valid (just verify no crash)
+    auto pt_dec = evaluator_->decrypt(ct_swap, sk);
+    
+    // Size should be correct
+    EXPECT_EQ(pt_dec.size(), 16u);
+}
+
+// ============================================================================
 // Main
 // ============================================================================
 

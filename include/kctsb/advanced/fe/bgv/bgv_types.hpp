@@ -17,6 +17,8 @@
 
 #include "kctsb/advanced/fe/common/rns_poly.hpp"
 #include <vector>
+#include <map>
+#include <stdexcept>
 #include <cstdint>
 
 namespace kctsb {
@@ -69,6 +71,65 @@ struct BGVRelinKey {
     BGVRelinKey() : decomp_base(0), is_ntt_form(false) {}
     BGVRelinKey(std::vector<RNSPoly>&& k0, std::vector<RNSPoly>&& k1, uint64_t base)
         : ksk0(std::move(k0)), ksk1(std::move(k1)), decomp_base(base), is_ntt_form(true) {}
+};
+
+/**
+ * @brief BGV Galois Key for Rotation Operations (Pure RNS)
+ * 
+ * Contains key switching keys for Galois automorphisms σ_k(x) = x^k.
+ * Used for rotate_rows (k = 5^i mod 2n) and rotate_columns (k = -1).
+ * 
+ * Each key maps: E(m) → E(σ_k(m)) via key switching.
+ * 
+ * Stored in NTT domain for efficient operations.
+ */
+struct BGVGaloisKey {
+    std::vector<RNSPoly> ksk0;  ///< First components (NTT domain)
+    std::vector<RNSPoly> ksk1;  ///< Second components (NTT domain)
+    uint64_t galois_elt;        ///< Galois element k: x → x^k
+    uint64_t decomp_base;       ///< Decomposition base
+    bool is_ntt_form;           ///< Always true
+    
+    BGVGaloisKey() : galois_elt(0), decomp_base(0), is_ntt_form(false) {}
+    BGVGaloisKey(std::vector<RNSPoly>&& k0, std::vector<RNSPoly>&& k1,
+                 uint64_t elt, uint64_t base)
+        : ksk0(std::move(k0)), ksk1(std::move(k1)), 
+          galois_elt(elt), decomp_base(base), is_ntt_form(true) {}
+};
+
+/**
+ * @brief BGV Galois Keys Collection for All Rotations
+ * 
+ * Contains Galois keys for:
+ * - Row rotations: powers of generator 5 mod 2n
+ * - Column swap: element (2n - 1) = n*2 - 1
+ * 
+ * For ring degree n, row slots = n/2, column slots = 2.
+ */
+struct BGVGaloisKeys {
+    std::map<uint64_t, BGVGaloisKey> keys;  ///< Galois element → key
+    uint64_t decomp_base;                    ///< Common decomposition base
+    
+    BGVGaloisKeys() : decomp_base(0) {}
+    
+    /**
+     * @brief Check if key exists for given Galois element
+     */
+    bool has_key(uint64_t galois_elt) const {
+        return keys.find(galois_elt) != keys.end();
+    }
+    
+    /**
+     * @brief Get key for Galois element (throws if not found)
+     */
+    const BGVGaloisKey& get_key(uint64_t galois_elt) const {
+        auto it = keys.find(galois_elt);
+        if (it == keys.end()) {
+            throw std::runtime_error("Galois key not found for element: " + 
+                                   std::to_string(galois_elt));
+        }
+        return it->second;
+    }
 };
 
 /**

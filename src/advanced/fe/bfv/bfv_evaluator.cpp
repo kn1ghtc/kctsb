@@ -493,9 +493,11 @@ void BFVEvaluator::multiply_inplace(
     // Step 2: Apply rescaling to each tensor product component
     // Convert from NTT to coefficient domain, rescale, convert back
     //
-    // TODO: BEHZ rescaling has correctness issues, using CRT-based rescaling for now
-    // BEHZ will be fixed in a future update
-    bool use_behz = false;  // Disable BEHZ until correctness is verified
+    // BEHZ rescaling: floor behavior is correct for single-level tests,
+    // but integration with BFV tensor product needs adjustment for scale tracking.
+    // Using CRT-based rescaling for now as it handles scale_degree correctly.
+    // TODO: Debug BEHZ integration with BFV multiply (v4.13.0)
+    bool use_behz = false;  // Disable BEHZ - CRT rescaling handles scale correctly
     
     if (use_behz && behz_tool_) {
         for (size_t idx = 0; idx < tensor_ntt.size(); ++idx) {

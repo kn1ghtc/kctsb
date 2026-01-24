@@ -60,12 +60,15 @@
 // Pure RNS Evaluator (key generation + encrypt/decrypt + homomorphic ops)
 #include "bgv_evaluator.hpp"
 
-// NTT Helper utilities
+// NTT Helper utilities for Pure RNS API
 #include "bgv_ntt_helper.hpp"
 
 namespace kctsb {
 namespace fhe {
 namespace bgv {
+
+// Import RNSContext from parent namespace for StandardParams
+using ::kctsb::fhe::RNSContext;
 
 /**
  * @brief BGV Library Version (Pure RNS)
