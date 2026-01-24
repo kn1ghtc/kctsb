@@ -203,6 +203,16 @@ else()
     if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
         add_compile_options(-maes -mpclmul -msse4.1 -msse4.2 -mssse3 -mavx2 -mbmi2 -msha)
         message(STATUS "Hardware acceleration: AES-NI, PCLMUL, SSE4.2, AVX2, SHA-NI")
+        
+        # Check for AVX-512 IFMA support (Ice Lake+, Zen4+)
+        include(CheckCXXCompilerFlag)
+        check_cxx_compiler_flag("-mavx512ifma" HAVE_AVX512IFMA)
+        if(HAVE_AVX512IFMA)
+            message(STATUS "AVX-512 IFMA support: Available (will use if CPU supports)")
+            # Note: -march=native will auto-enable IFMA if CPU supports it
+        else()
+            message(STATUS "AVX-512 IFMA support: Compiler doesn't support -mavx512ifma")
+        endif()
     endif()
     
     if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")

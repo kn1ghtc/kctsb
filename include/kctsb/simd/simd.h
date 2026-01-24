@@ -62,15 +62,16 @@ namespace simd {
  * @brief SIMD feature flags
  */
 enum class SIMDFeature : uint32_t {
-    NONE    = 0x00,
-    SSE2    = 0x01,
-    SSE41   = 0x02,
-    AVX     = 0x04,
-    AVX2    = 0x08,
-    AVX512F = 0x10,
-    AVX512VL = 0x20,
-    AVX512BW = 0x40,
-    NEON    = 0x80
+    NONE      = 0x00,
+    SSE2      = 0x01,
+    SSE41     = 0x02,
+    AVX       = 0x04,
+    AVX2      = 0x08,
+    AVX512F   = 0x10,
+    AVX512VL  = 0x20,
+    AVX512BW  = 0x40,
+    NEON      = 0x80,
+    AVX512IFMA = 0x100  // AVX-512 Integer Fused Multiply-Add (52-bit precision)
 };
 
 /**

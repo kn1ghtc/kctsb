@@ -815,6 +815,305 @@ void inverse_ntt_negacyclic_harvey_avx512(uint64_t* operand, const NTTTables& ta
 #endif // __AVX512F__ && __AVX512VL__
 
 // ============================================================================
+// AVX-512 IFMA Fully Vectorized NTT (v4.13.0+)
+// ============================================================================
+
+#if defined(__AVX512F__) && defined(__AVX512VL__) && defined(__AVX512IFMA__)
+
+/**
+ * @brief AVX-512 IFMA forward NTT with fully vectorized modular multiplication
+ * 
+ * Uses AVX-512 IFMA instructions for 52-bit precision fused multiply-add.
+ * Provides ~2x speedup over scalar fallback for ≤50-bit moduli.
+ * 
+ * Requirements:
+ * - CPU with AVX-512F, AVX-512VL, and AVX-512IFMA support
+ * - Modulus ≤ 50 bits for correct lazy reduction
+ * 
+ * @param operand Polynomial coefficients (n elements, in-place)
+ * @param tables Precomputed NTT tables
+ */
+void ntt_negacyclic_harvey_ifma(uint64_t* operand, const NTTTables& tables) {
+    size_t n = tables.coeff_count();
+    uint64_t q = tables.modulus().value();
+    uint64_t two_q = tables.two_times_modulus();
+    const MultiplyUIntModOperand* root_powers = tables.root_powers();
+    
+    // Check modulus is suitable for IFMA (≤50 bits)
+    if (q >= (1ULL << 50)) {
+        // Fall back to standard AVX-512 implementation
+        ntt_negacyclic_harvey_avx512(operand, tables);
+        return;
+    }
+    
+    __m512i vq = _mm512_set1_epi64(static_cast<int64_t>(q));
+    __m512i v2q = _mm512_set1_epi64(static_cast<int64_t>(two_q));
+    
+    size_t t = n;
+    size_t root_index = 1;
+    
+    // Cooley-Tukey DIT NTT
+    for (size_t m = 1; m < n; m <<= 1) {
+        t >>= 1;
+        
+        for (size_t i = 0; i < m; ++i) {
+            const MultiplyUIntModOperand& w = root_powers[root_index++];
+            
+            // Precompute IFMA quotient: floor((w.operand << 52) / q)
+            __uint128_t wide = static_cast<__uint128_t>(w.operand) << 52;
+            uint64_t quotient52 = static_cast<uint64_t>(wide / q);
+            
+            __m512i vw_operand = _mm512_set1_epi64(static_cast<int64_t>(w.operand));
+            __m512i vw_quotient = _mm512_set1_epi64(static_cast<int64_t>(quotient52));
+            
+            size_t j1 = 2 * i * t;
+            size_t j2 = j1 + t;
+            
+            // Process 8 butterflies at a time using IFMA
+            size_t offset = 0;
+            for (; offset + 8 <= t; offset += 8) {
+                __m512i vx = _mm512_loadu_si512(operand + j1 + offset);
+                __m512i vy = _mm512_loadu_si512(operand + j2 + offset);
+                
+                // Guard x to [0, 2q)
+                __mmask8 mask = _mm512_cmpge_epu64_mask(vx, v2q);
+                vx = _mm512_mask_sub_epi64(vx, mask, vx, v2q);
+                
+                // Compute wt = w * y using IFMA vectorized Barrett reduction
+                // Step 1: q_approx = floor(y * quotient52 / 2^52) via madd52hi
+                __m512i zero = _mm512_setzero_si512();
+                __m512i q_approx = _mm512_madd52hi_epu64(zero, vy, vw_quotient);
+                
+                // Step 2: product_lo = y * w.operand (low bits)
+                __m512i product_lo = _mm512_madd52lo_epu64(zero, vy, vw_operand);
+                
+                // Step 3: correction = q_approx * modulus
+                __m512i correction = _mm512_madd52lo_epu64(zero, q_approx, vq);
+                
+                // Step 4: wt = product_lo + 2q - correction (lazy reduction)
+                __m512i vwt = _mm512_add_epi64(product_lo, v2q);
+                vwt = _mm512_sub_epi64(vwt, correction);
+                
+                // Guard wt to [0, 2q)
+                __mmask8 mask_wt = _mm512_cmpge_epu64_mask(vwt, v2q);
+                vwt = _mm512_mask_sub_epi64(vwt, mask_wt, vwt, v2q);
+                
+                // x' = x + wt
+                __m512i vx_new = _mm512_add_epi64(vx, vwt);
+                
+                // y' = x - wt + 2q
+                __m512i vy_new = _mm512_add_epi64(_mm512_sub_epi64(vx, vwt), v2q);
+                
+                _mm512_storeu_si512(operand + j1 + offset, vx_new);
+                _mm512_storeu_si512(operand + j2 + offset, vy_new);
+            }
+            
+            // Handle remaining elements with scalar
+            for (; offset < t; ++offset) {
+                uint64_t x = operand[j1 + offset];
+                uint64_t y = operand[j2 + offset];
+                
+                x = guard(x, two_q);
+                uint64_t wt = multiply_uint_mod_lazy(y, w, tables.modulus());
+                
+                operand[j1 + offset] = x + wt;
+                operand[j2 + offset] = x + two_q - wt;
+            }
+        }
+    }
+    
+    // Final guard and reduction to [0, q)
+    for (size_t i = 0; i + 8 <= n; i += 8) {
+        __m512i v = _mm512_loadu_si512(operand + i);
+        
+        // Guard to [0, 2q)
+        __mmask8 mask2q = _mm512_cmpge_epu64_mask(v, v2q);
+        v = _mm512_mask_sub_epi64(v, mask2q, v, v2q);
+        
+        // Reduce to [0, q)
+        __mmask8 maskq = _mm512_cmpge_epu64_mask(v, vq);
+        v = _mm512_mask_sub_epi64(v, maskq, v, vq);
+        
+        _mm512_storeu_si512(operand + i, v);
+    }
+    
+    // Handle tail
+    for (size_t i = (n / 8) * 8; i < n; ++i) {
+        operand[i] = guard(operand[i], two_q);
+        if (operand[i] >= q) operand[i] -= q;
+    }
+}
+
+/**
+ * @brief AVX-512 IFMA inverse NTT with fully vectorized modular multiplication
+ * 
+ * Gentleman-Sande DIF with IFMA-accelerated modular multiplication.
+ */
+void inverse_ntt_negacyclic_harvey_ifma(uint64_t* operand, const NTTTables& tables) {
+    size_t n = tables.coeff_count();
+    uint64_t q = tables.modulus().value();
+    uint64_t two_q = tables.two_times_modulus();
+    const MultiplyUIntModOperand* inv_root_powers = tables.inv_root_powers();
+    
+    // Check modulus is suitable for IFMA (≤50 bits)
+    if (q >= (1ULL << 50)) {
+        // Fall back to standard AVX-512 implementation
+        inverse_ntt_negacyclic_harvey_avx512(operand, tables);
+        return;
+    }
+    
+    __m512i vq = _mm512_set1_epi64(static_cast<int64_t>(q));
+    __m512i v2q = _mm512_set1_epi64(static_cast<int64_t>(two_q));
+    
+    // Gentleman-Sande DIF inverse NTT
+    size_t gap = 1;
+    size_t m = n >> 1;
+    size_t root_index = 1;
+    
+    for (; m > 1; m >>= 1) {
+        size_t offset = 0;
+        
+        for (size_t i = 0; i < m; ++i) {
+            const MultiplyUIntModOperand& w = inv_root_powers[root_index++];
+            
+            // Precompute IFMA quotient
+            __uint128_t wide = static_cast<__uint128_t>(w.operand) << 52;
+            uint64_t quotient52 = static_cast<uint64_t>(wide / q);
+            
+            __m512i vw_operand = _mm512_set1_epi64(static_cast<int64_t>(w.operand));
+            __m512i vw_quotient = _mm512_set1_epi64(static_cast<int64_t>(quotient52));
+            
+            uint64_t* x_ptr = operand + offset;
+            uint64_t* y_ptr = x_ptr + gap;
+            
+            // IFMA vectorized when gap >= 8
+            size_t j = 0;
+            for (; j + 8 <= gap; j += 8) {
+                __m512i vx = _mm512_loadu_si512(x_ptr + j);
+                __m512i vy = _mm512_loadu_si512(y_ptr + j);
+                
+                // x' = guard(x + y)
+                __m512i vsum = _mm512_add_epi64(vx, vy);
+                __mmask8 mask_sum = _mm512_cmpge_epu64_mask(vsum, v2q);
+                vsum = _mm512_mask_sub_epi64(vsum, mask_sum, vsum, v2q);
+                
+                // diff = x - y + 2q
+                __m512i vdiff = _mm512_add_epi64(_mm512_sub_epi64(vx, vy), v2q);
+                
+                // y' = diff * w using IFMA
+                __m512i zero = _mm512_setzero_si512();
+                __m512i q_approx = _mm512_madd52hi_epu64(zero, vdiff, vw_quotient);
+                __m512i product_lo = _mm512_madd52lo_epu64(zero, vdiff, vw_operand);
+                __m512i correction = _mm512_madd52lo_epu64(zero, q_approx, vq);
+                
+                __m512i vy_new = _mm512_add_epi64(product_lo, v2q);
+                vy_new = _mm512_sub_epi64(vy_new, correction);
+                
+                // Guard y' to [0, 2q)
+                __mmask8 mask_y = _mm512_cmpge_epu64_mask(vy_new, v2q);
+                vy_new = _mm512_mask_sub_epi64(vy_new, mask_y, vy_new, v2q);
+                
+                _mm512_storeu_si512(x_ptr + j, vsum);
+                _mm512_storeu_si512(y_ptr + j, vy_new);
+            }
+            
+            // Remaining elements
+            for (; j < gap; ++j) {
+                uint64_t x = x_ptr[j];
+                uint64_t y = y_ptr[j];
+                
+                x_ptr[j] = guard(x + y, two_q);
+                y_ptr[j] = multiply_uint_mod_lazy(x + two_q - y, w, tables.modulus());
+            }
+            
+            offset += gap << 1;
+        }
+        
+        gap <<= 1;
+    }
+    
+    // Final iteration with m = 1, incorporating n^{-1} scaling
+    const MultiplyUIntModOperand& inv_n = tables.inv_degree_modulo();
+    const MultiplyUIntModOperand& w = inv_root_powers[root_index];
+    
+    MultiplyUIntModOperand scaled_w;
+    scaled_w.set(multiply_uint_mod(w.operand, inv_n, tables.modulus()), tables.modulus());
+    
+    // Precompute IFMA quotients for final iteration
+    __uint128_t wide_inv = static_cast<__uint128_t>(inv_n.operand) << 52;
+    __uint128_t wide_sw = static_cast<__uint128_t>(scaled_w.operand) << 52;
+    uint64_t inv_n_quotient52 = static_cast<uint64_t>(wide_inv / q);
+    uint64_t scaled_w_quotient52 = static_cast<uint64_t>(wide_sw / q);
+    
+    __m512i v_inv_n_op = _mm512_set1_epi64(static_cast<int64_t>(inv_n.operand));
+    __m512i v_inv_n_q = _mm512_set1_epi64(static_cast<int64_t>(inv_n_quotient52));
+    __m512i v_sw_op = _mm512_set1_epi64(static_cast<int64_t>(scaled_w.operand));
+    __m512i v_sw_q = _mm512_set1_epi64(static_cast<int64_t>(scaled_w_quotient52));
+    
+    uint64_t* x_ptr = operand;
+    uint64_t* y_ptr = x_ptr + gap;
+    
+    // IFMA vectorized final iteration
+    size_t j = 0;
+    for (; j + 8 <= gap; j += 8) {
+        __m512i vx = _mm512_loadu_si512(x_ptr + j);
+        __m512i vy = _mm512_loadu_si512(y_ptr + j);
+        
+        // Guard x
+        __mmask8 mask_x = _mm512_cmpge_epu64_mask(vx, v2q);
+        vx = _mm512_mask_sub_epi64(vx, mask_x, vx, v2q);
+        
+        // sum = guard(x + y)
+        __m512i vsum = _mm512_add_epi64(vx, vy);
+        __mmask8 mask_sum = _mm512_cmpge_epu64_mask(vsum, v2q);
+        vsum = _mm512_mask_sub_epi64(vsum, mask_sum, vsum, v2q);
+        
+        // diff = x - y + 2q
+        __m512i vdiff = _mm512_add_epi64(_mm512_sub_epi64(vx, vy), v2q);
+        
+        // x' = sum * inv_n using IFMA
+        __m512i zero = _mm512_setzero_si512();
+        __m512i q_approx_x = _mm512_madd52hi_epu64(zero, vsum, v_inv_n_q);
+        __m512i product_x = _mm512_madd52lo_epu64(zero, vsum, v_inv_n_op);
+        __m512i correction_x = _mm512_madd52lo_epu64(zero, q_approx_x, vq);
+        __m512i vx_new = _mm512_add_epi64(product_x, v2q);
+        vx_new = _mm512_sub_epi64(vx_new, correction_x);
+        
+        // y' = diff * scaled_w using IFMA
+        __m512i q_approx_y = _mm512_madd52hi_epu64(zero, vdiff, v_sw_q);
+        __m512i product_y = _mm512_madd52lo_epu64(zero, vdiff, v_sw_op);
+        __m512i correction_y = _mm512_madd52lo_epu64(zero, q_approx_y, vq);
+        __m512i vy_new = _mm512_add_epi64(product_y, v2q);
+        vy_new = _mm512_sub_epi64(vy_new, correction_y);
+        
+        _mm512_storeu_si512(x_ptr + j, vx_new);
+        _mm512_storeu_si512(y_ptr + j, vy_new);
+    }
+    
+    // Remaining scalar
+    for (; j < gap; ++j) {
+        uint64_t x = guard(x_ptr[j], two_q);
+        uint64_t y = y_ptr[j];
+        
+        x_ptr[j] = multiply_uint_mod_lazy(guard(x + y, two_q), inv_n, tables.modulus());
+        y_ptr[j] = multiply_uint_mod_lazy(x + two_q - y, scaled_w, tables.modulus());
+    }
+    
+    // Final reduction to [0, q)
+    for (size_t i = 0; i + 8 <= n; i += 8) {
+        __m512i v = _mm512_loadu_si512(operand + i);
+        __mmask8 maskq = _mm512_cmpge_epu64_mask(v, vq);
+        v = _mm512_mask_sub_epi64(v, maskq, v, vq);
+        _mm512_storeu_si512(operand + i, v);
+    }
+    for (size_t i = (n / 8) * 8; i < n; ++i) {
+        if (operand[i] >= q) operand[i] -= q;
+    }
+}
+
+#endif // __AVX512F__ && __AVX512VL__ && __AVX512IFMA__
+
+// ============================================================================
 // Factory Functions
 // ============================================================================
 

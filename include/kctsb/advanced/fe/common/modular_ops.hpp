@@ -399,6 +399,117 @@ inline __m256i sub_uint_mod_avx2(__m256i a, __m256i b, __m256i modulus) {
 
 #endif // __AVX2__
 
+// ============================================================================
+// AVX-512 IFMA Vectorized Modular Multiplication (8 x uint64)
+// ============================================================================
+
+#if defined(__AVX512F__) && defined(__AVX512VL__) && defined(__AVX512IFMA__)
+
+/**
+ * @brief AVX-512 IFMA vectorized modular multiplication (8 x uint64)
+ * 
+ * Uses AVX-512 IFMA instructions (_mm512_madd52lo/hi_epu64) for 52-bit precision
+ * fused multiply-add operations. This is optimal for moduli ≤52 bits.
+ * 
+ * Harvey-style lazy reduction: result may be in [0, 2*modulus)
+ * 
+ * Algorithm:
+ * For each element i:
+ *   q_approx = floor(x[i] * quotient / 2^52)
+ *   result[i] = x[i] * operand - q_approx * modulus
+ * 
+ * @param x 8 input values (each should be < 2*modulus for correctness)
+ * @param operand The twiddle factor operand value (broadcast)
+ * @param quotient Precomputed floor((operand << 52) / modulus)
+ * @param modulus The modulus value (broadcast)
+ * @return 8 results, each in [0, 2*modulus)
+ * 
+ * @note Requires modulus ≤ 52 bits for correct IFMA operation
+ */
+inline __m512i multiply_uint_mod_ifma_lazy(
+    __m512i x,
+    __m512i operand,
+    __m512i quotient,
+    __m512i modulus)
+{
+    // Step 1: Compute x * quotient using IFMA to get high bits
+    // _mm512_madd52hi_epu64(c, a, b) = c + (a * b)[104:52]
+    // We want floor(x * quotient / 2^52), so use madd52hi with c=0
+    __m512i zero = _mm512_setzero_si512();
+    __m512i q_approx = _mm512_madd52hi_epu64(zero, x, quotient);
+    
+    // Step 2: Compute x * operand - q_approx * modulus
+    // First: x * operand (low 52 bits via madd52lo)
+    __m512i product_lo = _mm512_madd52lo_epu64(zero, x, operand);
+    
+    // Then subtract: result = product_lo - q_approx * modulus
+    // Use madd52lo with negative: a - b*c = a + (-c)*b
+    // But IFMA doesn't support negative, so we compute separately
+    __m512i correction = _mm512_madd52lo_epu64(zero, q_approx, modulus);
+    
+    // For lazy reduction, we just subtract and may go negative temporarily
+    // Add 2*modulus first to ensure positive result
+    __m512i two_modulus = _mm512_add_epi64(modulus, modulus);
+    __m512i result = _mm512_add_epi64(product_lo, two_modulus);
+    result = _mm512_sub_epi64(result, correction);
+    
+    // Guard to [0, 2*modulus) - subtract 2*modulus if >= 2*modulus
+    __mmask8 mask = _mm512_cmpge_epu64_mask(result, two_modulus);
+    result = _mm512_mask_sub_epi64(result, mask, result, two_modulus);
+    
+    return result;
+}
+
+/**
+ * @brief Precomputed IFMA operand for 52-bit Barrett reduction
+ * 
+ * For IFMA, we need quotient = floor((operand << 52) / modulus)
+ * This differs from the standard MultiplyUIntModOperand which uses 64-bit shift.
+ */
+struct MultiplyUIntModOperandIFMA {
+    uint64_t operand;     ///< The actual operand value (< modulus)
+    uint64_t quotient52;  ///< Precomputed: floor((operand << 52) / modulus)
+    
+    MultiplyUIntModOperandIFMA() : operand(0), quotient52(0) {}
+    
+    /**
+     * @brief Initialize from standard MultiplyUIntModOperand
+     * @param op Standard operand
+     * @param modulus The modulus
+     */
+    void set_from(const MultiplyUIntModOperand& op, const Modulus& modulus) {
+        operand = op.operand;
+        // Compute floor((operand << 52) / modulus)
+        __uint128_t wide = static_cast<__uint128_t>(operand) << 52;
+        quotient52 = static_cast<uint64_t>(wide / modulus.value());
+    }
+    
+    /**
+     * @brief Set operand and compute 52-bit quotient
+     */
+    void set(uint64_t new_operand, const Modulus& modulus) {
+        operand = new_operand;
+        __uint128_t wide = static_cast<__uint128_t>(operand) << 52;
+        quotient52 = static_cast<uint64_t>(wide / modulus.value());
+    }
+};
+
+/**
+ * @brief Check if modulus is suitable for IFMA optimization
+ * 
+ * IFMA uses 52-bit precision, so modulus must be ≤ 52 bits.
+ * Additionally, for lazy reduction correctness, we need some headroom.
+ * 
+ * @param modulus The modulus to check
+ * @return true if modulus can use IFMA optimization
+ */
+inline bool modulus_supports_ifma(const Modulus& modulus) {
+    // Modulus must be ≤ 50 bits for safe 52-bit IFMA with lazy reduction headroom
+    return modulus.value() < (1ULL << 50);
+}
+
+#endif // __AVX512F__ && __AVX512VL__ && __AVX512IFMA__
+
 } // namespace fhe
 } // namespace kctsb
 

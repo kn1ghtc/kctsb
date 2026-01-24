@@ -38,12 +38,13 @@
 - **zk-SNARKs** - Groth16 协议 (BN254 曲线)
 - **电路构建器** - 乘法门、加法门、布尔约束、范围证明
 
-### SIMD 硬件加速 (v3.3.2 完整实现)
+### SIMD 硬件加速 (v4.13.0 IFMA 优化)
 - **AES-NI** - 硬件 AES-128/256 加速 (Intel Westmere+) ✅ **42x 提速**
 - **PCLMUL** - GHASH 硬件加速 (GF(2^128) 乘法) ✅ **GCM 模式优化**
 - **SHA-NI** - 硬件 SHA-256 加速 (Intel Goldmont+)
 - **AVX2** - Keccak/SHA3-256 向量化优化
 - **AVX-512** - 512-bit 向量化运算
+- **AVX-512 IFMA** - 52-bit 精度融合乘加 ✅ **NTT 全向量化模乘** (Ice Lake+)
 - **常量时间操作** - 防止侧信道攻击
 
 ### 哈希算法

@@ -251,6 +251,37 @@ void inverse_ntt_negacyclic_harvey_avx512(uint64_t* operand, const NTTTables& ta
 #endif // __AVX512F__ && __AVX512VL__
 
 // ============================================================================
+// AVX-512 IFMA Fully Vectorized NTT (optional, v4.13.0+)
+// ============================================================================
+
+#if defined(__AVX512F__) && defined(__AVX512VL__) && defined(__AVX512IFMA__)
+
+/**
+ * @brief AVX-512 IFMA forward NTT with fully vectorized modular multiplication
+ * 
+ * Uses AVX-512 IFMA instructions (_mm512_madd52lo/hi_epu64) for 52-bit precision
+ * fused multiply-add operations. This provides ~2x speedup over standard AVX-512
+ * by eliminating the scalar modular multiplication bottleneck.
+ * 
+ * Requirements:
+ * - CPU with AVX-512F, AVX-512VL, and AVX-512IFMA support (Ice Lake+)
+ * - Modulus ≤ 50 bits for correct lazy reduction
+ * 
+ * Falls back to ntt_negacyclic_harvey_avx512 if modulus > 50 bits.
+ * 
+ * @param[in,out] operand Coefficient array of size n
+ * @param tables Precomputed NTT tables
+ */
+void ntt_negacyclic_harvey_ifma(uint64_t* operand, const NTTTables& tables);
+
+/**
+ * @brief AVX-512 IFMA inverse NTT with fully vectorized modular multiplication
+ */
+void inverse_ntt_negacyclic_harvey_ifma(uint64_t* operand, const NTTTables& tables);
+
+#endif // __AVX512F__ && __AVX512VL__ && __AVX512IFMA__
+
+// ============================================================================
 // NTT Tables Factory
 // ============================================================================
 

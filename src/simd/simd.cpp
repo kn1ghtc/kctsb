@@ -103,6 +103,7 @@ uint32_t detect_features() {
         // EBX features
         if (info[1] & (1 << 5)) features |= static_cast<uint32_t>(SIMDFeature::AVX2);
         if (info[1] & (1 << 16)) features |= static_cast<uint32_t>(SIMDFeature::AVX512F);
+        if (info[1] & (1 << 21)) features |= static_cast<uint32_t>(SIMDFeature::AVX512IFMA);
         if (info[1] & (1 << 31)) features |= static_cast<uint32_t>(SIMDFeature::AVX512VL);
         if (info[1] & (1 << 30)) features |= static_cast<uint32_t>(SIMDFeature::AVX512BW);
     }
@@ -143,6 +144,10 @@ const char* get_simd_info() {
         }
         if (features & static_cast<uint32_t>(SIMDFeature::AVX512BW)) {
             written = snprintf(p, remaining, "AVX-512BW ");
+            if (written > 0) { p += written; remaining -= static_cast<size_t>(written); }
+        }
+        if (features & static_cast<uint32_t>(SIMDFeature::AVX512IFMA)) {
+            written = snprintf(p, remaining, "AVX-512IFMA ");
             if (written > 0) { p += written; remaining -= static_cast<size_t>(written); }
         }
         if (features & static_cast<uint32_t>(SIMDFeature::AVX2)) {
