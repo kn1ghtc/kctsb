@@ -4,7 +4,7 @@
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](.)
 [![C++](https://img.shields.io/badge/C++-17-blue.svg)](.)
 [![CMake](https://img.shields.io/badge/CMake-3.20+-green.svg)](.)
-[![Version](https://img.shields.io/badge/Version-4.13.0-brightgreen.svg)](.)
+[![Version](https://img.shields.io/badge/Version-4.14.0-brightgreen.svg)](.)
 
 **kctsb** 是一个跨平台的 C/C++ 密码学和安全算法库，专为生产环境和安全研究设计。目标是成为 **OpenSSL/SEAL 的工业级现代替代品，并支持最前沿的安全与AI方向高效算法实践**。
 
@@ -92,19 +92,53 @@
     - 企业级: `n=16384, L=8, 50-bit primes, t=65537` (≤8次乘法)
     - 高安全: `n=32768, L=12, 45-bit primes, t=65537` (≤12次乘法)
 
-- **隐私计算协议** ✅ **PSI/PIR 完整实现** (v4.13.0新增)
-  - **Piano-PSI** - O(√n) 通信复杂度隐私集合交集
+- **隐私计算协议** ✅ **PSI/PIR 完整实现** (v4.14.0 增强)
+  - **Piano-PSI** - O(√n) 通信复杂度隐私集合交集 🎯 **大规模平衡数据集首选**
     - Cuckoo 哈希 + 亚线性 PIR 技术
     - 支持大规模数据集 (百万级)
-  - **OT-based PSI** - 基于混淆传输的 PSI
-    - IKNP OT Extension 协议
+    - 使用场景：双方集合大小相近、半诚实安全模型
+  - **OT-based PSI** - 基于混淆传输的 PSI 🛡️ **恶意安全模型首选**
+    - IKNP OT Extension 协议 (生产级实现，参考 libOTe)
     - 支持半诚实/恶意安全模型
+    - AES-NI/AVX2 硬件加速
+    - 使用场景：需恶意安全、中小规模数据集
+  - **Multi-party PSI** ✅ **v4.14.0 新增** - 3+ 参与方隐私集合交集
+    - 星形/环形/树形拓扑
+    - 支持 10+ 参与方
+    - 使用场景：多方联合查询、联邦学习场景
+  - **PSI-CA** ✅ **v4.14.0 新增** - PSI with Cardinality and Attributes
+    - 基数模式：仅返回交集大小
+    - 负载模式：返回交集元素及关联属性
+    - 聚合模式：SUM/COUNT/AVG/MIN/MAX
+    - 阈值模式：仅当交集满足条件时返回
+    - 使用场景：隐私统计、条件披露
   - **Native PIR** - 原生 FHE-based 私密信息检索 ✅ **无 SEAL 依赖**
     - 支持 BGV/BFV/CKKS 三种方案
     - SIMD 批处理优化
     - 整数/浮点/二进制数据库
     - vs SEAL-PIR 性能: **1.23x 加速** (DB=1000)
+  - **CUDA GPU PIR** ✅ **v4.14.0 新增** - GPU 加速私密信息检索
+    - BFV/BGV/CKKS GPU 并行
+    - CPU 自动回退 (无 CUDA 环境)
+    - 使用场景：大规模数据库、低延迟要求
+  - **PIR with Preprocessing** ✅ **v4.14.0 新增** - 离线/在线分离 PIR
+    - 提示式 PIR：客户端存储 O(√N) 提示
+    - 关键字 PIR：按关键字检索无需知道位置
+    - 批量 PIR：多查询分摊成本
+    - 使用场景：高频查询、客户端有存储空间
   - 详见 [PSI/PIR 性能基线](docs/PSI_PIR_PERFORMANCE.md)
+  
+  **🎯 PSI/PIR 方案选择指南**
+  
+  | 场景 | 推荐方案 | 理由 |
+  |------|----------|------|
+  | 大规模平衡数据集 (百万级) | Piano-PSI | O(√n) 通信，半诚实安全 |
+  | 恶意安全要求 | OT-PSI | 支持恶意安全模型 |
+  | 多方参与 (3+) | Multi-party PSI | 星形/环形拓扑优化 |
+  | 仅需交集基数 | PSI-CA (基数模式) | 最小信息披露 |
+  | 隐私统计聚合 | PSI-CA (聚合模式) | 支持 SUM/AVG 等 |
+  | 大规模 PIR + GPU | CUDA PIR | 并行加速 |
+  | 高频 PIR 查询 | PIR Preprocessing | 离线预计算提速 |
 
 ## 🏗️ 项目结构
 

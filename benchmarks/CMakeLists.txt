@@ -305,3 +305,57 @@ if(KCTSB_ENABLE_CKKS AND KCTSB_HAS_SEAL)
 else()
     message(STATUS "CKKS benchmark skipped: KCTSB_ENABLE_CKKS is OFF and no SEAL")
 endif()
+
+# ============================================================================
+# PSI/PIR Benchmark (v4.14.0)
+# Native PSI/PIR vs SEAL-PIR comparison
+# ============================================================================
+
+add_executable(bench_psi_pir benchmark_psi_pir.cpp)
+
+target_include_directories(bench_psi_pir PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/thirdparty/include
+)
+
+if(TARGET kctsb_static)
+    target_link_libraries(bench_psi_pir PRIVATE kctsb_static)
+elseif(TARGET kctsb_shared)
+    target_link_libraries(bench_psi_pir PRIVATE kctsb_shared)
+endif()
+
+# SEAL comparison (links prebuilt static library, no source dependency)
+set(SEAL_INCLUDE_DIR_PIR "${CMAKE_SOURCE_DIR}/thirdparty/win-x64/include/SEAL-4.1")
+set(SEAL_LIBRARY_PIR "${CMAKE_SOURCE_DIR}/thirdparty/win-x64/lib/libseal-4.1.a")
+
+if(EXISTS "${SEAL_LIBRARY_PIR}")
+    message(STATUS "SEAL 4.1 found for PSI/PIR benchmark - enabling comparison")
+    target_include_directories(bench_psi_pir PRIVATE ${SEAL_INCLUDE_DIR_PIR})
+    target_link_libraries(bench_psi_pir PRIVATE "${SEAL_LIBRARY_PIR}")
+    target_compile_definitions(bench_psi_pir PRIVATE KCTSB_HAS_SEAL=1)
+    if(WIN32)
+        target_link_libraries(bench_psi_pir PRIVATE bcrypt)
+    endif()
+else()
+    message(STATUS "SEAL not found for PSI/PIR benchmark - kctsb-only mode")
+endif()
+
+set_target_properties(bench_psi_pir PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+)
+
+if(MSVC)
+    target_compile_options(bench_psi_pir PRIVATE /O2 /fp:fast /utf-8)
+else()
+    target_compile_options(bench_psi_pir PRIVATE
+        -O3 -march=native
+        -finput-charset=UTF-8
+        -fexec-charset=UTF-8
+        -Wno-conversion
+        -Wno-sign-conversion
+        -Wno-unused-parameter
+    )
+endif()
+
+message(STATUS "PSI/PIR benchmark configured: Piano-PSI, OT-PSI, Native PIR")

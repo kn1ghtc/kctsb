@@ -542,6 +542,30 @@ if(KCTSB_ENABLE_BGV)
 endif()
 
 # ============================================================================
+# PSI/PIR TESTS - Private Set Intersection & Private Information Retrieval
+# Label: "unit;psi" or "unit;pir" - Run with: ctest -L psi
+# v4.14.0: Tests for Piano-PSI, OT-PSI, Native PIR
+# ============================================================================
+
+add_executable(test_psi_pir unit/advanced/test_psi_pir.cpp)
+if(TARGET kctsb_static)
+    target_link_libraries(test_psi_pir PRIVATE
+        kctsb_static
+        GTest::gtest_main
+    )
+else()
+    target_link_libraries(test_psi_pir PRIVATE
+        kctsb
+        GTest::gtest_main
+    )
+endif()
+target_include_directories(test_psi_pir PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/src
+)
+gtest_discover_tests(test_psi_pir PROPERTIES LABELS "unit;advanced;psi;pir")
+
+# ============================================================================
 # Test Summary
 # ============================================================================
 message(STATUS "")

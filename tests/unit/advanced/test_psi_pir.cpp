@@ -14,6 +14,7 @@
 #include "kctsb/advanced/psi/native_pir.h"
 #include "kctsb/advanced/psi/ot_psi.h"
 
+#include <cstring>
 #include <vector>
 #include <algorithm>
 #include <random>
