@@ -6,9 +6,15 @@
  * 
  * Security: Uses kctsb_random_bytes() for cryptographically secure
  * random number generation instead of srand/rand.
+ * 
+ * Note: This file is only compiled when KCTSB_USE_GMP is defined.
+ * TODO: Reimplement using kctsb::ZZ for self-contained build.
  */
 
 #include "kctsb/advanced/zk/ffsa.h"
+
+#ifdef KCTSB_USE_GMP  // Only compile when GMP is explicitly enabled
+
 #include "kctsb/core/security.h"
 #include <iostream>
 #include <ctime>  // Only for fallback seed if CSPRNG fails
@@ -334,3 +340,4 @@ bool ffsa_verify_values(const mpz_t y, const mpz_vec_t& v, const bool_vec_t& a, 
 
     return result;
 }
+#endif  // KCTSB_USE_GMP

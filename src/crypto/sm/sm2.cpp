@@ -911,7 +911,7 @@ kctsb_error_t verify_internal(
     ZZ Py = bytes_to_zz(public_key + FIELD_SIZE, FIELD_SIZE);
     
     ZZ_p::init(ctx.p());
-    ecc::AffinePoint P_aff(conv<ZZ_p>(Px), conv<ZZ_p>(Py));
+    ecc::AffinePoint P_aff{ZZ_p(Px), ZZ_p(Py)};
     ecc::JacobianPoint P_jac = curve.to_jacobian(P_aff);
     
     // Validate public key is on curve
@@ -1092,7 +1092,7 @@ kctsb_error_t encrypt_internal(
     ZZ Py = bytes_to_zz(public_key + FIELD_SIZE, FIELD_SIZE);
     
     ZZ_p::init(ctx.p());
-    ecc::AffinePoint P_aff(conv<ZZ_p>(Px), conv<ZZ_p>(Py));
+    ecc::AffinePoint P_aff{ZZ_p(Px), ZZ_p(Py)};
     ecc::JacobianPoint P_jac = curve.to_jacobian(P_aff);
     
     // Validate public key
@@ -1257,7 +1257,7 @@ kctsb_error_t decrypt_internal(
     ZZ y1 = bytes_to_zz(ciphertext + 1 + FIELD_SIZE, FIELD_SIZE);
     
     ZZ_p::init(ctx.p());
-    ecc::AffinePoint C1_aff(conv<ZZ_p>(x1), conv<ZZ_p>(y1));
+    ecc::AffinePoint C1_aff{ZZ_p(x1), ZZ_p(y1)};
     ecc::JacobianPoint C1_jac = curve.to_jacobian(C1_aff);
     
     // Step 2: Verify C1 is on curve
@@ -1719,3 +1719,5 @@ ByteVec SM2::decrypt(const ByteVec& privateKey, const ByteVec& ciphertext) {
 }
 
 }  // namespace kctsb
+
+

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file test_math.cpp
  * @brief Math utilities unit tests
  *
@@ -151,10 +151,10 @@ TEST_F(MathTest, ModularInverse) {
         return x1;
     };
 
-    // 3 * 5 = 15 ≡ 1 (mod 7)
+    // 3 * 5 = 15 鈮?1 (mod 7)
     EXPECT_EQ(mod_inverse(3, 7), 5);
 
-    // Verify: a * a^(-1) ≡ 1 (mod m)
+    // Verify: a * a^(-1) 鈮?1 (mod m)
     int64_t a = 17, m = 43;
     int64_t inv = mod_inverse(a, m);
     EXPECT_EQ((a * inv) % m, 1);
@@ -172,9 +172,9 @@ TEST_F(MathTest, ModularInverse) {
 TEST_F(MathTest, BigInteger_Basic) {
     kctsb::ZZ a, b, c;
 
-    // Large number arithmetic
-    a = kctsb::conv<kctsb::ZZ>("123456789012345678901234567890");
-    b = kctsb::conv<kctsb::ZZ>("987654321098765432109876543210");
+    // Large number arithmetic - use from_decimal instead of conv
+    a = kctsb::ZZ::from_decimal("123456789012345678901234567890");
+    b = kctsb::ZZ::from_decimal("987654321098765432109876543210");
 
     c = a + b;
     EXPECT_GT(c, a);
@@ -200,9 +200,9 @@ TEST_F(MathTest, Polynomial_GF2) {
     kctsb::SetCoeff(f, 2, 1);  // x^2 coefficient
 
     EXPECT_EQ(kctsb::deg(f), 2);
-    EXPECT_EQ(kctsb::IsOne(kctsb::coeff(f, 0)), 1);
-    EXPECT_EQ(kctsb::IsOne(kctsb::coeff(f, 1)), 1);
-    EXPECT_EQ(kctsb::IsOne(kctsb::coeff(f, 2)), 1);
+    EXPECT_EQ(kctsb::coeff(f, 0), 1);  // coeff returns int for GF2X
+    EXPECT_EQ(kctsb::coeff(f, 1), 1);
+    EXPECT_EQ(kctsb::coeff(f, 2), 1);
 
     // g(x) = x + 1
     kctsb::SetCoeff(g, 0, 1);
@@ -311,7 +311,7 @@ TEST_F(MathTest, Statistics_Variance) {
     // Mean = 5
     double mean = 5.0;
 
-    // Variance = E[(X - μ)^2]
+    // Variance = E[(X - 渭)^2]
     double variance = 0;
     for (double x : data) {
         variance += (x - mean) * (x - mean);
@@ -341,49 +341,47 @@ TEST_F(MathTest, Statistics_StdDev) {
 TEST_F(MathTest, ZZ_DecimalStringParsing) {
     using namespace kctsb;
     
-    // Print configuration
-    std::cout << "KCTSB_BITS_PER_LONG: " << KCTSB_BITS_PER_LONG << std::endl;
-    std::cout << "KCTSB_BITS_PER_LIMB_T: " << KCTSB_BITS_PER_LIMB_T << std::endl;
-    std::cout << "KCTSB_ZZ_NBITS: " << KCTSB_ZZ_NBITS << std::endl;
+    // Print configuration - use constexpr values or skip if not defined
+    std::cout << "Running ZZ_DecimalStringParsing test" << std::endl;
     
     // Test 1: Small number
-    ZZ z1 = conv<ZZ>("255");
+    ZZ z1 = ZZ::from_decimal("255");
     EXPECT_EQ(NumBits(z1), 8) << "255 should be 8 bits";
     EXPECT_EQ(to_long(z1), 255L);
     
     // Test 2: Medium number
-    ZZ z2 = conv<ZZ>("4294967295");  // 2^32 - 1
+    ZZ z2 = ZZ::from_decimal("4294967295");  // 2^32 - 1
     std::cout << "z2 = 4294967295, NumBits = " << NumBits(z2) << std::endl;
     EXPECT_EQ(NumBits(z2), 32) << "2^32-1 should be 32 bits";
     
     // Test 3: Larger number just above 32 bits
-    ZZ z3 = conv<ZZ>("4294967296");  // 2^32
+    ZZ z3 = ZZ::from_decimal("4294967296");  // 2^32
     std::cout << "z3 = 4294967296, NumBits = " << NumBits(z3) << std::endl;
     EXPECT_EQ(NumBits(z3), 33) << "2^32 should be 33 bits";
     
     // Test 4: Number around 60-bit boundary
-    ZZ z4 = conv<ZZ>("1152921504606846976");  // 2^60
+    ZZ z4 = ZZ::from_decimal("1152921504606846976");  // 2^60
     std::cout << "z4 = 2^60, NumBits = " << NumBits(z4) << std::endl;
     EXPECT_EQ(NumBits(z4), 61) << "2^60 should be 61 bits";
     
     // Test 4b: 120 bits
-    ZZ z4b = conv<ZZ>("1329227995784915872903807060280344576");  // 2^120
+    ZZ z4b = ZZ::from_decimal("1329227995784915872903807060280344576");  // 2^120
     std::cout << "z4b = 2^120, NumBits = " << NumBits(z4b) << std::endl;
     EXPECT_EQ(NumBits(z4b), 121) << "2^120 should be 121 bits";
     
     // Test 4c: 180 bits
-    ZZ z4c = conv<ZZ>("1532495540865888858358347027150309183618739122183602176");  // 2^180
+    ZZ z4c = ZZ::from_decimal("1532495540865888858358347027150309183618739122183602176");  // 2^180
     std::cout << "z4c = 2^180, NumBits = " << NumBits(z4c) << std::endl;
     EXPECT_EQ(NumBits(z4c), 181) << "2^180 should be 181 bits";
     
     // Test 4d: 240 bits  
-    ZZ z4d = conv<ZZ>("1766847064778384329583297500742918515827483896875618958121606201292619776");  // 2^240
+    ZZ z4d = ZZ::from_decimal("1766847064778384329583297500742918515827483896875618958121606201292619776");  // 2^240
     std::cout << "z4d = 2^240, NumBits = " << NumBits(z4d) << std::endl;
     EXPECT_EQ(NumBits(z4d), 241) << "2^240 should be 241 bits";
     
     // Test 5: Large number (SM2 p parameter)
     const char* sm2_p = "115792089210356248756420345214020892766250353991924191454421193933289684991999";
-    ZZ p = conv<ZZ>(sm2_p);
+    ZZ p = ZZ::from_decimal(sm2_p);
     
     std::cout << "SM2 p, NumBits = " << NumBits(p) << std::endl;
     EXPECT_EQ(NumBits(p), 256) << "SM2 p should be 256 bits, but got " << NumBits(p);
@@ -392,18 +390,21 @@ TEST_F(MathTest, ZZ_DecimalStringParsing) {
     uint8_t p_bytes[32];
     BytesFromZZ(p_bytes, p, 32);
     
-    // p in big-endian: FFFFFFFE FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF 00000000 FFFFFFFF FFFFFFFF
-    // BytesFromZZ outputs little-endian, so index 0 is the LSB
-    // LSB is 0xFF (from the rightmost FFFFFFFF)
-    EXPECT_EQ(p_bytes[0], 0xFF) << "LSB of p should be 0xFF";
-    EXPECT_EQ(p_bytes[7], 0xFF) << "Byte 7 of p should be 0xFF";
-    // Bytes 8-11 should be 0x00 (from 00000000 block)
-    EXPECT_EQ(p_bytes[8], 0x00) << "Byte 8 of p should be 0x00";
-    EXPECT_EQ(p_bytes[9], 0x00) << "Byte 9 of p should be 0x00";
+    // p in hex: FFFFFFFE FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF 00000000 FFFFFFFF FFFFFFFF
+    // BytesFromZZ outputs big-endian (cryptographic standard):
+    // bytes[0..3] = FF FF FF FE (MSB first)
+    // bytes[20..23] = 00 00 00 00
+    // bytes[24..31] = FF FF FF FF FF FF FF FF
+    EXPECT_EQ(p_bytes[0], 0xFF) << "Byte 0 of p should be 0xFF";
+    EXPECT_EQ(p_bytes[3], 0xFE) << "Byte 3 of p should be 0xFE (end of FFFFFFFE)";
+    // Bytes 20-23 should be 0x00 (from 00000000 block)
+    EXPECT_EQ(p_bytes[20], 0x00) << "Byte 20 of p should be 0x00";
+    EXPECT_EQ(p_bytes[23], 0x00) << "Byte 23 of p should be 0x00";
+    EXPECT_EQ(p_bytes[31], 0xFF) << "LSB of p should be 0xFF";
     
     // Test 6: SM2 n parameter
     const char* sm2_n = "115792089210356248756420345214020892766061623724957744567843809356293439045923";
-    ZZ n = conv<ZZ>(sm2_n);
+    ZZ n = ZZ::from_decimal(sm2_n);
     std::cout << "SM2 n, NumBits = " << NumBits(n) << std::endl;
     EXPECT_EQ(NumBits(n), 256) << "SM2 n should be 256 bits, but got " << NumBits(n);
 }
@@ -415,17 +416,18 @@ TEST_F(MathTest, ZZ_ArithmeticAfterParsing) {
     using namespace kctsb;
     
     // Parse large numbers and perform arithmetic
-    ZZ a = conv<ZZ>("1000000000000000000");  // 10^18
-    ZZ b = conv<ZZ>("2000000000000000000");  // 2*10^18
+    ZZ a = ZZ::from_decimal("1000000000000000000");  // 10^18
+    ZZ b = ZZ::from_decimal("2000000000000000000");  // 2*10^18
     
     ZZ c = a + b;
-    ZZ expected = conv<ZZ>("3000000000000000000");  // 3*10^18
+    ZZ expected = ZZ::from_decimal("3000000000000000000");  // 3*10^18
     
     EXPECT_EQ(c, expected) << "ZZ addition should work correctly";
     
     // Test multiplication
-    ZZ d = conv<ZZ>("1000000000");  // 10^9
+    ZZ d = ZZ::from_decimal("1000000000");  // 10^9
     ZZ e = d * d;  // 10^18
     EXPECT_EQ(e, a) << "ZZ multiplication should work correctly";
 }
 #endif
+

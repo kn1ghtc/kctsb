@@ -139,7 +139,7 @@ void array2_to_mat(const vector< vector<int> > arr,mat_GF2 &v){
     
     for (long i = 0; i < m; ++i){
         for (long j = 0; j < n; ++j) {
-            v[i][j] = to_GF2(arr[static_cast<size_t>(i)][static_cast<size_t>(j)]);
+            v.put(i, j, to_GF2(arr[static_cast<size_t>(i)][static_cast<size_t>(j)]));
         }
     }
     
@@ -151,7 +151,7 @@ void array2_to_mat(const vector< vector<ZZ> > arr,mat_GF2 &v){
     
     for (long i = 0; i < m; ++i){
         for (long j = 0; j < n; ++j) {
-            v[i][j] = to_GF2(arr[static_cast<size_t>(i)][static_cast<size_t>(j)]);
+            v.put(i, j, to_GF2(arr[static_cast<size_t>(i)][static_cast<size_t>(j)]));
         }
     }
     
@@ -163,7 +163,7 @@ void array2_to_mat(const vector< vector<GF2> > arr,mat_GF2 &v){
     
     for (long i = 0; i < m; ++i){
         for (long j = 0; j < n; ++j) {
-            v[i][j] = arr[static_cast<size_t>(i)][static_cast<size_t>(j)];
+            v.put(i, j, arr[static_cast<size_t>(i)][static_cast<size_t>(j)]);
         }
     }
     
@@ -215,6 +215,7 @@ void array2_to_mat(const vector< vector<int> > arr,mat_ZZ_p &v){
 
 
 // to_ZZX(vec) converts a 1D vector into a polynomial (coefficient mapping).
-void kc_lagrange(vec_vec_ZZ_p &pointMat,vec_zz_p &coeffVec) {
-    
-}
+// TODO: Implement when vec_vec_ZZ_p is defined
+// void kc_lagrange(vec_vec_ZZ_p &pointMat,vec_zz_p &coeffVec) {
+//     
+// }

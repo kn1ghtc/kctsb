@@ -49,12 +49,48 @@ cmake_ninja_workdir = D$:\pyproject\kctsb\build-cuda\
 
 build cmake_object_order_depends_target_kctsb_cuda: phony || .
 
-build CMakeFiles\kctsb_cuda.dir\pir_cuda_kernels.cu.obj: CUDA_COMPILER__kctsb_cuda_unscanned_Release D$:\pyproject\kctsb\src\advanced\psi\cuda\pir_cuda_kernels.cu || cmake_object_order_depends_target_kctsb_cuda
+build CMakeFiles\kctsb_cuda.dir\cuda_ntt_kernels.cu.obj: CUDA_COMPILER__kctsb_cuda_unscanned_Release D$:\pyproject\kctsb\src\advanced\cuda\cuda_ntt_kernels.cu || cmake_object_order_depends_target_kctsb_cuda
   CONFIG = Release
   DEFINES = -DNOMINMAX -DWIN32_LEAN_AND_MEAN -D_CRT_SECURE_NO_WARNINGS
-  DEP_FILE = CMakeFiles\kctsb_cuda.dir\pir_cuda_kernels.cu.obj.d
-  FLAGS = -D_WINDOWS -Xcompiler=" /EHsc" -Xcompiler="-O2 -Ob2" -DNDEBUG -std=c++17 "--generate-code=arch=compute_80,code=[compute_80,sm_80]" "--generate-code=arch=compute_86,code=[compute_86,sm_86]" "--generate-code=arch=compute_89,code=[compute_89,sm_89]" -Xcompiler=-MD --expt-relaxed-constexpr --extended-lambda -O3
-  INCLUDES = -ID:\pyproject\kctsb\src\advanced\psi\cuda\..\..\..\..\include -isystem D:\cuda125\include
+  DEP_FILE = CMakeFiles\kctsb_cuda.dir\cuda_ntt_kernels.cu.obj.d
+  FLAGS = -D_WINDOWS -Xcompiler=" /EHsc" -Xcompiler="-O2 -Ob2" -DNDEBUG -std=c++17 "--generate-code=arch=compute_89,code=[compute_89,sm_89]" -Xcompiler=-MD --expt-relaxed-constexpr --extended-lambda -O3 --use_fast_math -Xptxas -lineinfo
+  INCLUDES = -ID:\pyproject\kctsb\src\advanced\cuda\..\..\..\include -ID:\pyproject\kctsb\src\advanced\cuda -isystem D:\cuda125\include
+  OBJECT_DIR = CMakeFiles\kctsb_cuda.dir
+  OBJECT_FILE_DIR = CMakeFiles\kctsb_cuda.dir
+  TARGET_COMPILE_PDB = CMakeFiles\kctsb_cuda.dir\kctsb_cuda.pdb
+  TARGET_PDB = kctsb_cuda.pdb
+  TARGET_SUPPORT_DIR = CMakeFiles\kctsb_cuda.dir
+
+build CMakeFiles\kctsb_cuda.dir\cuda_fhe_kernels.cu.obj: CUDA_COMPILER__kctsb_cuda_unscanned_Release D$:\pyproject\kctsb\src\advanced\cuda\cuda_fhe_kernels.cu || cmake_object_order_depends_target_kctsb_cuda
+  CONFIG = Release
+  DEFINES = -DNOMINMAX -DWIN32_LEAN_AND_MEAN -D_CRT_SECURE_NO_WARNINGS
+  DEP_FILE = CMakeFiles\kctsb_cuda.dir\cuda_fhe_kernels.cu.obj.d
+  FLAGS = -D_WINDOWS -Xcompiler=" /EHsc" -Xcompiler="-O2 -Ob2" -DNDEBUG -std=c++17 "--generate-code=arch=compute_89,code=[compute_89,sm_89]" -Xcompiler=-MD --expt-relaxed-constexpr --extended-lambda -O3 --use_fast_math -Xptxas -lineinfo
+  INCLUDES = -ID:\pyproject\kctsb\src\advanced\cuda\..\..\..\include -ID:\pyproject\kctsb\src\advanced\cuda -isystem D:\cuda125\include
+  OBJECT_DIR = CMakeFiles\kctsb_cuda.dir
+  OBJECT_FILE_DIR = CMakeFiles\kctsb_cuda.dir
+  TARGET_COMPILE_PDB = CMakeFiles\kctsb_cuda.dir\kctsb_cuda.pdb
+  TARGET_PDB = kctsb_cuda.pdb
+  TARGET_SUPPORT_DIR = CMakeFiles\kctsb_cuda.dir
+
+build CMakeFiles\kctsb_cuda.dir\cuda_pir_kernels.cu.obj: CUDA_COMPILER__kctsb_cuda_unscanned_Release D$:\pyproject\kctsb\src\advanced\cuda\cuda_pir_kernels.cu || cmake_object_order_depends_target_kctsb_cuda
+  CONFIG = Release
+  DEFINES = -DNOMINMAX -DWIN32_LEAN_AND_MEAN -D_CRT_SECURE_NO_WARNINGS
+  DEP_FILE = CMakeFiles\kctsb_cuda.dir\cuda_pir_kernels.cu.obj.d
+  FLAGS = -D_WINDOWS -Xcompiler=" /EHsc" -Xcompiler="-O2 -Ob2" -DNDEBUG -std=c++17 "--generate-code=arch=compute_89,code=[compute_89,sm_89]" -Xcompiler=-MD --expt-relaxed-constexpr --extended-lambda -O3 --use_fast_math -Xptxas -lineinfo
+  INCLUDES = -ID:\pyproject\kctsb\src\advanced\cuda\..\..\..\include -ID:\pyproject\kctsb\src\advanced\cuda -isystem D:\cuda125\include
+  OBJECT_DIR = CMakeFiles\kctsb_cuda.dir
+  OBJECT_FILE_DIR = CMakeFiles\kctsb_cuda.dir
+  TARGET_COMPILE_PDB = CMakeFiles\kctsb_cuda.dir\kctsb_cuda.pdb
+  TARGET_PDB = kctsb_cuda.pdb
+  TARGET_SUPPORT_DIR = CMakeFiles\kctsb_cuda.dir
+
+build CMakeFiles\kctsb_cuda.dir\cuda_utils.cu.obj: CUDA_COMPILER__kctsb_cuda_unscanned_Release D$:\pyproject\kctsb\src\advanced\cuda\cuda_utils.cu || cmake_object_order_depends_target_kctsb_cuda
+  CONFIG = Release
+  DEFINES = -DNOMINMAX -DWIN32_LEAN_AND_MEAN -D_CRT_SECURE_NO_WARNINGS
+  DEP_FILE = CMakeFiles\kctsb_cuda.dir\cuda_utils.cu.obj.d
+  FLAGS = -D_WINDOWS -Xcompiler=" /EHsc" -Xcompiler="-O2 -Ob2" -DNDEBUG -std=c++17 "--generate-code=arch=compute_89,code=[compute_89,sm_89]" -Xcompiler=-MD --expt-relaxed-constexpr --extended-lambda -O3 --use_fast_math -Xptxas -lineinfo
+  INCLUDES = -ID:\pyproject\kctsb\src\advanced\cuda\..\..\..\include -ID:\pyproject\kctsb\src\advanced\cuda -isystem D:\cuda125\include
   OBJECT_DIR = CMakeFiles\kctsb_cuda.dir
   OBJECT_FILE_DIR = CMakeFiles\kctsb_cuda.dir
   TARGET_COMPILE_PDB = CMakeFiles\kctsb_cuda.dir\kctsb_cuda.pdb
@@ -69,8 +105,8 @@ build CMakeFiles\kctsb_cuda.dir\pir_cuda_kernels.cu.obj: CUDA_COMPILER__kctsb_cu
 #############################################
 # Link the static library CMakeFiles\kctsb_cuda.dir\cmake_device_link.obj
 
-build CMakeFiles\kctsb_cuda.dir\cmake_device_link.obj: CUDA_STATIC_LIBRARY_DEVICE_LINKER__kctsb_cuda_Release CMakeFiles\kctsb_cuda.dir\pir_cuda_kernels.cu.obj
-  LANGUAGE_COMPILE_FLAGS = -D_WINDOWS -Xcompiler=" /EHsc" -Xcompiler="-O2 -Ob2" -DNDEBUG "--generate-code=arch=compute_80,code=[compute_80,sm_80]" "--generate-code=arch=compute_86,code=[compute_86,sm_86]" "--generate-code=arch=compute_89,code=[compute_89,sm_89]" -Xcompiler=-MD
+build CMakeFiles\kctsb_cuda.dir\cmake_device_link.obj: CUDA_STATIC_LIBRARY_DEVICE_LINKER__kctsb_cuda_Release CMakeFiles\kctsb_cuda.dir\cuda_ntt_kernels.cu.obj CMakeFiles\kctsb_cuda.dir\cuda_fhe_kernels.cu.obj CMakeFiles\kctsb_cuda.dir\cuda_pir_kernels.cu.obj CMakeFiles\kctsb_cuda.dir\cuda_utils.cu.obj
+  LANGUAGE_COMPILE_FLAGS = -D_WINDOWS -Xcompiler=" /EHsc" -Xcompiler="-O2 -Ob2" -DNDEBUG "--generate-code=arch=compute_89,code=[compute_89,sm_89]" -Xcompiler=-MD
   LINK_LIBRARIES = D:\cuda125\lib\x64\cudart.lib cudadevrt.lib cudart_static.lib kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib
   OBJECT_DIR = CMakeFiles\kctsb_cuda.dir
   TARGET_COMPILE_PDB = CMakeFiles\kctsb_cuda.dir\kctsb_cuda.pdb
@@ -85,9 +121,9 @@ build CMakeFiles\kctsb_cuda.dir\cmake_device_link.obj: CUDA_STATIC_LIBRARY_DEVIC
 #############################################
 # Link the static library kctsb_cuda.lib
 
-build kctsb_cuda.lib: CUDA_STATIC_LIBRARY_LINKER__kctsb_cuda_Release CMakeFiles\kctsb_cuda.dir\pir_cuda_kernels.cu.obj CMakeFiles\kctsb_cuda.dir\cmake_device_link.obj
+build kctsb_cuda.lib: CUDA_STATIC_LIBRARY_LINKER__kctsb_cuda_Release CMakeFiles\kctsb_cuda.dir\cuda_ntt_kernels.cu.obj CMakeFiles\kctsb_cuda.dir\cuda_fhe_kernels.cu.obj CMakeFiles\kctsb_cuda.dir\cuda_pir_kernels.cu.obj CMakeFiles\kctsb_cuda.dir\cuda_utils.cu.obj CMakeFiles\kctsb_cuda.dir\cmake_device_link.obj
   CONFIG = Release
-  LANGUAGE_COMPILE_FLAGS = -D_WINDOWS -Xcompiler=" /EHsc" -Xcompiler="-O2 -Ob2" -DNDEBUG "--generate-code=arch=compute_80,code=[compute_80,sm_80]" "--generate-code=arch=compute_86,code=[compute_86,sm_86]" "--generate-code=arch=compute_89,code=[compute_89,sm_89]" -Xcompiler=-MD
+  LANGUAGE_COMPILE_FLAGS = -D_WINDOWS -Xcompiler=" /EHsc" -Xcompiler="-O2 -Ob2" -DNDEBUG "--generate-code=arch=compute_89,code=[compute_89,sm_89]" -Xcompiler=-MD
   LINK_FLAGS = /machine:x64
   OBJECT_DIR = CMakeFiles\kctsb_cuda.dir
   POST_BUILD = cd .
@@ -98,299 +134,181 @@ build kctsb_cuda.lib: CUDA_STATIC_LIBRARY_LINKER__kctsb_cuda_Release CMakeFiles\
   TARGET_SUPPORT_DIR = CMakeFiles\kctsb_cuda.dir
 
 # =============================================================================
-# Object build statements for EXECUTABLE target cuda_runtime_test
+# Object build statements for EXECUTABLE target benchmark_cuda_fhe
 
 
 #############################################
-# Order-only phony target for cuda_runtime_test
+# Order-only phony target for benchmark_cuda_fhe
 
-build cmake_object_order_depends_target_cuda_runtime_test: phony || .
+build cmake_object_order_depends_target_benchmark_cuda_fhe: phony || cmake_object_order_depends_target_kctsb_cuda
 
-build CMakeFiles\cuda_runtime_test.dir\test_cuda_runtime.cu.obj: CUDA_COMPILER__cuda_runtime_test_unscanned_Release D$:\pyproject\kctsb\src\advanced\psi\cuda\test_cuda_runtime.cu || cmake_object_order_depends_target_cuda_runtime_test
+build CMakeFiles\benchmark_cuda_fhe.dir\benchmark_cuda_fhe.cu.obj: CUDA_COMPILER__benchmark_cuda_fhe_unscanned_Release D$:\pyproject\kctsb\src\advanced\cuda\benchmark_cuda_fhe.cu || cmake_object_order_depends_target_benchmark_cuda_fhe
   CONFIG = Release
-  DEP_FILE = CMakeFiles\cuda_runtime_test.dir\test_cuda_runtime.cu.obj.d
-  FLAGS = -D_WINDOWS -Xcompiler=" /EHsc" -Xcompiler="-O2 -Ob2" -DNDEBUG -std=c++17 "--generate-code=arch=compute_80,code=[compute_80,sm_80]" "--generate-code=arch=compute_86,code=[compute_86,sm_86]" "--generate-code=arch=compute_89,code=[compute_89,sm_89]" -Xcompiler=-MD
-  INCLUDES = -isystem D:\cuda125\include
-  OBJECT_DIR = CMakeFiles\cuda_runtime_test.dir
-  OBJECT_FILE_DIR = CMakeFiles\cuda_runtime_test.dir
-  TARGET_COMPILE_PDB = CMakeFiles\cuda_runtime_test.dir\
-  TARGET_PDB = cuda_runtime_test.pdb
-  TARGET_SUPPORT_DIR = CMakeFiles\cuda_runtime_test.dir
+  DEP_FILE = CMakeFiles\benchmark_cuda_fhe.dir\benchmark_cuda_fhe.cu.obj.d
+  FLAGS = -D_WINDOWS -Xcompiler=" /EHsc" -Xcompiler="-O2 -Ob2" -DNDEBUG -std=c++17 "--generate-code=arch=compute_89,code=[compute_89,sm_89]" -Xcompiler=-MD
+  INCLUDES = -ID:\pyproject\kctsb\src\advanced\cuda\..\..\..\include -ID:\pyproject\kctsb\src\advanced\cuda -isystem D:\cuda125\include
+  OBJECT_DIR = CMakeFiles\benchmark_cuda_fhe.dir
+  OBJECT_FILE_DIR = CMakeFiles\benchmark_cuda_fhe.dir
+  TARGET_COMPILE_PDB = CMakeFiles\benchmark_cuda_fhe.dir\
+  TARGET_PDB = bin\benchmark_cuda_fhe.pdb
+  TARGET_SUPPORT_DIR = CMakeFiles\benchmark_cuda_fhe.dir
 
 
 # =============================================================================
-# Device Link build statements for EXECUTABLE target cuda_runtime_test
+# Device Link build statements for EXECUTABLE target benchmark_cuda_fhe
 
 
 #############################################
-# Link the executable CMakeFiles\cuda_runtime_test.dir\cmake_device_link.obj
+# Link the executable CMakeFiles\benchmark_cuda_fhe.dir\cmake_device_link.obj
 
-build CMakeFiles\cuda_runtime_test.dir\cmake_device_link.obj: CUDA_EXECUTABLE_DEVICE_LINKER__cuda_runtime_test_Release CMakeFiles\cuda_runtime_test.dir\test_cuda_runtime.cu.obj | D$:\cuda125\lib\x64\cudart.lib
-  LANGUAGE_COMPILE_FLAGS = -D_WINDOWS -Xcompiler=" /EHsc" -Xcompiler="-O2 -Ob2" -DNDEBUG "--generate-code=arch=compute_80,code=[compute_80,sm_80]" "--generate-code=arch=compute_86,code=[compute_86,sm_86]" "--generate-code=arch=compute_89,code=[compute_89,sm_89]" -Xcompiler=-MD
+build CMakeFiles\benchmark_cuda_fhe.dir\cmake_device_link.obj: CUDA_EXECUTABLE_DEVICE_LINKER__benchmark_cuda_fhe_Release CMakeFiles\benchmark_cuda_fhe.dir\benchmark_cuda_fhe.cu.obj | kctsb_cuda.lib D$:\cuda125\lib\x64\cudart.lib || kctsb_cuda.lib
+  LANGUAGE_COMPILE_FLAGS = -D_WINDOWS -Xcompiler=" /EHsc" -Xcompiler="-O2 -Ob2" -DNDEBUG "--generate-code=arch=compute_89,code=[compute_89,sm_89]" -Xcompiler=-MD
   LINK_LIBRARIES = D:\cuda125\lib\x64\cudart.lib cudadevrt.lib cudart_static.lib kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib
-  OBJECT_DIR = CMakeFiles\cuda_runtime_test.dir
-  TARGET_COMPILE_PDB = CMakeFiles\cuda_runtime_test.dir\
-  TARGET_FILE = CMakeFiles\cuda_runtime_test.dir\cmake_device_link.obj
-  TARGET_IMPLIB = cuda_runtime_test.lib
-  TARGET_PDB = cuda_runtime_test.pdb
-  TARGET_SUPPORT_DIR = CMakeFiles\cuda_runtime_test.dir
+  OBJECT_DIR = CMakeFiles\benchmark_cuda_fhe.dir
+  TARGET_COMPILE_PDB = CMakeFiles\benchmark_cuda_fhe.dir\
+  TARGET_FILE = CMakeFiles\benchmark_cuda_fhe.dir\cmake_device_link.obj
+  TARGET_IMPLIB = benchmark_cuda_fhe.lib
+  TARGET_PDB = bin\benchmark_cuda_fhe.pdb
+  TARGET_SUPPORT_DIR = CMakeFiles\benchmark_cuda_fhe.dir
 
 # =============================================================================
-# Link build statements for EXECUTABLE target cuda_runtime_test
+# Link build statements for EXECUTABLE target benchmark_cuda_fhe
 
 
 #############################################
-# Link the executable cuda_runtime_test.exe
+# Link the executable bin\benchmark_cuda_fhe.exe
 
-build cuda_runtime_test.exe: CUDA_EXECUTABLE_LINKER__cuda_runtime_test_Release CMakeFiles\cuda_runtime_test.dir\test_cuda_runtime.cu.obj CMakeFiles\cuda_runtime_test.dir\cmake_device_link.obj | D$:\cuda125\lib\x64\cudart.lib
+build bin\benchmark_cuda_fhe.exe: CUDA_EXECUTABLE_LINKER__benchmark_cuda_fhe_Release CMakeFiles\benchmark_cuda_fhe.dir\benchmark_cuda_fhe.cu.obj CMakeFiles\benchmark_cuda_fhe.dir\cmake_device_link.obj | kctsb_cuda.lib D$:\cuda125\lib\x64\cudart.lib || kctsb_cuda.lib
   CONFIG = Release
-  FLAGS = -D_WINDOWS -Xcompiler=" /EHsc" -Xcompiler="-O2 -Ob2" -DNDEBUG "--generate-code=arch=compute_80,code=[compute_80,sm_80]" "--generate-code=arch=compute_86,code=[compute_86,sm_86]" "--generate-code=arch=compute_89,code=[compute_89,sm_89]" -Xcompiler=-MD
+  FLAGS = -D_WINDOWS -Xcompiler=" /EHsc" -Xcompiler="-O2 -Ob2" -DNDEBUG "--generate-code=arch=compute_89,code=[compute_89,sm_89]" -Xcompiler=-MD
   LINK_FLAGS = /machine:x64 /INCREMENTAL:NO
-  LINK_LIBRARIES = D:\cuda125\lib\x64\cudart.lib  cudadevrt.lib  cudart_static.lib  kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib
-  OBJECT_DIR = CMakeFiles\cuda_runtime_test.dir
+  LINK_LIBRARIES = kctsb_cuda.lib  D:\cuda125\lib\x64\cudart.lib  cudadevrt.lib  cudart_static.lib  kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib
+  OBJECT_DIR = CMakeFiles\benchmark_cuda_fhe.dir
   POST_BUILD = cd .
   PRE_LINK = cd .
-  TARGET_COMPILE_PDB = CMakeFiles\cuda_runtime_test.dir\
-  TARGET_FILE = cuda_runtime_test.exe
-  TARGET_IMPLIB = cuda_runtime_test.lib
-  TARGET_PDB = cuda_runtime_test.pdb
-  TARGET_SUPPORT_DIR = CMakeFiles\cuda_runtime_test.dir
+  TARGET_COMPILE_PDB = CMakeFiles\benchmark_cuda_fhe.dir\
+  TARGET_FILE = bin\benchmark_cuda_fhe.exe
+  TARGET_IMPLIB = benchmark_cuda_fhe.lib
+  TARGET_PDB = bin\benchmark_cuda_fhe.pdb
+  TARGET_SUPPORT_DIR = CMakeFiles\benchmark_cuda_fhe.dir
 
 # =============================================================================
-# Object build statements for EXECUTABLE target benchmark_ntt_gpu
+# Object build statements for EXECUTABLE target test_cuda_runtime
 
 
 #############################################
-# Order-only phony target for benchmark_ntt_gpu
+# Order-only phony target for test_cuda_runtime
 
-build cmake_object_order_depends_target_benchmark_ntt_gpu: phony || .
+build cmake_object_order_depends_target_test_cuda_runtime: phony || .
 
-build CMakeFiles\benchmark_ntt_gpu.dir\benchmark_ntt_gpu.cu.obj: CUDA_COMPILER__benchmark_ntt_gpu_unscanned_Release D$:\pyproject\kctsb\src\advanced\psi\cuda\benchmark_ntt_gpu.cu || cmake_object_order_depends_target_benchmark_ntt_gpu
+build CMakeFiles\test_cuda_runtime.dir\test_cuda_runtime.cu.obj: CUDA_COMPILER__test_cuda_runtime_unscanned_Release D$:\pyproject\kctsb\src\advanced\cuda\test_cuda_runtime.cu || cmake_object_order_depends_target_test_cuda_runtime
   CONFIG = Release
-  DEP_FILE = CMakeFiles\benchmark_ntt_gpu.dir\benchmark_ntt_gpu.cu.obj.d
-  FLAGS = -D_WINDOWS -Xcompiler=" /EHsc" -Xcompiler="-O2 -Ob2" -DNDEBUG -std=c++17 "--generate-code=arch=compute_80,code=[compute_80,sm_80]" "--generate-code=arch=compute_86,code=[compute_86,sm_86]" "--generate-code=arch=compute_89,code=[compute_89,sm_89]" -Xcompiler=-MD
+  DEP_FILE = CMakeFiles\test_cuda_runtime.dir\test_cuda_runtime.cu.obj.d
+  FLAGS = -D_WINDOWS -Xcompiler=" /EHsc" -Xcompiler="-O2 -Ob2" -DNDEBUG -std=c++17 "--generate-code=arch=compute_89,code=[compute_89,sm_89]" -Xcompiler=-MD
   INCLUDES = -isystem D:\cuda125\include
-  OBJECT_DIR = CMakeFiles\benchmark_ntt_gpu.dir
-  OBJECT_FILE_DIR = CMakeFiles\benchmark_ntt_gpu.dir
-  TARGET_COMPILE_PDB = CMakeFiles\benchmark_ntt_gpu.dir\
-  TARGET_PDB = benchmark_ntt_gpu.pdb
-  TARGET_SUPPORT_DIR = CMakeFiles\benchmark_ntt_gpu.dir
+  OBJECT_DIR = CMakeFiles\test_cuda_runtime.dir
+  OBJECT_FILE_DIR = CMakeFiles\test_cuda_runtime.dir
+  TARGET_COMPILE_PDB = CMakeFiles\test_cuda_runtime.dir\
+  TARGET_PDB = bin\test_cuda_runtime.pdb
+  TARGET_SUPPORT_DIR = CMakeFiles\test_cuda_runtime.dir
 
 
 # =============================================================================
-# Device Link build statements for EXECUTABLE target benchmark_ntt_gpu
+# Device Link build statements for EXECUTABLE target test_cuda_runtime
 
 
 #############################################
-# Link the executable CMakeFiles\benchmark_ntt_gpu.dir\cmake_device_link.obj
+# Link the executable CMakeFiles\test_cuda_runtime.dir\cmake_device_link.obj
 
-build CMakeFiles\benchmark_ntt_gpu.dir\cmake_device_link.obj: CUDA_EXECUTABLE_DEVICE_LINKER__benchmark_ntt_gpu_Release CMakeFiles\benchmark_ntt_gpu.dir\benchmark_ntt_gpu.cu.obj | D$:\cuda125\lib\x64\cudart.lib
-  LANGUAGE_COMPILE_FLAGS = -D_WINDOWS -Xcompiler=" /EHsc" -Xcompiler="-O2 -Ob2" -DNDEBUG "--generate-code=arch=compute_80,code=[compute_80,sm_80]" "--generate-code=arch=compute_86,code=[compute_86,sm_86]" "--generate-code=arch=compute_89,code=[compute_89,sm_89]" -Xcompiler=-MD
+build CMakeFiles\test_cuda_runtime.dir\cmake_device_link.obj: CUDA_EXECUTABLE_DEVICE_LINKER__test_cuda_runtime_Release CMakeFiles\test_cuda_runtime.dir\test_cuda_runtime.cu.obj | D$:\cuda125\lib\x64\cudart.lib
+  LANGUAGE_COMPILE_FLAGS = -D_WINDOWS -Xcompiler=" /EHsc" -Xcompiler="-O2 -Ob2" -DNDEBUG "--generate-code=arch=compute_89,code=[compute_89,sm_89]" -Xcompiler=-MD
   LINK_LIBRARIES = D:\cuda125\lib\x64\cudart.lib cudadevrt.lib cudart_static.lib kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib
-  OBJECT_DIR = CMakeFiles\benchmark_ntt_gpu.dir
-  TARGET_COMPILE_PDB = CMakeFiles\benchmark_ntt_gpu.dir\
-  TARGET_FILE = CMakeFiles\benchmark_ntt_gpu.dir\cmake_device_link.obj
-  TARGET_IMPLIB = benchmark_ntt_gpu.lib
-  TARGET_PDB = benchmark_ntt_gpu.pdb
-  TARGET_SUPPORT_DIR = CMakeFiles\benchmark_ntt_gpu.dir
+  OBJECT_DIR = CMakeFiles\test_cuda_runtime.dir
+  TARGET_COMPILE_PDB = CMakeFiles\test_cuda_runtime.dir\
+  TARGET_FILE = CMakeFiles\test_cuda_runtime.dir\cmake_device_link.obj
+  TARGET_IMPLIB = test_cuda_runtime.lib
+  TARGET_PDB = bin\test_cuda_runtime.pdb
+  TARGET_SUPPORT_DIR = CMakeFiles\test_cuda_runtime.dir
 
 # =============================================================================
-# Link build statements for EXECUTABLE target benchmark_ntt_gpu
+# Link build statements for EXECUTABLE target test_cuda_runtime
 
 
 #############################################
-# Link the executable benchmark_ntt_gpu.exe
+# Link the executable bin\test_cuda_runtime.exe
 
-build benchmark_ntt_gpu.exe: CUDA_EXECUTABLE_LINKER__benchmark_ntt_gpu_Release CMakeFiles\benchmark_ntt_gpu.dir\benchmark_ntt_gpu.cu.obj CMakeFiles\benchmark_ntt_gpu.dir\cmake_device_link.obj | D$:\cuda125\lib\x64\cudart.lib
+build bin\test_cuda_runtime.exe: CUDA_EXECUTABLE_LINKER__test_cuda_runtime_Release CMakeFiles\test_cuda_runtime.dir\test_cuda_runtime.cu.obj CMakeFiles\test_cuda_runtime.dir\cmake_device_link.obj | D$:\cuda125\lib\x64\cudart.lib
   CONFIG = Release
-  FLAGS = -D_WINDOWS -Xcompiler=" /EHsc" -Xcompiler="-O2 -Ob2" -DNDEBUG "--generate-code=arch=compute_80,code=[compute_80,sm_80]" "--generate-code=arch=compute_86,code=[compute_86,sm_86]" "--generate-code=arch=compute_89,code=[compute_89,sm_89]" -Xcompiler=-MD
+  FLAGS = -D_WINDOWS -Xcompiler=" /EHsc" -Xcompiler="-O2 -Ob2" -DNDEBUG "--generate-code=arch=compute_89,code=[compute_89,sm_89]" -Xcompiler=-MD
   LINK_FLAGS = /machine:x64 /INCREMENTAL:NO
   LINK_LIBRARIES = D:\cuda125\lib\x64\cudart.lib  cudadevrt.lib  cudart_static.lib  kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib
-  OBJECT_DIR = CMakeFiles\benchmark_ntt_gpu.dir
+  OBJECT_DIR = CMakeFiles\test_cuda_runtime.dir
   POST_BUILD = cd .
   PRE_LINK = cd .
-  TARGET_COMPILE_PDB = CMakeFiles\benchmark_ntt_gpu.dir\
-  TARGET_FILE = benchmark_ntt_gpu.exe
-  TARGET_IMPLIB = benchmark_ntt_gpu.lib
-  TARGET_PDB = benchmark_ntt_gpu.pdb
-  TARGET_SUPPORT_DIR = CMakeFiles\benchmark_ntt_gpu.dir
+  TARGET_COMPILE_PDB = CMakeFiles\test_cuda_runtime.dir\
+  TARGET_FILE = bin\test_cuda_runtime.exe
+  TARGET_IMPLIB = test_cuda_runtime.lib
+  TARGET_PDB = bin\test_cuda_runtime.pdb
+  TARGET_SUPPORT_DIR = CMakeFiles\test_cuda_runtime.dir
 
 # =============================================================================
-# Object build statements for EXECUTABLE target benchmark_ntt_optimized
+# Object build statements for EXECUTABLE target test_cuda_ntt
 
 
 #############################################
-# Order-only phony target for benchmark_ntt_optimized
+# Order-only phony target for test_cuda_ntt
 
-build cmake_object_order_depends_target_benchmark_ntt_optimized: phony || .
+build cmake_object_order_depends_target_test_cuda_ntt: phony || cmake_object_order_depends_target_kctsb_cuda
 
-build CMakeFiles\benchmark_ntt_optimized.dir\benchmark_ntt_optimized.cu.obj: CUDA_COMPILER__benchmark_ntt_optimized_unscanned_Release D$:\pyproject\kctsb\src\advanced\psi\cuda\benchmark_ntt_optimized.cu || cmake_object_order_depends_target_benchmark_ntt_optimized
+build CMakeFiles\test_cuda_ntt.dir\test_cuda_ntt.cu.obj: CUDA_COMPILER__test_cuda_ntt_unscanned_Release D$:\pyproject\kctsb\src\advanced\cuda\test_cuda_ntt.cu || cmake_object_order_depends_target_test_cuda_ntt
   CONFIG = Release
-  DEP_FILE = CMakeFiles\benchmark_ntt_optimized.dir\benchmark_ntt_optimized.cu.obj.d
-  FLAGS = -D_WINDOWS -Xcompiler=" /EHsc" -Xcompiler="-O2 -Ob2" -DNDEBUG -std=c++17 "--generate-code=arch=compute_80,code=[compute_80,sm_80]" "--generate-code=arch=compute_86,code=[compute_86,sm_86]" "--generate-code=arch=compute_89,code=[compute_89,sm_89]" -Xcompiler=-MD
-  INCLUDES = -isystem D:\cuda125\include
-  OBJECT_DIR = CMakeFiles\benchmark_ntt_optimized.dir
-  OBJECT_FILE_DIR = CMakeFiles\benchmark_ntt_optimized.dir
-  TARGET_COMPILE_PDB = CMakeFiles\benchmark_ntt_optimized.dir\
-  TARGET_PDB = benchmark_ntt_optimized.pdb
-  TARGET_SUPPORT_DIR = CMakeFiles\benchmark_ntt_optimized.dir
+  DEP_FILE = CMakeFiles\test_cuda_ntt.dir\test_cuda_ntt.cu.obj.d
+  FLAGS = -D_WINDOWS -Xcompiler=" /EHsc" -Xcompiler="-O2 -Ob2" -DNDEBUG -std=c++17 "--generate-code=arch=compute_89,code=[compute_89,sm_89]" -Xcompiler=-MD
+  INCLUDES = -ID:\pyproject\kctsb\src\advanced\cuda\..\..\..\include -ID:\pyproject\kctsb\src\advanced\cuda -isystem D:\cuda125\include
+  OBJECT_DIR = CMakeFiles\test_cuda_ntt.dir
+  OBJECT_FILE_DIR = CMakeFiles\test_cuda_ntt.dir
+  TARGET_COMPILE_PDB = CMakeFiles\test_cuda_ntt.dir\
+  TARGET_PDB = bin\test_cuda_ntt.pdb
+  TARGET_SUPPORT_DIR = CMakeFiles\test_cuda_ntt.dir
 
 
 # =============================================================================
-# Device Link build statements for EXECUTABLE target benchmark_ntt_optimized
+# Device Link build statements for EXECUTABLE target test_cuda_ntt
 
 
 #############################################
-# Link the executable CMakeFiles\benchmark_ntt_optimized.dir\cmake_device_link.obj
+# Link the executable CMakeFiles\test_cuda_ntt.dir\cmake_device_link.obj
 
-build CMakeFiles\benchmark_ntt_optimized.dir\cmake_device_link.obj: CUDA_EXECUTABLE_DEVICE_LINKER__benchmark_ntt_optimized_Release CMakeFiles\benchmark_ntt_optimized.dir\benchmark_ntt_optimized.cu.obj | D$:\cuda125\lib\x64\cudart.lib
-  LANGUAGE_COMPILE_FLAGS = -D_WINDOWS -Xcompiler=" /EHsc" -Xcompiler="-O2 -Ob2" -DNDEBUG "--generate-code=arch=compute_80,code=[compute_80,sm_80]" "--generate-code=arch=compute_86,code=[compute_86,sm_86]" "--generate-code=arch=compute_89,code=[compute_89,sm_89]" -Xcompiler=-MD
+build CMakeFiles\test_cuda_ntt.dir\cmake_device_link.obj: CUDA_EXECUTABLE_DEVICE_LINKER__test_cuda_ntt_Release CMakeFiles\test_cuda_ntt.dir\test_cuda_ntt.cu.obj | kctsb_cuda.lib D$:\cuda125\lib\x64\cudart.lib || kctsb_cuda.lib
+  LANGUAGE_COMPILE_FLAGS = -D_WINDOWS -Xcompiler=" /EHsc" -Xcompiler="-O2 -Ob2" -DNDEBUG "--generate-code=arch=compute_89,code=[compute_89,sm_89]" -Xcompiler=-MD
   LINK_LIBRARIES = D:\cuda125\lib\x64\cudart.lib cudadevrt.lib cudart_static.lib kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib
-  OBJECT_DIR = CMakeFiles\benchmark_ntt_optimized.dir
-  TARGET_COMPILE_PDB = CMakeFiles\benchmark_ntt_optimized.dir\
-  TARGET_FILE = CMakeFiles\benchmark_ntt_optimized.dir\cmake_device_link.obj
-  TARGET_IMPLIB = benchmark_ntt_optimized.lib
-  TARGET_PDB = benchmark_ntt_optimized.pdb
-  TARGET_SUPPORT_DIR = CMakeFiles\benchmark_ntt_optimized.dir
+  OBJECT_DIR = CMakeFiles\test_cuda_ntt.dir
+  TARGET_COMPILE_PDB = CMakeFiles\test_cuda_ntt.dir\
+  TARGET_FILE = CMakeFiles\test_cuda_ntt.dir\cmake_device_link.obj
+  TARGET_IMPLIB = test_cuda_ntt.lib
+  TARGET_PDB = bin\test_cuda_ntt.pdb
+  TARGET_SUPPORT_DIR = CMakeFiles\test_cuda_ntt.dir
 
 # =============================================================================
-# Link build statements for EXECUTABLE target benchmark_ntt_optimized
+# Link build statements for EXECUTABLE target test_cuda_ntt
 
 
 #############################################
-# Link the executable benchmark_ntt_optimized.exe
+# Link the executable bin\test_cuda_ntt.exe
 
-build benchmark_ntt_optimized.exe: CUDA_EXECUTABLE_LINKER__benchmark_ntt_optimized_Release CMakeFiles\benchmark_ntt_optimized.dir\benchmark_ntt_optimized.cu.obj CMakeFiles\benchmark_ntt_optimized.dir\cmake_device_link.obj | D$:\cuda125\lib\x64\cudart.lib
+build bin\test_cuda_ntt.exe: CUDA_EXECUTABLE_LINKER__test_cuda_ntt_Release CMakeFiles\test_cuda_ntt.dir\test_cuda_ntt.cu.obj CMakeFiles\test_cuda_ntt.dir\cmake_device_link.obj | kctsb_cuda.lib D$:\cuda125\lib\x64\cudart.lib || kctsb_cuda.lib
   CONFIG = Release
-  FLAGS = -D_WINDOWS -Xcompiler=" /EHsc" -Xcompiler="-O2 -Ob2" -DNDEBUG "--generate-code=arch=compute_80,code=[compute_80,sm_80]" "--generate-code=arch=compute_86,code=[compute_86,sm_86]" "--generate-code=arch=compute_89,code=[compute_89,sm_89]" -Xcompiler=-MD
+  FLAGS = -D_WINDOWS -Xcompiler=" /EHsc" -Xcompiler="-O2 -Ob2" -DNDEBUG "--generate-code=arch=compute_89,code=[compute_89,sm_89]" -Xcompiler=-MD
   LINK_FLAGS = /machine:x64 /INCREMENTAL:NO
-  LINK_LIBRARIES = D:\cuda125\lib\x64\cudart.lib  cudadevrt.lib  cudart_static.lib  kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib
-  OBJECT_DIR = CMakeFiles\benchmark_ntt_optimized.dir
+  LINK_LIBRARIES = kctsb_cuda.lib  D:\cuda125\lib\x64\cudart.lib  cudadevrt.lib  cudart_static.lib  kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib
+  OBJECT_DIR = CMakeFiles\test_cuda_ntt.dir
   POST_BUILD = cd .
   PRE_LINK = cd .
-  TARGET_COMPILE_PDB = CMakeFiles\benchmark_ntt_optimized.dir\
-  TARGET_FILE = benchmark_ntt_optimized.exe
-  TARGET_IMPLIB = benchmark_ntt_optimized.lib
-  TARGET_PDB = benchmark_ntt_optimized.pdb
-  TARGET_SUPPORT_DIR = CMakeFiles\benchmark_ntt_optimized.dir
-
-# =============================================================================
-# Object build statements for EXECUTABLE target test_modular_ops
-
-
-#############################################
-# Order-only phony target for test_modular_ops
-
-build cmake_object_order_depends_target_test_modular_ops: phony || .
-
-build CMakeFiles\test_modular_ops.dir\test_modular_ops.cu.obj: CUDA_COMPILER__test_modular_ops_unscanned_Release D$:\pyproject\kctsb\src\advanced\psi\cuda\test_modular_ops.cu || cmake_object_order_depends_target_test_modular_ops
-  CONFIG = Release
-  DEP_FILE = CMakeFiles\test_modular_ops.dir\test_modular_ops.cu.obj.d
-  FLAGS = -D_WINDOWS -Xcompiler=" /EHsc" -Xcompiler="-O2 -Ob2" -DNDEBUG -std=c++17 "--generate-code=arch=compute_80,code=[compute_80,sm_80]" "--generate-code=arch=compute_86,code=[compute_86,sm_86]" "--generate-code=arch=compute_89,code=[compute_89,sm_89]" -Xcompiler=-MD
-  INCLUDES = -isystem D:\cuda125\include
-  OBJECT_DIR = CMakeFiles\test_modular_ops.dir
-  OBJECT_FILE_DIR = CMakeFiles\test_modular_ops.dir
-  TARGET_COMPILE_PDB = CMakeFiles\test_modular_ops.dir\
-  TARGET_PDB = test_modular_ops.pdb
-  TARGET_SUPPORT_DIR = CMakeFiles\test_modular_ops.dir
-
-
-# =============================================================================
-# Device Link build statements for EXECUTABLE target test_modular_ops
-
-
-#############################################
-# Link the executable CMakeFiles\test_modular_ops.dir\cmake_device_link.obj
-
-build CMakeFiles\test_modular_ops.dir\cmake_device_link.obj: CUDA_EXECUTABLE_DEVICE_LINKER__test_modular_ops_Release CMakeFiles\test_modular_ops.dir\test_modular_ops.cu.obj | D$:\cuda125\lib\x64\cudart.lib
-  LANGUAGE_COMPILE_FLAGS = -D_WINDOWS -Xcompiler=" /EHsc" -Xcompiler="-O2 -Ob2" -DNDEBUG "--generate-code=arch=compute_80,code=[compute_80,sm_80]" "--generate-code=arch=compute_86,code=[compute_86,sm_86]" "--generate-code=arch=compute_89,code=[compute_89,sm_89]" -Xcompiler=-MD
-  LINK_LIBRARIES = D:\cuda125\lib\x64\cudart.lib cudadevrt.lib cudart_static.lib kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib
-  OBJECT_DIR = CMakeFiles\test_modular_ops.dir
-  TARGET_COMPILE_PDB = CMakeFiles\test_modular_ops.dir\
-  TARGET_FILE = CMakeFiles\test_modular_ops.dir\cmake_device_link.obj
-  TARGET_IMPLIB = test_modular_ops.lib
-  TARGET_PDB = test_modular_ops.pdb
-  TARGET_SUPPORT_DIR = CMakeFiles\test_modular_ops.dir
-
-# =============================================================================
-# Link build statements for EXECUTABLE target test_modular_ops
-
-
-#############################################
-# Link the executable test_modular_ops.exe
-
-build test_modular_ops.exe: CUDA_EXECUTABLE_LINKER__test_modular_ops_Release CMakeFiles\test_modular_ops.dir\test_modular_ops.cu.obj CMakeFiles\test_modular_ops.dir\cmake_device_link.obj | D$:\cuda125\lib\x64\cudart.lib
-  CONFIG = Release
-  FLAGS = -D_WINDOWS -Xcompiler=" /EHsc" -Xcompiler="-O2 -Ob2" -DNDEBUG "--generate-code=arch=compute_80,code=[compute_80,sm_80]" "--generate-code=arch=compute_86,code=[compute_86,sm_86]" "--generate-code=arch=compute_89,code=[compute_89,sm_89]" -Xcompiler=-MD
-  LINK_FLAGS = /machine:x64 /INCREMENTAL:NO
-  LINK_LIBRARIES = D:\cuda125\lib\x64\cudart.lib  cudadevrt.lib  cudart_static.lib  kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib
-  OBJECT_DIR = CMakeFiles\test_modular_ops.dir
-  POST_BUILD = cd .
-  PRE_LINK = cd .
-  TARGET_COMPILE_PDB = CMakeFiles\test_modular_ops.dir\
-  TARGET_FILE = test_modular_ops.exe
-  TARGET_IMPLIB = test_modular_ops.lib
-  TARGET_PDB = test_modular_ops.pdb
-  TARGET_SUPPORT_DIR = CMakeFiles\test_modular_ops.dir
-
-# =============================================================================
-# Object build statements for EXECUTABLE target benchmark_ntt_final
-
-
-#############################################
-# Order-only phony target for benchmark_ntt_final
-
-build cmake_object_order_depends_target_benchmark_ntt_final: phony || .
-
-build CMakeFiles\benchmark_ntt_final.dir\benchmark_ntt_final.cu.obj: CUDA_COMPILER__benchmark_ntt_final_unscanned_Release D$:\pyproject\kctsb\src\advanced\psi\cuda\benchmark_ntt_final.cu || cmake_object_order_depends_target_benchmark_ntt_final
-  CONFIG = Release
-  DEP_FILE = CMakeFiles\benchmark_ntt_final.dir\benchmark_ntt_final.cu.obj.d
-  FLAGS = -D_WINDOWS -Xcompiler=" /EHsc" -Xcompiler="-O2 -Ob2" -DNDEBUG -std=c++17 "--generate-code=arch=compute_80,code=[compute_80,sm_80]" "--generate-code=arch=compute_86,code=[compute_86,sm_86]" "--generate-code=arch=compute_89,code=[compute_89,sm_89]" -Xcompiler=-MD
-  INCLUDES = -isystem D:\cuda125\include
-  OBJECT_DIR = CMakeFiles\benchmark_ntt_final.dir
-  OBJECT_FILE_DIR = CMakeFiles\benchmark_ntt_final.dir
-  TARGET_COMPILE_PDB = CMakeFiles\benchmark_ntt_final.dir\
-  TARGET_PDB = benchmark_ntt_final.pdb
-  TARGET_SUPPORT_DIR = CMakeFiles\benchmark_ntt_final.dir
-
-
-# =============================================================================
-# Device Link build statements for EXECUTABLE target benchmark_ntt_final
-
-
-#############################################
-# Link the executable CMakeFiles\benchmark_ntt_final.dir\cmake_device_link.obj
-
-build CMakeFiles\benchmark_ntt_final.dir\cmake_device_link.obj: CUDA_EXECUTABLE_DEVICE_LINKER__benchmark_ntt_final_Release CMakeFiles\benchmark_ntt_final.dir\benchmark_ntt_final.cu.obj | D$:\cuda125\lib\x64\cudart.lib
-  LANGUAGE_COMPILE_FLAGS = -D_WINDOWS -Xcompiler=" /EHsc" -Xcompiler="-O2 -Ob2" -DNDEBUG "--generate-code=arch=compute_80,code=[compute_80,sm_80]" "--generate-code=arch=compute_86,code=[compute_86,sm_86]" "--generate-code=arch=compute_89,code=[compute_89,sm_89]" -Xcompiler=-MD
-  LINK_LIBRARIES = D:\cuda125\lib\x64\cudart.lib cudadevrt.lib cudart_static.lib kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib
-  OBJECT_DIR = CMakeFiles\benchmark_ntt_final.dir
-  TARGET_COMPILE_PDB = CMakeFiles\benchmark_ntt_final.dir\
-  TARGET_FILE = CMakeFiles\benchmark_ntt_final.dir\cmake_device_link.obj
-  TARGET_IMPLIB = benchmark_ntt_final.lib
-  TARGET_PDB = benchmark_ntt_final.pdb
-  TARGET_SUPPORT_DIR = CMakeFiles\benchmark_ntt_final.dir
-
-# =============================================================================
-# Link build statements for EXECUTABLE target benchmark_ntt_final
-
-
-#############################################
-# Link the executable benchmark_ntt_final.exe
-
-build benchmark_ntt_final.exe: CUDA_EXECUTABLE_LINKER__benchmark_ntt_final_Release CMakeFiles\benchmark_ntt_final.dir\benchmark_ntt_final.cu.obj CMakeFiles\benchmark_ntt_final.dir\cmake_device_link.obj | D$:\cuda125\lib\x64\cudart.lib
-  CONFIG = Release
-  FLAGS = -D_WINDOWS -Xcompiler=" /EHsc" -Xcompiler="-O2 -Ob2" -DNDEBUG "--generate-code=arch=compute_80,code=[compute_80,sm_80]" "--generate-code=arch=compute_86,code=[compute_86,sm_86]" "--generate-code=arch=compute_89,code=[compute_89,sm_89]" -Xcompiler=-MD
-  LINK_FLAGS = /machine:x64 /INCREMENTAL:NO
-  LINK_LIBRARIES = D:\cuda125\lib\x64\cudart.lib  cudadevrt.lib  cudart_static.lib  kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib
-  OBJECT_DIR = CMakeFiles\benchmark_ntt_final.dir
-  POST_BUILD = cd .
-  PRE_LINK = cd .
-  TARGET_COMPILE_PDB = CMakeFiles\benchmark_ntt_final.dir\
-  TARGET_FILE = benchmark_ntt_final.exe
-  TARGET_IMPLIB = benchmark_ntt_final.lib
-  TARGET_PDB = benchmark_ntt_final.pdb
-  TARGET_SUPPORT_DIR = CMakeFiles\benchmark_ntt_final.dir
+  TARGET_COMPILE_PDB = CMakeFiles\test_cuda_ntt.dir\
+  TARGET_FILE = bin\test_cuda_ntt.exe
+  TARGET_IMPLIB = test_cuda_ntt.lib
+  TARGET_PDB = bin\test_cuda_ntt.pdb
+  TARGET_SUPPORT_DIR = CMakeFiles\test_cuda_ntt.dir
 
 
 #############################################
@@ -408,7 +326,7 @@ build edit_cache: phony CMakeFiles\edit_cache.util
 # Utility command for rebuild_cache
 
 build CMakeFiles\rebuild_cache.util: CUSTOM_COMMAND
-  COMMAND = C:\Windows\system32\cmd.exe /C "cd /D D:\pyproject\kctsb\build-cuda && C:\msys64\mingw64\bin\cmake.exe --regenerate-during-build -SD:\pyproject\kctsb\src\advanced\psi\cuda -BD:\pyproject\kctsb\build-cuda"
+  COMMAND = C:\Windows\system32\cmd.exe /C "cd /D D:\pyproject\kctsb\build-cuda && C:\msys64\mingw64\bin\cmake.exe --regenerate-during-build -SD:\pyproject\kctsb\src\advanced\cuda -BD:\pyproject\kctsb\build-cuda"
   DESC = Running CMake to regenerate build system...
   pool = console
   restat = 1
@@ -448,17 +366,19 @@ build install\local: phony CMakeFiles\install\local.util
 # =============================================================================
 # Target aliases.
 
-build benchmark_ntt_final: phony benchmark_ntt_final.exe
+build benchmark_cuda_fhe: phony bin\benchmark_cuda_fhe.exe
 
-build benchmark_ntt_gpu: phony benchmark_ntt_gpu.exe
-
-build benchmark_ntt_optimized: phony benchmark_ntt_optimized.exe
-
-build cuda_runtime_test: phony cuda_runtime_test.exe
+build benchmark_cuda_fhe.exe: phony bin\benchmark_cuda_fhe.exe
 
 build kctsb_cuda: phony kctsb_cuda.lib
 
-build test_modular_ops: phony test_modular_ops.exe
+build test_cuda_ntt: phony bin\test_cuda_ntt.exe
+
+build test_cuda_ntt.exe: phony bin\test_cuda_ntt.exe
+
+build test_cuda_runtime: phony bin\test_cuda_runtime.exe
+
+build test_cuda_runtime.exe: phony bin\test_cuda_runtime.exe
 
 # =============================================================================
 # Folder targets.
@@ -468,7 +388,7 @@ build test_modular_ops: phony test_modular_ops.exe
 #############################################
 # Folder: D:/pyproject/kctsb/build-cuda
 
-build all: phony kctsb_cuda.lib cuda_runtime_test.exe benchmark_ntt_gpu.exe benchmark_ntt_optimized.exe test_modular_ops.exe benchmark_ntt_final.exe
+build all: phony kctsb_cuda.lib bin\benchmark_cuda_fhe.exe bin\test_cuda_runtime.exe bin\test_cuda_ntt.exe
 
 # =============================================================================
 # Built-in targets
@@ -477,14 +397,14 @@ build all: phony kctsb_cuda.lib cuda_runtime_test.exe benchmark_ntt_gpu.exe benc
 #############################################
 # Re-run CMake if any of its inputs changed.
 
-build build.ninja D$:\pyproject\kctsb\build-cuda\cmake_install.cmake: RERUN_CMAKE | C$:\msys64\mingw64\share\cmake\Modules\CMakeCUDAInformation.cmake C$:\msys64\mingw64\share\cmake\Modules\CMakeCXXInformation.cmake C$:\msys64\mingw64\share\cmake\Modules\CMakeCommonLanguageInclude.cmake C$:\msys64\mingw64\share\cmake\Modules\CMakeGenericSystem.cmake C$:\msys64\mingw64\share\cmake\Modules\CMakeInitializeConfigs.cmake C$:\msys64\mingw64\share\cmake\Modules\CMakeLanguageInformation.cmake C$:\msys64\mingw64\share\cmake\Modules\CMakeRCInformation.cmake C$:\msys64\mingw64\share\cmake\Modules\CMakeSystemSpecificInformation.cmake C$:\msys64\mingw64\share\cmake\Modules\CMakeSystemSpecificInitialize.cmake C$:\msys64\mingw64\share\cmake\Modules\Compiler\CMakeCommonCompilerMacros.cmake C$:\msys64\mingw64\share\cmake\Modules\Compiler\MSVC-CXX.cmake C$:\msys64\mingw64\share\cmake\Modules\Compiler\MSVC.cmake C$:\msys64\mingw64\share\cmake\Modules\Compiler\NVIDIA-CUDA.cmake C$:\msys64\mingw64\share\cmake\Modules\Compiler\NVIDIA.cmake C$:\msys64\mingw64\share\cmake\Modules\FindCUDAToolkit.cmake C$:\msys64\mingw64\share\cmake\Modules\FindPackageHandleStandardArgs.cmake C$:\msys64\mingw64\share\cmake\Modules\FindPackageMessage.cmake C$:\msys64\mingw64\share\cmake\Modules\Internal\CMakeCXXLinkerInformation.cmake C$:\msys64\mingw64\share\cmake\Modules\Internal\CMakeCommonLinkerInformation.cmake C$:\msys64\mingw64\share\cmake\Modules\Linker\MSVC-CXX.cmake C$:\msys64\mingw64\share\cmake\Modules\Linker\MSVC.cmake C$:\msys64\mingw64\share\cmake\Modules\Platform\Linker\Windows-MSVC-CXX.cmake C$:\msys64\mingw64\share\cmake\Modules\Platform\Linker\Windows-MSVC.cmake C$:\msys64\mingw64\share\cmake\Modules\Platform\Windows-Initialize.cmake C$:\msys64\mingw64\share\cmake\Modules\Platform\Windows-MSVC-CXX.cmake C$:\msys64\mingw64\share\cmake\Modules\Platform\Windows-MSVC.cmake C$:\msys64\mingw64\share\cmake\Modules\Platform\Windows-NVIDIA-CUDA.cmake C$:\msys64\mingw64\share\cmake\Modules\Platform\Windows.cmake C$:\msys64\mingw64\share\cmake\Modules\Platform\WindowsPaths.cmake CMakeCache.txt CMakeFiles\4.2.1\CMakeCUDACompiler.cmake CMakeFiles\4.2.1\CMakeCXXCompiler.cmake CMakeFiles\4.2.1\CMakeRCCompiler.cmake CMakeFiles\4.2.1\CMakeSystem.cmake D$:\pyproject\kctsb\src\advanced\psi\cuda\CMakeLists.txt
+build build.ninja D$:\pyproject\kctsb\build-cuda\cmake_install.cmake: RERUN_CMAKE | C$:\msys64\mingw64\share\cmake\Modules\CMakeCUDAInformation.cmake C$:\msys64\mingw64\share\cmake\Modules\CMakeCXXInformation.cmake C$:\msys64\mingw64\share\cmake\Modules\CMakeCommonLanguageInclude.cmake C$:\msys64\mingw64\share\cmake\Modules\CMakeGenericSystem.cmake C$:\msys64\mingw64\share\cmake\Modules\CMakeInitializeConfigs.cmake C$:\msys64\mingw64\share\cmake\Modules\CMakeLanguageInformation.cmake C$:\msys64\mingw64\share\cmake\Modules\CMakeRCInformation.cmake C$:\msys64\mingw64\share\cmake\Modules\CMakeSystemSpecificInformation.cmake C$:\msys64\mingw64\share\cmake\Modules\CMakeSystemSpecificInitialize.cmake C$:\msys64\mingw64\share\cmake\Modules\Compiler\CMakeCommonCompilerMacros.cmake C$:\msys64\mingw64\share\cmake\Modules\Compiler\MSVC-CXX.cmake C$:\msys64\mingw64\share\cmake\Modules\Compiler\MSVC.cmake C$:\msys64\mingw64\share\cmake\Modules\Compiler\NVIDIA-CUDA.cmake C$:\msys64\mingw64\share\cmake\Modules\Compiler\NVIDIA.cmake C$:\msys64\mingw64\share\cmake\Modules\FindCUDAToolkit.cmake C$:\msys64\mingw64\share\cmake\Modules\FindPackageHandleStandardArgs.cmake C$:\msys64\mingw64\share\cmake\Modules\FindPackageMessage.cmake C$:\msys64\mingw64\share\cmake\Modules\Internal\CMakeCXXLinkerInformation.cmake C$:\msys64\mingw64\share\cmake\Modules\Internal\CMakeCommonLinkerInformation.cmake C$:\msys64\mingw64\share\cmake\Modules\Linker\MSVC-CXX.cmake C$:\msys64\mingw64\share\cmake\Modules\Linker\MSVC.cmake C$:\msys64\mingw64\share\cmake\Modules\Platform\Linker\Windows-MSVC-CXX.cmake C$:\msys64\mingw64\share\cmake\Modules\Platform\Linker\Windows-MSVC.cmake C$:\msys64\mingw64\share\cmake\Modules\Platform\Windows-Initialize.cmake C$:\msys64\mingw64\share\cmake\Modules\Platform\Windows-MSVC-CXX.cmake C$:\msys64\mingw64\share\cmake\Modules\Platform\Windows-MSVC.cmake C$:\msys64\mingw64\share\cmake\Modules\Platform\Windows-NVIDIA-CUDA.cmake C$:\msys64\mingw64\share\cmake\Modules\Platform\Windows.cmake C$:\msys64\mingw64\share\cmake\Modules\Platform\WindowsPaths.cmake CMakeCache.txt CMakeFiles\4.2.1\CMakeCUDACompiler.cmake CMakeFiles\4.2.1\CMakeCXXCompiler.cmake CMakeFiles\4.2.1\CMakeRCCompiler.cmake CMakeFiles\4.2.1\CMakeSystem.cmake D$:\pyproject\kctsb\src\advanced\cuda\CMakeLists.txt
   pool = console
 
 
 #############################################
 # A missing CMake input file is not an error.
 
-build C$:\msys64\mingw64\share\cmake\Modules\CMakeCUDAInformation.cmake C$:\msys64\mingw64\share\cmake\Modules\CMakeCXXInformation.cmake C$:\msys64\mingw64\share\cmake\Modules\CMakeCommonLanguageInclude.cmake C$:\msys64\mingw64\share\cmake\Modules\CMakeGenericSystem.cmake C$:\msys64\mingw64\share\cmake\Modules\CMakeInitializeConfigs.cmake C$:\msys64\mingw64\share\cmake\Modules\CMakeLanguageInformation.cmake C$:\msys64\mingw64\share\cmake\Modules\CMakeRCInformation.cmake C$:\msys64\mingw64\share\cmake\Modules\CMakeSystemSpecificInformation.cmake C$:\msys64\mingw64\share\cmake\Modules\CMakeSystemSpecificInitialize.cmake C$:\msys64\mingw64\share\cmake\Modules\Compiler\CMakeCommonCompilerMacros.cmake C$:\msys64\mingw64\share\cmake\Modules\Compiler\MSVC-CXX.cmake C$:\msys64\mingw64\share\cmake\Modules\Compiler\MSVC.cmake C$:\msys64\mingw64\share\cmake\Modules\Compiler\NVIDIA-CUDA.cmake C$:\msys64\mingw64\share\cmake\Modules\Compiler\NVIDIA.cmake C$:\msys64\mingw64\share\cmake\Modules\FindCUDAToolkit.cmake C$:\msys64\mingw64\share\cmake\Modules\FindPackageHandleStandardArgs.cmake C$:\msys64\mingw64\share\cmake\Modules\FindPackageMessage.cmake C$:\msys64\mingw64\share\cmake\Modules\Internal\CMakeCXXLinkerInformation.cmake C$:\msys64\mingw64\share\cmake\Modules\Internal\CMakeCommonLinkerInformation.cmake C$:\msys64\mingw64\share\cmake\Modules\Linker\MSVC-CXX.cmake C$:\msys64\mingw64\share\cmake\Modules\Linker\MSVC.cmake C$:\msys64\mingw64\share\cmake\Modules\Platform\Linker\Windows-MSVC-CXX.cmake C$:\msys64\mingw64\share\cmake\Modules\Platform\Linker\Windows-MSVC.cmake C$:\msys64\mingw64\share\cmake\Modules\Platform\Windows-Initialize.cmake C$:\msys64\mingw64\share\cmake\Modules\Platform\Windows-MSVC-CXX.cmake C$:\msys64\mingw64\share\cmake\Modules\Platform\Windows-MSVC.cmake C$:\msys64\mingw64\share\cmake\Modules\Platform\Windows-NVIDIA-CUDA.cmake C$:\msys64\mingw64\share\cmake\Modules\Platform\Windows.cmake C$:\msys64\mingw64\share\cmake\Modules\Platform\WindowsPaths.cmake CMakeCache.txt CMakeFiles\4.2.1\CMakeCUDACompiler.cmake CMakeFiles\4.2.1\CMakeCXXCompiler.cmake CMakeFiles\4.2.1\CMakeRCCompiler.cmake CMakeFiles\4.2.1\CMakeSystem.cmake D$:\pyproject\kctsb\src\advanced\psi\cuda\CMakeLists.txt: phony
+build C$:\msys64\mingw64\share\cmake\Modules\CMakeCUDAInformation.cmake C$:\msys64\mingw64\share\cmake\Modules\CMakeCXXInformation.cmake C$:\msys64\mingw64\share\cmake\Modules\CMakeCommonLanguageInclude.cmake C$:\msys64\mingw64\share\cmake\Modules\CMakeGenericSystem.cmake C$:\msys64\mingw64\share\cmake\Modules\CMakeInitializeConfigs.cmake C$:\msys64\mingw64\share\cmake\Modules\CMakeLanguageInformation.cmake C$:\msys64\mingw64\share\cmake\Modules\CMakeRCInformation.cmake C$:\msys64\mingw64\share\cmake\Modules\CMakeSystemSpecificInformation.cmake C$:\msys64\mingw64\share\cmake\Modules\CMakeSystemSpecificInitialize.cmake C$:\msys64\mingw64\share\cmake\Modules\Compiler\CMakeCommonCompilerMacros.cmake C$:\msys64\mingw64\share\cmake\Modules\Compiler\MSVC-CXX.cmake C$:\msys64\mingw64\share\cmake\Modules\Compiler\MSVC.cmake C$:\msys64\mingw64\share\cmake\Modules\Compiler\NVIDIA-CUDA.cmake C$:\msys64\mingw64\share\cmake\Modules\Compiler\NVIDIA.cmake C$:\msys64\mingw64\share\cmake\Modules\FindCUDAToolkit.cmake C$:\msys64\mingw64\share\cmake\Modules\FindPackageHandleStandardArgs.cmake C$:\msys64\mingw64\share\cmake\Modules\FindPackageMessage.cmake C$:\msys64\mingw64\share\cmake\Modules\Internal\CMakeCXXLinkerInformation.cmake C$:\msys64\mingw64\share\cmake\Modules\Internal\CMakeCommonLinkerInformation.cmake C$:\msys64\mingw64\share\cmake\Modules\Linker\MSVC-CXX.cmake C$:\msys64\mingw64\share\cmake\Modules\Linker\MSVC.cmake C$:\msys64\mingw64\share\cmake\Modules\Platform\Linker\Windows-MSVC-CXX.cmake C$:\msys64\mingw64\share\cmake\Modules\Platform\Linker\Windows-MSVC.cmake C$:\msys64\mingw64\share\cmake\Modules\Platform\Windows-Initialize.cmake C$:\msys64\mingw64\share\cmake\Modules\Platform\Windows-MSVC-CXX.cmake C$:\msys64\mingw64\share\cmake\Modules\Platform\Windows-MSVC.cmake C$:\msys64\mingw64\share\cmake\Modules\Platform\Windows-NVIDIA-CUDA.cmake C$:\msys64\mingw64\share\cmake\Modules\Platform\Windows.cmake C$:\msys64\mingw64\share\cmake\Modules\Platform\WindowsPaths.cmake CMakeCache.txt CMakeFiles\4.2.1\CMakeCUDACompiler.cmake CMakeFiles\4.2.1\CMakeCXXCompiler.cmake CMakeFiles\4.2.1\CMakeRCCompiler.cmake CMakeFiles\4.2.1\CMakeSystem.cmake D$:\pyproject\kctsb\src\advanced\cuda\CMakeLists.txt: phony
 
 
 #############################################

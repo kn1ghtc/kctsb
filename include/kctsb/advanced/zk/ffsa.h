@@ -17,6 +17,9 @@
  *------------------------------------------------------------------------------
  */
 
+// TODO: Reimplement ffsa using kctsb::ZZ instead of GMP
+#ifdef KCTSB_USE_GMP  // Only compile when GMP is explicitly enabled
+
 #include <vector>
 #include <stdint.h>
 #include <gmp.h>
@@ -35,6 +38,7 @@ void ffsa_compute_y(mpz_t y, const mpz_vec_t& s, const bool_vec_t& a, const mpz_
 bool ffsa_verify_values(const mpz_t y, const mpz_vec_t& v, const bool_vec_t& a, const mpz_t n, const mpz_t x);
 bool ffsa_check_prime(const mpz_t p);
 
+#endif  // KCTSB_USE_GMP
 
 
 

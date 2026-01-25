@@ -22,6 +22,10 @@
  * @copyright Copyright (c) 2019-2026 knightc. Licensed under Apache 2.0
  */
 
+// TODO: FHE modules (BGV/BFV/CKKS) need v5.0 reimplementation
+// This file is temporarily disabled until FHE modules are reimplemented
+#if 0  // Disabled for v5.0 - requires FHE module reimplementation
+
 #include "kctsb/advanced/psi/native_pir.h"
 #include "kctsb/advanced/fe/bgv/bgv_evaluator.hpp"
 #include "kctsb/advanced/fe/bfv/bfv_evaluator.hpp"
@@ -643,3 +647,5 @@ std::vector<NativePIR::Result> NativePIR::batch_query(const std::vector<size_t>&
 
 } // namespace pir
 } // namespace kctsb
+
+#endif  // Disabled for v5.0

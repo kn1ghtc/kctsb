@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file test_ecc.cpp
  * @brief ECC (Elliptic Curve Cryptography) unit tests
  * 
@@ -7,7 +7,7 @@
  * - Generator point validation for secp256k1, P-256, SM2
  * - Scalar multiplication (Montgomery ladder)
  * - Point addition and doubling
- * - Coordinate conversion (Jacobian ↔ Affine)
+ * - Coordinate conversion (Jacobian 鈫?Affine)
  * 
  * Tests migrated from test_fe256_point.cpp (v4.6.0)
  * 
@@ -115,8 +115,8 @@ TEST_F(ECCurveTest, GeneratorCoordinates_Secp256k1) {
     JacobianPoint G = curve_secp256k1_->get_generator();
     AffinePoint G_aff = curve_secp256k1_->to_affine(G);
     
-    ZZ expected_Gx = conv<ZZ>("55066263022277343669578718895168534326250603453777594175500187360389116729240");
-    ZZ expected_Gy = conv<ZZ>("32670510020758816978083085130507043184471273380659243275938904335757337482424");
+    ZZ expected_Gx = ZZ::from_decimal("55066263022277343669578718895168534326250603453777594175500187360389116729240");
+    ZZ expected_Gy = ZZ::from_decimal("32670510020758816978083085130507043184471273380659243275938904335757337482424");
     
     EXPECT_EQ(rep(G_aff.x), expected_Gx) << "secp256k1 Gx mismatch";
     EXPECT_EQ(rep(G_aff.y), expected_Gy) << "secp256k1 Gy mismatch";
@@ -130,8 +130,8 @@ TEST_F(ECCurveTest, GeneratorCoordinates_P256) {
     JacobianPoint G = curve_p256_->get_generator();
     AffinePoint G_aff = curve_p256_->to_affine(G);
     
-    ZZ expected_Gx = conv<ZZ>("48439561293906451759052585252797914202762949526041747995844080717082404635286");
-    ZZ expected_Gy = conv<ZZ>("36134250956749795798585127919587881956611106672985015071877198253568414405109");
+    ZZ expected_Gx = ZZ::from_decimal("48439561293906451759052585252797914202762949526041747995844080717082404635286");
+    ZZ expected_Gy = ZZ::from_decimal("36134250956749795798585127919587881956611106672985015071877198253568414405109");
     
     EXPECT_EQ(rep(G_aff.x), expected_Gx) << "P-256 Gx mismatch";
     EXPECT_EQ(rep(G_aff.y), expected_Gy) << "P-256 Gy mismatch";
@@ -142,8 +142,8 @@ TEST_F(ECCurveTest, GeneratorCoordinates_SM2) {
     JacobianPoint G = curve_sm2_->get_generator();
     AffinePoint G_aff = curve_sm2_->to_affine(G);
     
-    ZZ expected_Gx = conv<ZZ>("22963146547237050559479531362550074578802567295341616970375194840604139615431");
-    ZZ expected_Gy = conv<ZZ>("85132369209828568825618990617112496413088388631904505083283536607588877201568");
+    ZZ expected_Gx = ZZ::from_decimal("22963146547237050559479531362550074578802567295341616970375194840604139615431");
+    ZZ expected_Gy = ZZ::from_decimal("85132369209828568825618990617112496413088388631904505083283536607588877201568");
     
     EXPECT_EQ(rep(G_aff.x), expected_Gx) << "SM2 Gx mismatch";
     EXPECT_EQ(rep(G_aff.y), expected_Gy) << "SM2 Gy mismatch";
@@ -193,7 +193,7 @@ TEST_F(ECCurveTest, ScalarMultVarious_Secp256k1) {
     };
 
     for (const auto& ks : test_ks) {
-        ZZ k = conv<ZZ>(ks.c_str());
+        ZZ k = ZZ::from_decimal(ks.c_str());
         JacobianPoint result = curve_secp256k1_->scalar_mult(k, G);
         
         EXPECT_TRUE(curve_secp256k1_->is_on_curve(result)) 
@@ -205,7 +205,7 @@ TEST_F(ECCurveTest, ScalarMultBase_P256) {
     // Test scalar_mult_base function
     ASSERT_NE(curve_p256_, nullptr);
     
-    ZZ k = conv<ZZ>("295990755083832485362655746424040587759");
+    ZZ k = ZZ::from_decimal("295990755083832485362655746424040587759");
     JacobianPoint result = curve_p256_->scalar_mult_base(k);
     
     EXPECT_TRUE(curve_p256_->is_on_curve(result)) << "k*G should be on curve for P-256";
@@ -369,8 +369,8 @@ TEST_F(ECCurveTest, InvalidPointNotOnCurve) {
     
     // Create a point with arbitrary coordinates (likely not on curve)
     ZZ_p::init(curve_secp256k1_->get_prime());
-    ZZ_p bad_x = conv<ZZ_p>(ZZ(12345));
-    ZZ_p bad_y = conv<ZZ_p>(ZZ(67890));
+    ZZ_p bad_x = ZZ_p(12345);
+    ZZ_p bad_y = ZZ_p(67890);
     AffinePoint bad_point(bad_x, bad_y);
     
     EXPECT_FALSE(curve_secp256k1_->is_on_curve(bad_point)) 
@@ -388,3 +388,4 @@ int main(int argc, char** argv) {
     testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }
+

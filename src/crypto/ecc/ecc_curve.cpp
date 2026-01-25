@@ -1524,17 +1524,17 @@ CurveParams get_secp256k1_params() {
     params.bit_size = 256;
     
     // p = 2^256 - 2^32 - 977
-    params.p = conv<ZZ>("115792089237316195423570985008687907853269984665640564039457584007908834671663");
+    params.p = ZZ::from_decimal("115792089237316195423570985008687907853269984665640564039457584007908834671663");
     params.a = ZZ(0);  // a = 0
     params.b = ZZ(7);  // b = 7
     
     // Order n (prime)
-    params.n = conv<ZZ>("115792089237316195423570985008687907852837564279074904382605163141518161494337");
+    params.n = ZZ::from_decimal("115792089237316195423570985008687907852837564279074904382605163141518161494337");
     params.h = ZZ(1);  // Cofactor
     
     // Generator G
-    params.Gx = conv<ZZ>("55066263022277343669578718895168534326250603453777594175500187360389116729240");
-    params.Gy = conv<ZZ>("32670510020758816978083085130507043184471273380659243275938904335757337482424");
+    params.Gx = ZZ::from_decimal("55066263022277343669578718895168534326250603453777594175500187360389116729240");
+    params.Gy = ZZ::from_decimal("32670510020758816978083085130507043184471273380659243275938904335757337482424");
     
     return params;
 }
@@ -1545,15 +1545,15 @@ CurveParams get_secp256r1_params() {
     params.bit_size = 256;
     
     // p = 2^256 - 2^224 + 2^192 + 2^96 - 1
-    params.p = conv<ZZ>("115792089210356248762697446949407573530086143415290314195533631308867097853951");
-    params.a = conv<ZZ>("115792089210356248762697446949407573530086143415290314195533631308867097853948");
-    params.b = conv<ZZ>("41058363725152142129326129780047268409114441015993725554835256314039467401291");
+    params.p = ZZ::from_decimal("115792089210356248762697446949407573530086143415290314195533631308867097853951");
+    params.a = ZZ::from_decimal("115792089210356248762697446949407573530086143415290314195533631308867097853948");
+    params.b = ZZ::from_decimal("41058363725152142129326129780047268409114441015993725554835256314039467401291");
     
-    params.n = conv<ZZ>("115792089210356248762697446949407573529996955224135760342422259061068512044369");
+    params.n = ZZ::from_decimal("115792089210356248762697446949407573529996955224135760342422259061068512044369");
     params.h = ZZ(1);
     
-    params.Gx = conv<ZZ>("48439561293906451759052585252797914202762949526041747995844080717082404635286");
-    params.Gy = conv<ZZ>("36134250956749795798585127919587881956611106672985015071877198253568414405109");
+    params.Gx = ZZ::from_decimal("48439561293906451759052585252797914202762949526041747995844080717082404635286");
+    params.Gy = ZZ::from_decimal("36134250956749795798585127919587881956611106672985015071877198253568414405109");
     
     return params;
 }
@@ -1566,15 +1566,15 @@ CurveParams get_sm2_params() {
     params.bit_size = 256;
     
     // SM2 curve parameters (Chinese National Standard)
-    params.p = conv<ZZ>("115792089210356248756420345214020892766250353991924191454421193933289684991999");
-    params.a = conv<ZZ>("115792089210356248756420345214020892766250353991924191454421193933289684991996");
-    params.b = conv<ZZ>("18505919022281880113072981827955639221458448578012075254857346196103069175443");
+    params.p = ZZ::from_decimal("115792089210356248756420345214020892766250353991924191454421193933289684991999");
+    params.a = ZZ::from_decimal("115792089210356248756420345214020892766250353991924191454421193933289684991996");
+    params.b = ZZ::from_decimal("18505919022281880113072981827955639221458448578012075254857346196103069175443");
     
-    params.n = conv<ZZ>("115792089210356248756420345214020892766061623724957744567843809356293439045923");
+    params.n = ZZ::from_decimal("115792089210356248756420345214020892766061623724957744567843809356293439045923");
     params.h = ZZ(1);
     
-    params.Gx = conv<ZZ>("22963146547237050559479531362550074578802567295341616970375194840604139615431");
-    params.Gy = conv<ZZ>("85132369209828568825618990617112496413088388631904505083283536607588877201568");
+    params.Gx = ZZ::from_decimal("22963146547237050559479531362550074578802567295341616970375194840604139615431");
+    params.Gy = ZZ::from_decimal("85132369209828568825618990617112496413088388631904505083283536607588877201568");
     
     return params;
 }
@@ -1592,12 +1592,12 @@ ECCurve::ECCurve(const CurveParams& params) {
     
     init_modulus();
     
-    a_ = conv<ZZ_p>(params.a);
-    b_ = conv<ZZ_p>(params.b);
+    a_ = ZZ_p(params.a);
+    b_ = ZZ_p(params.b);
     
     // Initialize generator in Jacobian coordinates
-    ZZ_p Gx = conv<ZZ_p>(params.Gx);
-    ZZ_p Gy = conv<ZZ_p>(params.Gy);
+    ZZ_p Gx = ZZ_p(params.Gx);
+    ZZ_p Gy = ZZ_p(params.Gy);
     G_ = JacobianPoint(Gx, Gy);
 }
 
@@ -1625,11 +1625,11 @@ ECCurve::ECCurve(CurveType type) {
     
     init_modulus();
     
-    a_ = conv<ZZ_p>(params.a);
-    b_ = conv<ZZ_p>(params.b);
+    a_ = ZZ_p(params.a);
+    b_ = ZZ_p(params.b);
     
-    ZZ_p Gx = conv<ZZ_p>(params.Gx);
-    ZZ_p Gy = conv<ZZ_p>(params.Gy);
+    ZZ_p Gx = ZZ_p(params.Gx);
+    ZZ_p Gy = ZZ_p(params.Gy);
     G_ = JacobianPoint(Gx, Gy);
 }
 
@@ -1708,21 +1708,21 @@ JacobianPoint ECCurve::add(const JacobianPoint& P, const JacobianPoint& Q) const
     // Handle identity cases - must normalize before returning
     if (P.is_infinity()) {
         // Normalize Q's coordinates under current modulus
-        return JacobianPoint(conv<ZZ_p>(rep(Q.X)), conv<ZZ_p>(rep(Q.Y)), conv<ZZ_p>(rep(Q.Z)));
+        return JacobianPoint(ZZ_p(rep(Q.X)), ZZ_p(rep(Q.Y)), ZZ_p(rep(Q.Z)));
     }
     if (Q.is_infinity()) {
         // Normalize P's coordinates under current modulus
-        return JacobianPoint(conv<ZZ_p>(rep(P.X)), conv<ZZ_p>(rep(P.Y)), conv<ZZ_p>(rep(P.Z)));
+        return JacobianPoint(ZZ_p(rep(P.X)), ZZ_p(rep(P.Y)), ZZ_p(rep(P.Z)));
     }
     
     // CRITICAL: Normalize input coordinates under current modulus
     // This ensures ZZ_p values created under different modulus are correctly interpreted
-    ZZ_p P_X = conv<ZZ_p>(rep(P.X));
-    ZZ_p P_Y = conv<ZZ_p>(rep(P.Y));
-    ZZ_p P_Z = conv<ZZ_p>(rep(P.Z));
-    ZZ_p Q_X = conv<ZZ_p>(rep(Q.X));
-    ZZ_p Q_Y = conv<ZZ_p>(rep(Q.Y));
-    ZZ_p Q_Z = conv<ZZ_p>(rep(Q.Z));
+    ZZ_p P_X = ZZ_p(rep(P.X));
+    ZZ_p P_Y = ZZ_p(rep(P.Y));
+    ZZ_p P_Z = ZZ_p(rep(P.Z));
+    ZZ_p Q_X = ZZ_p(rep(Q.X));
+    ZZ_p Q_Y = ZZ_p(rep(Q.Y));
+    ZZ_p Q_Z = ZZ_p(rep(Q.Z));
     
     // Optimized Jacobian addition (12M + 4S formula from EFD)
     // https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html
@@ -1774,9 +1774,9 @@ JacobianPoint ECCurve::double_point(const JacobianPoint& P) const {
     }
     
     // CRITICAL: Normalize input coordinates under current modulus
-    ZZ_p P_X = conv<ZZ_p>(rep(P.X));
-    ZZ_p P_Y = conv<ZZ_p>(rep(P.Y));
-    ZZ_p P_Z = conv<ZZ_p>(rep(P.Z));
+    ZZ_p P_X = ZZ_p(rep(P.X));
+    ZZ_p P_Y = ZZ_p(rep(P.Y));
+    ZZ_p P_Z = ZZ_p(rep(P.Z));
     
     // Optimized doubling formula from EFD
     // For a = 0: dbl-2009-l (1M + 5S + 1*a + 7add + 2*2 + 1*3 + 1*8)
@@ -1828,8 +1828,8 @@ JacobianPoint ECCurve::negate(const JacobianPoint& P) const {
     }
     
     // Normalize and negate
-    ZZ_p P_Y = conv<ZZ_p>(rep(P.Y));
-    return JacobianPoint(conv<ZZ_p>(rep(P.X)), -P_Y, conv<ZZ_p>(rep(P.Z)));
+    ZZ_p P_Y = ZZ_p(rep(P.Y));
+    return JacobianPoint(ZZ_p(rep(P.X)), -P_Y, ZZ_p(rep(P.Z)));
 }
 
 JacobianPoint ECCurve::subtract(const JacobianPoint& P, const JacobianPoint& Q) const {
@@ -1907,9 +1907,9 @@ JacobianPoint ECCurve::montgomery_ladder(const ZZ& k, const JacobianPoint& P) co
         
         // Convert inputs to fe256 format
         // Normalize coordinates under current modulus first
-        ZZ_p P_X = conv<ZZ_p>(rep(P.X));
-        ZZ_p P_Y = conv<ZZ_p>(rep(P.Y));
-        ZZ_p P_Z = conv<ZZ_p>(rep(P.Z));
+        ZZ_p P_X = ZZ_p(rep(P.X));
+        ZZ_p P_Y = ZZ_p(rep(P.Y));
+        ZZ_p P_Z = ZZ_p(rep(P.Z));
         
         Fe256Point fe_P;
         zz_to_fe256(&fe_P.X, rep(P_X));
@@ -1952,7 +1952,7 @@ JacobianPoint ECCurve::montgomery_ladder(const ZZ& k, const JacobianPoint& P) co
         fe256_to_zz(ry, &out_y);
         fe256_to_zz(rz, &out_z);
         
-        return JacobianPoint(conv<ZZ_p>(rx), conv<ZZ_p>(ry), conv<ZZ_p>(rz));
+        return JacobianPoint(ZZ_p(rx), ZZ_p(ry), ZZ_p(rz));
     }
     
     // Fallback: NTL-based Montgomery ladder for non-256-bit curves
@@ -1961,7 +1961,7 @@ JacobianPoint ECCurve::montgomery_ladder(const ZZ& k, const JacobianPoint& P) co
     
     // Normalize input point coordinates under correct modulus
     JacobianPoint R0 = JacobianPoint();  // R0 = O (infinity)
-    JacobianPoint R1(conv<ZZ_p>(rep(P.X)), conv<ZZ_p>(rep(P.Y)), conv<ZZ_p>(rep(P.Z)));
+    JacobianPoint R1(ZZ_p(rep(P.X)), ZZ_p(rep(P.Y)), ZZ_p(rep(P.Z)));
     
     long num_bits = NumBits(k_mod);
     
@@ -1982,14 +1982,14 @@ JacobianPoint ECCurve::montgomery_ladder(const ZZ& k, const JacobianPoint& P) co
 JacobianPoint ECCurve::scalar_mult(const ZZ& k, const JacobianPoint& P) const {
     // Use constant-time Montgomery ladder for security
     ZZ_p::init(p_);
-    JacobianPoint P_norm(conv<ZZ_p>(rep(P.X)), conv<ZZ_p>(rep(P.Y)), conv<ZZ_p>(rep(P.Z)));
+    JacobianPoint P_norm(ZZ_p(rep(P.X)), ZZ_p(rep(P.Y)), ZZ_p(rep(P.Z)));
     return montgomery_ladder(k, P_norm);
 }
 
 JacobianPoint ECCurve::scalar_mult_base(const ZZ& k) const {
     // Use constant-time Montgomery ladder for security
     ZZ_p::init(p_);
-    JacobianPoint G_norm(conv<ZZ_p>(rep(G_.X)), conv<ZZ_p>(rep(G_.Y)), conv<ZZ_p>(rep(G_.Z)));
+    JacobianPoint G_norm(ZZ_p(rep(G_.X)), ZZ_p(rep(G_.Y)), ZZ_p(rep(G_.Z)));
     return montgomery_ladder(k, G_norm);
 }
 
@@ -2003,8 +2003,8 @@ JacobianPoint ECCurve::double_scalar_mult(const ZZ& k1, const JacobianPoint& P,
     ZZ_p::init(p_);
     
     // CRITICAL: Normalize point coordinates under current modulus
-    JacobianPoint P_norm(conv<ZZ_p>(rep(P.X)), conv<ZZ_p>(rep(P.Y)), conv<ZZ_p>(rep(P.Z)));
-    JacobianPoint Q_norm(conv<ZZ_p>(rep(Q.X)), conv<ZZ_p>(rep(Q.Y)), conv<ZZ_p>(rep(Q.Z)));
+    JacobianPoint P_norm(ZZ_p(rep(P.X)), ZZ_p(rep(P.Y)), ZZ_p(rep(P.Z)));
+    JacobianPoint Q_norm(ZZ_p(rep(Q.X)), ZZ_p(rep(Q.Y)), ZZ_p(rep(Q.Z)));
     
     // Shamir's trick for simultaneous multiple scalar multiplication
     // Precompute: P, Q, P+Q
@@ -2051,9 +2051,9 @@ AffinePoint ECCurve::to_affine(const JacobianPoint& P) const {
     ZZ_p::init(p_);
     
     // CRITICAL: Normalize coordinates under current modulus p_
-    ZZ_p X = conv<ZZ_p>(rep(P.X));
-    ZZ_p Y = conv<ZZ_p>(rep(P.Y));
-    ZZ_p Z = conv<ZZ_p>(rep(P.Z));
+    ZZ_p X = ZZ_p(rep(P.X));
+    ZZ_p Y = ZZ_p(rep(P.Y));
+    ZZ_p Z = ZZ_p(rep(P.Z));
     
     // x = X / Z²
     // y = Y / Z³
@@ -2148,7 +2148,7 @@ AffinePoint ECCurve::point_from_bytes(const unsigned char* in, size_t in_len) co
         ZZ x_int = ZZFromBytes(x_le.data(), static_cast<long>(field_size));
         ZZ y_int = ZZFromBytes(y_le.data(), static_cast<long>(field_size));
         
-        AffinePoint P(conv<ZZ_p>(x_int), conv<ZZ_p>(y_int));
+        AffinePoint P{ZZ_p(x_int), ZZ_p(y_int)};
         
         if (!is_on_curve(P)) {
             throw std::invalid_argument("Point is not on curve");
@@ -2163,3 +2163,5 @@ AffinePoint ECCurve::point_from_bytes(const unsigned char* in, size_t in_len) co
 
 } // namespace ecc
 } // namespace kctsb
+
+

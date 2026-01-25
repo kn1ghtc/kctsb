@@ -162,7 +162,7 @@ RSAKeyPair RSA::generate_keypair(int bits, const ZZ& e) {
         k.p = generate_prime(bits / 2);
         k.q = generate_prime(bits - bits / 2);
         if (k.p == k.q) continue;
-        if (k.p < k.q) swap(k.p, k.q);
+        if (k.p < k.q) std::swap(k.p, k.q);
         
         k.n = k.p * k.q;
         if (NumBits(k.n) != bits) continue;
@@ -538,3 +538,4 @@ bool rsa_verify(const uint8_t* mHash, size_t hlen, const uint8_t* sig, size_t si
 
 } // namespace rsa
 } // namespace kctsb
+

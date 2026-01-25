@@ -1,65 +1,37 @@
-﻿#ifndef KCTSB_ZZXFactoring__H
-#define KCTSB_ZZXFactoring__H
+/**
+ * @file ZZXFactoring.h
+ * @brief NTL Compatibility Layer - Polynomial Factoring
+ * 
+ * Stub header for polynomial factorization over integers.
+ * This is a minimal compatibility layer for v5.0.
+ * 
+ * @version 5.0.0 - Stub implementation
+ */
 
+#ifndef KCTSB_MATH_BIGNUM_ZZXFACTORING_H
+#define KCTSB_MATH_BIGNUM_ZZXFACTORING_H
 
-#include <kctsb/math/bignum/ZZX.h>
-#include <kctsb/math/bignum/pair_ZZX_long.h>
+#include "ZZX.h"
+#include <vector>
 
-KCTSB_OPEN_NNS
+namespace kctsb {
 
-void mul(ZZX& x, const vec_pair_ZZX_long& a);
-inline ZZX mul(const vec_pair_ZZX_long& v)
-   { ZZX x; mul(x, v); return x; }
+/**
+ * @brief Polynomial factoring result
+ */
+using vec_pair_ZZX_long = std::vector<std::pair<ZZX, long>>;
 
-void SquareFreeDecomp(vec_pair_ZZX_long& u, const ZZX& f);
-inline vec_pair_ZZX_long SquareFreeDecomp(const ZZX& f)
-   { vec_pair_ZZX_long x; SquareFreeDecomp(x, f); return x; }
+/**
+ * @brief Factor polynomial (stub - not fully implemented)
+ */
+inline void factor(ZZ& content, vec_pair_ZZX_long& factors, const ZZX& f) {
+    content = ZZ(1);
+    factors.clear();
+    if (!f.IsZero()) {
+        factors.push_back({f, 1});
+    }
+}
 
-// input is primitive, with positive leading coefficient
+} // namespace kctsb
 
-void MultiLift(vec_ZZX& A, const vec_zz_pX& a, const ZZX& f, long e,
-               long verbose=0);
-
-// Using current value p of zz_p::modulus(), this lifts
-// the square-free factorization a mod p of f to a factorization
-// A mod p^e of f.
-// It is required that f and all the polynomials in a are monic.
-
-
-
-void SFFactor(vec_ZZX& factors, const ZZX& f,
-              long verbose=0,
-              long bnd=0);
-
-inline vec_ZZX SFFactor(const ZZX& f, long verbose=0, long bnd=0)
-   { vec_ZZX x; SFFactor(x, f, verbose, bnd); return x; }
-
-// input f is primitive and square-free, with positive leading
-// coefficient.  
-
-// bnd, if not zero, indicates that
-// f divides a polynomial h whose Euclidean norm
-// is bounded by 2^{bnd} in absolute value.
-
-extern KCTSB_CHEAP_THREAD_LOCAL long ZZXFac_MaxPrune;
-extern KCTSB_CHEAP_THREAD_LOCAL long ZZXFac_InitNumPrimes;
-extern KCTSB_CHEAP_THREAD_LOCAL long ZZXFac_MaxNumPrimes;
-extern KCTSB_CHEAP_THREAD_LOCAL long ZZXFac_PowerHack;
-extern KCTSB_CHEAP_THREAD_LOCAL long ZZXFac_van_Hoeij;
-
-
-void factor(ZZ& c,
-            vec_pair_ZZX_long& factors,
-            const ZZX& f,
-            long verbose=0,
-            long bnd=0);
-
-// input f is is an arbitrary polynomial.
-// c is the content of f, and factors is the factorization
-// of its primitive part.
-
-// bnd is as in SFFactor.
-
-KCTSB_CLOSE_NNS
-
-#endif
+#endif // KCTSB_MATH_BIGNUM_ZZXFACTORING_H

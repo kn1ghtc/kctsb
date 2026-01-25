@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file test_fe256_debug.cpp
  * @brief fe256 Layer Debug Tests
  *
@@ -90,8 +90,8 @@ TEST_F(Fe256DebugTest, ScalarMult_k2_Produces2G) {
     JacobianPoint result = curve_secp256k1_->scalar_mult(k, G);
     
     // Expected 2*G coordinates (secp256k1)
-    ZZ expected_2Gx = conv<ZZ>("89565891926547004231252920425935692360644145829622209833684329913297188986597");
-    ZZ expected_2Gy = conv<ZZ>("12158399299693830322967808612713398636155367887041628176798871954788371653930");
+    ZZ expected_2Gx = ZZ::from_decimal("89565891926547004231252920425935692360644145829622209833684329913297188986597");
+    ZZ expected_2Gy = ZZ::from_decimal("12158399299693830322967808612713398636155367887041628176798871954788371653930");
     
     AffinePoint result_aff = curve_secp256k1_->to_affine(result);
     
@@ -132,4 +132,5 @@ TEST(Fe256DebugTest, DISABLED_Bignum_NotAvailable) {
     GTEST_SKIP() << "Bignum modules not available";
 }
 #endif
+
 

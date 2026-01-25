@@ -7,11 +7,13 @@
  * @author kn1ghtc
  * @version 4.13.0
  * @date 2026-01-25
+ * 
+ * @note Native-PIR tests are disabled pending V5.0 FHE module reimplementation
  */
 
 #include <gtest/gtest.h>
 #include "kctsb/advanced/psi/psi.h"
-#include "kctsb/advanced/psi/native_pir.h"
+// #include "kctsb/advanced/psi/native_pir.h"  // Disabled: requires FHE modules
 #include "kctsb/advanced/psi/ot_psi.h"
 
 #include <cstring>
@@ -96,7 +98,11 @@ TEST_F(PSIPIRTest, OTPSI_Extension) {
 
 /* ============================================================================
  * Native PIR Tests
+ * NOTE: Disabled pending V5.0 FHE module reimplementation
+ * The native_pir module requires FHE (BGV/BFV/CKKS) which needs V5 reimplementation
  * ============================================================================ */
+
+#if 0  // Disabled: requires FHE modules (BGV/BFV/CKKS)
 
 TEST_F(PSIPIRTest, NativePIR_BGV_IntDB) {
     // Create integer database
@@ -152,6 +158,8 @@ TEST_F(PSIPIRTest, NativePIR_CKKS_DoubleDB) {
     kctsb_native_pir_result_free(&result);
     kctsb_native_pir_destroy(ctx);
 }
+
+#endif  // Disabled: requires FHE modules
 
 /* ============================================================================
  * Performance Tests

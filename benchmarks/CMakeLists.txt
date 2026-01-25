@@ -359,3 +359,42 @@ else()
 endif()
 
 message(STATUS "PSI/PIR benchmark configured: Piano-PSI, OT-PSI, Native PIR")
+
+# ============================================================================
+# V5 Self-Contained Benchmark (No OpenSSL Runtime Dependency)
+# Uses hardcoded baselines from baseline_data.hpp
+# ============================================================================
+
+add_executable(kctsb_benchmark_v5 benchmark_v5.cpp)
+
+target_include_directories(kctsb_benchmark_v5 PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/benchmarks  # For baseline_data.hpp
+)
+
+if(TARGET kctsb_static)
+    target_link_libraries(kctsb_benchmark_v5 PRIVATE kctsb_static)
+elseif(TARGET kctsb_shared)
+    target_link_libraries(kctsb_benchmark_v5 PRIVATE kctsb_shared)
+endif()
+
+set_target_properties(kctsb_benchmark_v5 PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+)
+
+if(MSVC)
+    target_compile_options(kctsb_benchmark_v5 PRIVATE /O2 /fp:fast /utf-8)
+else()
+    target_compile_options(kctsb_benchmark_v5 PRIVATE
+        -O3 -march=native
+        -finput-charset=UTF-8
+        -fexec-charset=UTF-8
+        -Wno-conversion
+        -Wno-sign-conversion
+    )
+endif()
+
+message(STATUS "✓ V5 Self-Contained Benchmark: BigInt, Fe256, RSA/ECC/SM2/DH v5")
+message(STATUS "  Uses hardcoded OpenSSL 3.6.0 baselines (no runtime dependency)")
+

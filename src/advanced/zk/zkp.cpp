@@ -29,11 +29,11 @@ namespace zkp {
 // ============================================================================
 
 ZZ BN254Params::get_field_prime() {
-    return conv<ZZ>("21888242871839275222246405745257275088696311157297823662689037894645226208583");
+    return ZZ::from_decimal("21888242871839275222246405745257275088696311157297823662689037894645226208583");
 }
 
 ZZ BN254Params::get_scalar_order() {
-    return conv<ZZ>("21888242871839275222246405745257275088548364400416034343698204186575808495617");
+    return ZZ::from_decimal("21888242871839275222246405745257275088548364400416034343698204186575808495617");
 }
 
 // ============================================================================
@@ -43,8 +43,8 @@ ZZ BN254Params::get_scalar_order() {
 G1Point G1Point::generator() {
     ZZ_p::init(BN254Params::get_field_prime());
     G1Point g;
-    g.x = conv<ZZ_p>(ZZ(1));
-    g.y = conv<ZZ_p>(ZZ(2));
+    g.x = ZZ_p(1);
+    g.y = ZZ_p(2);
     g.infinity = false;
     return g;
 }
@@ -66,8 +66,8 @@ G1Point G1Point::operator+(const G1Point& other) const {
     if (x == other.x) {
         if (y == other.y && !IsZero(y)) {
             // Point doubling
-            ZZ_p lambda = (3 * x * x) / (2 * y);
-            result.x = lambda * lambda - 2 * x;
+            ZZ_p lambda = (ZZ_p(3) * x * x) / (ZZ_p(2) * y);
+            result.x = lambda * lambda - ZZ_p(2) * x;
             result.y = lambda * (x - result.x) - y;
         } else {
             return identity();
@@ -144,8 +144,8 @@ G1Point G1Point::deserialize(const uint8_t* data, size_t len) {
     ZZ x_zz = ZZFromBytes(data + 1, 32);
     ZZ y_zz = ZZFromBytes(data + 33, 32);
 
-    p.x = conv<ZZ_p>(x_zz);
-    p.y = conv<ZZ_p>(y_zz);
+    p.x = ZZ_p(x_zz);
+    p.y = ZZ_p(y_zz);
     p.infinity = false;
 
     return p;
@@ -159,10 +159,10 @@ G2Point G2Point::generator() {
     ZZ_p::init(BN254Params::get_field_prime());
     G2Point g;
     // BN254 G2 generator coordinates (simplified)
-    g.x_real = conv<ZZ_p>(conv<ZZ>("10857046999023057135944570762232829481370756359578518086990519993285655852781"));
-    g.x_imag = conv<ZZ_p>(conv<ZZ>("11559732032986387107991004021392285783925812861821192530917403151452391805634"));
-    g.y_real = conv<ZZ_p>(conv<ZZ>("8495653923123431417604973247489272438418190587263600148770280649306958101930"));
-    g.y_imag = conv<ZZ_p>(conv<ZZ>("4082367875863433681332203403145435568316851327593401208105741076214120093531"));
+    g.x_real = ZZ_p(ZZ::from_decimal("10857046999023057135944570762232829481370756359578518086990519993285655852781"));
+    g.x_imag = ZZ_p(ZZ::from_decimal("11559732032986387107991004021392285783925812861821192530917403151452391805634"));
+    g.y_real = ZZ_p(ZZ::from_decimal("8495653923123431417604973247489272438418190587263600148770280649306958101930"));
+    g.y_imag = ZZ_p(ZZ::from_decimal("4082367875863433681332203403145435568316851327593401208105741076214120093531"));
     g.infinity = false;
     return g;
 }
@@ -249,10 +249,10 @@ G2Point G2Point::deserialize(const uint8_t* data, size_t len) {
 
     ZZ_p::init(BN254Params::get_field_prime());
 
-    p.x_real = conv<ZZ_p>(ZZFromBytes(data + 1, 32));
-    p.x_imag = conv<ZZ_p>(ZZFromBytes(data + 33, 32));
-    p.y_real = conv<ZZ_p>(ZZFromBytes(data + 65, 32));
-    p.y_imag = conv<ZZ_p>(ZZFromBytes(data + 97, 32));
+    p.x_real = ZZ_p(ZZFromBytes(data + 1, 32));
+    p.x_imag = ZZ_p(ZZFromBytes(data + 33, 32));
+    p.y_real = ZZ_p(ZZFromBytes(data + 65, 32));
+    p.y_imag = ZZ_p(ZZFromBytes(data + 97, 32));
     p.infinity = false;
 
     return p;
@@ -266,7 +266,7 @@ GTElement GTElement::identity() {
     GTElement e;
     e.coeffs.resize(12);
     ZZ_p::init(BN254Params::get_field_prime());
-    e.coeffs[0] = conv<ZZ_p>(ZZ(1));  // Multiplicative identity
+    e.coeffs[0] = ZZ_p(ZZ(1));  // Multiplicative identity
     return e;
 }
 
@@ -278,7 +278,7 @@ GTElement GTElement::operator*(const GTElement& other) const {
     ZZ_p::init(BN254Params::get_field_prime());
 
     for (size_t i = 0; i < 12; ++i) {
-        result.coeffs[i] = conv<ZZ_p>(ZZ(0));
+        result.coeffs[i] = ZZ_p(ZZ(0));
         for (size_t j = 0; j <= i; ++j) {
             if (j < coeffs.size() && (i-j) < other.coeffs.size()) {
                 result.coeffs[i] += coeffs[j] * other.coeffs[i-j];
@@ -319,7 +319,7 @@ GTElement pairing(const G1Point& a, const G2Point& b) {
     result.coeffs[1] = a.x * b.x_imag + a.y * b.y_imag;
 
     for (size_t i = 2; i < 12; ++i) {
-        result.coeffs[i] = conv<ZZ_p>(ZZ(0));
+        result.coeffs[i] = ZZ_p(ZZ(0));
     }
 
     return result;
@@ -1068,3 +1068,5 @@ Circuit build_hash_preimage_circuit(const std::string& hash_type) {
 
 } // namespace zkp
 } // namespace kctsb
+
+

@@ -21,8 +21,8 @@ cmake_minimum_required(VERSION 3.20)
 set(CMAKE_BUILD_PARALLEL_LEVEL 8 CACHE STRING "Default parallel build level")
 
 project(kctsb
-    VERSION 4.13.0
-    DESCRIPTION "Production-grade cryptographic algorithms library with integrated bignum math"
+    VERSION 5.0.0
+    DESCRIPTION "Production-grade self-contained cryptographic library"
     LANGUAGES C CXX
 )
 
@@ -269,13 +269,14 @@ else()
 endif()
 
 # ============================================================================
-# Bignum Source Code Defines (KCTSB Integrated)
+# Bignum Source Code Defines (KCTSB v5.0 Self-Contained)
 # ============================================================================
 
-# Define bignum configuration macros globally (使用 KCTSB_ 前缀)
+# v5.0: Bignum is now fully self-contained - NO external GMP/gf2x linking
+# The internal _kctsb_mpn_* functions provide all bignum operations
 add_definitions(
-    -DKCTSB_GMP_LIP           # Use GMP for big integers
-    -DKCTSB_GF2X_LIB          # Use gf2x library
+    # -DKCTSB_GMP_LIP         # v5.0: DISABLED - use internal implementation
+    # -DKCTSB_GF2X_LIB        # v5.0: DISABLED - use software implementation
     -DKCTSB_THREADS           # Enable threading
     -DKCTSB_STD_CXX17         # C++17 standard
     -DKCTSB_EXCEPTIONS        # Enable exceptions
@@ -351,16 +352,11 @@ if(KCTSB_BUILD_TESTS AND NOT KCTSB_BUILD_STATIC)
     set(KCTSB_BUILD_STATIC ON CACHE BOOL "Build static library (required for tests)" FORCE)
 endif()
 
-# Core dependencies (required - 动态链接)
-option(KCTSB_ENABLE_GMP "Enable GMP (required)" ON)
-option(KCTSB_ENABLE_GF2X "Enable gf2x (required for GF2X)" ON)
+# v5.0: Self-Contained Architecture - NO external math dependencies required
+# GMP and gf2x options removed - all operations use native ZZ/BigInt
 
-# Optional dependencies (仅 benchmark 对比使用)
-# v4.6.0: Enable SEAL/HElib for performance comparison benchmarks
+# Optional dependencies (benchmark comparison ONLY)
 option(KCTSB_ENABLE_SEAL "Enable Microsoft SEAL (benchmark only)" ON)
-option(KCTSB_ENABLE_HELIB "Enable HElib (benchmark only)" ON)
-
-# Benchmark-only dependency
 option(KCTSB_ENABLE_OPENSSL "Enable OpenSSL (benchmarks only)" ON)
 
 # ============================================================================
@@ -416,65 +412,11 @@ macro(kctsb_create_imported_target TARGET_NAME LIBRARY_PATH INCLUDE_DIRS)
 endmacro()
 
 # -----------------------------------------------------------------------------
-# GMP Detection 
-# 支持静态库(.a)和动态库(.dll/.so)两种模式
+# v5.0: SELF-CONTAINED ARCHITECTURE
+# GMP and gf2x are NO LONGER required - all math operations use native ZZ/BigInt
+# Kept as comments for historical reference and optional benchmark comparison
 # -----------------------------------------------------------------------------
-if(KCTSB_ENABLE_GMP)
-    kctsb_find_thirdparty_inc(GMP_INCLUDE_DIRS gmp.h)
-    kctsb_find_thirdparty_lib(GMP_LIBRARY gmp)
-    kctsb_find_thirdparty_lib(GMPXX_LIBRARY gmpxx)
-    
-    if(GMP_INCLUDE_DIRS AND GMP_LIBRARY)
-        set(GMP_FOUND TRUE)
-        message(STATUS "✓ GMP found: ${GMP_LIBRARY}")
-        add_definitions(-DKCTSB_HAS_GMP)
-        kctsb_create_imported_target(GMP::GMP "${GMP_LIBRARY}" "${GMP_INCLUDE_DIRS}")
-        
-        if(GMPXX_LIBRARY)
-            add_definitions(-DKCTSB_HAS_GMPXX)
-            kctsb_create_imported_target(GMP::GMPXX "${GMPXX_LIBRARY}" "${GMP_INCLUDE_DIRS}")
-        endif()
-    else()
-        message(FATAL_ERROR "GMP not found. Required for kctsb v4.1.0")
-    endif()
-endif()
-
-# -----------------------------------------------------------------------------
-# gf2x Detection (Required - Dynamic Linking )
-# -----------------------------------------------------------------------------
-if(KCTSB_ENABLE_GF2X)
-    kctsb_find_thirdparty_inc(GF2X_INCLUDE_DIRS gf2x.h)
-    if(NOT GF2X_INCLUDE_DIRS)
-        find_path(GF2X_INCLUDE_DIRS gf2x.h
-            HINTS "${KCTSB_THIRDPARTY_DIR}/linux-x64/include"
-            NO_DEFAULT_PATH)
-    endif()
-    # 优先查找共享库
-    if(WIN32)
-        find_library(GF2X_LIBRARY NAMES libgf2x-1 gf2x libgf2x
-            HINTS "${KCTSB_THIRDPARTY_PLATFORM_DIR}/lib"
-                  "${KCTSB_THIRDPARTY_DIR}/lib"
-            NO_DEFAULT_PATH)
-    else()
-        kctsb_find_thirdparty_lib(GF2X_LIBRARY gf2x)
-    endif()
-    if(NOT GF2X_LIBRARY)
-        find_library(GF2X_LIBRARY NAMES gf2x libgf2x
-            HINTS "${KCTSB_THIRDPARTY_DIR}/linux-x64/lib"
-            NO_DEFAULT_PATH)
-    endif()
-    
-    if(GF2X_INCLUDE_DIRS AND GF2X_LIBRARY)
-        set(GF2X_FOUND TRUE)
-        message(STATUS "✓ gf2x found: ${GF2X_LIBRARY}")
-        add_definitions(-DKCTSB_HAS_GF2X -DNTL_GF2X_LIB -DKCTSB_GF2X_LIB)
-        kctsb_create_imported_target(gf2x::gf2x "${GF2X_LIBRARY}" "${GF2X_INCLUDE_DIRS}")
-    else()
-        message(STATUS "⚠ gf2x not found, using software GF2X implementation")
-        set(KCTSB_ENABLE_GF2X OFF)
-        set(GF2X_FOUND FALSE)
-    endif()
-endif()
+message(STATUS "✓ v5.0 Self-Contained: Native ZZ/BigInt implementation (no GMP/gf2x)")
 
 # -----------------------------------------------------------------------------
 # SEAL Detection (Optional)
@@ -504,37 +446,6 @@ if(KCTSB_ENABLE_SEAL)
         message(STATUS "  - Include search: ${CMAKE_CURRENT_SOURCE_DIR}/deps/SEAL/native/src")
         message(STATUS "  - Library search: ${KCTSB_THIRDPARTY_PLATFORM_DIR}/lib")
         set(KCTSB_ENABLE_SEAL OFF)
-    endif()
-endif()
-
-# -----------------------------------------------------------------------------
-# HElib Detection (Optional)
-# Priority: 1) deps/HElib source, 2) thirdparty prebuilt
-# -----------------------------------------------------------------------------
-if(KCTSB_ENABLE_HELIB)
-    # First try deps/HElib source directory (contains headers)
-    find_path(HELIB_INCLUDE_DIRS helib/helib.h
-        HINTS "${CMAKE_CURRENT_SOURCE_DIR}/deps/HElib/include"
-              "${KCTSB_THIRDPARTY_PLATFORM_DIR}/include")
-    
-    find_library(HELIB_LIBRARY NAMES helib libhelib
-        HINTS "${KCTSB_THIRDPARTY_PLATFORM_DIR}/lib"
-              "${KCTSB_THIRDPARTY_DIR}/lib"
-              "${CMAKE_CURRENT_SOURCE_DIR}/deps/HElib/build/lib")
-    
-    if(HELIB_INCLUDE_DIRS AND HELIB_LIBRARY)
-        set(HELIB_FOUND TRUE)
-        message(STATUS "✓ HElib found:")
-        message(STATUS "  - Include: ${HELIB_INCLUDE_DIRS}")
-        message(STATUS "  - Library: ${HELIB_LIBRARY}")
-        # NOTE: Don't use global add_definitions() - HElib headers may require
-        # additional build-time generated files.
-        kctsb_create_imported_target(helib::helib "${HELIB_LIBRARY}" "${HELIB_INCLUDE_DIRS}")
-    else()
-        message(STATUS "⚠ HElib not found (optional)")
-        message(STATUS "  - Include search: ${CMAKE_CURRENT_SOURCE_DIR}/deps/HElib/include")
-        message(STATUS "  - Library search: ${KCTSB_THIRDPARTY_PLATFORM_DIR}/lib")
-        set(KCTSB_ENABLE_HELIB OFF)
     endif()
 endif()
 
@@ -584,12 +495,6 @@ set(KCTSB_ALL_SOURCES ${KCTSB_ALL_CPP_SOURCES} ${KCTSB_ALL_C_SOURCES})
 # ============================================================================
 # Exclusions - Only exclude files with special conditions
 # ============================================================================
-
-# Exclude legacy/backup files (*.bak_*, *.disabled, etc.)
-# Note: .bak_ntl_legacy files are automatically excluded (different extension)
-
-# Exclude FE modules pending migration (CKKS)
-list(FILTER KCTSB_ALL_SOURCES EXCLUDE REGEX ".*/fe/ckks/ckks_context\\.cpp$")
 
 # Exclude CLI sources from library (CLI has its own main())
 list(FILTER KCTSB_ALL_SOURCES EXCLUDE REGEX ".*/cli/.*")
@@ -669,42 +574,24 @@ message(STATUS "")
 # Library Targets
 # ============================================================================
 
-# Include directories
+# Include directories (v5.0: self-contained - no external dependencies)
 set(KCTSB_ALL_INCLUDE_DIRS
     ${KCTSB_INCLUDE_DIR}
-    ${KCTSB_INCLUDE_DIR}/kctsb/math/bignum  # Bignum headers
     ${KCTSB_THIRDPARTY_PLATFORM_DIR}/include
     ${KCTSB_THIRDPARTY_DIR}/include
-    ${GMP_INCLUDE_DIRS}
 )
-
-if(GF2X_INCLUDE_DIRS)
-    list(APPEND KCTSB_ALL_INCLUDE_DIRS ${GF2X_INCLUDE_DIRS})
-endif()
 
 # Unified library configuration function
 function(kctsb_configure_library_target TARGET_NAME)
-    # System includes FIRST to avoid Windows case-insensitive conflicts
+    # v5.0: Self-contained - no external math dependencies
     target_include_directories(${TARGET_NAME} SYSTEM PUBLIC
         $<BUILD_INTERFACE:${KCTSB_THIRDPARTY_PLATFORM_DIR}/include>
-        $<BUILD_INTERFACE:${KCTSB_THIRDPARTY_DIR}/include>
-        $<BUILD_INTERFACE:${GMP_INCLUDE_DIRS}>)
-    if(GF2X_INCLUDE_DIRS)
-        target_include_directories(${TARGET_NAME} SYSTEM PUBLIC
-            $<BUILD_INTERFACE:${GF2X_INCLUDE_DIRS}>)
-    endif()
+        $<BUILD_INTERFACE:${KCTSB_THIRDPARTY_DIR}/include>)
     target_include_directories(${TARGET_NAME} PUBLIC
         $<BUILD_INTERFACE:${KCTSB_INCLUDE_DIR}>
         $<INSTALL_INTERFACE:include>)
     
-    # Link dependencies
-    target_link_libraries(${TARGET_NAME} PUBLIC GMP::GMP)
-    if(GMPXX_LIBRARY)
-        target_link_libraries(${TARGET_NAME} PUBLIC GMP::GMPXX)
-    endif()
-    if(GF2X_FOUND)
-        target_link_libraries(${TARGET_NAME} PUBLIC gf2x::gf2x)
-    endif()
+    # Benchmark-only dependencies (SEAL)
     if(KCTSB_ENABLE_SEAL AND SEAL_FOUND)
         target_include_directories(${TARGET_NAME} PUBLIC ${SEAL_INCLUDE_DIRS})
         target_link_libraries(${TARGET_NAME} PUBLIC "${SEAL_LIBRARY}")
@@ -712,9 +599,7 @@ function(kctsb_configure_library_target TARGET_NAME)
             target_link_libraries(${TARGET_NAME} PRIVATE bcrypt)
         endif()
     endif()
-    if(KCTSB_ENABLE_HELIB AND HELIB_FOUND)
-        target_link_libraries(${TARGET_NAME} PUBLIC "${HELIB_LIBRARY}")
-    endif()
+    # v5.0: HElib removed from build
     if(APPLE)
         target_link_libraries(${TARGET_NAME} PRIVATE "-framework Security")
     endif()
@@ -775,16 +660,9 @@ if(KCTSB_BUILD_SHARED)
         OUTPUT_NAME kctsb VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR})
     kctsb_configure_library_target(kctsb_shared)
     
-    # Copy DLL dependencies on Windows using unified function
-    kctsb_copy_dll(kctsb_shared GMP_DLL "libgmp-10.dll;gmp.dll")
-    if(GF2X_FOUND)
-        kctsb_copy_dll(kctsb_shared GF2X_DLL "libgf2x-1.dll;gf2x.dll")
-    endif()
+    # v5.0: Self-contained - only copy SEAL DLL for benchmark comparison
     if(KCTSB_ENABLE_SEAL AND SEAL_FOUND)
         kctsb_copy_dll(kctsb_shared SEAL_DLL "seal-4.1.dll;libseal-4.1.dll")
-    endif()
-    if(KCTSB_ENABLE_HELIB AND HELIB_FOUND)
-        kctsb_copy_dll(kctsb_shared HELIB_DLL "helib.dll;libhelib.dll")
     endif()
 endif()
 
@@ -840,24 +718,17 @@ endif()
 # ============================================================================
 
 message(STATUS "")
-message(STATUS "=== kctsb Configuration Summary ===")
+message(STATUS "=== kctsb v5.0 Configuration Summary ===")
 message(STATUS "")
-message(STATUS "Architecture: Bignum Source Integration (no external dependencies)")
+message(STATUS "Architecture: Fully Self-Contained Cryptographic Library")
+message(STATUS "  - V5 Core: Native ZZ, BigInt, Fe256 (NO external dependencies)")
+message(STATUS "  - V5 Crypto: RSA, ECC, SM2/SM3/SM4, DH (fully self-contained)")
 message(STATUS "")
-message(STATUS "Static Dependencies (bundled):")
-message(STATUS "  - GMP: ${GMP_LIBRARY}")
-if(GF2X_FOUND)
-    message(STATUS "  - gf2x: ${GF2X_LIBRARY}")
-endif()
-message(STATUS "")
-message(STATUS "Dynamic Dependencies (shared libs):")
+message(STATUS "Optional Dependencies (benchmark comparison ONLY):")
 if(KCTSB_ENABLE_SEAL AND SEAL_FOUND)
     message(STATUS "  - SEAL: ${SEAL_LIBRARY}")
 endif()
-if(KCTSB_ENABLE_HELIB AND HELIB_FOUND)
-    message(STATUS "  - HElib: ${HELIB_LIBRARY}")
-endif()
-if(NOT KCTSB_ENABLE_SEAL AND NOT KCTSB_ENABLE_HELIB)
+if(NOT KCTSB_ENABLE_SEAL)
     message(STATUS "  (none)")
 endif()
 message(STATUS "")

@@ -154,12 +154,13 @@ target_include_directories(test_math PRIVATE
 )
 # Note: bcrypt.dll loaded at runtime, no static link needed
 target_compile_definitions(test_math PRIVATE KCTSB_HAS_BIGNUM_MODULES)
-if(GMP_FOUND)
-    target_link_libraries(test_math PRIVATE ${GMP_LIBRARY})
-endif()
-if(GF2X_FOUND)
-    target_link_libraries(test_math PRIVATE ${GF2X_LIBRARY})
-endif()
+# v5.0: GMP/GF2X removed - now self-contained
+# if(GMP_FOUND)
+#     target_link_libraries(test_math PRIVATE ${GMP_LIBRARY})
+# endif()
+# if(GF2X_FOUND)
+#     target_link_libraries(test_math PRIVATE ${GF2X_LIBRARY})
+# endif()
 gtest_discover_tests(test_math PROPERTIES LABELS "unit;math")
 
 # ============================================================================
@@ -564,6 +565,30 @@ target_include_directories(test_psi_pir PRIVATE
     ${CMAKE_SOURCE_DIR}/src
 )
 gtest_discover_tests(test_psi_pir PROPERTIES LABELS "unit;advanced;psi;pir")
+
+# ============================================================================
+# V5 CORE TESTS - Self-contained cryptographic implementations
+# Label: "v5" - Run with: ctest -L v5
+# ============================================================================
+
+add_executable(test_v5_core test_v5_core.cpp)
+if(TARGET kctsb_static)
+    target_link_libraries(test_v5_core PRIVATE
+        kctsb_static
+        GTest::gtest_main
+    )
+else()
+    target_link_libraries(test_v5_core PRIVATE
+        kctsb
+        GTest::gtest_main
+    )
+endif()
+target_include_directories(test_v5_core PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/src
+)
+gtest_discover_tests(test_v5_core PROPERTIES LABELS "unit;v5;core")
+message(STATUS "✓ V5 Core Tests: BigInt, Fe256, RSA v5, ECC v5, SM2 v5, DH v5")
 
 # ============================================================================
 # Test Summary
