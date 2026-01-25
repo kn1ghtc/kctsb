@@ -81,6 +81,7 @@ using namespace kctsb;
 
 namespace kctsb {
 namespace ecc {
+namespace internal {
 
 // ============================================================================
 // fe256 Acceleration Layer - 256-bit Field Element Operations
@@ -2161,6 +2162,7 @@ AffinePoint ECCurve::point_from_bytes(const unsigned char* in, size_t in_len) co
     throw std::invalid_argument("Unsupported point format");
 }
 
+} // namespace internal
 } // namespace ecc
 } // namespace kctsb
 

@@ -30,6 +30,7 @@ using namespace kctsb;
 
 namespace kctsb {
 namespace ecc {
+namespace internal {
 
 // ============================================================================
 // ECDHKeyPair Implementation
@@ -391,5 +392,6 @@ std::vector<uint8_t> ecdh_key_agreement(
     return derived;
 }
 
+} // namespace internal
 } // namespace ecc
 } // namespace kctsb

@@ -7,7 +7,7 @@
  */
 
 #include <gtest/gtest.h>
-#include "kctsb/kctsb.h"
+#include "kctsb/kctsb_api.h"
 #include <cstring>
 #include <array>
 

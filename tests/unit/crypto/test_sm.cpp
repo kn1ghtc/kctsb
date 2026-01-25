@@ -15,9 +15,8 @@
 #include <vector>
 #include <string>
 
-#include "kctsb/kctsb.h"
-#include "kctsb/crypto/sm/sm3.h"
-#include "kctsb/crypto/sm/sm4.h"
+// C API header (includes SM3, SM4 functions)
+#include "kctsb/kctsb_api.h"
 
 /**
  * @brief Convert byte array to hex string

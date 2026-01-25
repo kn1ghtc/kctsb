@@ -23,6 +23,7 @@
 
 namespace kctsb {
 namespace ecc {
+namespace internal {
 
 /**
  * @brief ECDSA Signature (r, s) pair
@@ -258,6 +259,7 @@ bool ecdsa_verify(const ECCurve& curve,
                   const uint8_t* signature, size_t sig_len,
                   const uint8_t* public_key, size_t pub_len);
 
+} // namespace internal
 } // namespace ecc
 } // namespace kctsb
 

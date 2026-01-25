@@ -1,8 +1,8 @@
 /**
- * @file test_v5_core.cpp
- * @brief V5.0 Core module tests - Self-contained ZZ, BigInt, Fe256 implementations
+ * @file test_core.cpp
+ * @brief Core module tests - Self-contained ZZ, BigInt, Fe256 implementations
  * 
- * This file contains comprehensive tests for the v5.0 self-contained
+ * This file contains comprehensive tests for the self-contained
  * cryptographic core modules. Tests verify that all operations work
  * correctly without any external dependencies (GMP, NTL, etc.).
  * 

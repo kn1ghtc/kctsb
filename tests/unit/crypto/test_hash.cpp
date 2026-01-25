@@ -19,8 +19,8 @@
 #include <vector>
 #include <string>
 
-// v3.4.0 aggregated header
-#include "kctsb/kctsb.h"
+// C API header for hash functions
+#include "kctsb/kctsb_api.h"
 
 /**
  * @brief Convert byte array to hex string

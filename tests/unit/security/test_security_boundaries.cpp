@@ -18,7 +18,7 @@
 #include <cstring>
 #include <vector>
 #include <limits>
-#include "kctsb/kctsb.h"
+#include "kctsb/kctsb_api.h"
 #include "kctsb/core/security.h"
 #include "kctsb/utils/encoding.h"
 

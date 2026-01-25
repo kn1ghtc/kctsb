@@ -567,28 +567,28 @@ target_include_directories(test_psi_pir PRIVATE
 gtest_discover_tests(test_psi_pir PROPERTIES LABELS "unit;advanced;psi;pir")
 
 # ============================================================================
-# V5 CORE TESTS - Self-contained cryptographic implementations
-# Label: "v5" - Run with: ctest -L v5
+# CORE TESTS - Self-contained cryptographic implementations
+# Label: "core" - Run with: ctest -L core
 # ============================================================================
 
-add_executable(test_v5_core test_v5_core.cpp)
+add_executable(test_core test_core.cpp)
 if(TARGET kctsb_static)
-    target_link_libraries(test_v5_core PRIVATE
+    target_link_libraries(test_core PRIVATE
         kctsb_static
         GTest::gtest_main
     )
 else()
-    target_link_libraries(test_v5_core PRIVATE
+    target_link_libraries(test_core PRIVATE
         kctsb
         GTest::gtest_main
     )
 endif()
-target_include_directories(test_v5_core PRIVATE
+target_include_directories(test_core PRIVATE
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/src
 )
-gtest_discover_tests(test_v5_core PROPERTIES LABELS "unit;v5;core")
-message(STATUS "✓ V5 Core Tests: BigInt, Fe256, RSA v5, ECC v5, SM2 v5, DH v5")
+gtest_discover_tests(test_core PROPERTIES LABELS "unit;core")
+message(STATUS "✓ Core Tests: BigInt, Fe256, RSA, ECC, SM2, DH")
 
 # ============================================================================
 # Test Summary

@@ -25,6 +25,7 @@
 
 namespace kctsb {
 namespace ecc {
+namespace internal {
 
 /**
  * @brief ECIES Configuration Parameters
@@ -264,6 +265,7 @@ std::vector<uint8_t> ecies_decrypt(
     const uint8_t* ciphertext, size_t ciphertext_len,
     const uint8_t* private_key, size_t key_len);
 
+} // namespace internal
 } // namespace ecc
 } // namespace kctsb
 

@@ -73,13 +73,15 @@ extern "C" {
 #endif
 
 /* ============================================================================
- * Version Information
+ * Version Information (with guard for kctsb.h inclusion)
  * ============================================================================ */
 
+#ifndef KCTSB_VERSION_MAJOR
 #define KCTSB_VERSION_MAJOR 3
 #define KCTSB_VERSION_MINOR 4
 #define KCTSB_VERSION_PATCH 0
 #define KCTSB_VERSION_STRING "3.4.0"
+#endif
 
 /* ============================================================================
  * Error Codes

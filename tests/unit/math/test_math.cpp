@@ -20,7 +20,7 @@
 #include <vector>
 #include <cstring>
 
-#include "kctsb/kctsb.h"
+#include "kctsb/kctsb_api.h"
 
 // Bignum-dependent tests
 #ifdef KCTSB_HAS_BIGNUM_MODULES

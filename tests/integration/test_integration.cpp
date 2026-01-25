@@ -18,7 +18,7 @@
 #include <vector>
 #include <string>
 
-#include "kctsb/kctsb.h"
+#include "kctsb/kctsb_api.h"
 #include "kctsb/version.h"
 
 // ============================================================================

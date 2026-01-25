@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file sm2.cpp
  * @brief SM2 Elliptic Curve Cryptography Implementation
  * 
@@ -71,7 +71,7 @@ constexpr size_t MAX_HASH_SIZE = 32;   // SM3 output
  */
 class SM2Context {
 public:
-    SM2Context() : curve_(ecc::CurveType::SM2) {
+    SM2Context() : curve_(ecc::internal::CurveType::SM2) {
         // Cache curve parameters
         n_ = curve_.get_order();
         p_ = curve_.get_prime();
@@ -86,13 +86,13 @@ public:
         return ctx;
     }
     
-    const ecc::ECCurve& curve() const { return curve_; }
+    const ecc::internal::ECCurve& curve() const { return curve_; }
     const ZZ& n() const { return n_; }
     const ZZ& p() const { return p_; }
     int bit_size() const { return bit_size_; }
     
 private:
-    ecc::ECCurve curve_;
+    ecc::internal::ECCurve curve_;
     ZZ n_;
     ZZ p_;
     int bit_size_;
@@ -103,7 +103,7 @@ private:
 // ============================================================================
 // Optimized 256-bit field arithmetic using Solinas reduction
 // SM2 p = 2^256 - 2^224 - 2^96 + 2^64 - 1
-// Reduction uses identity: 2^256 ≡ 2^224 + 2^96 - 2^64 + 1 (mod p)
+// Reduction uses identity: 2^256 = 2^224 + 2^96 - 2^64 + 1 (mod p)
 // ============================================================================
 
 namespace fe256_ops {
@@ -321,7 +321,7 @@ static void fe256_mul_wide(fe512* r, const fe256* a, const fe256* b) {
  * @brief SM2 Solinas reduction for 512-bit input
  * 
  * SM2 p = 2^256 - 2^224 - 2^96 + 2^64 - 1
- * Identity: 2^256 ≡ 2^224 + 2^96 - 2^64 + 1 (mod p)
+ * Identity: 2^256 = 2^224 + 2^96 - 2^64 + 1 (mod p)
  * 
  * This implementation uses int128_t accumulators to handle signed
  * intermediate values safely. Critical: use int64_t, NOT long on Windows.
@@ -339,7 +339,7 @@ static void fe256_reduce_sm2(fe256* r, const fe512* a) {
     acc[2] = (int128_t)a->limb[2];
     acc[3] = (int128_t)a->limb[3];
     
-    // Apply reduction: h[i] * 2^(256+64*i) ≡ h[i] * 2^(64*i) * k (mod p)
+    // Apply reduction: h[i] * 2^(256+64*i) �� h[i] * 2^(64*i) * k (mod p)
     // where k = 2^224 + 2^96 - 2^64 + 1
     uint64_t h0 = a->limb[4];
     uint64_t h1 = a->limb[5];
@@ -399,7 +399,7 @@ static void fe256_reduce_sm2(fe256* r, const fe512* a) {
             int128_t overflow = acc[4];
             acc[4] = 0;
             
-            // overflow * 2^256 ≡ overflow * k (mod p)
+            // overflow * 2^256  overflow * k (mod p)
             acc[0] += overflow;
             // 2^96 - 2^64 = 2^64 * (2^32 - 1) at limb 1
             acc[1] += (overflow << 32) - overflow;
@@ -588,7 +588,7 @@ kctsb_error_t compute_z_value(
     uint8_t z_value[32]
 ) {
     // Get curve parameters
-    ecc::CurveParams params = ecc::get_sm2_params();
+    ecc::internal::CurveParams params = ecc::internal::get_sm2_params();
     
     // Compute ENTL (bit length of user_id, max 8192 bits = 1024 bytes)
     if (user_id_len > 1024) {
@@ -706,8 +706,8 @@ kctsb_error_t generate_keypair_internal(kctsb_sm2_keypair_t* keypair) {
         d = d + 1;  // Now d is in [1, n-1]
         
         // Compute public key P = d * G using Montgomery ladder
-        ecc::JacobianPoint P_jac = curve.scalar_mult_base(d);
-        ecc::AffinePoint P_aff = curve.to_affine(P_jac);
+        ecc::internal::JacobianPoint P_jac = curve.scalar_mult_base(d);
+        ecc::internal::AffinePoint P_aff = curve.to_affine(P_jac);
         
         // Export private key
         zz_to_bytes(d, keypair->private_key, FIELD_SIZE);
@@ -807,13 +807,13 @@ kctsb_error_t sign_internal(
         }
         
         // Step 3: Compute (x1, y1) = k * G (using Montgomery ladder)
-        ecc::JacobianPoint kG = curve.scalar_mult_base(k);
-        ecc::AffinePoint kG_aff = curve.to_affine(kG);
+        ecc::internal::JacobianPoint kG = curve.scalar_mult_base(k);
+        ecc::internal::AffinePoint kG_aff = curve.to_affine(kG);
         
         #ifdef KCTSB_DEBUG_SM2
         // Debug: Print k and kG.x for comparison with verification
         ZZ_p::init(ctx.p());
-        ecc::AffinePoint G_aff_sign = curve.to_affine(curve.get_generator());
+        ecc::internal::AffinePoint G_aff_sign = curve.to_affine(curve.get_generator());
         std::cerr << "[SM2 SIGN DEBUG] k = " << k << "\n";
         std::cerr << "[SM2 SIGN DEBUG] G.x in sign = " << rep(G_aff_sign.x) << "\n";
         std::cerr << "[SM2 SIGN DEBUG] kG.x = " << rep(kG_aff.x) << "\n";
@@ -911,8 +911,8 @@ kctsb_error_t verify_internal(
     ZZ Py = bytes_to_zz(public_key + FIELD_SIZE, FIELD_SIZE);
     
     ZZ_p::init(ctx.p());
-    ecc::AffinePoint P_aff{ZZ_p(Px), ZZ_p(Py)};
-    ecc::JacobianPoint P_jac = curve.to_jacobian(P_aff);
+    ecc::internal::AffinePoint P_aff{ZZ_p(Px), ZZ_p(Py)};
+    ecc::internal::JacobianPoint P_jac = curve.to_jacobian(P_aff);
     
     // Validate public key is on curve
     if (!curve.is_on_curve(P_jac)) {
@@ -942,7 +942,7 @@ kctsb_error_t verify_internal(
     }
     
     // Step 4: Compute (x1, y1) = s*G + t*P (using Shamir's trick)
-    ecc::JacobianPoint G = curve.get_generator();
+    ecc::internal::JacobianPoint G = curve.get_generator();
     
     #ifdef KCTSB_DEBUG_SM2
     // Debug: Check generator point in Jacobian coordinates
@@ -960,10 +960,10 @@ kctsb_error_t verify_internal(
     // Use separate scalar multiplications for debugging
     // R_point = s*G + t*P
     // Note: Use scalar_mult_base for G to use same path as signature
-    ecc::JacobianPoint sG = curve.scalar_mult_base(s);  // Use cached table like signature
-    ecc::JacobianPoint tP = curve.scalar_mult(t, P_jac);
-    ecc::JacobianPoint R_point = curve.add(sG, tP);
-    ecc::AffinePoint R_aff = curve.to_affine(R_point);
+    ecc::internal::JacobianPoint sG = curve.scalar_mult_base(s);  // Use cached table like signature
+    ecc::internal::JacobianPoint tP = curve.scalar_mult(t, P_jac);
+    ecc::internal::JacobianPoint R_point = curve.add(sG, tP);
+    ecc::internal::AffinePoint R_aff = curve.to_affine(R_point);
     
     // Extract ZZ value immediately after to_affine (ZZ_p context still valid)
     ZZ x1 = rep(R_aff.x);
@@ -1092,8 +1092,8 @@ kctsb_error_t encrypt_internal(
     ZZ Py = bytes_to_zz(public_key + FIELD_SIZE, FIELD_SIZE);
     
     ZZ_p::init(ctx.p());
-    ecc::AffinePoint P_aff{ZZ_p(Px), ZZ_p(Py)};
-    ecc::JacobianPoint P_jac = curve.to_jacobian(P_aff);
+    ecc::internal::AffinePoint P_aff{ZZ_p(Px), ZZ_p(Py)};
+    ecc::internal::JacobianPoint P_jac = curve.to_jacobian(P_aff);
     
     // Validate public key
     if (!curve.is_on_curve(P_jac)) {
@@ -1110,19 +1110,19 @@ kctsb_error_t encrypt_internal(
         }
         
         // Step 2: Compute C1 = k * G (using Montgomery ladder)
-        ecc::JacobianPoint C1_jac = curve.scalar_mult_base(k);
-        ecc::AffinePoint C1_aff = curve.to_affine(C1_jac);
+        ecc::internal::JacobianPoint C1_jac = curve.scalar_mult_base(k);
+        ecc::internal::AffinePoint C1_aff = curve.to_affine(C1_jac);
         
         // Extract ZZ values immediately after to_affine (ZZ_p context still valid)
         ZZ x1 = rep(C1_aff.x);
         ZZ y1 = rep(C1_aff.y);
         
         // Step 3: Compute (x2, y2) = k * P (using Montgomery ladder)
-        ecc::JacobianPoint kP = curve.scalar_mult(k, P_jac);
+        ecc::internal::JacobianPoint kP = curve.scalar_mult(k, P_jac);
         if (kP.is_infinity()) {
             continue;  // Retry with new k
         }
-        ecc::AffinePoint kP_aff = curve.to_affine(kP);
+        ecc::internal::AffinePoint kP_aff = curve.to_affine(kP);
         
         // Extract ZZ values immediately after to_affine (ZZ_p context still valid)
         ZZ x2 = rep(kP_aff.x);
@@ -1257,8 +1257,8 @@ kctsb_error_t decrypt_internal(
     ZZ y1 = bytes_to_zz(ciphertext + 1 + FIELD_SIZE, FIELD_SIZE);
     
     ZZ_p::init(ctx.p());
-    ecc::AffinePoint C1_aff{ZZ_p(x1), ZZ_p(y1)};
-    ecc::JacobianPoint C1_jac = curve.to_jacobian(C1_aff);
+    ecc::internal::AffinePoint C1_aff{ZZ_p(x1), ZZ_p(y1)};
+    ecc::internal::JacobianPoint C1_jac = curve.to_jacobian(C1_aff);
     
     // Step 2: Verify C1 is on curve
     if (!curve.is_on_curve(C1_jac)) {
@@ -1270,11 +1270,11 @@ kctsb_error_t decrypt_internal(
     const uint8_t* c2_ptr = c3_ptr + 32;
     
     // Step 3: Compute (x2, y2) = d * C1 (using Montgomery ladder)
-    ecc::JacobianPoint dC1 = curve.scalar_mult(d, C1_jac);
+    ecc::internal::JacobianPoint dC1 = curve.scalar_mult(d, C1_jac);
     if (dC1.is_infinity()) {
         return KCTSB_ERROR_DECRYPTION_FAILED;
     }
-    ecc::AffinePoint dC1_aff = curve.to_affine(dC1);
+    ecc::internal::AffinePoint dC1_aff = curve.to_affine(dC1);
     
     // Extract ZZ values immediately after to_affine (ZZ_p context still valid)
     ZZ x2 = rep(dC1_aff.x);
@@ -1576,8 +1576,8 @@ SM2KeyPair::SM2KeyPair(const ByteVec& privateKey) {
     const auto& curve = ctx.curve();
     
     kctsb::ZZ d = internal::sm2::bytes_to_zz(keypair_.private_key, KCTSB_SM2_PRIVATE_KEY_SIZE);
-    ecc::JacobianPoint P_jac = curve.scalar_mult_base(d);
-    ecc::AffinePoint P_aff = curve.to_affine(P_jac);
+    ecc::internal::JacobianPoint P_jac = curve.scalar_mult_base(d);
+    ecc::internal::AffinePoint P_aff = curve.to_affine(P_jac);
     
     kctsb::ZZ_p::init(ctx.p());
     kctsb::ZZ Px = IsZero(P_aff.x) ? kctsb::ZZ(0) : rep(P_aff.x);

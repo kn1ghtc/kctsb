@@ -1,103 +1,157 @@
 /**
  * @file kctsb.h
- * @brief Main header file for kctsb cryptographic library
- *
- * This is the primary include file for the kctsb (Knight's Cryptographic
- * Toolset and Security Base) library. Include this file to access all
- * cryptographic algorithms and utilities.
- *
+ * @brief kctsb v5.0 - Self-Contained Cryptographic Library
+ * 
+ * Unified header for all self-contained cryptographic modules.
+ * No external dependencies on NTL, HElib, or GMP for core functionality.
+ * 
+ * Architecture:
+ * - BigInt<BITS>: Template-based arbitrary precision integers
+ * - Fe256: Optimized 256-bit field elements for ECC
+ * - Montgomery arithmetic for modular operations
+ * - Constant-time implementations for side-channel resistance
+ * 
+ * Modules:
+ * - Core: BigInt, Fe256, MontgomeryContext
+ * - RSA: RSA (PKCS#1 v2.2: OAEP, PSS)
+ * - ECC: ECCurve, ECDSA, ECDH (secp256k1, P-256)
+ * - SM2: SM2Signer, SM2Encryptor (GM/T 0003-2012)
+ * - DH: DH (RFC 7919: ffdhe2048/3072/4096)
+ * 
+ * Reference Implementation:
+ * - OpenSSL 3.6.0: For RSA/DH standards compliance
+ * - GmSSL: For SM2 Chinese National Standard
+ * - libsecp256k1: For ECC optimization patterns
+ * 
  * @author knightc
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
- * @license Apache License 2.0
+ * @license Apache-2.0
  */
 
 #ifndef KCTSB_H
 #define KCTSB_H
 
-// Unified version information - single source of truth
-#include "kctsb/version.h"
+// ============================================================================
+// Version Information
+// ============================================================================
 
-// Core headers (must be included first - defines KCTSB_API and platform macros)
-#include "kctsb/core/common.h"
-#include "kctsb/core/types.h"
+#define KCTSB_VERSION_MAJOR 5
+#define KCTSB_VERSION_MINOR 0
+#define KCTSB_VERSION_PATCH 0
+#define KCTSB_VERSION_STRING "5.0.0"
 
-// Symmetric encryption
-#include "kctsb/crypto/aes.h"
-#include "kctsb/crypto/chacha20_poly1305.h"
+// ============================================================================
+// Core Modules
+// ============================================================================
 
-// Hash functions (v3.4.0 unified headers)
-#include "kctsb/crypto/sha256.h"
-#include "kctsb/crypto/sha512.h"
-#include "kctsb/crypto/sha3.h"
-#include "kctsb/crypto/blake2.h"
-#include "kctsb/crypto/sm/sm3.h"
-// MAC algorithms
-#include "kctsb/crypto/mac.h"
+#include "kctsb/core/bigint.h"    // BigInt<BITS>, MontgomeryContext<BITS>
+#include "kctsb/core/fe256.h"     // Fe256, Fe256MontContext
 
-// Asymmetric encryption (requires bignum integration)
-#ifdef KCTSB_HAS_BIGNUM_MODULES
-#include "kctsb/crypto/rsa/rsa.h"
-#include "kctsb/crypto/ecc/ecc.h"
-#endif
+// ============================================================================
+// Cryptographic Modules
+// ============================================================================
 
-// Chinese National Standards (SM series)
-#ifdef KCTSB_HAS_BIGNUM_MODULES
-#include "kctsb/crypto/sm/sm2.h"
-#endif
-#include "kctsb/crypto/sm/sm3.h"
-#include "kctsb/crypto/sm/sm4.h"
+#include "kctsb/crypto/rsa/rsa.h"       // RSA, RSA2048, RSA4096
+#include "kctsb/crypto/rsa/dh.h"        // DH, DH2048, DH4096
+#include "kctsb/crypto/ecc/ecc.h"       // ECCurve, ECDSA, ECDH
+#include "kctsb/crypto/sm/sm2.h"        // SM2Signer, SM2Encryptor
 
-// Advanced cryptographic primitives
-#include "kctsb/advanced/whitebox.h"
-#include "kctsb/advanced/sss.h"
-#ifdef KCTSB_HAS_BIGNUM_MODULES
-#include "kctsb/advanced/zk.h"
-#include "kctsb/advanced/lattice.h"
-#endif
-#include "kctsb/advanced/fuzzy.h"
-#include "kctsb/advanced/fe.h"
-#include "kctsb/advanced/otp.h"
+// ============================================================================
+// Namespace Aliases
+// ============================================================================
 
-// Mathematical utilities
-#ifdef KCTSB_HAS_BIGNUM_MODULES
-#include "kctsb/math/common.h"
-#include "kctsb/math/polynomials.h"
-#include "kctsb/math/vector.h"
-#endif
+namespace kctsb {
 
-// Utility functions
-#include "kctsb/utils/encoding.h"
-#include "kctsb/utils/random.h"
+// ============================================================================
+// Convenience Type Aliases (No V5 suffix - clean API)
+// ============================================================================
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+// Core types are already in kctsb namespace via headers
 
-/**
- * @brief Get the library version string
- * @return Version string in format "major.minor.patch"
- */
-KCTSB_API const char* kctsb_version(void);
+// RSA convenience aliases
+using RSA2048 = rsa::RSA2048;
+using RSA3072 = rsa::RSA3072;
+using RSA4096 = rsa::RSA4096;
+
+// DH convenience aliases
+using DH2048 = dh::DH2048;
+using DH3072 = dh::DH3072;
+using DH4096 = dh::DH4096;
+
+// ECC types (forward declarations - actual types in ecc.h)
+// Note: These will be available after ecc.h V5 suffix removal
+
+// SM2 types (forward declarations - actual types in sm2.h)
+// Note: These will be available after sm2.h V5 suffix removal
+
+} // namespace kctsb
+
+// ============================================================================
+// Quick Start Examples
+// ============================================================================
 
 /**
- * @brief Get the platform name
- * @return Platform name string
+ * @example rsa_example.cpp
+ * @code
+ * #include "kctsb/kctsb_v5.h"
+ * 
+ * using namespace kctsb::v5;
+ * 
+ * // Generate RSA-2048 key pair
+ * RSA2048 rsa;
+ * auto [pub, priv] = rsa.generate_keypair();
+ * 
+ * // Sign with PSS
+ * uint8_t hash[32] = {...};
+ * auto signature = rsa.sign_pss(hash, sizeof(hash), priv);
+ * 
+ * // Verify
+ * bool valid = rsa.verify_pss(hash, sizeof(hash), signature, pub);
+ * @endcode
+ * 
+ * @example ecdsa_example.cpp
+ * @code
+ * #include "kctsb/kctsb_v5.h"
+ * 
+ * using namespace kctsb::ecc;
+ * 
+ * // Generate secp256k1 key pair
+ * uint8_t priv[32], pub[65];
+ * secp256k1_keygen(priv, pub);
+ * 
+ * // Sign hash
+ * uint8_t hash[32] = {...};
+ * uint8_t sig[64];
+ * secp256k1_sign(hash, priv, sig);
+ * 
+ * // Verify
+ * bool valid = secp256k1_verify(hash, pub, sig);
+ * @endcode
+ * 
+ * @example sm2_example.cpp
+ * @code
+ * #include "kctsb/kctsb_v5.h"
+ * 
+ * using namespace kctsb::sm;
+ * 
+ * // Generate SM2 key pair
+ * uint8_t priv[32], pub[65];
+ * sm2_keygen(priv, pub);
+ * 
+ * // Sign with default user ID
+ * uint8_t msg[] = "Hello SM2";
+ * uint8_t sig[64];
+ * sm2_sign(msg, sizeof(msg)-1, priv, nullptr, 0, sig);
+ * 
+ * // Verify
+ * bool valid = sm2_verify(msg, sizeof(msg)-1, pub, nullptr, 0, sig);
+ * 
+ * // Encrypt
+ * auto ciphertext = sm2_encrypt(msg, sizeof(msg)-1, pub);
+ * 
+ * // Decrypt
+ * auto plaintext = sm2_decrypt(ciphertext.data(), ciphertext.size(), priv);
+ * @endcode
  */
-KCTSB_API const char* kctsb_platform(void);
-
-/**
- * @brief Initialize the kctsb library
- * @return KCTSB_SUCCESS on success, error code on failure
- */
-KCTSB_API kctsb_error_t kctsb_init(void);
-
-/**
- * @brief Cleanup and free resources used by kctsb
- */
-KCTSB_API void kctsb_cleanup(void);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif // KCTSB_H

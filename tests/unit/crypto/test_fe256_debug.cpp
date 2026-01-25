@@ -24,7 +24,7 @@
 #include "kctsb/crypto/ecc/ecc_curve.h"
 
 using namespace kctsb;
-using namespace kctsb::ecc;
+using namespace kctsb::ecc::internal;  // ZZ-based internal implementation
 
 // ============================================================================
 // fe256 Debug Test Fixture

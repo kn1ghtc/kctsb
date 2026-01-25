@@ -26,6 +26,7 @@ using namespace kctsb;
 
 namespace kctsb {
 namespace ecc {
+namespace internal {
 
 // ============================================================================
 // ECIESCiphertext Implementation
@@ -445,5 +446,6 @@ std::vector<uint8_t> ecies_decrypt(
     return ecies.decrypt_from_bytes(ciphertext, ciphertext_len, d);
 }
 
+} // namespace internal
 } // namespace ecc
 } // namespace kctsb

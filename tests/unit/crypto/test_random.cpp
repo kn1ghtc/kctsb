@@ -20,7 +20,7 @@
 #include <cmath>
 #include <algorithm>
 
-#include "kctsb/kctsb.h"
+#include "kctsb/kctsb_api.h"
 #include "kctsb/utils/random.h"
 
 class RandomTest : public ::testing::Test {

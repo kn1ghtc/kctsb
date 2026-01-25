@@ -29,12 +29,13 @@
 
 namespace kctsb {
 namespace ecc {
+namespace internal {
 
 using kctsb::ZZ;
 using kctsb::ZZ_p;
 
 // ============================================================================
-// Forward Declarations
+// Forward Declarations (Internal ZZ-based implementation)
 // ============================================================================
 
 struct CurveParams;
@@ -384,6 +385,7 @@ CurveParams get_secp256k1_params();
 CurveParams get_secp256r1_params();
 CurveParams get_sm2_params();
 
+} // namespace internal
 } // namespace ecc
 } // namespace kctsb
 

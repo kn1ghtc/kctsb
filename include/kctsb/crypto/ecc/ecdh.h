@@ -24,6 +24,7 @@
 
 namespace kctsb {
 namespace ecc {
+namespace internal {
 
 /**
  * @brief ECDH Key Pair
@@ -292,6 +293,7 @@ std::vector<uint8_t> ecdh_key_agreement(
     const uint8_t* peer_public_key, size_t peer_public_len,
     size_t derived_key_length);
 
+} // namespace internal
 } // namespace ecc
 } // namespace kctsb
 

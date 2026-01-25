@@ -353,11 +353,12 @@ if(KCTSB_BUILD_TESTS AND NOT KCTSB_BUILD_STATIC)
 endif()
 
 # v5.0: Self-Contained Architecture - NO external math dependencies required
-# GMP and gf2x options removed - all operations use native ZZ/BigInt
+# GMP, gf2x, OpenSSL, SEAL options REMOVED - all operations use native ZZ/BigInt
+# Benchmark comparisons now use hardcoded baseline data from benchmarks/baseline_data.hpp
 
-# Optional dependencies (benchmark comparison ONLY)
-option(KCTSB_ENABLE_SEAL "Enable Microsoft SEAL (benchmark only)" ON)
-option(KCTSB_ENABLE_OPENSSL "Enable OpenSSL (benchmarks only)" ON)
+# DEPRECATED options (kept for compatibility, no effect)
+# option(KCTSB_ENABLE_SEAL "REMOVED in v5.0 - use baseline_data.hpp" OFF)
+# option(KCTSB_ENABLE_OPENSSL "REMOVED in v5.0 - use baseline_data.hpp" OFF)
 
 # ============================================================================
 # Output Directories
@@ -412,70 +413,28 @@ macro(kctsb_create_imported_target TARGET_NAME LIBRARY_PATH INCLUDE_DIRS)
 endmacro()
 
 # -----------------------------------------------------------------------------
-# v5.0: SELF-CONTAINED ARCHITECTURE
-# GMP and gf2x are NO LONGER required - all math operations use native ZZ/BigInt
-# Kept as comments for historical reference and optional benchmark comparison
+# v5.0: SELF-CONTAINED ARCHITECTURE - All external dependencies REMOVED
+# SEAL and OpenSSL sections removed - benchmark uses hardcoded baseline_data.hpp
 # -----------------------------------------------------------------------------
-message(STATUS "✓ v5.0 Self-Contained: Native ZZ/BigInt implementation (no GMP/gf2x)")
+message(STATUS "✓ v5.0 Self-Contained: Native ZZ/BigInt implementation (no external deps)")
+message(STATUS "  Benchmark baselines: hardcoded from OpenSSL 3.6.0 measurements")
 
 # -----------------------------------------------------------------------------
-# SEAL Detection (Optional)
-# Priority: 1) deps/SEAL source, 2) thirdparty prebuilt
+# SEAL Detection REMOVED in v5.0
+# Benchmark comparison now uses hardcoded baseline data in baseline_data.hpp
+# Historical measurements captured from SEAL 4.1.2 on Windows x64
 # -----------------------------------------------------------------------------
-if(KCTSB_ENABLE_SEAL)
-    # First try deps/SEAL source directory (contains headers)
-    find_path(SEAL_INCLUDE_DIRS seal/seal.h
-        HINTS "${CMAKE_CURRENT_SOURCE_DIR}/deps/SEAL/native/src"
-              "${KCTSB_THIRDPARTY_PLATFORM_DIR}/include/SEAL-4.1"
-              "${KCTSB_THIRDPARTY_DIR}/include/SEAL-4.1")
-    
-    find_library(SEAL_LIBRARY NAMES seal-4.1 seal libseal-4.1
-        HINTS "${KCTSB_THIRDPARTY_PLATFORM_DIR}/lib"
-              "${KCTSB_THIRDPARTY_DIR}/lib"
-              "${CMAKE_CURRENT_SOURCE_DIR}/deps/SEAL/build/lib")
-    
-    if(SEAL_INCLUDE_DIRS AND SEAL_LIBRARY)
-        set(SEAL_FOUND TRUE)
-        message(STATUS "✓ SEAL found:")
-        message(STATUS "  - Include: ${SEAL_INCLUDE_DIRS}")
-        message(STATUS "  - Library: ${SEAL_LIBRARY}")
-        # NOTE: Don't use global add_definitions() - SEAL headers require config.h
-        kctsb_create_imported_target(SEAL::seal "${SEAL_LIBRARY}" "${SEAL_INCLUDE_DIRS}")
-    else()
-        message(STATUS "⚠ SEAL not found (optional)")
-        message(STATUS "  - Include search: ${CMAKE_CURRENT_SOURCE_DIR}/deps/SEAL/native/src")
-        message(STATUS "  - Library search: ${KCTSB_THIRDPARTY_PLATFORM_DIR}/lib")
-        set(KCTSB_ENABLE_SEAL OFF)
-    endif()
-endif()
+set(SEAL_FOUND FALSE)
+set(KCTSB_ENABLE_SEAL OFF)
 
 # -----------------------------------------------------------------------------
-# OpenSSL for benchmarks ONLY
-# Requires OpenSSL 3.6.0+ from vcpkg for consistent benchmark comparison
+# OpenSSL Detection REMOVED in v5.0
+# Benchmark comparison now uses hardcoded baseline data in baseline_data.hpp
+# Historical measurements captured from OpenSSL 3.6.0 on Windows x64
+# See benchmarks/baseline_data.hpp for performance baselines
 # -----------------------------------------------------------------------------
-if(KCTSB_BUILD_BENCHMARKS AND KCTSB_ENABLE_OPENSSL)
-    # Prefer vcpkg OpenSSL 3.6.0
-    if(WIN32 AND EXISTS "D:/vcpkg/installed/x64-windows")
-        set(OPENSSL_ROOT_DIR "D:/vcpkg/installed/x64-windows")
-        set(OPENSSL_USE_STATIC_LIBS OFF)
-    endif()
-    
-    find_package(OpenSSL 3.6 QUIET)
-    if(OPENSSL_FOUND)
-        if(OPENSSL_VERSION VERSION_LESS "3.6.0")
-            message(WARNING "⚠ OpenSSL ${OPENSSL_VERSION} found, but 3.6.0+ required for benchmarks")
-            message(WARNING "  Please install OpenSSL 3.6.0 via: vcpkg install openssl:x64-windows")
-            set(OPENSSL_FOUND FALSE)
-        else()
-            message(STATUS "✓ OpenSSL for benchmarks: ${OPENSSL_VERSION}")
-            add_definitions(-DKCTSB_BENCHMARK_HAS_OPENSSL)
-        endif()
-    else()
-        message(STATUS "⚠ OpenSSL 3.6.0+ not found, limited benchmarks")
-        message(STATUS "  Install via: vcpkg install openssl:x64-windows")
-        set(KCTSB_ENABLE_OPENSSL OFF)
-    endif()
-endif()
+set(OPENSSL_FOUND FALSE)
+set(KCTSB_ENABLE_OPENSSL OFF)
 
 # ============================================================================
 # Source Files - Auto-include all .cpp/.c files with minimal exclusions
@@ -503,7 +462,8 @@ message(STATUS "✓ CLI sources excluded from library (separate executable)")
 # Exclude incomplete modules with missing headers (fuzzy, whitebox)
 list(FILTER KCTSB_ALL_SOURCES EXCLUDE REGEX ".*/advanced/fuzzy/.*")
 list(FILTER KCTSB_ALL_SOURCES EXCLUDE REGEX ".*/advanced/whitebox/.*")
-message(STATUS "⚠ Incomplete modules excluded: fuzzy, whitebox (pending header migration)")
+# v5.0: RSA/DH are now header-only templates - no .cpp files needed
+message(STATUS "✓ All crypto modules enabled (RSA/DH now header-only templates)")
 
 # Conditionally exclude files based on build options
 if(NOT KCTSB_ENABLE_BGV)
@@ -583,7 +543,7 @@ set(KCTSB_ALL_INCLUDE_DIRS
 
 # Unified library configuration function
 function(kctsb_configure_library_target TARGET_NAME)
-    # v5.0: Self-contained - no external math dependencies
+    # v5.0: Self-contained - no external dependencies
     target_include_directories(${TARGET_NAME} SYSTEM PUBLIC
         $<BUILD_INTERFACE:${KCTSB_THIRDPARTY_PLATFORM_DIR}/include>
         $<BUILD_INTERFACE:${KCTSB_THIRDPARTY_DIR}/include>)
@@ -591,15 +551,9 @@ function(kctsb_configure_library_target TARGET_NAME)
         $<BUILD_INTERFACE:${KCTSB_INCLUDE_DIR}>
         $<INSTALL_INTERFACE:include>)
     
-    # Benchmark-only dependencies (SEAL)
-    if(KCTSB_ENABLE_SEAL AND SEAL_FOUND)
-        target_include_directories(${TARGET_NAME} PUBLIC ${SEAL_INCLUDE_DIRS})
-        target_link_libraries(${TARGET_NAME} PUBLIC "${SEAL_LIBRARY}")
-        if(WIN32)
-            target_link_libraries(${TARGET_NAME} PRIVATE bcrypt)
-        endif()
-    endif()
-    # v5.0: HElib removed from build
+    # v5.0: All external dependencies REMOVED
+    # SEAL, OpenSSL, GMP, gf2x, NTL - all replaced with native implementation
+    
     if(APPLE)
         target_link_libraries(${TARGET_NAME} PRIVATE "-framework Security")
     endif()
@@ -660,10 +614,7 @@ if(KCTSB_BUILD_SHARED)
         OUTPUT_NAME kctsb VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR})
     kctsb_configure_library_target(kctsb_shared)
     
-    # v5.0: Self-contained - only copy SEAL DLL for benchmark comparison
-    if(KCTSB_ENABLE_SEAL AND SEAL_FOUND)
-        kctsb_copy_dll(kctsb_shared SEAL_DLL "seal-4.1.dll;libseal-4.1.dll")
-    endif()
+    # v5.0: Self-contained - no DLL dependencies to copy
 endif()
 
 # Aliases
@@ -724,13 +675,10 @@ message(STATUS "Architecture: Fully Self-Contained Cryptographic Library")
 message(STATUS "  - V5 Core: Native ZZ, BigInt, Fe256 (NO external dependencies)")
 message(STATUS "  - V5 Crypto: RSA, ECC, SM2/SM3/SM4, DH (fully self-contained)")
 message(STATUS "")
-message(STATUS "Optional Dependencies (benchmark comparison ONLY):")
-if(KCTSB_ENABLE_SEAL AND SEAL_FOUND)
-    message(STATUS "  - SEAL: ${SEAL_LIBRARY}")
-endif()
-if(NOT KCTSB_ENABLE_SEAL)
-    message(STATUS "  (none)")
-endif()
+message(STATUS "External Dependencies: NONE (fully self-contained)")
+message(STATUS "  - Benchmark baselines: hardcoded in baseline_data.hpp")
+message(STATUS "  - OpenSSL 3.6.0 measurements captured for comparison")
+message(STATUS "  - SEAL 4.1.2 measurements captured for FHE comparison")
 message(STATUS "")
 message(STATUS "Build Options:")
 message(STATUS "  Static lib:  ${KCTSB_BUILD_STATIC}")

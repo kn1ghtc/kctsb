@@ -1,30 +1,31 @@
 # ============================================================================
-# kctsb Benchmarks - OpenSSL Performance Comparison
+# kctsb v5.0 Benchmarks - Self-Contained Performance Testing
 #
-# Compares kctsb implementations against OpenSSL for validation:
+# v5.0 Architecture: No external dependencies required
+# Compares kctsb implementations against hardcoded baselines from:
+# - OpenSSL 3.6.0 (captured measurements in baseline_data.hpp)
+# - SEAL 4.1.2 (captured measurements for FHE comparison)
+#
+# Benchmark Categories:
 # - AES-256-GCM: AEAD encryption/decryption throughput
-# - ChaCha20-Poly1305: Stream cipher AEAD throughput
+# - ChaCha20-Poly1305: Stream cipher AEAD throughput  
 # - SHA3-256/BLAKE2b: Hash function throughput
-# - ECC: ECDSA/ECDH/Key Generation
+# - SM3/SM4: Chinese cryptographic standards
+# - ECC: ECDSA/ECDH/Key Generation (secp256k1, P-256)
 # - RSA: OAEP/PSS/Key Generation
 # ============================================================================
 
 cmake_minimum_required(VERSION 3.20)
 
-# Require OpenSSL for main benchmarks (vs OpenSSL comparison)
-# BGV benchmark does NOT require OpenSSL and is configured separately below
-if(NOT OPENSSL_FOUND)
-    message(WARNING "OpenSSL not found, main benchmarks will not be built")
-    # Do NOT return() - still build BGV benchmark below
-    set(SKIP_MAIN_BENCHMARKS TRUE)
-else()
-    set(SKIP_MAIN_BENCHMARKS FALSE)
-endif()
+message(STATUS "")
+message(STATUS "=== kctsb v5.0 Benchmark Configuration ===")
+message(STATUS "Mode: Self-contained (no external dependencies)")
+message(STATUS "Baselines: Hardcoded from OpenSSL 3.6.0 measurements")
 
-if(NOT SKIP_MAIN_BENCHMARKS)
+# ============================================================================
+# Main Benchmark - kctsb vs Hardcoded Baselines
+# ============================================================================
 
-# Benchmark sources - all algorithms (RSA/ECC/SM2 bignum modules are always built)
-# Note: v4.1+ integrates NTL/GMP source code, so bignum modules are always available
 set(BENCHMARK_SOURCES
     benchmark_main.cpp
     benchmark_aes_gcm.cpp
@@ -36,33 +37,24 @@ set(BENCHMARK_SOURCES
     benchmark_rsa.cpp
 )
 
-# Benchmark executable
 add_executable(kctsb_benchmark ${BENCHMARK_SOURCES})
 
 target_include_directories(kctsb_benchmark PRIVATE
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/thirdparty/include
-    ${CMAKE_SOURCE_DIR}/thirdparty/include/SEAL-4.1
-    ${OPENSSL_INCLUDE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}  # For baseline_data.hpp
 )
 
-# macOS: Ensure Homebrew OpenSSL is found
-if(APPLE AND NOT OPENSSL_INCLUDE_DIR)
-    set(OPENSSL_INCLUDE_DIR "/usr/local/opt/openssl@3/include")
-endif()
-
-# Link libraries
-target_link_libraries(kctsb_benchmark PRIVATE
-    OpenSSL::SSL
-    OpenSSL::Crypto
+# v5.0: Use hardcoded baselines instead of runtime OpenSSL comparison
+target_compile_definitions(kctsb_benchmark PRIVATE
+    KCTSB_V5_SELF_CONTAINED=1
+    KCTSB_BENCHMARK_USE_BASELINE_DATA=1
 )
 
-# Link kctsb if available
+# Link kctsb library
 if(TARGET kctsb_static)
     target_link_libraries(kctsb_benchmark PRIVATE kctsb_static)
-    # Define macros to enable kctsb implementations in benchmarks
-    # v4.1+ integrates bignum source code, all modules are always available
     target_compile_definitions(kctsb_benchmark PRIVATE
         KCTSB_HAS_AES_GCM=1
         KCTSB_HAS_AES_128=1
@@ -89,29 +81,13 @@ elseif(TARGET kctsb_shared)
         KCTSB_HAS_ECC=1
         KCTSB_HAS_SM2=1
     )
+else()
+    message(FATAL_ERROR "kctsb library target not found - cannot build benchmarks")
 endif()
 
-# Platform-specific: bcrypt.dll loaded at runtime on Windows
-# No static linking required for OS system DLLs
-
-# Set output directory
 set_target_properties(kctsb_benchmark PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
 )
-
-# Windows: Copy OpenSSL 3.6.0 DLLs to ensure correct version is loaded at runtime
-# This prevents loading older OpenSSL from System32 or other PATH locations
-if(WIN32 AND EXISTS "D:/vcpkg/installed/x64-windows/bin")
-    add_custom_command(TARGET kctsb_benchmark POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "D:/vcpkg/installed/x64-windows/bin/libcrypto-3-x64.dll"
-            "$<TARGET_FILE_DIR:kctsb_benchmark>"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "D:/vcpkg/installed/x64-windows/bin/libssl-3-x64.dll"
-            "$<TARGET_FILE_DIR:kctsb_benchmark>"
-        COMMENT "Copying OpenSSL 3.6.0 DLLs for benchmark runtime"
-    )
-endif()
 
 # Compiler flags for performance
 if(MSVC)
@@ -121,20 +97,16 @@ else()
         -O3 -march=native
         -finput-charset=UTF-8
         -fexec-charset=UTF-8
-        # Disable conversion warnings for benchmarks (intentional size_t -> double conversions)
         -Wno-conversion
         -Wno-sign-conversion
         -Wno-unused-function
     )
 endif()
 
-message(STATUS "Benchmarks configured: kctsb vs OpenSSL comparison")
-
-endif()  # SKIP_MAIN_BENCHMARKS
+message(STATUS "✓ Main benchmark: kctsb vs baseline_data.hpp")
 
 # ============================================================================
-# BGV Homomorphic Encryption Benchmark (standalone, no OpenSSL required)
-# TODO: Re-enable after fixing kctsb bignum API compatibility
+# BGV Homomorphic Encryption Benchmark (v5.0 Self-Contained)
 # ============================================================================
 
 if(KCTSB_ENABLE_BGV)
@@ -144,37 +116,19 @@ if(KCTSB_ENABLE_BGV)
         ${CMAKE_SOURCE_DIR}/include
         ${CMAKE_SOURCE_DIR}/src
         ${CMAKE_SOURCE_DIR}/thirdparty/include
+        ${CMAKE_CURRENT_SOURCE_DIR}
     )
 
-    # Link kctsb
+    target_compile_definitions(kctsb_benchmark_bgv PRIVATE
+        KCTSB_V5_SELF_CONTAINED=1
+        KCTSB_BENCHMARK_USE_BASELINE_DATA=1
+    )
+
     if(TARGET kctsb_static)
         target_link_libraries(kctsb_benchmark_bgv PRIVATE kctsb_static)
     elseif(TARGET kctsb_shared)
         target_link_libraries(kctsb_benchmark_bgv PRIVATE kctsb_shared)
     endif()
-
-    # SEAL comparison (enabled if headers and static library are available)
-    set(SEAL_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/thirdparty/win-x64/include/SEAL-4.1")
-    set(SEAL_LIBRARY "${CMAKE_SOURCE_DIR}/thirdparty/win-x64/lib/libseal-4.1.a")
-    
-    if(EXISTS "${SEAL_INCLUDE_DIR}/seal/util/config.h" AND EXISTS "${SEAL_LIBRARY}")
-        message(STATUS "SEAL 4.1 found - enabling comparison benchmarks")
-        target_include_directories(kctsb_benchmark_bgv PRIVATE ${SEAL_INCLUDE_DIR})
-        target_link_libraries(kctsb_benchmark_bgv PRIVATE "${SEAL_LIBRARY}")
-        target_compile_definitions(kctsb_benchmark_bgv PRIVATE KCTSB_HAS_SEAL=1)
-        if(WIN32)
-            # bcrypt for Windows CSPRNG used by SEAL
-            target_link_libraries(kctsb_benchmark_bgv PRIVATE bcrypt)
-        endif()
-    else()
-        message(STATUS "SEAL not found - skipping comparison benchmarks")
-    endif()
-    
-    # HElib comparison (disabled until headers are properly built)
-    # if(KCTSB_ENABLE_HELIB AND HELIB_FOUND)
-    #     target_link_libraries(kctsb_benchmark_bgv PRIVATE "${HELIB_LIBRARY}")
-    #     target_compile_definitions(kctsb_benchmark_bgv PRIVATE KCTSB_HAS_HELIB=1)
-    # endif()
 
     set_target_properties(kctsb_benchmark_bgv PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
@@ -192,123 +146,13 @@ if(KCTSB_ENABLE_BGV)
         )
     endif()
 
-    message(STATUS "BGV benchmark configured: kctsb native BGV")
+    message(STATUS "✓ BGV benchmark: kctsb native BGV vs baseline")
 else()
-    message(STATUS "BGV benchmark skipped: KCTSB_ENABLE_BGV is OFF")
+    message(STATUS "⚠ BGV benchmark skipped: KCTSB_ENABLE_BGV is OFF")
 endif()
 
 # ============================================================================
-# BFV Benchmark (Phase 2 - placeholder until BFV module is implemented)
-# ============================================================================
-
-if(KCTSB_ENABLE_BFV OR KCTSB_HAS_SEAL)
-    add_executable(kctsb_benchmark_bfv benchmark_bfv.cpp)
-
-    target_include_directories(kctsb_benchmark_bfv PRIVATE
-        ${CMAKE_SOURCE_DIR}/include
-        ${CMAKE_SOURCE_DIR}/src
-        ${CMAKE_SOURCE_DIR}/thirdparty/include
-    )
-
-    if(TARGET kctsb_static)
-        target_link_libraries(kctsb_benchmark_bfv PRIVATE kctsb_static)
-    elseif(TARGET kctsb_shared)
-        target_link_libraries(kctsb_benchmark_bfv PRIVATE kctsb_shared)
-    endif()
-
-    # SEAL comparison (if available)
-    if(KCTSB_ENABLE_SEAL AND SEAL_FOUND)
-        target_include_directories(kctsb_benchmark_bfv PRIVATE ${SEAL_INCLUDE_DIRS})
-        target_link_libraries(kctsb_benchmark_bfv PRIVATE "${SEAL_LIBRARY}")
-        target_compile_definitions(kctsb_benchmark_bfv PRIVATE KCTSB_HAS_SEAL=1)
-        if(WIN32)
-            target_link_libraries(kctsb_benchmark_bfv PRIVATE bcrypt)
-        endif()
-    endif()
-
-    set_target_properties(kctsb_benchmark_bfv PROPERTIES
-        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
-    )
-
-    if(MSVC)
-        target_compile_options(kctsb_benchmark_bfv PRIVATE /O2 /fp:fast /utf-8)
-    else()
-        target_compile_options(kctsb_benchmark_bfv PRIVATE
-            -O3 -march=native
-            -finput-charset=UTF-8
-            -fexec-charset=UTF-8
-            -Wno-conversion
-            -Wno-sign-conversion
-        )
-    endif()
-
-    message(STATUS "BFV benchmark configured")
-else()
-    message(STATUS "BFV benchmark skipped: KCTSB_ENABLE_BFV is OFF and no SEAL")
-endif()
-
-# ============================================================================
-# CKKS Benchmark (Phase 4 - pending migration to pure RNS)
-# ============================================================================
-# CKKS module is currently disabled - awaiting pure RNS migration
-# TODO: v4.14.0 - Re-enable after CKKS is migrated to pure RNS like BGV/BFV
-
-option(KCTSB_ENABLE_CKKS "Enable native CKKS benchmark" OFF)
-
-if(KCTSB_ENABLE_CKKS AND KCTSB_HAS_SEAL)
-    add_executable(kctsb_benchmark_ckks benchmark_ckks.cpp)
-
-    target_include_directories(kctsb_benchmark_ckks PRIVATE
-        ${CMAKE_SOURCE_DIR}/include
-        ${CMAKE_SOURCE_DIR}/src
-    )
-    
-    # Enable native CKKS when BGV is enabled (CKKS uses BGV infrastructure)
-    if(KCTSB_ENABLE_BGV)
-        target_compile_definitions(kctsb_benchmark_ckks PRIVATE KCTSB_HAS_CKKS=1)
-    endif()
-
-    if(TARGET kctsb_static)
-        target_link_libraries(kctsb_benchmark_ckks PRIVATE kctsb_static)
-    elseif(TARGET kctsb_shared)
-        target_link_libraries(kctsb_benchmark_ckks PRIVATE kctsb_shared)
-    endif()
-
-    # SEAL comparison (if available AND properly built)
-    # SEAL requires seal/util/config.h which is generated during SEAL build
-    if(KCTSB_ENABLE_SEAL AND SEAL_FOUND AND EXISTS "${SEAL_INCLUDE_DIRS}/seal/util/config.h")
-        target_include_directories(kctsb_benchmark_ckks PRIVATE ${SEAL_INCLUDE_DIRS})
-        target_link_libraries(kctsb_benchmark_ckks PRIVATE "${SEAL_LIBRARY}")
-        target_compile_definitions(kctsb_benchmark_ckks PRIVATE KCTSB_HAS_SEAL=1)
-        if(WIN32)
-            target_link_libraries(kctsb_benchmark_ckks PRIVATE bcrypt)
-        endif()
-    endif()
-
-    set_target_properties(kctsb_benchmark_ckks PROPERTIES
-        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
-    )
-
-    if(MSVC)
-        target_compile_options(kctsb_benchmark_ckks PRIVATE /O2 /fp:fast /utf-8)
-    else()
-        target_compile_options(kctsb_benchmark_ckks PRIVATE
-            -O3 -march=native
-            -finput-charset=UTF-8
-            -fexec-charset=UTF-8
-            -Wno-conversion
-            -Wno-sign-conversion
-        )
-    endif()
-
-    message(STATUS "CKKS benchmark configured")
-else()
-    message(STATUS "CKKS benchmark skipped: KCTSB_ENABLE_CKKS is OFF and no SEAL")
-endif()
-
-# ============================================================================
-# PSI/PIR Benchmark (v4.14.0)
-# Native PSI/PIR vs SEAL-PIR comparison
+# PSI/PIR Benchmark (v5.0 Self-Contained)
 # ============================================================================
 
 add_executable(bench_psi_pir benchmark_psi_pir.cpp)
@@ -317,28 +161,18 @@ target_include_directories(bench_psi_pir PRIVATE
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/thirdparty/include
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+target_compile_definitions(bench_psi_pir PRIVATE
+    KCTSB_V5_SELF_CONTAINED=1
+    KCTSB_BENCHMARK_USE_BASELINE_DATA=1
 )
 
 if(TARGET kctsb_static)
     target_link_libraries(bench_psi_pir PRIVATE kctsb_static)
 elseif(TARGET kctsb_shared)
     target_link_libraries(bench_psi_pir PRIVATE kctsb_shared)
-endif()
-
-# SEAL comparison (links prebuilt static library, no source dependency)
-set(SEAL_INCLUDE_DIR_PIR "${CMAKE_SOURCE_DIR}/thirdparty/win-x64/include/SEAL-4.1")
-set(SEAL_LIBRARY_PIR "${CMAKE_SOURCE_DIR}/thirdparty/win-x64/lib/libseal-4.1.a")
-
-if(EXISTS "${SEAL_LIBRARY_PIR}")
-    message(STATUS "SEAL 4.1 found for PSI/PIR benchmark - enabling comparison")
-    target_include_directories(bench_psi_pir PRIVATE ${SEAL_INCLUDE_DIR_PIR})
-    target_link_libraries(bench_psi_pir PRIVATE "${SEAL_LIBRARY_PIR}")
-    target_compile_definitions(bench_psi_pir PRIVATE KCTSB_HAS_SEAL=1)
-    if(WIN32)
-        target_link_libraries(bench_psi_pir PRIVATE bcrypt)
-    endif()
-else()
-    message(STATUS "SEAL not found for PSI/PIR benchmark - kctsb-only mode")
 endif()
 
 set_target_properties(bench_psi_pir PROPERTIES
@@ -358,12 +192,20 @@ else()
     )
 endif()
 
-message(STATUS "PSI/PIR benchmark configured: Piano-PSI, OT-PSI, Native PIR")
+message(STATUS "✓ PSI/PIR benchmark: Piano-PSI, OT-PSI, Native PIR vs baseline")
 
 # ============================================================================
-# V5 Self-Contained Benchmark (PENDING IMPLEMENTATION)
-# Uses hardcoded baselines from baseline_data.hpp
+# Summary
 # ============================================================================
-# Note: benchmark_v5.cpp not yet created - benchmarks use existing suite
-message(STATUS "⚠ V5 Self-Contained Benchmark: benchmark_v5.cpp pending implementation")
+
+message(STATUS "")
+message(STATUS "Benchmark suite configured:")
+message(STATUS "  - kctsb_benchmark: Main crypto algorithms")
+if(KCTSB_ENABLE_BGV)
+    message(STATUS "  - kctsb_benchmark_bgv: BGV homomorphic encryption")
+endif()
+message(STATUS "  - bench_psi_pir: PSI/PIR protocols")
+message(STATUS "")
+message(STATUS "Run benchmarks: ./build/bin/kctsb_benchmark")
+message(STATUS "")
 

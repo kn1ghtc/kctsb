@@ -32,6 +32,7 @@ using namespace kctsb;
 
 namespace kctsb {
 namespace ecc {
+namespace internal {
 
 // ============================================================================
 // ECDSASignature Implementation
@@ -605,5 +606,6 @@ bool ecdsa_verify(const ECCurve& curve,
     return ecdsa.verify(message_hash, hash_len, sig, pub);
 }
 
+} // namespace internal
 } // namespace ecc
 } // namespace kctsb

@@ -16,8 +16,7 @@
 #include <vector>
 #include <string>
 
-#include "kctsb/kctsb.h"
-#include "kctsb/crypto/chacha20_poly1305.h"
+#include "kctsb/kctsb_api.h"
 
 /**
  * @brief Convert hex string to bytes

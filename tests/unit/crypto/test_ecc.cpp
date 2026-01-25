@@ -29,7 +29,7 @@
 #include "kctsb/math/bignum/ZZ_p.h"
 #include "kctsb/crypto/ecc/ecc_curve.h"
 using namespace kctsb;
-using namespace kctsb::ecc;
+using namespace kctsb::ecc::internal;  // ZZ-based internal implementation
 
 // ============================================================================
 // ECCurve Test Fixture
