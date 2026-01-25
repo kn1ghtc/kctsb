@@ -156,29 +156,40 @@ typedef struct {
 /**
  * @brief SHA-256 context
  */
+#ifndef KCTSB_SHA256_CTX_DEFINED
+#define KCTSB_SHA256_CTX_DEFINED
 typedef struct kctsb_sha256_ctx_s {
     uint32_t state[8];
     uint64_t count;
     uint8_t buffer[64];
     size_t buflen;
 } kctsb_sha256_ctx_t;
+#endif
 
 /**
  * @brief SHA-512/384 context
  */
+#ifndef KCTSB_SHA512_CTX_DEFINED
+#define KCTSB_SHA512_CTX_DEFINED
 typedef struct kctsb_sha512_ctx_s {
     uint64_t state[8];
     uint64_t count[2];
     uint8_t buffer[128];
     size_t buflen;
 } kctsb_sha512_ctx_t;
+#endif
 
 /** SHA-384 uses same context as SHA-512 */
+#ifndef KCTSB_SHA384_CTX_DEFINED
+#define KCTSB_SHA384_CTX_DEFINED
 typedef kctsb_sha512_ctx_t kctsb_sha384_ctx_t;
+#endif
 
 /**
  * @brief SHA3/Keccak context
  */
+#ifndef KCTSB_SHA3_CTX_DEFINED
+#define KCTSB_SHA3_CTX_DEFINED
 typedef struct kctsb_sha3_ctx_s {
 #ifdef __cplusplus
     alignas(32) uint64_t state[25];
@@ -191,10 +202,13 @@ typedef struct kctsb_sha3_ctx_s {
     uint8_t suffix;
     size_t digest_size;
 } kctsb_sha3_ctx_t;
+#endif
 
 /**
  * @brief BLAKE2b context
  */
+#ifndef KCTSB_BLAKE2B_CTX_DEFINED
+#define KCTSB_BLAKE2B_CTX_DEFINED
 typedef struct kctsb_blake2b_ctx_s {
     uint64_t h[8];
     uint64_t t[2];
@@ -203,10 +217,13 @@ typedef struct kctsb_blake2b_ctx_s {
     size_t buflen;
     size_t outlen;
 } kctsb_blake2b_ctx_t;
+#endif
 
 /**
  * @brief BLAKE2s context
  */
+#ifndef KCTSB_BLAKE2S_CTX_DEFINED
+#define KCTSB_BLAKE2S_CTX_DEFINED
 typedef struct kctsb_blake2s_ctx_s {
     uint32_t h[8];
     uint32_t t[2];
@@ -215,26 +232,35 @@ typedef struct kctsb_blake2s_ctx_s {
     size_t buflen;
     size_t outlen;
 } kctsb_blake2s_ctx_t;
+#endif
 
 /**
  * @brief SM3 context
  */
+#ifndef KCTSB_SM3_CTX_DEFINED
+#define KCTSB_SM3_CTX_DEFINED
 typedef struct {
     uint32_t state[8];
     uint64_t count;
     uint8_t buffer[64];
 } kctsb_sm3_ctx_t;
+#endif
 
 /**
  * @brief SM4 base context
  */
+#ifndef KCTSB_SM4_CTX_DEFINED
+#define KCTSB_SM4_CTX_DEFINED
 typedef struct {
     uint32_t round_keys[32];
 } kctsb_sm4_ctx_t;
+#endif
 
 /**
  * @brief SM4-GCM context
  */
+#ifndef KCTSB_SM4_GCM_CTX_DEFINED
+#define KCTSB_SM4_GCM_CTX_DEFINED
 typedef struct {
     kctsb_sm4_ctx_t cipher_ctx;
     uint8_t h[16];
@@ -243,6 +269,7 @@ typedef struct {
     size_t aad_len;
     size_t cipher_len;
 } kctsb_sm4_gcm_ctx_t;
+#endif
 
 /**
  * @brief ChaCha20 context
@@ -283,9 +310,12 @@ typedef struct {
 /**
  * @brief HMAC context (opaque)
  */
+#ifndef KCTSB_HMAC_CTX_DEFINED
+#define KCTSB_HMAC_CTX_DEFINED
 typedef struct {
     void* internal;
 } kctsb_hmac_ctx_t;
+#endif
 
 /* ============================================================================
  * Library Initialization

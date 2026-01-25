@@ -19,8 +19,14 @@
 #include <vector>
 #include <string>
 
-// C API header for hash functions
+// C API header (for kctsb_init, error codes, etc.)
 #include "kctsb/kctsb_api.h"
+// Hash module headers (for additional APIs like self_test)
+#include "kctsb/crypto/sha256.h"
+#include "kctsb/crypto/sha512.h"
+#include "kctsb/crypto/sha3.h"
+#include "kctsb/crypto/blake2.h"
+#include "kctsb/crypto/sm/sm3.h"
 
 /**
  * @brief Convert byte array to hex string

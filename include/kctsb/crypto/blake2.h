@@ -41,12 +41,14 @@ extern "C" {
 #define KCTSB_BLAKE2B_KEYBYTES 64
 
 // ============================================================================
-// Types (BLAKE2b only)
+// Types (with guard for kctsb_api.h inclusion)
 // ============================================================================
 
 /**
  * @brief BLAKE2b context structure
  */
+#ifndef KCTSB_BLAKE2B_CTX_DEFINED
+#define KCTSB_BLAKE2B_CTX_DEFINED
 typedef struct kctsb_blake2b_ctx_s {
     uint64_t h[8];              /**< Hash state */
     uint64_t t[2];              /**< Total bytes counter */
@@ -55,6 +57,7 @@ typedef struct kctsb_blake2b_ctx_s {
     size_t buflen;              /**< Current buffer length */
     size_t outlen;              /**< Output length */
 } kctsb_blake2b_ctx_t;
+#endif
 
 // ============================================================================
 // BLAKE2b C API Functions

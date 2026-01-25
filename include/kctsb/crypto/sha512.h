@@ -38,18 +38,21 @@ extern "C" {
 #define KCTSB_SHA512_BLOCK_SIZE 128
 
 // ============================================================================
-// Types
+// Types (with guard for kctsb_api.h inclusion)
 // ============================================================================
 
 /**
  * @brief SHA-512 context structure
  */
+#ifndef KCTSB_SHA512_CTX_DEFINED
+#define KCTSB_SHA512_CTX_DEFINED
 typedef struct kctsb_sha512_ctx_s {
     uint64_t state[8];          /**< Hash state */
     uint64_t count[2];          /**< Total bytes processed (128-bit) */
     uint8_t buffer[128];        /**< Block buffer */
     size_t buflen;              /**< Current buffer length */
 } kctsb_sha512_ctx_t;
+#endif
 
 // ============================================================================
 // SHA-512 C API Functions

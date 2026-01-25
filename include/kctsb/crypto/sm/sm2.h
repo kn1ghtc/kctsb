@@ -62,6 +62,88 @@ typedef struct {
     uint8_t s[32];
 } kctsb_sm2_signature_t;
 
+// ============================================================================
+// SM2 C API Functions
+// ============================================================================
+
+// Include common.h for KCTSB_API and kctsb_error_t
+#include "kctsb/core/common.h"
+
+/**
+ * @brief Generate SM2 key pair
+ * @param keypair Output key pair structure
+ * @return KCTSB_SUCCESS or error code
+ */
+KCTSB_API kctsb_error_t kctsb_sm2_generate_keypair(kctsb_sm2_keypair_t* keypair);
+
+/**
+ * @brief Sign message with SM2 private key
+ * @param private_key 32-byte private key
+ * @param public_key 64-byte public key (for ZA calculation)
+ * @param user_id User ID for ZA (can be NULL for default "1234567812345678")
+ * @param user_id_len User ID length
+ * @param message Message to sign
+ * @param message_len Message length
+ * @param signature Output signature (r || s, 64 bytes)
+ * @return KCTSB_SUCCESS or error code
+ */
+KCTSB_API kctsb_error_t kctsb_sm2_sign(
+    const uint8_t private_key[KCTSB_SM2_PRIVATE_KEY_SIZE],
+    const uint8_t public_key[KCTSB_SM2_PUBLIC_KEY_SIZE],
+    const uint8_t* user_id, size_t user_id_len,
+    const uint8_t* message, size_t message_len,
+    kctsb_sm2_signature_t* signature);
+
+/**
+ * @brief Verify SM2 signature
+ * @param public_key 64-byte public key (x || y)
+ * @param user_id User ID for ZA (can be NULL for default)
+ * @param user_id_len User ID length
+ * @param message Original message
+ * @param message_len Message length
+ * @param signature Signature to verify
+ * @return KCTSB_SUCCESS if valid, KCTSB_ERROR_VERIFICATION_FAILED if invalid
+ */
+KCTSB_API kctsb_error_t kctsb_sm2_verify(
+    const uint8_t public_key[KCTSB_SM2_PUBLIC_KEY_SIZE],
+    const uint8_t* user_id, size_t user_id_len,
+    const uint8_t* message, size_t message_len,
+    const kctsb_sm2_signature_t* signature);
+
+/**
+ * @brief SM2 public key encryption
+ * @param public_key 64-byte public key
+ * @param plaintext Input plaintext
+ * @param plaintext_len Plaintext length
+ * @param ciphertext Output ciphertext (C1 || C2 || C3)
+ * @param ciphertext_len [in/out] Ciphertext buffer size / actual length
+ * @return KCTSB_SUCCESS or error code
+ */
+KCTSB_API kctsb_error_t kctsb_sm2_encrypt(
+    const uint8_t public_key[KCTSB_SM2_PUBLIC_KEY_SIZE],
+    const uint8_t* plaintext, size_t plaintext_len,
+    uint8_t* ciphertext, size_t* ciphertext_len);
+
+/**
+ * @brief SM2 private key decryption
+ * @param private_key 32-byte private key
+ * @param ciphertext SM2 ciphertext (C1 || C2 || C3)
+ * @param ciphertext_len Ciphertext length
+ * @param plaintext Output plaintext
+ * @param plaintext_len [in/out] Plaintext buffer size / actual length
+ * @return KCTSB_SUCCESS or error code
+ */
+KCTSB_API kctsb_error_t kctsb_sm2_decrypt(
+    const uint8_t private_key[KCTSB_SM2_PRIVATE_KEY_SIZE],
+    const uint8_t* ciphertext, size_t ciphertext_len,
+    uint8_t* plaintext, size_t* plaintext_len);
+
+/**
+ * @brief SM2 self test
+ * @return KCTSB_SUCCESS if all tests pass
+ */
+KCTSB_API kctsb_error_t kctsb_sm2_self_test(void);
+
 #ifdef __cplusplus
 }
 #endif

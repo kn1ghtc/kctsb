@@ -16,7 +16,10 @@
 #include <vector>
 #include <string>
 
+// C API header (for kctsb_init, error codes, etc.)
 #include "kctsb/kctsb_api.h"
+// MAC module header (for HMAC-SHA512 and other MAC APIs)
+#include "kctsb/crypto/mac.h"
 
 /**
  * @brief Convert hex string to bytes

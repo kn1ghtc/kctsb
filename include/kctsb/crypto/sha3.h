@@ -44,12 +44,14 @@ extern "C" {
 #define KCTSB_KECCAK_STATE_SIZE 200
 
 // ============================================================================
-// Types
+// Types (with guard for kctsb_api.h inclusion)
 // ============================================================================
 
 /**
  * @brief SHA3/Keccak context structure
  */
+#ifndef KCTSB_SHA3_CTX_DEFINED
+#define KCTSB_SHA3_CTX_DEFINED
 typedef struct kctsb_sha3_ctx_s {
     alignas(32) uint64_t state[25];  /**< Keccak state (1600 bits) */
     size_t rate;                      /**< Rate in bytes */
@@ -58,6 +60,7 @@ typedef struct kctsb_sha3_ctx_s {
     uint8_t suffix;                   /**< Domain separation suffix */
     size_t digest_size;               /**< Output digest size */
 } kctsb_sha3_ctx_t;
+#endif
 
 // ============================================================================
 // SHA3-256 C API Functions

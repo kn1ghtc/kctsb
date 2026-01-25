@@ -15,8 +15,13 @@
 #include <vector>
 #include <string>
 
-// C API header (includes SM3, SM4 functions)
+// C API header (for kctsb_init, error codes, etc.)
 #include "kctsb/kctsb_api.h"
+// SM3/SM4 module headers (for additional APIs like self_test, block operations)
+#include "kctsb/crypto/sm/sm3.h"
+#include "kctsb/crypto/sm/sm4.h"
+// SM2 C++ API for asymmetric operations
+#include "kctsb/crypto/sm/sm2.h"
 
 /**
  * @brief Convert byte array to hex string

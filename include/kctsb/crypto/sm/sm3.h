@@ -19,12 +19,15 @@
 extern "C" {
 #endif
 
-// SM3 context structure
+// SM3 context structure (with guard for kctsb_api.h inclusion)
+#ifndef KCTSB_SM3_CTX_DEFINED
+#define KCTSB_SM3_CTX_DEFINED
 typedef struct {
     uint32_t state[8];
     uint64_t count;
     uint8_t buffer[64];
 } kctsb_sm3_ctx_t;
+#endif
 
 /**
  * @brief Initialize SM3 context

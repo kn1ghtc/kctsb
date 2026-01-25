@@ -36,18 +36,21 @@ extern "C" {
 #define KCTSB_SHA256_BLOCK_SIZE 64
 
 // ============================================================================
-// Types
+// Types (with guard for kctsb_api.h inclusion)
 // ============================================================================
 
 /**
  * @brief SHA-256 context structure
  */
+#ifndef KCTSB_SHA256_CTX_DEFINED
+#define KCTSB_SHA256_CTX_DEFINED
 typedef struct kctsb_sha256_ctx_s {
     uint32_t state[8];          /**< Hash state */
     uint64_t count;             /**< Total bytes processed */
     uint8_t buffer[64];         /**< Block buffer */
     size_t buflen;              /**< Current buffer length */
 } kctsb_sha256_ctx_t;
+#endif
 
 // ============================================================================
 // C API Functions

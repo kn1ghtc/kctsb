@@ -28,12 +28,17 @@ extern "C" {
 #define KCTSB_SM4_GCM_IV_SIZE   12
 #define KCTSB_SM4_GCM_TAG_SIZE  16
 
-// SM4 context structure
+// SM4 context structure (with guard for kctsb_api.h inclusion)
+#ifndef KCTSB_SM4_CTX_DEFINED
+#define KCTSB_SM4_CTX_DEFINED
 typedef struct {
     uint32_t round_keys[32];
 } kctsb_sm4_ctx_t;
+#endif
 
-// SM4-GCM context structure
+// SM4-GCM context structure (with guard for kctsb_api.h inclusion)
+#ifndef KCTSB_SM4_GCM_CTX_DEFINED
+#define KCTSB_SM4_GCM_CTX_DEFINED
 typedef struct {
     kctsb_sm4_ctx_t cipher_ctx;
     uint8_t h[16];          // GHASH subkey H = E(K, 0)
@@ -42,6 +47,7 @@ typedef struct {
     size_t aad_len;
     size_t cipher_len;
 } kctsb_sm4_gcm_ctx_t;
+#endif
 
 /**
  * @brief Initialize SM4 context for encryption

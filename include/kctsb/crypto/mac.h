@@ -26,9 +26,12 @@ extern "C" {
 // HMAC-SHA256 (RFC 2104, FIPS 198-1)
 // ============================================================================
 
+#ifndef KCTSB_HMAC_CTX_DEFINED
+#define KCTSB_HMAC_CTX_DEFINED
 typedef struct {
     void* internal;
 } kctsb_hmac_ctx_t;
+#endif
 
 KCTSB_API void kctsb_hmac_sha256_init(kctsb_hmac_ctx_t* ctx, const uint8_t* key, size_t key_len);
 KCTSB_API void kctsb_hmac_sha256_update(kctsb_hmac_ctx_t* ctx, const uint8_t* data, size_t len);
@@ -39,9 +42,12 @@ KCTSB_API void kctsb_hmac_sha256(const uint8_t* key, size_t key_len, const uint8
 // HMAC-SHA512 (RFC 2104, FIPS 198-1)
 // ============================================================================
 
+#ifndef KCTSB_HMAC512_CTX_DEFINED
+#define KCTSB_HMAC512_CTX_DEFINED
 typedef struct {
     void* internal;
 } kctsb_hmac512_ctx_t;
+#endif
 
 KCTSB_API void kctsb_hmac_sha512_init(kctsb_hmac512_ctx_t* ctx, const uint8_t* key, size_t key_len);
 KCTSB_API void kctsb_hmac_sha512_update(kctsb_hmac512_ctx_t* ctx, const uint8_t* data, size_t len);
