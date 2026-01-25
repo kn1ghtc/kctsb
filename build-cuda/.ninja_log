@@ -1,0 +1,23 @@
+# ninja log v7
+2	9083	7910347267075819	CMakeFiles/kctsb_cuda.dir/pir_cuda_kernels.cu.obj	883b42393c26c82c
+9085	14519	7910347357907634	CMakeFiles/kctsb_cuda.dir/cmake_device_link.obj	f7855cd40ff4910c
+14520	14770	7910347412250981	kctsb_cuda.lib	da9be4e65e7112b2
+2	1388	7910354504674018	build.ninja	a22257c6743e1d2f
+2	1388	7910354504624011	D:/pyproject/kctsb/build-cuda/cmake_install.cmake	a22257c6743e1d2f
+3	8286	7910347971308199	CMakeFiles/cuda_runtime_test.dir/test_cuda_runtime.cu.obj	c735aa253b63810e
+8287	13437	7910348054136670	CMakeFiles/cuda_runtime_test.dir/cmake_device_link.obj	c6c153c9c64ddfba
+13438	13886	7910348105648468	cuda_runtime_test.exe	8f0f6e07e08b160d
+4	9578	7910349555200254	CMakeFiles/benchmark_ntt_gpu.dir/benchmark_ntt_gpu.cu.obj	332f285df23cce4a
+9578	13810	7910349650931607	CMakeFiles/benchmark_ntt_gpu.dir/cmake_device_link.obj	ca97ee418335ecac
+13811	14209	7910349693253668	benchmark_ntt_gpu.exe	15c84a3cd0aceb14
+5	9490	7910351724733266	CMakeFiles/benchmark_ntt_optimized.dir/benchmark_ntt_optimized.cu.obj	18fd6fa718d96756
+9492	13879	7910351819597538	CMakeFiles/benchmark_ntt_optimized.dir/cmake_device_link.obj	c39865d0d3c51988
+13879	14273	7910351863472268	benchmark_ntt_optimized.exe	66561e64186ec634
+5	9333	7910353120326806	CMakeFiles/test_modular_ops.dir/test_modular_ops.cu.obj	b86ed09c1b0b1164
+9333	13862	7910353213602944	CMakeFiles/test_modular_ops.dir/cmake_device_link.obj	e5ca644e5bd91888
+13862	14259	7910353258889616	test_modular_ops.exe	387462d5d8e40f70
+2	1252	7910354504674018	build.ninja	a22257c6743e1d2f
+2	1252	7910354504674018	D:/pyproject/kctsb/build-cuda/cmake_install.cmake	a22257c6743e1d2f
+2	10345	7910354505634066	CMakeFiles/benchmark_ntt_final.dir/benchmark_ntt_final.cu.obj	961e4d98c2a12ebe
+10346	15024	7910354609071045	CMakeFiles/benchmark_ntt_final.dir/cmake_device_link.obj	a25469478b9dcc9
+15024	15451	7910354655859171	benchmark_ntt_final.exe	157ffc2b13d435dc

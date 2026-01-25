@@ -117,10 +117,14 @@
     - SIMD 批处理优化
     - 整数/浮点/二进制数据库
     - vs SEAL-PIR 性能: **1.23x 加速** (DB=1000)
-  - **CUDA GPU PIR** ✅ **v4.14.0 新增** - GPU 加速私密信息检索
-    - BFV/BGV/CKKS GPU 并行
+  - **CUDA GPU PIR** ✅ **v4.14.0 验证完成** - GPU 加速私密信息检索
+    - BFV/BGV/CKKS GPU 并行 (NTT/INTT/PolyMul)
     - CPU 自动回退 (无 CUDA 环境)
-    - 使用场景：大规模数据库、低延迟要求
+    - **实测性能** (RTX 4060 Laptop, CUDA 12.5):
+      - n=65536: NTT **6.77x 加速**，PolyMul **7.17x 加速**
+      - n=262144: NTT **20.11x 加速**，PolyMul **20.03x 加速**
+      - n=1048576: NTT **51.56x 加速**，PolyMul **36.95x 加速**
+    - 使用场景：大规模数据库 (n≥16K)、低延迟要求
   - **PIR with Preprocessing** ✅ **v4.14.0 新增** - 离线/在线分离 PIR
     - 提示式 PIR：客户端存储 O(√N) 提示
     - 关键字 PIR：按关键字检索无需知道位置
@@ -137,7 +141,7 @@
   | 多方参与 (3+) | Multi-party PSI | 星形/环形拓扑优化 |
   | 仅需交集基数 | PSI-CA (基数模式) | 最小信息披露 |
   | 隐私统计聚合 | PSI-CA (聚合模式) | 支持 SUM/AVG 等 |
-  | 大规模 PIR + GPU | CUDA PIR | 并行加速 |
+  | 大规模 PIR + GPU | CUDA PIR | 并行加速 (n≥16K, **20-50x 加速**) |
   | 高频 PIR 查询 | PIR Preprocessing | 离线预计算提速 |
 
 ## 🏗️ 项目结构
@@ -441,6 +445,58 @@ endif()
 ```powershell
 ninja.exe -C build -j8 2>&1 
 ```
+
+### 🚀 CUDA GPU 加速构建 (v4.14.0+)
+
+CUDA 库采用**独立构建系统**，因为 Windows 上 CUDA 需要 MSVC 编译器，而主库需要 GCC（支持 `__int128`）。
+
+**系统要求**:
+- CUDA Toolkit 11.0+ (推荐 12.x)
+- MSVC 2019+ (Visual Studio)
+- NVIDIA GPU (推荐 SM 8.0+，如 RTX 30/40 系列)
+
+**构建步骤 (PowerShell)**:
+
+```powershell
+# 1. 进入 kctsb 目录
+cd D:\pyproject\kctsb
+
+# 2. 设置 CUDA 路径
+$env:CUDA_PATH = "D:\cuda125"  # 根据实际 CUDA 安装路径修改
+
+# 3. 配置 CUDA 独立项目 (需要 VS Developer 环境)
+# 打开 x64 Native Tools Command Prompt for VS 2022，或运行:
+cmd.exe /c '"D:\vsstudio2022\VC\Auxiliary\Build\vcvarsall.bat" x64 && cmake -B build-cuda -S src/advanced/psi/cuda -G Ninja -DCMAKE_BUILD_TYPE=Release'
+
+# 4. 构建 CUDA 库和测试
+cmd.exe /c '"D:\vsstudio2022\VC\Auxiliary\Build\vcvarsall.bat" x64 && cmake --build build-cuda --parallel'
+
+# 5. 运行 CUDA 测试
+.\build-cuda\test_cuda_runtime.exe       # 验证 CUDA 环境
+.\build-cuda\test_modular_ops.exe        # 验证模算术正确性
+.\build-cuda\benchmark_ntt_final.exe     # 运行 NTT 性能基准测试
+```
+
+**CUDA Benchmark 结果 (RTX 4060 Laptop, CUDA 12.5)**:
+
+| 操作 | 数据规模 n | CPU (ms) | GPU (ms) | 加速比 | 正确性 |
+|------|------------|----------|----------|--------|--------|
+| NTT | 1,024 | 0.017 | 0.085 | 0.20x | ✅ |
+| NTT | 16,384 | 0.410 | 0.166 | **2.47x** | ✅ |
+| NTT | 65,536 | 1.630 | 0.241 | **6.77x** | ✅ |
+| NTT | 262,144 | 10.40 | 0.517 | **20.11x** | ✅ |
+| NTT | 1,048,576 | 76.21 | 1.478 | **51.56x** | ✅ |
+| PolyMul | 65,536 | 0.065 | 0.009 | **7.17x** | ✅ |
+| PolyMul | 1,048,576 | 1.328 | 0.036 | **36.95x** | ✅ |
+
+**使用建议**:
+- n < 4,096: 使用 CPU（GPU 内核启动开销大于计算时间）
+- n ≥ 16,384: 推荐使用 GPU（明显加速）
+- n ≥ 262,144: 强烈推荐 GPU（20x+ 加速）
+
+**产物位置**:
+- `build-cuda/kctsb_cuda.lib` - CUDA 静态库
+- `build-cuda/benchmark_ntt_final.exe` - 性能测试工具
 
 
 ## 📚 API 文档

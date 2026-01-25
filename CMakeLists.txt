@@ -27,6 +27,37 @@ project(kctsb
 )
 
 # ============================================================================
+# CUDA Support (Optional)
+# ============================================================================
+option(KCTSB_ENABLE_CUDA "Enable CUDA GPU acceleration" ON)
+
+set(KCTSB_CUDA_ENABLED OFF)
+if(KCTSB_ENABLE_CUDA)
+    include(CheckLanguage)
+    check_language(CUDA)
+    if(CMAKE_CUDA_COMPILER)
+        enable_language(CUDA)
+        find_package(CUDAToolkit REQUIRED)
+        set(KCTSB_CUDA_ENABLED ON)
+        set(CMAKE_CUDA_STANDARD 17)
+        set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+        
+        # Detect CUDA compute capabilities
+        # RTX 4060 = SM 8.9, RTX 3090 = SM 8.6, A100 = SM 8.0
+        set(CMAKE_CUDA_ARCHITECTURES "80;86;89" CACHE STRING "CUDA architectures to build for")
+        
+        add_definitions(-DKCTSB_HAS_CUDA)
+        message(STATUS "✓ CUDA enabled: ${CMAKE_CUDA_COMPILER_VERSION}")
+        message(STATUS "  CUDA Toolkit: ${CUDAToolkit_VERSION}")
+        message(STATUS "  CUDA Architectures: ${CMAKE_CUDA_ARCHITECTURES}")
+    else()
+        message(STATUS "⚠ CUDA requested but compiler not found - GPU acceleration disabled")
+    endif()
+else()
+    message(STATUS "⚠ CUDA disabled by option")
+endif()
+
+# ============================================================================
 # Assembly Language Support Detection
 # ============================================================================
 # Enable ASM for optimized field element operations (fe256)
@@ -599,6 +630,21 @@ else()
 endif()
 
 # ============================================================================
+# CUDA Files - GPU acceleration for PIR/NTT operations
+# ============================================================================
+
+if(KCTSB_CUDA_ENABLED)
+    file(GLOB_RECURSE KCTSB_CUDA_SOURCES ${KCTSB_SRC_DIR}/*.cu)
+    if(KCTSB_CUDA_SOURCES)
+        list(LENGTH KCTSB_CUDA_SOURCES CUDA_SOURCE_COUNT)
+        message(STATUS "✓ CUDA sources: ${CUDA_SOURCE_COUNT} files")
+        # CUDA sources handled separately, not added to KCTSB_ALL_SOURCES
+    else()
+        message(STATUS "⚠ CUDA enabled but no .cu files found")
+    endif()
+endif()
+
+# ============================================================================
 # Module Status Summary
 # ============================================================================
 
@@ -681,6 +727,30 @@ if(KCTSB_BUILD_STATIC)
     target_compile_definitions(kctsb_static PRIVATE KCTSB_BUILDING)
     set_target_properties(kctsb_static PROPERTIES OUTPUT_NAME kctsb)
     kctsb_configure_library_target(kctsb_static)
+endif()
+
+# ============================================================================
+# CUDA Library (standalone - does NOT include FHE modules due to MSVC limits)
+# ============================================================================
+
+if(KCTSB_CUDA_ENABLED AND KCTSB_CUDA_SOURCES)
+    add_library(kctsb_cuda STATIC ${KCTSB_CUDA_SOURCES})
+    target_include_directories(kctsb_cuda PUBLIC
+        ${KCTSB_INCLUDE_DIR}
+        ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
+    )
+    set_target_properties(kctsb_cuda PROPERTIES
+        CUDA_SEPARABLE_COMPILATION ON
+        CUDA_RESOLVE_DEVICE_SYMBOLS ON
+        POSITION_INDEPENDENT_CODE ON
+    )
+    # Link CUDA runtime
+    target_link_libraries(kctsb_cuda PUBLIC CUDA::cudart)
+    message(STATUS "✓ CUDA library: kctsb_cuda (standalone)")
+    
+    # Note: kctsb_cuda is standalone and NOT linked to main library
+    # This is because MSVC (required for CUDA) doesn't support __int128
+    # which is used in the FHE modules. The CUDA kernels are self-contained.
 endif()
 
 # Function to copy DLL dependencies on Windows
