@@ -57,29 +57,34 @@ constexpr int BENCHMARK_ITERATIONS = 10;
 // p = 1125899906826241 = 2^50 - 2^14 + 1 (works for n up to 16384)
 // p = 576460752313655297 = 2^59 - 2^15 + 1 (59-bit, works for n up to 32768)
 
-// Use 31-bit primes for benchmarking (they support all n values)
+// 50-bit NTT-friendly primes supporting n=32768 (2^15)
+// Condition: p = k * 32768 + 1, p is 50-bit prime, primitive root exists
+// These primes support all n values from 2 to 32768
+const uint64_t PRIMES_50BIT_N32768[] = {
+    562949954142209ULL,   // k = 17179869184, primitive root verified
+    562949954961409ULL,   // k = 17179869209
+    562949955125249ULL,   // k = 17179869214
+    562949955551233ULL,   // k = 17179869227
+    562949957287937ULL,   // k = 17179869280
+    562949957386241ULL,   // k = 17179869283
+    562949957779457ULL,   // k = 17179869295
+    562949959581697ULL,   // k = 17179869350
+    562949960335361ULL,   // k = 17179869373
+    562949960564737ULL,   // k = 17179869380
+    562949960728577ULL,   // k = 17179869385
+    562949961842689ULL,   // k = 17179869419
+    562949962203137ULL,   // k = 17179869430
+    562949962530817ULL,   // k = 17179869440
+    562949962825729ULL,   // k = 17179869449
+};
+
+// 31-bit primes (legacy, for reference only - supports n up to 2^27)
 const uint64_t PRIMES_31BIT[] = {
     2013265921ULL,  // 15 * 2^27 + 1 (most common)
     1811939329ULL,  // another 31-bit NTT prime
     469762049ULL,   // 7 * 2^26 + 1
     167772161ULL,   // 5 * 2^25 + 1
     998244353ULL,   // 119 * 2^23 + 1 (competitive programming favorite)
-};
-
-// 50-bit primes for realistic security (only work up to n=16384)
-const uint64_t PRIMES_50BIT[] = {
-    1125899906826241ULL,   // 2^50 - 2^14 + 1
-    1125899906793473ULL,   // another 50-bit
-    1125899906760705ULL,
-    1125899906727937ULL,
-    1125899906695169ULL,
-    1125899906662401ULL,
-    1125899906629633ULL,
-    1125899906596865ULL,
-    1125899906564097ULL,
-    1125899906531329ULL,
-    1125899906498561ULL,
-    1125899906465793ULL,
 };
 
 // ============================================================================
@@ -459,9 +464,8 @@ void benchmark_ntt_forward(size_t n, size_t L)
     
     std::mt19937_64 rng(42);
     
-    // Choose appropriate prime based on n
-    // For n > 16384, use 31-bit primes; otherwise use 50-bit for realism
-    uint64_t mod = (n > 16384) ? PRIMES_31BIT[0] : PRIMES_50BIT[0];
+    // Use 50-bit primes that support n up to 32768 (unified)
+    uint64_t mod = PRIMES_50BIT_N32768[0];
     
     // CPU setup
     NTTTableCPU cpu_table;
@@ -546,7 +550,8 @@ void benchmark_ntt_inverse(size_t n, size_t L)
     printf("\n[Benchmark] NTT Inverse: n=%zu, L=%zu\n", n, L);
     
     std::mt19937_64 rng(42);
-    uint64_t mod = (n > 16384) ? PRIMES_31BIT[0] : PRIMES_50BIT[0];
+    // Use 50-bit primes that support n up to 32768 (unified)
+    uint64_t mod = PRIMES_50BIT_N32768[0];
     
     NTTTableCPU cpu_table;
     cpu_table.init(n, mod);
@@ -614,7 +619,7 @@ void benchmark_poly_multiply(size_t n, size_t L)
     
     std::vector<uint64_t> moduli(L);
     for (size_t l = 0; l < L; ++l) {
-        moduli[l] = PRIMES_50BIT[l % 12];
+        moduli[l] = PRIMES_50BIT_N32768[l % 15];  // 15 primes available
     }
     
     std::vector<uint64_t> h_a(n * L), h_b(n * L), h_result(n * L);
@@ -672,7 +677,7 @@ void benchmark_ct_add(size_t n, size_t L)
     
     std::vector<uint64_t> moduli(L);
     for (size_t l = 0; l < L; ++l) {
-        moduli[l] = PRIMES_50BIT[l % 12];
+        moduli[l] = PRIMES_50BIT_N32768[l % 15];  // 15 primes available
     }
     
     size_t ct_size = n * L;
@@ -754,7 +759,7 @@ void benchmark_ct_mul_tensor(size_t n, size_t L)
     
     std::vector<uint64_t> moduli(L);
     for (size_t l = 0; l < L; ++l) {
-        moduli[l] = PRIMES_50BIT[l % 12];
+        moduli[l] = PRIMES_50BIT_N32768[l % 15];  // 15 primes available
     }
     
     size_t ct_size = n * L;
