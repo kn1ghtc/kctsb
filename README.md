@@ -4,7 +4,7 @@
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](.)
 [![C++](https://img.shields.io/badge/C++-17-blue.svg)](.)
 [![CMake](https://img.shields.io/badge/CMake-3.20+-green.svg)](.)
-[![Version](https://img.shields.io/badge/Version-4.14.0-brightgreen.svg)](.)
+[![Version](https://img.shields.io/badge/Version-4.15.0-brightgreen.svg)](.)
 
 **kctsb** 是一个跨平台的 C/C++ 密码学和安全算法库，专为生产环境和安全研究设计。目标是成为 **OpenSSL/SEAL 的工业级现代替代品，并支持最前沿的安全与AI方向高效算法实践**。
 
@@ -125,6 +125,16 @@
       - n=262144: NTT **20.11x 加速**，PolyMul **20.03x 加速**
       - n=1048576: NTT **51.56x 加速**，PolyMul **36.95x 加速**
     - 使用场景：大规模数据库 (n≥16K)、低延迟要求
+  - **Unified CUDA FHE** ✅ **v4.15.0 新增** - 统一 CUDA 加速层
+    - 位于 `src/advanced/cuda/` 独立模块
+    - Harvey NTT + Shoup 预计算 (无除法热路径)
+    - Tree-order 根表布局，CT-NTT/GS-INTT 正确性验证
+    - **FHE 安全参数性能** (RTX 4060 Laptop, CUDA 12.5):
+      - n=8192, L=3: CT Tensor Mul **5.22x**, NTT Inverse **2.72x**
+      - n=16384, L=12: NTT Inverse **6.48x**, CT Tensor Mul **4.82x**
+      - n=32768, L=12: **NTT Inverse 10.38x**, CT Tensor Mul **4.90x**, Poly Mul **3.48x**
+    - 50-bit NTT 友好素数支持 (n≤16384)
+    - 31-bit NTT 素数支持 (n≤2^27)
   - **PIR with Preprocessing** ✅ **v4.14.0 新增** - 离线/在线分离 PIR
     - 提示式 PIR：客户端存储 O(√N) 提示
     - 关键字 PIR：按关键字检索无需知道位置
