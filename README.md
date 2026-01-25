@@ -4,7 +4,7 @@
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](.)
 [![C++](https://img.shields.io/badge/C++-17-blue.svg)](.)
 [![CMake](https://img.shields.io/badge/CMake-3.20+-green.svg)](.)
-[![Version](https://img.shields.io/badge/Version-4.12.1-brightgreen.svg)](.)
+[![Version](https://img.shields.io/badge/Version-4.13.0-brightgreen.svg)](.)
 
 **kctsb** 是一个跨平台的 C/C++ 密码学和安全算法库，专为生产环境和安全研究设计。目标是成为 **OpenSSL/SEAL 的工业级现代替代品，并支持最前沿的安全与AI方向高效算法实践**。
 

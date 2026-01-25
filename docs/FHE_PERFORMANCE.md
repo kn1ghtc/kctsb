@@ -1,11 +1,24 @@
 # FHE Performance Baseline
 
 > kctsb Fully Homomorphic Encryption Module - Performance Benchmarks
-> Version: v4.12.0 | Date: 2025-01-24
+> Version: v4.13.0 | Date: 2026-01-25
 
 ## 1. Overview
 
 This document establishes performance baselines for kctsb's FHE implementation, comparing with Microsoft SEAL 4.1.x as the industry reference.
+
+### 1.1 Recent Updates (v4.13.0)
+
+**Critical Fix: Multi-Precision Arithmetic for Large Parameters**
+
+- **Issue**: `__int128` overflow when Q > 2^127 (e.g., n=8192, L=3 with 50-bit primes)
+- **Solution**: Implemented multi-precision arithmetic in `scale_plaintext()` using `std::vector<uint64_t>`
+- **Impact**: All 119 FHE tests now pass including n=8192 L=3 parameter sets
+- **Details**: 
+  - Q = 3 × 50-bit primes ≈ 150 bits exceeds `__int128` max (127 bits)
+  - Multi-precision Q computation with carry propagation
+  - Long division for delta = floor(Q/t)
+  - Horner's method for modular reduction of delta
 
 **Performance Ratio Convention**: Values > 1.0x mean **kctsb is faster** (e.g., 2.5x = kctsb runs in 40% of SEAL's time).
 
