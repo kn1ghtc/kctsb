@@ -71,6 +71,23 @@ static std::vector<uint64_t> prime_factors(uint64_t n) {
     return factors;
 }
 
+/**
+ * @brief Check if candidate is a primitive 2n-th root of unity (SEAL-compatible)
+ * 
+ * A number r is a primitive 2n-th root of unity mod q if:
+ * - r^{2n} = 1 (mod q)
+ * - r^n = -1 (mod q)  (this implies the first condition and ensures primitivity)
+ */
+static bool is_primitive_root(uint64_t root, uint64_t degree, const Modulus& modulus) {
+    if (root == 0) return false;
+    
+    // Check: root^{degree/2} == -1 (mod q)
+    // This is the key check from SEAL - if this holds, root is a primitive degree-th root
+    uint64_t half_degree = degree >> 1;
+    uint64_t result = pow_mod(root, half_degree, modulus);
+    return result == modulus.value() - 1;
+}
+
 // ============================================================================
 // NTTTables Implementation
 // ============================================================================
@@ -85,42 +102,34 @@ size_t NTTTables::bit_reverse(size_t x, int bits) {
 }
 
 uint64_t NTTTables::find_minimal_primitive_root() const {
-    // Find primitive 2n-th root of unity
-    // We need g such that g^{2n} = 1 and g^k != 1 for k < 2n
+    // Find primitive 2n-th root of unity using SEAL-compatible algorithm
     
     uint64_t q = modulus_.value();
     uint64_t order = q - 1;  // |Z_q^*| = q - 1
-    uint64_t two_n = 2 * coeff_count_;
+    uint64_t degree = 2 * coeff_count_;  // 2n
     
-    if (order % two_n != 0) {
+    if (order % degree != 0) {
         throw std::invalid_argument("Modulus does not support NTT for this n");
     }
     
-    // Find a generator of Z_q^*
-    auto factors = prime_factors(order);
+    uint64_t size_quotient_group = order / degree;
     
-    // For small primes, limit search to first 10000 candidates
-    // For most NTT-friendly primes, a generator is found quickly
-    uint64_t max_search = std::min(q - 1, static_cast<uint64_t>(10000));
-    
-    for (uint64_t g = 2; g <= max_search; ++g) {
-        bool is_generator = true;
+    // Try candidates sequentially: for g in [2, q), compute root = g^{(q-1)/2n}
+    // Check if root^n == -1 mod q (which means root is a primitive 2n-th root)
+    for (uint64_t candidate = 2; candidate < q && candidate < 1000000; ++candidate) {
+        uint64_t root_cand = pow_mod(candidate, size_quotient_group, modulus_);
         
-        for (uint64_t p : factors) {
-            if (pow_mod(g, order / p, modulus_) == 1) {
-                is_generator = false;
-                break;
-            }
-        }
+        if (root_cand == 0 || root_cand == 1) continue;
         
-        if (is_generator) {
-            // g is a generator of Z_q^*
-            // The 2n-th primitive root is g^{(q-1)/(2n)}
-            return pow_mod(g, order / two_n, modulus_);
+        // Check primitive root condition: root^n = -1 mod q
+        uint64_t root_n = pow_mod(root_cand, coeff_count_, modulus_);
+        
+        if (root_n == q - 1) {
+            return root_cand;
         }
     }
     
-    throw std::runtime_error("Failed to find primitive root");
+    throw std::runtime_error("Failed to find primitive root for NTT");
 }
 
 NTTTables::NTTTables(int log_n, const Modulus& modulus)

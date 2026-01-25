@@ -496,31 +496,24 @@ if(KCTSB_ENABLE_BGV)
     # endif()
     # gtest_discover_tests(test_bfv PROPERTIES LABELS "unit;fhe;bfv")
     
-    # CKKS Homomorphic Encryption tests (v4.11.0: Temporarily disabled, pending RNS migration)
-    # TODO: Re-enable after CKKS is migrated to pure RNS
-    # add_executable(test_ckks unit/fhe/test_ckks.cpp)
-    # if(TARGET kctsb_static)
-    #     target_link_libraries(test_ckks PRIVATE
-    #         kctsb_static
-    #         GTest::gtest_main
-    #     )
-    # else()
-    #     target_link_libraries(test_ckks PRIVATE
-    #         kctsb
-    #         GTest::gtest_main
-    #     )
-    # endif()
-    # target_include_directories(test_ckks PRIVATE
-    #     ${CMAKE_SOURCE_DIR}/include
-    #     ${CMAKE_SOURCE_DIR}/src
-    # )
-    # if(NTL_FOUND)
-    #     target_link_libraries(test_ckks PRIVATE ${NTL_LIBRARY})
-    #     if(GMP_FOUND)
-    #         target_link_libraries(test_ckks PRIVATE ${GMP_LIBRARY})
-    #     endif()
-    # endif()
-    # gtest_discover_tests(test_ckks PROPERTIES LABELS "unit;fhe;ckks")
+    # CKKS Evaluator Pure RNS tests (v4.14.0 - NEW)
+    add_executable(test_ckks_evaluator advanced/fe/ckks/test_ckks_evaluator.cpp)
+    if(TARGET kctsb_static)
+        target_link_libraries(test_ckks_evaluator PRIVATE
+            kctsb_static
+            GTest::gtest_main
+        )
+    else()
+        target_link_libraries(test_ckks_evaluator PRIVATE
+            kctsb
+            GTest::gtest_main
+        )
+    endif()
+    target_include_directories(test_ckks_evaluator PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/src
+    )
+    gtest_discover_tests(test_ckks_evaluator PROPERTIES LABELS "unit;fhe;ckks;rns")
     
     # Harvey NTT Optimized Implementation tests (v4.9.1 Phase 4b)
     add_executable(test_ntt_harvey test_ntt_harvey.cpp)

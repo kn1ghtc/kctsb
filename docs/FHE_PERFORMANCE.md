@@ -108,8 +108,8 @@ This document establishes performance baselines for kctsb's FHE implementation, 
 
 ### 6.2 Phase 2: SIMD Acceleration (v4.13.0)
 - [x] AVX2 NTT butterfly operations (enabled)
-- [ ] AVX-512 parallel coefficient processing
-- [ ] PCLMUL for GHASH/polynomial multiplication
+- [x] AVX-512 parallel coefficient processing
+- [x] PCLMUL for GHASH/polynomial multiplication
 - [ ] Intel HEXL integration (enable optional acceleration)
 
 ### 6.3 Phase 3: GPU Acceleration (v4.14.0+)

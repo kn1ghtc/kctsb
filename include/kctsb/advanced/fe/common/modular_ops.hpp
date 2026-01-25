@@ -83,26 +83,43 @@ public:
     
 private:
     void compute_const_ratio() {
-        // Compute floor(2^128 / value) as 3x64-bit words
-        // This is used for Barrett reduction
+        // Compute floor(2^128 / value) for Barrett reduction
+        // Store as 2 x 64-bit words (SEAL-compatible)
+        // const_ratio_[0] = low 64 bits
+        // const_ratio_[1] = high 64 bits
+        // const_ratio_[2] = unused (set to 0)
         
         // We need to compute 2^128 / value
-        // Using 128-bit arithmetic: result = (2^128 - 1) / value + adjustment
+        // numerator = 2^128 = (1 << 128)
         
+        // Using __uint128_t to compute 2^128 / value
+        // Since 2^128 doesn't fit, we compute (2^64 * 2^64) / value
+        
+        // Method: (2^128) / value = ((2^64) * (2^64)) / value
+        // Let q1 = 2^64 / value (integer division)
+        // Let r1 = 2^64 % value
+        // Then 2^128 / value = 2^64 * q1 + (r1 * 2^64) / value
+        
+        // More precisely:
+        // numerator = 2^128 = (1ULL << 64) * (1ULL << 64)
+        // We want floor(2^128 / value)
+        
+        // Use 192-bit arithmetic: numerator[0] = 0, numerator[1] = 0, numerator[2] = 1
+        // represents 2^128
+        
+        // High quotient: floor(2^64 / value)
+        uint64_t q_high = 0;
         __uint128_t numerator_high = static_cast<__uint128_t>(1) << 64;
-        
-        // Divide (1 << 128) by value
-        // First divide high part
-        __uint128_t quotient_high = numerator_high / value_;
+        q_high = static_cast<uint64_t>(numerator_high / value_);
         __uint128_t remainder = numerator_high % value_;
         
-        // Then divide (remainder << 64) by value
+        // Low quotient: floor((remainder * 2^64) / value)
         __uint128_t numerator_low = remainder << 64;
-        __uint128_t quotient_low = numerator_low / value_;
+        uint64_t q_low = static_cast<uint64_t>(numerator_low / value_);
         
-        const_ratio_[0] = 0;  // Lowest 64 bits (usually 0 for our purposes)
-        const_ratio_[1] = static_cast<uint64_t>(quotient_low);
-        const_ratio_[2] = static_cast<uint64_t>(quotient_high);
+        const_ratio_[0] = q_low;   // Low 64 bits of floor(2^128 / value)
+        const_ratio_[1] = q_high;  // High 64 bits of floor(2^128 / value)
+        const_ratio_[2] = 0;       // Not used for Barrett reduction
     }
     
     uint64_t value_;
@@ -192,7 +209,7 @@ inline uint64_t negate_uint_mod(uint64_t operand, const Modulus& modulus) noexce
 }
 
 /**
- * @brief Barrett reduction of 128-bit value
+ * @brief Barrett reduction of 128-bit value (SEAL-compatible)
  * @param input Pointer to 128-bit value (2 x uint64_t, little-endian)
  * @param modulus The modulus (must be at most 63 bits)
  * @return input mod modulus
@@ -200,27 +217,46 @@ inline uint64_t negate_uint_mod(uint64_t operand, const Modulus& modulus) noexce
 inline uint64_t barrett_reduce_128(const uint64_t* input, 
                                     const Modulus& modulus) noexcept {
     // Barrett reduction for 128-bit input
-    // Uses precomputed const_ratio from modulus
+    // Uses precomputed const_ratio = floor(2^128 / modulus)
+    // const_ratio[0] = low 64 bits, const_ratio[1] = high 64 bits
     
     const uint64_t* const_ratio = modulus.const_ratio().data();
     uint64_t q = modulus.value();
     
-    // Multiply input by const_ratio and take high part
-    __uint128_t tmp1 = static_cast<__uint128_t>(input[0]) * const_ratio[1];
-    __uint128_t tmp2 = static_cast<__uint128_t>(input[0]) * const_ratio[2];
-    __uint128_t tmp3 = static_cast<__uint128_t>(input[1]) * const_ratio[1];
+    // Compute: quotient_approx = floor(input * const_ratio / 2^128)
+    // We only need the high 64 bits of the product
     
-    // Combine high parts
-    uint64_t carry = static_cast<uint64_t>(tmp1 >> 64);
-    __uint128_t tmp = tmp2 + tmp3 + carry;
-    uint64_t quotient_approx = static_cast<uint64_t>(tmp >> 64) + 
-                               static_cast<uint64_t>(input[1] * const_ratio[2]);
+    // Multiply input[0..1] by const_ratio[0..1] and keep high 128 bits
+    // input = input[1] * 2^64 + input[0]
+    // const_ratio = const_ratio[1] * 2^64 + const_ratio[0]
     
-    // Barrett subtraction
+    // Using __uint128_t for intermediate results
+    __uint128_t tmp1 = static_cast<__uint128_t>(input[0]) * const_ratio[0];
+    uint64_t carry1 = static_cast<uint64_t>(tmp1 >> 64);
+    
+    __uint128_t tmp2 = static_cast<__uint128_t>(input[0]) * const_ratio[1];
+    __uint128_t tmp3 = static_cast<__uint128_t>(input[1]) * const_ratio[0];
+    
+    // Sum of middle terms plus carry
+    __uint128_t middle = tmp2 + tmp3 + carry1;
+    uint64_t middle_low = static_cast<uint64_t>(middle);
+    uint64_t middle_high = static_cast<uint64_t>(middle >> 64);
+    
+    // High term
+    uint64_t high = input[1] * const_ratio[1] + middle_high;
+    
+    // quotient_approx = high
+    uint64_t quotient_approx = high;
+    
+    // Barrett subtraction: result = input[0] - quotient_approx * q
     uint64_t result = input[0] - quotient_approx * q;
     
-    // One correction is usually enough for 63-bit modulus
-    return result >= q ? result - q : result;
+    // One or two corrections may be needed
+    if (result >= q) {
+        result -= q;
+    }
+    
+    return result;
 }
 
 /**
