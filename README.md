@@ -92,6 +92,20 @@
     - 企业级: `n=16384, L=8, 50-bit primes, t=65537` (≤8次乘法)
     - 高安全: `n=32768, L=12, 45-bit primes, t=65537` (≤12次乘法)
 
+- **隐私计算协议** ✅ **PSI/PIR 完整实现** (v4.13.0新增)
+  - **Piano-PSI** - O(√n) 通信复杂度隐私集合交集
+    - Cuckoo 哈希 + 亚线性 PIR 技术
+    - 支持大规模数据集 (百万级)
+  - **OT-based PSI** - 基于混淆传输的 PSI
+    - IKNP OT Extension 协议
+    - 支持半诚实/恶意安全模型
+  - **Native PIR** - 原生 FHE-based 私密信息检索 ✅ **无 SEAL 依赖**
+    - 支持 BGV/BFV/CKKS 三种方案
+    - SIMD 批处理优化
+    - 整数/浮点/二进制数据库
+    - vs SEAL-PIR 性能: **1.23x 加速** (DB=1000)
+  - 详见 [PSI/PIR 性能基线](docs/PSI_PIR_PERFORMANCE.md)
+
 ## 🏗️ 项目结构
 
 ```shell
