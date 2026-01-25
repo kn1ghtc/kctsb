@@ -823,7 +823,8 @@ void BEHZRNSTool::fastbconv_sk(const uint64_t* input, uint64_t* output) const {
     b_to_q_conv_->fast_convert_array(input, output, n_);
     
     // Step 2: Compute alpha_sk for Shenoy-Kumaresan correction
-    // alpha_sk = (B_conv_to_msk - input_msk) * B^{-1} mod m_sk
+    // SEAL-style: alpha_sk = (temp + (m_sk - input_m_sk)) * B^{-1} mod m_sk
+    // This avoids negative intermediate values
     std::vector<uint64_t> temp_m_sk(n_);
     b_to_m_sk_conv_->fast_convert_array(input, temp_m_sk.data(), n_);
     
@@ -831,29 +832,47 @@ void BEHZRNSTool::fastbconv_sk(const uint64_t* input, uint64_t* output) const {
     std::vector<uint64_t> alpha_sk(n_);
     
     for (size_t c = 0; c < n_; c++) {
-        uint64_t diff = sub_uint_mod(temp_m_sk[c], input_m_sk[c], m_sk_);
-        alpha_sk[c] = multiply_uint_mod(diff, inv_prod_B_mod_m_sk_, m_sk_);
+        // SEAL-style: use temp + (m_sk - input_m_sk) to avoid negative values
+        // (temp - input_m_sk) mod m_sk = (temp + m_sk - input_m_sk) mod m_sk
+        uint64_t sum = temp_m_sk[c] + (m_sk_.value() - input_m_sk[c]);
+        // Note: sum may be >= 2*m_sk, need reduction
+        if (sum >= m_sk_.value()) {
+            sum -= m_sk_.value();
+        }
+        if (sum >= m_sk_.value()) {
+            sum -= m_sk_.value();
+        }
+        alpha_sk[c] = multiply_uint_mod(sum, inv_prod_B_mod_m_sk_, m_sk_);
     }
     
     // Step 3: Apply correction to each Q modulus
-    uint64_t m_sk_div_2 = m_sk_.value() >> 1;
+    // SEAL-style: alpha_sk is NOT centered, so correction is applied as follows:
+    // - If alpha_sk > m_sk/2 (represents negative): dest += (-alpha_sk) * prod_B
+    // - Otherwise: dest += alpha_sk * (-prod_B) = dest -= alpha_sk * prod_B
+    const uint64_t m_sk_div_2 = m_sk_.value() >> 1;
     
     for (size_t i = 0; i < L; i++) {
         uint64_t* out_i = output + i * n_;
         uint64_t prod_B_mod_qi = prod_B_mod_q_[i];
         const Modulus& qi = q_base_[i];
         
+        // Precompute neg_prod_B_mod_qi = qi - prod_B_mod_qi
+        uint64_t neg_prod_B_mod_qi = qi.value() - prod_B_mod_qi;
+        
         for (size_t c = 0; c < n_; c++) {
+            // SEAL-style correction:
             // If alpha_sk > m_sk/2, it represents a negative value
             if (alpha_sk[c] > m_sk_div_2) {
-                // Correction: add alpha_sk * prod_B
-                uint64_t neg_alpha = negate_uint_mod(alpha_sk[c], m_sk_);
+                // Correcting alpha_sk since it represents a negative value
+                // dest += (-alpha_sk mod m_sk) * prod_B mod qi
+                uint64_t neg_alpha = m_sk_.value() - alpha_sk[c];
                 uint64_t term = multiply_uint_mod(neg_alpha, prod_B_mod_qi, qi);
                 out_i[c] = add_uint_mod(out_i[c], term, qi);
             } else {
-                // Correction: subtract alpha_sk * prod_B
-                uint64_t term = multiply_uint_mod(alpha_sk[c], prod_B_mod_qi, qi);
-                out_i[c] = sub_uint_mod(out_i[c], term, qi);
+                // No correction needed - use negative prod_B
+                // dest += alpha_sk * (-prod_B) mod qi = dest - alpha_sk * prod_B
+                uint64_t term = multiply_uint_mod(alpha_sk[c], neg_prod_B_mod_qi, qi);
+                out_i[c] = add_uint_mod(out_i[c], term, qi);
             }
         }
     }
@@ -1020,6 +1039,129 @@ void BEHZRNSTool::decrypt_scale_and_round(const uint64_t* input, uint64_t* outpu
         
         output[c] = result;
     }
+}
+
+void BEHZRNSTool::extend_q_to_bsk(const uint64_t* input, uint64_t* output) const {
+    size_t Bsk_size = bsk_base_.size();
+    
+    // Step 1: Extend Q to Bsk ∪ {m_tilde} using fastbconv_m_tilde
+    std::vector<uint64_t> temp_bsk_m_tilde((Bsk_size + 1) * n_);
+    fastbconv_m_tilde(input, temp_bsk_m_tilde.data());
+    
+    // Step 2: Montgomery reduction to get result in Bsk
+    sm_mrq(temp_bsk_m_tilde.data(), output);
+}
+
+void BEHZRNSTool::behz_multiply_and_rescale(
+    const uint64_t* p1_q, const uint64_t* p1_bsk,
+    const uint64_t* p2_q, const uint64_t* p2_bsk,
+    uint64_t* output) const
+{
+    size_t L = q_base_.size();
+    size_t Bsk_size = bsk_base_.size();
+    
+    // BEHZ Multiplication Rescaling
+    // 
+    // Given: p1, p2 in Q ∪ Bsk (already extended before tensor product)
+    // Compute: round((p1 * p2) * t / Q) in base Q
+    //
+    // Algorithm:
+    // 1. Compute p1 * p2 in Q (for tensor product component)
+    // 2. Compute p1 * p2 in Bsk (for rescaling)
+    // 3. Multiply by t in both bases
+    // 4. Add Q/2 for rounding in both bases
+    // 5. Fast floor: floor((product * t + Q/2) / Q) in Bsk
+    // 6. Convert back to Q
+    
+    // Step 1 & 2: Compute product in Q and Bsk bases separately
+    // These are coefficient-wise products (caller handles NTT multiply)
+    std::vector<uint64_t> prod_q(L * n_);
+    std::vector<uint64_t> prod_bsk(Bsk_size * n_);
+    
+    for (size_t i = 0; i < L; i++) {
+        const uint64_t* p1_i = p1_q + i * n_;
+        const uint64_t* p2_i = p2_q + i * n_;
+        uint64_t* prod_i = prod_q.data() + i * n_;
+        const Modulus& qi = q_base_[i];
+        
+        for (size_t c = 0; c < n_; c++) {
+            prod_i[c] = multiply_uint_mod(p1_i[c], p2_i[c], qi);
+        }
+    }
+    
+    for (size_t i = 0; i < Bsk_size; i++) {
+        const uint64_t* p1_i = p1_bsk + i * n_;
+        const uint64_t* p2_i = p2_bsk + i * n_;
+        uint64_t* prod_i = prod_bsk.data() + i * n_;
+        const Modulus& bi = bsk_base_[i];
+        
+        for (size_t c = 0; c < n_; c++) {
+            prod_i[c] = multiply_uint_mod(p1_i[c], p2_i[c], bi);
+        }
+    }
+    
+    // Step 3 & 4: Multiply by t and add Q/2 (rounding) in Q
+    for (size_t i = 0; i < L; i++) {
+        uint64_t* prod_i = prod_q.data() + i * n_;
+        const Modulus& qi = q_base_[i];
+        uint64_t t_mod_qi = t_ % qi.value();
+        uint64_t half_q_i = half_q_mod_q_[i];
+        
+        for (size_t c = 0; c < n_; c++) {
+            uint64_t ct = multiply_uint_mod(prod_i[c], t_mod_qi, qi);
+            prod_i[c] = add_uint_mod(ct, half_q_i, qi);
+        }
+    }
+    
+    // Step 3 & 4: Multiply by t and add Q/2 (rounding) in Bsk
+    for (size_t i = 0; i < Bsk_size; i++) {
+        uint64_t* prod_i = prod_bsk.data() + i * n_;
+        const Modulus& bi = bsk_base_[i];
+        uint64_t t_mod_bi = t_ % bi.value();
+        uint64_t half_q_bi = half_q_mod_Bsk_[i];
+        
+        for (size_t c = 0; c < n_; c++) {
+            uint64_t ct = multiply_uint_mod(prod_i[c], t_mod_bi, bi);
+            prod_i[c] = add_uint_mod(ct, half_q_bi, bi);
+        }
+    }
+    
+    // Step 5: Combine Q and Bsk for fast_floor
+    std::vector<uint64_t> temp_q_bsk((L + Bsk_size) * n_);
+    std::copy(prod_q.data(), prod_q.data() + L * n_, temp_q_bsk.data());
+    std::copy(prod_bsk.data(), prod_bsk.data() + Bsk_size * n_, 
+              temp_q_bsk.data() + L * n_);
+    
+    // Step 6: Fast floor: floor((c * t + Q/2) / Q) in Bsk
+    std::vector<uint64_t> result_bsk(Bsk_size * n_);
+    fast_floor(temp_q_bsk.data(), result_bsk.data());
+    
+    // Step 7: Convert back to Q using fastbconv_sk
+    fastbconv_sk(result_bsk.data(), output);
+}
+
+// ============================================================================
+// Bsk NTT Operations (v4.13.0)
+// ============================================================================
+
+void BEHZRNSTool::bsk_ntt_forward(uint64_t* poly, size_t bsk_index) const {
+    if (bsk_index >= bsk_ntt_tables_.size()) {
+        throw std::out_of_range("bsk_index out of range");
+    }
+    if (!bsk_ntt_tables_[bsk_index]) {
+        throw std::runtime_error("Bsk NTT table not initialized");
+    }
+    bsk_ntt_tables_[bsk_index]->forward(poly);
+}
+
+void BEHZRNSTool::bsk_ntt_inverse(uint64_t* poly, size_t bsk_index) const {
+    if (bsk_index >= bsk_ntt_tables_.size()) {
+        throw std::out_of_range("bsk_index out of range");
+    }
+    if (!bsk_ntt_tables_[bsk_index]) {
+        throw std::runtime_error("Bsk NTT table not initialized");
+    }
+    bsk_ntt_tables_[bsk_index]->inverse(poly);
 }
 
 } // namespace fhe

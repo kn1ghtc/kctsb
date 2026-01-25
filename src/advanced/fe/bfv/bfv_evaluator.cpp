@@ -182,23 +182,55 @@ RNSPoly BFVEvaluator::scale_plaintext(const BFVPlaintext& pt) {
     // BFV scaling: multiply by Δ = floor(Q/t)
     // In RNS: Δ mod q_i for each level
     // 
-    // Compute Δ = Q/t = (q_0 * q_1 * ... * q_{L-1}) / t
-    // For each level i, Δ mod q_i = (Q/t) mod q_i
+    // For Q > 2^127 (e.g., 3 × 50-bit primes = 150 bits), we cannot use __int128.
+    // Instead, compute Δ mod q_i directly using multi-precision arithmetic.
+    //
+    // Method: Δ = Q/t, so we need to compute floor(Q/t) mod q_i for each i.
     // 
-    // Method: Δ mod q_i = ((Q/q_i) * (Q/q_i)^{-1} mod q_i * (floor(Q/t))) mod q_i
-    //                   = floor(Q/t) mod q_i (since we compute Δ directly)
+    // Step 1: Compute Q as a multi-precision integer (L × 64-bit words)
+    // Step 2: Divide Q by t to get Δ (also multi-precision)
+    // Step 3: Reduce Δ mod q_i for each level
     
     size_t L = context_->level_count();
     size_t n = context_->n();
+    uint64_t t = plaintext_modulus_;
     
-    // Compute full Δ = Q/t using __int128
-    __int128 Q = compute_Q_product(context_);
-    __int128 delta_full = Q / static_cast<__int128>(plaintext_modulus_);
+    // Step 1: Compute Q = product of all primes as multi-precision integer
+    // Maximum size needed: L primes of ~50 bits each = L*50/64 + 1 words
+    std::vector<uint64_t> Q_mp(L + 1, 0);
+    Q_mp[0] = 1;
     
-    // For each level, compute Δ mod q_i
+    for (size_t i = 0; i < L; ++i) {
+        uint64_t qi = context_->modulus(i).value();
+        uint64_t carry = 0;
+        for (size_t k = 0; k < L + 1; ++k) {
+            __uint128_t wide = static_cast<__uint128_t>(Q_mp[k]) * qi + carry;
+            Q_mp[k] = static_cast<uint64_t>(wide);
+            carry = static_cast<uint64_t>(wide >> 64);
+        }
+    }
+    
+    // Step 2: Compute Δ = floor(Q / t) using multi-precision division
+    // Since t is 64-bit, we can use simple long division
+    std::vector<uint64_t> delta_mp(L + 1, 0);
+    __uint128_t remainder = 0;
+    
+    for (int k = static_cast<int>(L); k >= 0; --k) {
+        __uint128_t dividend = (remainder << 64) | Q_mp[k];
+        delta_mp[k] = static_cast<uint64_t>(dividend / t);
+        remainder = dividend % t;
+    }
+    
+    // Step 3: Reduce Δ mod q_i for each level using Horner's method
     for (size_t level = 0; level < L; ++level) {
         uint64_t qi = context_->modulus(level).value();
-        uint64_t delta_mod_qi = static_cast<uint64_t>(delta_full % static_cast<__int128>(qi));
+        
+        // Compute delta_mp mod q_i using Horner's method
+        uint64_t delta_mod_qi = 0;
+        for (int k = static_cast<int>(L); k >= 0; --k) {
+            __uint128_t wide = (static_cast<__uint128_t>(delta_mod_qi) << 64) + delta_mp[k];
+            delta_mod_qi = static_cast<uint64_t>(wide % qi);
+        }
         
         uint64_t* data = m.data(level);
         const Modulus& mod = context_->modulus(level);
@@ -284,14 +316,10 @@ BFVPlaintext BFVEvaluator::decrypt(
     //   c0 + c1*s = Δ·m + e, where Δ = Q/t
     //   round((t/Q) · (Δ·m + e)) = round(m + e·t/Q) ≈ m
     //
-    // After multiplication (scale_degree=2):
-    //   c0 + c1*s + c2*s² = Δ²·m + noise, where Δ² = Q²/t²
-    //   But we work mod Q, so actual value = (Δ²·m) mod Q
-    //   This is NOT recoverable via CRT if Δ²·m > Q!
-    //
-    // For delayed rescaling to work correctly, we need BEHZ base extension.
-    // As a workaround, this decrypt assumes scale_degree=1 (fresh or rescaled).
-    // For scale_degree>1, the result may be incorrect without proper rescaling.
+    // IMPORTANT: For industrial parameters (L=3, 50-bit primes):
+    //   Q ≈ 2^150, which exceeds __int128 max (2^127).
+    //   CRT reconstruction would overflow, producing incorrect results.
+    //   We MUST use BEHZ's decrypt_scale_and_round to avoid overflow.
     
     // 1. Compute c1 * s (NTT domain)
     RNSPoly c1s = ct[1] * sk.s;
@@ -302,34 +330,56 @@ BFVPlaintext BFVEvaluator::decrypt(
     // 3. Transform back to coefficient domain
     m_rns.intt_transform();
     
-    // 4. CRT reconstruct with full precision
     size_t n = context_->n();
+    // Use current_level from RNSPoly, not context (poly may have been modulus-switched)
+    size_t L = m_rns.current_level();
+    
+    // Verify BEHZ is initialized for the same number of levels
+    if (behz_tool_ && L != context_->level_count()) {
+        // BEHZ was initialized for context_->level_count() levels
+        // but poly has been modulus-switched. Need to reinitialize or use fallback.
+        // For now, this is a mismatch - need proper handling.
+        throw std::runtime_error("BFV decrypt: level mismatch between poly and BEHZ tool");
+    }
+    
+    // ========================================================================
+    // v4.13.0: Use BEHZ decrypt_scale_and_round to avoid __int128 overflow
+    // ========================================================================
+    // For Q > 2^127 (e.g., 3 × 50-bit primes = 150 bits), CRT reconstruction
+    // using __int128 would overflow. BEHZ's decrypt_scale_and_round computes
+    // round(c * t / Q) entirely in RNS representation, avoiding large integers.
+    //
+    // This is essential for industry parameters (n=8192, L=3, 50-bit primes).
+    
+    if (behz_tool_) {
+        // Prepare input in Q representation (L * n coefficients)
+        std::vector<uint64_t> input_q(L * n);
+        for (size_t level = 0; level < L; ++level) {
+            const uint64_t* src = m_rns.data(level);
+            std::copy(src, src + n, input_q.data() + level * n);
+        }
+        
+        // BEHZ decrypt: computes round(c * t / Q) mod t in RNS (no overflow)
+        std::vector<uint64_t> output_t(n);
+        behz_tool_->decrypt_scale_and_round(input_q.data(), output_t.data());
+        
+        // Copy result to plaintext
+        BFVPlaintext plaintext(n);
+        for (size_t i = 0; i < n; ++i) {
+            plaintext[i] = output_t[i];
+        }
+        
+        return plaintext;
+    }
+    
+    // Fallback: CRT reconstruction (ONLY works for Q < 2^127, i.e., L ≤ 2)
+    // WARNING: This path will produce incorrect results for L ≥ 3 with 50-bit primes!
     std::vector<__int128> coeffs_128(n);
     crt_reconstruct_rns_128(m_rns, coeffs_128);
     
-    // 5. Compute Q = product of all moduli
     __int128 Q = compute_Q_product(context_);
     __int128 half_Q = Q / 2;
     uint64_t t = plaintext_modulus_;
-    
-    // 6. Compute the effective scale factor Δ^scale_degree
-    // For scale_degree=1: Δ = Q/t
-    // For scale_degree=2: Δ² = Q²/t², but mod Q this becomes (Q/t)² mod Q = Δ² mod Q
-    //
-    // The correct formula is: m = round(coeff / Δ^scale_degree)
-    // But Δ^scale_degree may exceed Q, making CRT reconstruction invalid.
-    //
-    // For now, we handle scale_degree by computing Δ iteratively
-    __int128 delta_base = Q / static_cast<__int128>(t);
-    __int128 delta_effective = delta_base;
-    
-    // For scale_degree > 1, compute delta^scale_degree (mod Q semantics)
-    // Warning: This only works correctly if Δ^scale_degree * max_message < Q
-    for (int d = 1; d < ct.scale_degree; ++d) {
-        delta_effective = (delta_effective * delta_base) % Q;
-    }
-    
-    __int128 half_delta = delta_effective / 2;
     
     BFVPlaintext plaintext(n);
     for (size_t i = 0; i < n; ++i) {
@@ -340,12 +390,14 @@ BFVPlaintext BFVEvaluator::decrypt(
             coeff = coeff - Q;
         }
         
-        // Compute round(coeff / Δ^scale_degree)
+        // Compute round(coeff * t / Q)
+        __int128 numerator = coeff * static_cast<__int128>(t);
         __int128 result;
-        if (coeff >= 0) {
-            result = (coeff + half_delta) / delta_effective;
+        
+        if (numerator >= 0) {
+            result = (numerator + half_Q) / Q;
         } else {
-            result = (coeff - half_delta) / delta_effective;
+            result = -(((-numerator) + half_Q) / Q);
         }
         
         // Reduce mod t to [0, t)
@@ -457,81 +509,162 @@ void BFVEvaluator::multiply_inplace(
     size_t n = context_->n();
     size_t L = context_->level_count();
     
-    // BFV Multiplication with BEHZ Rescaling
+    // ========================================================================
+    // BFV Multiplication with BEHZ Rescaling (v4.13.0)
+    // ========================================================================
     // 
-    // In BFV, tensor product produces scale Δ². We need to rescale by t/Q
-    // to bring it back to scale Δ.
+    // BFV multiplication produces tensor product with scale Δ².
+    // BEHZ rescaling computes round(tensor * t / Q) to bring scale back to Δ.
     //
-    // The BEHZ method computes round(c * t / Q) entirely in RNS domain.
-    // This enables correct decryption without CRT reconstruction in multiply.
+    // For small parameters where Δ² < Q, simple rescaling works.
+    // For industrial parameters where Δ² >> Q, we need full BEHZ with dual-base.
+    //
+    // Current implementation: Use BEHZ multiply_and_rescale on tensor product.
+    // This performs Q → Bsk extension, rescaling, and Bsk → Q conversion.
     
-    // Step 1: Compute tensor product in NTT domain
-    std::vector<RNSPoly> tensor_ntt(n1 + n2 - 1);
-    for (size_t i = 0; i < n1 + n2 - 1; ++i) {
-        tensor_ntt[i] = RNSPoly(context_);
-        tensor_ntt[i].ntt_transform();  // Initialize in NTT form
+    if (!behz_tool_) {
+        throw std::runtime_error("BEHZ tool not initialized");
     }
     
+    // ========================================================================
+    // Step 1: Compute tensor product in NTT domain (Q base)
+    // ========================================================================
+    size_t tensor_size = n1 + n2 - 1;
+    std::vector<RNSPoly> tensor_ntt(tensor_size);
+    
+    for (size_t k = 0; k < tensor_size; ++k) {
+        tensor_ntt[k] = RNSPoly(context_);
+        tensor_ntt[k].ntt_transform();  // Initialize as zeros in NTT form
+    }
+    
+    // Compute tensor product: tensor[k] = sum_{i+j=k} ct1[i] * ct2[j]
     for (size_t i = 0; i < n1; ++i) {
         for (size_t j = 0; j < n2; ++j) {
-            size_t idx = i + j;
-            RNSPoly prod = ct1[i] * ct2[j];
-            poly_add_inplace(tensor_ntt[idx], prod);
+            size_t k = i + j;
+            RNSPoly prod = ct1[i] * ct2[j];  // NTT domain multiply
+            poly_add_inplace(tensor_ntt[k], prod);
         }
     }
     
-    // Step 2: Apply rescaling to each tensor product component
-    // Convert from NTT to coefficient domain, rescale, convert back
+    // ========================================================================
+    // Step 2: Apply BEHZ rescaling to each tensor component
+    // ========================================================================
+    // For each tensor component:
+    // 1. Convert from NTT to coefficient domain
+    // 2. Apply BEHZ multiply_and_rescale: computes round(c * t / Q)
+    // 3. Convert back to NTT domain
     //
-    // BEHZ rescaling computes round(c * t / Q) which divides the scale by delta=Q/t.
-    // For BFV multiplication: c_mult = delta^2 * m1 * m2 (in Q space)
-    // After BEHZ: round(c_mult * t / Q) = round(delta^2 * m1 * m2 * t / Q) ≈ delta * m1 * m2
-    //
-    // TODO (v4.13.0): BEHZ integration requires fixing the rescaling output.
-    // Current issue: multiply_and_rescale() returns zeros for tensor products.
-    // Root cause: Need to verify fastbconv_m_tilde/sm_mrq/fast_floor chain.
-    bool use_behz = false;  // Disable until v4.13.0 - CRT rescaling works correctly
+    // The BEHZ algorithm internally:
+    // - Extends Q → Bsk using SmMRq (Small Montgomery Reduction)
+    // - Computes (c * t + Q/2) in both Q and Bsk
+    // - Uses fast_floor for floor((c * t + Q/2) / Q) in Bsk
+    // - Converts Bsk → Q using fastbconv_sk
     
-    if (use_behz && behz_tool_) {
-        for (size_t idx = 0; idx < tensor_ntt.size(); ++idx) {
-            // Transform to coefficient domain for BEHZ
-            tensor_ntt[idx].intt_transform();
-            
-            // Prepare input/output buffers
-            std::vector<uint64_t> input_rns(L * n);
-            std::vector<uint64_t> output_rns(L * n);
-            
-            // Copy to contiguous buffer
-            for (size_t level = 0; level < L; ++level) {
-                const uint64_t* src = tensor_ntt[idx].data(level);
-                std::copy(src, src + n, input_rns.data() + level * n);
-            }
-            
-            // Apply BEHZ multiply_and_rescale: computes round(c * t / Q)
-            behz_tool_->multiply_and_rescale(input_rns.data(), output_rns.data());
-            
-            // Copy back to RNSPoly
-            for (size_t level = 0; level < L; ++level) {
-                uint64_t* dst = tensor_ntt[idx].data(level);
-                std::copy(output_rns.data() + level * n, 
-                          output_rns.data() + (level + 1) * n, dst);
-            }
-            
-            // Transform back to NTT domain
-            tensor_ntt[idx].ntt_transform();
+    for (size_t k = 0; k < tensor_size; ++k) {
+        // Convert to coefficient domain
+        tensor_ntt[k].intt_transform();
+        
+        // Prepare Q representation
+        std::vector<uint64_t> input_q(L * n);
+        for (size_t level = 0; level < L; ++level) {
+            const uint64_t* src = tensor_ntt[k].data(level);
+            std::copy(src, src + n, input_q.data() + level * n);
         }
         
-        // After BEHZ rescaling, scale is back to Δ (scale_degree stays at 1)
-        ct1.scale_degree = 1;
-    } else {
-        // Fallback: no BEHZ, just tensor product with scale accumulation
-        // Scale doubles: Δ → Δ²
-        ct1.scale_degree = ct1.scale_degree + ct2.scale_degree;
+        // Apply BEHZ multiply_and_rescale
+        std::vector<uint64_t> output_q(L * n);
+        behz_tool_->multiply_and_rescale(input_q.data(), output_q.data());
+        
+        // Copy back to RNSPoly
+        for (size_t level = 0; level < L; ++level) {
+            uint64_t* dst = tensor_ntt[k].data(level);
+            std::copy(output_q.data() + level * n,
+                      output_q.data() + (level + 1) * n, dst);
+        }
+        
+        // Transform back to NTT domain
+        tensor_ntt[k].ntt_transform();
     }
+    
+    // After BEHZ rescaling, scale is back to Δ
+    ct1.scale_degree = 1;
     
     // Update ciphertext
     ct1.data = std::move(tensor_ntt);
     ct1.noise_budget -= noise_budget_after_multiply();
+}
+
+void BFVEvaluator::behz_rescale_with_dual_base(
+    const uint64_t* input_q,
+    const uint64_t* input_bsk,
+    uint64_t* output_q) const
+{
+    // BEHZ Rescaling with dual-base input
+    //
+    // Given: input in BOTH Q and Bsk (already computed via dual-base tensor product)
+    // Compute: round(input * t / Q) in base Q
+    //
+    // Algorithm:
+    // 1. Multiply by t in Q domain: input_q * t
+    // 2. Multiply by t in Bsk domain: input_bsk * t
+    // 3. Add Q/2 for rounding in both domains
+    // 4. Combine Q and Bsk for fast_floor: floor((input*t + Q/2) / Q) in Bsk
+    // 5. Convert result from Bsk to Q via fastbconv_sk
+    
+    size_t L = context_->level_count();
+    size_t n = context_->n();
+    size_t Bsk_size = behz_tool_->bsk_size();
+    uint64_t t = plaintext_modulus_;
+    
+    // Step 1 & 3: (input_q * t + Q/2) mod Q
+    std::vector<uint64_t> scaled_q(L * n);
+    const auto& half_q_mod_q = behz_tool_->get_half_q_mod_q();
+    
+    for (size_t i = 0; i < L; ++i) {
+        const uint64_t* src = input_q + i * n;
+        uint64_t* dst = scaled_q.data() + i * n;
+        const Modulus& qi = context_->modulus(i);
+        uint64_t t_mod_qi = t % qi.value();
+        uint64_t half_q_i = half_q_mod_q[i];
+        
+        for (size_t c = 0; c < n; ++c) {
+            // (input * t + Q/2) mod q_i
+            uint64_t ct = multiply_uint_mod(src[c], t_mod_qi, qi);
+            dst[c] = add_uint_mod(ct, half_q_i, qi);
+        }
+    }
+    
+    // Step 2 & 3: (input_bsk * t + Q/2) mod Bsk
+    std::vector<uint64_t> scaled_bsk(Bsk_size * n);
+    const auto& half_q_mod_Bsk = behz_tool_->get_half_q_mod_bsk();
+    
+    for (size_t i = 0; i < Bsk_size; ++i) {
+        const uint64_t* src = input_bsk + i * n;
+        uint64_t* dst = scaled_bsk.data() + i * n;
+        const Modulus& bi = behz_tool_->bsk_base()[i];
+        uint64_t t_mod_bi = t % bi.value();
+        uint64_t half_q_bi = half_q_mod_Bsk[i];
+        
+        for (size_t c = 0; c < n; ++c) {
+            // (input * t + Q/2) mod Bsk[i]
+            uint64_t ct = multiply_uint_mod(src[c], t_mod_bi, bi);
+            dst[c] = add_uint_mod(ct, half_q_bi, bi);
+        }
+    }
+    
+    // Step 4: Combine for fast_floor
+    // fast_floor expects input in Q ∪ Bsk layout
+    std::vector<uint64_t> combined_q_bsk((L + Bsk_size) * n);
+    std::copy(scaled_q.data(), scaled_q.data() + L * n, combined_q_bsk.data());
+    std::copy(scaled_bsk.data(), scaled_bsk.data() + Bsk_size * n,
+              combined_q_bsk.data() + L * n);
+    
+    // fast_floor: floor((input*t + Q/2) / Q) in Bsk
+    std::vector<uint64_t> floor_result_bsk(Bsk_size * n);
+    behz_tool_->fast_floor(combined_q_bsk.data(), floor_result_bsk.data());
+    
+    // Step 5: Convert Bsk → Q
+    behz_tool_->fastbconv_sk(floor_result_bsk.data(), output_q);
 }
 
 BFVCiphertext BFVEvaluator::relinearize(

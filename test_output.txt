@@ -1,5 +1,0 @@
-Note: Google Test filter = HarveyNTTTest.ZeroPolynomial
-[==========] Running 1 test from 1 test suite.
-[----------] Global test environment set-up.
-[----------] 1 test from HarveyNTTTest
-[ RUN      ] HarveyNTTTest.ZeroPolynomial

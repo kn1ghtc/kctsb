@@ -26,7 +26,7 @@ zz_pInfoT::zz_pInfoT(long NewP, long maxroot)
 
    ZZ P, B, M, M1, MinusM;
    long n, i;
-   long q, t;
+   long q = 0, t;  // Initialize q to avoid uninitialized warning
    mulmod_t qinv;
 
    p = NewP;

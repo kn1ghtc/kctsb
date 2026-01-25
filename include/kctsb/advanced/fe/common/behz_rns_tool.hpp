@@ -337,6 +337,56 @@ public:
     void decrypt_scale_and_round(const uint64_t* input, uint64_t* output) const;
     
     // ========================================================================
+    // Base Extension Operations (for complete BEHZ multiply)
+    // ========================================================================
+    
+    /**
+     * @brief Extend polynomial from base Q to Bsk using SmMRq
+     * 
+     * Complete extension: Q → Bsk ∪ {m_tilde} → Bsk
+     * This is the preparation step before tensor product in BEHZ multiply.
+     * 
+     * @param input Input polynomial in base Q (L * n values)
+     * @param output Output polynomial in base Bsk ((L+1) * n values)
+     */
+    void extend_q_to_bsk(const uint64_t* input, uint64_t* output) const;
+    
+    /**
+     * @brief Full BEHZ multiply for two polynomials already extended to Q ∪ Bsk
+     * 
+     * Given two polynomials in Q ∪ Bsk, compute their product and rescale:
+     * result = round((p1 * p2) * t / Q) in base Q
+     * 
+     * @param p1_q First polynomial in base Q
+     * @param p1_bsk First polynomial in base Bsk
+     * @param p2_q Second polynomial in base Q
+     * @param p2_bsk Second polynomial in base Bsk
+     * @param output Output polynomial in base Q (rescaled result)
+     */
+    void behz_multiply_and_rescale(
+        const uint64_t* p1_q, const uint64_t* p1_bsk,
+        const uint64_t* p2_q, const uint64_t* p2_bsk,
+        uint64_t* output) const;
+    
+    // ========================================================================
+    // NTT Operations for Bsk base (v4.13.0)
+    // ========================================================================
+    
+    /**
+     * @brief Apply forward NTT for a single Bsk modulus
+     * @param poly Polynomial coefficients (in-place, n values)
+     * @param bsk_index Index in Bsk base (0 to bsk_size-1)
+     */
+    void bsk_ntt_forward(uint64_t* poly, size_t bsk_index) const;
+    
+    /**
+     * @brief Apply inverse NTT for a single Bsk modulus
+     * @param poly Polynomial coefficients (in-place, n values)
+     * @param bsk_index Index in Bsk base (0 to bsk_size-1)
+     */
+    void bsk_ntt_inverse(uint64_t* poly, size_t bsk_index) const;
+    
+    // ========================================================================
     // Accessors
     // ========================================================================
     
@@ -347,6 +397,16 @@ public:
     const RNSBase& q_base() const noexcept { return q_base_; }
     const RNSBase& b_base() const noexcept { return b_base_; }
     const RNSBase& bsk_base() const noexcept { return bsk_base_; }
+    
+    /**
+     * @brief Get Q/2 mod q_i precomputed values (for rounding)
+     */
+    const std::vector<uint64_t>& get_half_q_mod_q() const noexcept { return half_q_mod_q_; }
+    
+    /**
+     * @brief Get Q/2 mod Bsk[i] precomputed values (for rounding)
+     */
+    const std::vector<uint64_t>& get_half_q_mod_bsk() const noexcept { return half_q_mod_Bsk_; }
     
 private:
     void initialize();

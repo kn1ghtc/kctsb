@@ -270,7 +270,7 @@ void benchmark_seal_ckks() {
     
     EncryptionParameters parms(scheme_type::ckks);
     parms.set_poly_modulus_degree(INDUSTRY_POLY_DEGREE);
-    parms.set_coeff_modulus(CoeffModulus::Create(INDUSTRY_POLY_DEGREE, {60, 40, 40, 40, 40, 60}));
+    parms.set_coeff_modulus(CoeffModulus::Create(INDUSTRY_POLY_DEGREE, {50, 40, 40, 40, 40, 50}));
     
     SEALContext context(parms);
     

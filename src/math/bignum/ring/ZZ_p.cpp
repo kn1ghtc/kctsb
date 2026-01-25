@@ -50,7 +50,7 @@ void ZZ_p::DoInstall()
 
       ZZ B, M, M1, M2, M3;
       long n, i;
-      long q, t;
+      long q = 0, t;  // Initialize q to avoid uninitialized warning
       mulmod_t qinv;
 
       sqr(B, ZZ_pInfo->p);

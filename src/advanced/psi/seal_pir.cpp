@@ -54,7 +54,7 @@ seal::SEALContext SEALPIRImpl::create_context() {
     size_t poly_modulus_degree = 8192;
     parms.set_poly_modulus_degree(poly_modulus_degree);
     parms.set_coeff_modulus(seal::CoeffModulus::Create(
-        poly_modulus_degree, {60, 40, 40, 60}));
+        poly_modulus_degree, {50, 40, 40, 50}));
     return seal::SEALContext(parms);
 }
 

@@ -316,6 +316,114 @@ TEST_F(BEHZBFVIntegrationTest, VerifyBEHZAlgorithmCorrectness) {
 }
 
 // ============================================================================
+// n=8192 Diagnostic Tests
+// ============================================================================
+
+/**
+ * @brief Diagnostic test for BEHZ with n=8192 and L=3 (50-bit primes)
+ * 
+ * This test isolates why decrypt returns 0 for large parameters.
+ */
+TEST(BEHZN8192DiagnosticTest, DecryptScaleAndRound) {
+    // Same parameters as BFVEvaluatorN8192Test
+    int log_n = 13;  // n = 8192
+    size_t n = 1 << log_n;
+    std::vector<uint64_t> primes = {
+        1125899906990081ULL,  // PRIME_50BIT_1
+        1125899907219457ULL,  // PRIME_50BIT_2
+        1125899907776513ULL   // PRIME_50BIT_3
+    };
+    uint64_t t = 65537;  // Plaintext modulus
+    size_t L = primes.size();
+    
+    std::cout << "\n=== BEHZ n=8192 Diagnostic Test ===" << std::endl;
+    std::cout << "n = " << n << std::endl;
+    std::cout << "L = " << L << std::endl;
+    std::cout << "t = " << t << std::endl;
+    
+    for (size_t i = 0; i < L; ++i) {
+        std::cout << "q" << i << " = " << primes[i] << std::endl;
+    }
+    std::cout << "Q bits = ~" << (L * 50) << " bits (exceeds __int128)" << std::endl;
+    
+    // Compute Q as multi-precision integer (L+1 words)
+    std::vector<uint64_t> Q_mp(L + 1, 0);
+    Q_mp[0] = 1;
+    for (size_t i = 0; i < L; ++i) {
+        uint64_t carry = 0;
+        for (size_t k = 0; k < L + 1; ++k) {
+            __uint128_t wide = static_cast<__uint128_t>(Q_mp[k]) * primes[i] + carry;
+            Q_mp[k] = static_cast<uint64_t>(wide);
+            carry = static_cast<uint64_t>(wide >> 64);
+        }
+    }
+    
+    // Compute delta = floor(Q / t) as multi-precision
+    std::vector<uint64_t> delta_mp(L + 1, 0);
+    __uint128_t remainder = 0;
+    for (int k = static_cast<int>(L); k >= 0; --k) {
+        __uint128_t dividend = (remainder << 64) | Q_mp[k];
+        delta_mp[k] = static_cast<uint64_t>(dividend / t);
+        remainder = dividend % t;
+    }
+    
+    // Compute delta mod q_i for each prime (for constructing test inputs)
+    std::vector<uint64_t> delta_mod_q(L);
+    for (size_t i = 0; i < L; ++i) {
+        uint64_t delta_mod = 0;
+        for (int k = static_cast<int>(L); k >= 0; --k) {
+            __uint128_t wide = (static_cast<__uint128_t>(delta_mod) << 64) + delta_mp[k];
+            delta_mod = static_cast<uint64_t>(wide % primes[i]);
+        }
+        delta_mod_q[i] = delta_mod;
+    }
+    
+    std::cout << "delta mod q_0 = " << delta_mod_q[0] << std::endl;
+    
+    // Create BEHZ tool
+    std::vector<Modulus> mods;
+    for (auto p : primes) {
+        mods.emplace_back(p);
+    }
+    RNSBase q_base(mods);
+    
+    std::cout << "\nCreating BEHZ tool..." << std::endl;
+    BEHZRNSTool behz_tool(n, q_base, t);
+    std::cout << "BEHZ tool created successfully." << std::endl;
+    
+    // Test decrypt_scale_and_round with delta-scaled values
+    // c = delta * m (computed in RNS)
+    // => round(c * t / Q) = round(delta * m * t / Q) = round(m) = m
+    std::vector<uint64_t> test_m_values = {1, 42, 100, 65536};
+    
+    for (uint64_t m : test_m_values) {
+        // Construct c = delta * m in RNS representation
+        // c mod q_i = (delta mod q_i) * m mod q_i
+        std::vector<uint64_t> input_q(L * n, 0);
+        for (size_t i = 0; i < L; i++) {
+            Modulus mod(primes[i]);
+            // c mod q_i = (delta mod q_i) * m mod q_i
+            input_q[i * n] = multiply_uint_mod(delta_mod_q[i], m % primes[i], mod);
+        }
+        
+        // Call decrypt_scale_and_round
+        std::vector<uint64_t> output_t(n, 0);
+        behz_tool.decrypt_scale_and_round(input_q.data(), output_t.data());
+        
+        // Expected: round(c * t / Q) = round(delta * m * t / Q) = m
+        // (since delta = Q/t, delta * t / Q = 1, so delta * m * t / Q = m)
+        uint64_t expected = m % t;  // Result is mod t
+        uint64_t actual = output_t[0];
+        
+        bool correct = (actual == expected);
+        std::cout << "m=" << m << ": got=" << actual << ", expected=" << expected 
+                  << " " << (correct ? "[OK]" : "[FAIL]") << std::endl;
+        
+        EXPECT_EQ(actual, expected) << "Failed for m=" << m;
+    }
+}
+
+// ============================================================================
 // Main
 // ============================================================================
 

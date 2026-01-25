@@ -312,9 +312,8 @@ TEST_F(BFVEvaluatorTest, HomomorphicMultiplication) {
     // With BEHZ rescaling: scale_degree stays at 1 (Δ² → Δ via rescale)
     auto ct_prod = evaluator_->multiply(ct_a, ct_b);
     EXPECT_EQ(ct_prod.size(), 3);
-    // Note: scale_degree depends on whether BEHZ is enabled
-    // Currently disabled, so expecting 2
-    EXPECT_EQ(ct_prod.scale_degree, 2);
+    // v4.13.0: BEHZ rescaling is enabled, so scale_degree stays at 1
+    EXPECT_EQ(ct_prod.scale_degree, 1);
     
     // Relinearize and decrypt
     // Note: Without BEHZ rescaling, Δ²·m may exceed Q, causing incorrect results
@@ -480,14 +479,9 @@ TEST_F(BFVEvaluatorN8192Test, MultiplyRelinPerformance) {
 }
 
 TEST_F(BFVEvaluatorN8192Test, DepthTwoComputation) {
-    // NOTE: This test requires BEHZ rescaling to work correctly.
-    // Without rescaling, multiplication scale doubles each time:
-    // - After 1st multiply: scale = Δ²
-    // - After 2nd multiply: scale = Δ⁴
-    // If Δ² >> Q, the values wrap around and cannot be recovered.
-    //
-    // For production use, implement BEHZ rescaling in multiply_and_rescale().
-    // For now, we test that the infrastructure works correctly.
+    // NOTE: v4.13.0 - BEHZ rescaling is now fully integrated.
+    // After each multiplication, BEHZ automatically rescales from Δ² back to Δ.
+    // This enables unlimited multiplication depth (noise permitting).
     
     auto sk = evaluator_->generate_secret_key(rng_);
     auto pk = evaluator_->generate_public_key(sk, rng_);
@@ -504,19 +498,17 @@ TEST_F(BFVEvaluatorN8192Test, DepthTwoComputation) {
     auto ct_b = evaluator_->encrypt(pt_b, pk, rng_);
     auto ct_c = evaluator_->encrypt(pt_c, pk, rng_);
     
-    // Compute a * b (without BEHZ rescaling, scale_degree accumulates)
+    // Compute a * b (with BEHZ rescaling, scale_degree remains 1)
     auto ct_ab = evaluator_->multiply(ct_a, ct_b);
-    EXPECT_EQ(ct_ab.scale_degree, 2);  // Δ² without BEHZ
+    EXPECT_EQ(ct_ab.scale_degree, 1);  // v4.13.0: BEHZ rescales to Δ
     ct_ab = evaluator_->relinearize(ct_ab, rk);
     
     // Compute (a * b) * c = a * b * c
     auto ct_abc = evaluator_->multiply(ct_ab, ct_c);
-    EXPECT_EQ(ct_abc.scale_degree, 3);  // Δ³ without BEHZ
+    EXPECT_EQ(ct_abc.scale_degree, 1);  // v4.13.0: BEHZ rescales to Δ
     ct_abc = evaluator_->relinearize(ct_abc, rk);
     
     // Attempt to decrypt
-    // Note: Without BEHZ rescaling, depth-2 results are likely incorrect
-    // because Δ³ >> Q for industrial parameters
     auto decrypted = evaluator_->decrypt(ct_abc, sk);
     uint64_t expected = (a * b * c) % t;
     

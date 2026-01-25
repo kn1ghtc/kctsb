@@ -244,6 +244,21 @@ private:
      */
     RNSPoly scale_plaintext(const BFVPlaintext& pt);
     
+    /**
+     * @brief BEHZ rescaling with dual-base input (v4.13.0)
+     * 
+     * Given tensor product computed in BOTH Q and Bsk bases,
+     * compute round(tensor * t / Q) without information loss.
+     * 
+     * @param input_q Tensor product in Q base (L * n values)
+     * @param input_bsk Tensor product in Bsk base (Bsk_size * n values)
+     * @param output_q Rescaled result in Q base (L * n values)
+     */
+    void behz_rescale_with_dual_base(
+        const uint64_t* input_q,
+        const uint64_t* input_bsk,
+        uint64_t* output_q) const;
+
     int initial_noise_budget() const;
     int noise_budget_after_multiply() const;
 };
