@@ -84,23 +84,6 @@ kctsb::ZZX poly_reduce_mod(const kctsb::ZZX& f, const kctsb::ZZX& mod, const kct
 } // namespace math
 } // namespace kctsb
 
-// Legacy global function declarations for backward compatibility
-void lcm(kctsb::ZZ& k, const kctsb::ZZ& x, const kctsb::ZZ& y);
-kctsb::vec_ZZ lcm_gcd_vec(const kctsb::vec_ZZ& v, int typemode);
-kctsb::vec_ZZ lcm_gcd_vec(const kctsb::vec_ZZ& v, int typemode, long endleng);
-void array_to_vec(const kctsb::ZZ arr[], kctsb::vec_ZZ& v, long len);
-void array_to_vec(const int arr[], kctsb::vec_ZZ& v, long len);
-void array_to_vec(const long arr[], kctsb::vec_ZZ& v, long len);
-
-// Matrix conversion utilities
-void array2_to_mat(const std::vector<std::vector<kctsb::ZZ>> arr, kctsb::mat_ZZ& v);
-void array2_to_mat(const std::vector<std::vector<int>> arr, kctsb::mat_ZZ& v);
-void array2_to_mat(const std::vector<std::vector<int>> arr, kctsb::mat_GF2& v);
-void array2_to_mat(const std::vector<std::vector<kctsb::ZZ>> arr, kctsb::mat_GF2& v);
-void array2_to_mat(const std::vector<std::vector<kctsb::GF2>> arr, kctsb::mat_GF2& v);
-void array2_to_mat(const std::vector<std::vector<int>> arr, kctsb::mat_GF2E& v);
-void array2_to_mat(const std::vector<std::vector<int>> arr, kctsb::mat_ZZ_p& v);
-
 #endif // KCTSB_HAS_BIGNUM_MODULES
 
 #endif // __cplusplus
