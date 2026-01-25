@@ -28,6 +28,7 @@
 #include "kctsb/advanced/fe/ckks/ckks_evaluator.hpp"
 #include "kctsb/advanced/fe/common/rns.hpp"
 #include "kctsb/advanced/fe/common/rns_poly.hpp"
+#include "kctsb/advanced/fe/common/ntt_harvey.hpp"
 #include "kctsb/core/common.h"
 
 #include <algorithm>
@@ -123,20 +124,25 @@ void NativePIRImpl::initialize_fhe_context() {
     size_t L = config_.num_moduli;
     size_t qi_bits = config_.modulus_bits;
     
-    std::vector<uint64_t> moduli;
-    moduli.reserve(L);
-    
-    // Generate L primes of qi_bits each
-    // Simple prime generation (production should use proper prime finding)
-    uint64_t start = (1ULL << qi_bits) - 1000000;
-    for (size_t i = 0; i < L; ++i) {
-        // Find next prime after start
-        uint64_t candidate = start - i * 1000;
-        // Simple primality check omitted for brevity
-        moduli.push_back(candidate);
+    // Calculate log2(n) for RNSContext constructor
+    int log_n = 0;
+    size_t temp = n;
+    while (temp > 1) {
+        temp >>= 1;
+        ++log_n;
     }
     
-    rns_context_ = std::make_unique<RNSContext>(n, moduli);
+    // Generate NTT-friendly primes using proper prime generation
+    // Each prime q must satisfy: q ≡ 1 (mod 2n) for NTT compatibility
+    std::vector<uint64_t> moduli = generate_ntt_primes(
+        static_cast<int>(qi_bits), n, L);
+    
+    if (moduli.size() != L) {
+        throw std::runtime_error("Failed to generate sufficient NTT primes");
+    }
+    
+    // RNSContext takes log_n (log2 of poly degree), not n itself
+    rns_context_ = std::make_unique<RNSContext>(log_n, moduli);
     
     // Calculate slot count for batching
     slot_count_ = config_.enable_batching ? (n / 2) : 1;
