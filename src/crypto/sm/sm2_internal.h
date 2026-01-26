@@ -57,20 +57,12 @@ constexpr size_t MAX_HASH_SIZE = 32;   // SM3 output
  */
 class SM2Context {
 public:
-    SM2Context() : curve_(ecc::internal::CurveType::SM2) {
-        // Cache curve parameters
-        n_ = curve_.get_order();
-        p_ = curve_.get_prime();
-        bit_size_ = curve_.get_bit_size();
-    }
+    SM2Context();
     
     /**
      * @brief Get singleton instance
      */
-    static SM2Context& instance() {
-        static SM2Context ctx;
-        return ctx;
-    }
+    static SM2Context& instance();
     
     const ecc::internal::ECCurve& curve() const { return curve_; }
     const ZZ& n() const { return n_; }
@@ -83,6 +75,43 @@ private:
     ZZ p_;
     int bit_size_;
 };
+
+// ============================================================================
+// fe256 Field Operations (defined in sm2_curve.cpp)
+// ============================================================================
+
+namespace fe256_ops {
+
+// 128-bit arithmetic helpers
+#if defined(__SIZEOF_INT128__)
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
+#endif
+typedef unsigned __int128 uint128_t;
+typedef __int128 int128_t;
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+#else
+#error "SM2 fe256 acceleration requires __int128 support"
+#endif
+
+/**
+ * @brief 256-bit field element in 4-limb representation
+ */
+struct fe256 {
+    uint64_t limb[4];  // Little-endian: limb[0] is LSB
+};
+
+/**
+ * @brief 512-bit intermediate for multiplication result
+ */
+struct fe512 {
+    uint64_t limb[8];
+};
+
+}  // namespace fe256_ops
 
 // ============================================================================
 // Utility Functions (defined in sm2_utils.cpp)

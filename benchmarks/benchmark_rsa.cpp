@@ -6,9 +6,8 @@
  * - Key generation (2048, 3072, 4096 bits)
  * - RSA-OAEP encryption/decryption
  * - RSA-PSS sign/verify
- * - PKCS#1 v1.5 operations
  * 
- * v4.0.1: Added ratio comparison output format
+ * v5.1.0: Fixed template class usage for kctsb::rsa::RSA<BITS>
  *
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
  * @license Apache License 2.0
@@ -40,179 +39,19 @@
 
 // Benchmark configuration
 constexpr size_t WARMUP_ITERATIONS = 3;
-constexpr size_t KEYGEN_ITERATIONS = 5;  // Key generation is slow
+constexpr size_t KEYGEN_ITERATIONS = 5;
 constexpr size_t CRYPTO_ITERATIONS = 50;
-constexpr size_t HASH_SIZE = 32;  // SHA-256 hash size
+constexpr size_t HASH_SIZE = 32;
 
-/**
- * @brief High-resolution timer
- */
 using Clock = std::chrono::high_resolution_clock;
 using Duration = std::chrono::duration<double, std::milli>;
 
-/**
- * @brief Generate random bytes
- */
 static void generate_random(uint8_t* buf, size_t len) {
     RAND_bytes(buf, static_cast<int>(len));
 }
 
 /**
- * @brief RSA key size configurations
- */
-static const int TEST_KEY_SIZES[] = {2048, 3072, 4096};
-
-/**
- * @brief OpenSSL RSA key generation benchmark
- */
-static double benchmark_openssl_rsa_keygen(int bits) {
-    auto start = Clock::now();
-
-    EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, nullptr);
-    EVP_PKEY* pkey = nullptr;
-
-    EVP_PKEY_keygen_init(ctx);
-    EVP_PKEY_CTX_set_rsa_keygen_bits(ctx, bits);
-    EVP_PKEY_keygen(ctx, &pkey);
-
-    auto end = Clock::now();
-    Duration elapsed = end - start;
-
-    EVP_PKEY_free(pkey);
-    EVP_PKEY_CTX_free(ctx);
-
-    return elapsed.count();
-}
-
-/**
- * @brief OpenSSL RSA-OAEP encryption benchmark
- */
-static double benchmark_openssl_rsa_oaep_encrypt(
-    EVP_PKEY* pkey,
-    const uint8_t* plaintext,
-    size_t plaintext_len,
-    std::vector<uint8_t>& ciphertext
-) {
-    EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new(pkey, nullptr);
-    size_t outlen = 0;
-
-    auto start = Clock::now();
-
-    EVP_PKEY_encrypt_init(ctx);
-    EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_OAEP_PADDING);
-    EVP_PKEY_CTX_set_rsa_oaep_md(ctx, EVP_sha256());
-    EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, EVP_sha256());
-
-    EVP_PKEY_encrypt(ctx, nullptr, &outlen, plaintext, plaintext_len);
-    ciphertext.resize(outlen);
-    EVP_PKEY_encrypt(ctx, ciphertext.data(), &outlen, plaintext, plaintext_len);
-
-    auto end = Clock::now();
-    Duration elapsed = end - start;
-
-    ciphertext.resize(outlen);
-    EVP_PKEY_CTX_free(ctx);
-
-    return elapsed.count();
-}
-
-/**
- * @brief OpenSSL RSA-OAEP decryption benchmark
- */
-static double benchmark_openssl_rsa_oaep_decrypt(
-    EVP_PKEY* pkey,
-    const uint8_t* ciphertext,
-    size_t ciphertext_len,
-    std::vector<uint8_t>& plaintext
-) {
-    EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new(pkey, nullptr);
-    size_t outlen = 0;
-
-    auto start = Clock::now();
-
-    EVP_PKEY_decrypt_init(ctx);
-    EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_OAEP_PADDING);
-    EVP_PKEY_CTX_set_rsa_oaep_md(ctx, EVP_sha256());
-    EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, EVP_sha256());
-
-    EVP_PKEY_decrypt(ctx, nullptr, &outlen, ciphertext, ciphertext_len);
-    plaintext.resize(outlen);
-    EVP_PKEY_decrypt(ctx, plaintext.data(), &outlen, ciphertext, ciphertext_len);
-
-    auto end = Clock::now();
-    Duration elapsed = end - start;
-
-    plaintext.resize(outlen);
-    EVP_PKEY_CTX_free(ctx);
-
-    return elapsed.count();
-}
-
-/**
- * @brief OpenSSL RSA-PSS sign benchmark
- */
-static double benchmark_openssl_rsa_pss_sign(
-    EVP_PKEY* pkey,
-    const uint8_t* hash,
-    std::vector<uint8_t>& signature
-) {
-    EVP_MD_CTX* md_ctx = EVP_MD_CTX_new();
-    EVP_PKEY_CTX* pkey_ctx = nullptr;
-    size_t sig_len = 0;
-
-    auto start = Clock::now();
-
-    EVP_DigestSignInit(md_ctx, &pkey_ctx, EVP_sha256(), nullptr, pkey);
-    EVP_PKEY_CTX_set_rsa_padding(pkey_ctx, RSA_PKCS1_PSS_PADDING);
-    EVP_PKEY_CTX_set_rsa_pss_saltlen(pkey_ctx, RSA_PSS_SALTLEN_DIGEST);
-
-    EVP_DigestSignUpdate(md_ctx, hash, HASH_SIZE);
-    EVP_DigestSignFinal(md_ctx, nullptr, &sig_len);
-    signature.resize(sig_len);
-    EVP_DigestSignFinal(md_ctx, signature.data(), &sig_len);
-
-    auto end = Clock::now();
-    Duration elapsed = end - start;
-
-    signature.resize(sig_len);
-    EVP_MD_CTX_free(md_ctx);
-
-    return elapsed.count();
-}
-
-/**
- * @brief OpenSSL RSA-PSS verify benchmark
- */
-static double benchmark_openssl_rsa_pss_verify(
-    EVP_PKEY* pkey,
-    const uint8_t* hash,
-    const uint8_t* signature,
-    size_t sig_len
-) {
-    EVP_MD_CTX* md_ctx = EVP_MD_CTX_new();
-    EVP_PKEY_CTX* pkey_ctx = nullptr;
-
-    auto start = Clock::now();
-
-    EVP_DigestVerifyInit(md_ctx, &pkey_ctx, EVP_sha256(), nullptr, pkey);
-    EVP_PKEY_CTX_set_rsa_padding(pkey_ctx, RSA_PKCS1_PSS_PADDING);
-    EVP_PKEY_CTX_set_rsa_pss_saltlen(pkey_ctx, RSA_PSS_SALTLEN_DIGEST);
-
-    EVP_DigestVerifyUpdate(md_ctx, hash, HASH_SIZE);
-    int ret = EVP_DigestVerifyFinal(md_ctx, signature, sig_len);
-    (void)ret;  // Suppress unused warning
-
-    auto end = Clock::now();
-    Duration elapsed = end - start;
-
-    EVP_MD_CTX_free(md_ctx);
-
-    return elapsed.count();
-}
-
-/**
  * @brief Run benchmark iterations and return average time
- * @return Average execution time in milliseconds
  */
 static double run_benchmark(
     const std::string& name,
@@ -233,7 +72,6 @@ static double run_benchmark(
         times.push_back(benchmark_func());
     }
 
-    // Calculate statistics
     double avg = std::accumulate(times.begin(), times.end(), 0.0) /
                  static_cast<double>(times.size());
     double min_time = *std::min_element(times.begin(), times.end());
@@ -241,13 +79,13 @@ static double run_benchmark(
 
     std::cout << std::left << std::setw(25) << name
               << std::setw(12) << impl
-              << std::right << std::fixed << std::setprecision(2)
-              << std::setw(12) << avg << " ms"
+              << std::right << std::fixed << std::setprecision(3)
+              << std::setw(10) << avg << " ms"
               << std::setw(10) << min_time << " ms"
               << std::setw(10) << ops_per_sec << " op/s"
               << std::endl;
     
-    return avg;  // Return for ratio comparison
+    return avg;
 }
 
 /**
@@ -255,307 +93,343 @@ static double run_benchmark(
  */
 static void print_header(const std::string& title) {
     std::cout << "\n  " << title << std::endl;
-    std::cout << std::string(75, '-') << std::endl;
+    std::cout << std::string(70, '-') << std::endl;
     std::cout << std::left << std::setw(25) << "Operation"
               << std::setw(12) << "Impl"
-              << std::right << std::setw(14) << "Avg"
+              << std::right << std::setw(12) << "Avg"
               << std::setw(10) << "Min"
               << std::setw(12) << "Throughput"
               << std::endl;
-    std::cout << std::string(75, '-') << std::endl;
+    std::cout << std::string(70, '-') << std::endl;
 }
 
 /**
- * @brief Main RSA benchmark function with ratio comparison
+ * @brief Print ratio comparison
  */
-void benchmark_rsa() {
-    std::cout << "\n" << std::string(80, '=') << std::endl;
-    std::cout << "  RSA Cryptography Benchmark vs OpenSSL 3.6.0" << std::endl;
-    std::cout << std::string(80, '=') << std::endl;
+static void print_ratio(double kctsb_time, double openssl_time) {
+    if (openssl_time <= 0 || kctsb_time <= 0) return;
+    double ratio = openssl_time / kctsb_time;
+    const char* status = ratio >= 1.0 ? "FASTER" : "SLOWER";
+    std::cout << std::left << std::setw(25) << "  ==> Ratio"
+              << std::setw(12) << ""
+              << std::right << std::fixed << std::setprecision(2)
+              << std::setw(8) << (ratio * 100.0) << "%"
+              << " of OpenSSL (" << ratio << "x " << status << ")"
+              << std::endl;
+}
 
-    // Generate test data
-    uint8_t hash[HASH_SIZE];
-    generate_random(hash, HASH_SIZE);
+// OpenSSL benchmark functions
+static double benchmark_openssl_rsa_keygen(int bits) {
+    auto start = Clock::now();
+    EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, nullptr);
+    EVP_PKEY* pkey = nullptr;
+    EVP_PKEY_keygen_init(ctx);
+    EVP_PKEY_CTX_set_rsa_keygen_bits(ctx, bits);
+    EVP_PKEY_keygen(ctx, &pkey);
+    auto end = Clock::now();
+    EVP_PKEY_free(pkey);
+    EVP_PKEY_CTX_free(ctx);
+    return Duration(end - start).count();
+}
 
-    // Small plaintext for encryption (max for RSA-OAEP with SHA-256)
-    uint8_t plaintext[128];
-    generate_random(plaintext, sizeof(plaintext));
+static double benchmark_openssl_rsa_oaep_encrypt(
+    EVP_PKEY* pkey, const uint8_t* pt, size_t pt_len, std::vector<uint8_t>& ct
+) {
+    EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new(pkey, nullptr);
+    size_t outlen = 0;
+    auto start = Clock::now();
+    EVP_PKEY_encrypt_init(ctx);
+    EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_OAEP_PADDING);
+    EVP_PKEY_CTX_set_rsa_oaep_md(ctx, EVP_sha256());
+    EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, EVP_sha256());
+    EVP_PKEY_encrypt(ctx, nullptr, &outlen, pt, pt_len);
+    ct.resize(outlen);
+    EVP_PKEY_encrypt(ctx, ct.data(), &outlen, pt, pt_len);
+    auto end = Clock::now();
+    ct.resize(outlen);
+    EVP_PKEY_CTX_free(ctx);
+    return Duration(end - start).count();
+}
 
-    for (int key_bits : TEST_KEY_SIZES) {
-        std::string key_name = "RSA-" + std::to_string(key_bits);
-        print_header(key_name);
+static double benchmark_openssl_rsa_oaep_decrypt(
+    EVP_PKEY* pkey, const uint8_t* ct, size_t ct_len, std::vector<uint8_t>& pt
+) {
+    EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new(pkey, nullptr);
+    size_t outlen = 0;
+    auto start = Clock::now();
+    EVP_PKEY_decrypt_init(ctx);
+    EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_OAEP_PADDING);
+    EVP_PKEY_CTX_set_rsa_oaep_md(ctx, EVP_sha256());
+    EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, EVP_sha256());
+    EVP_PKEY_decrypt(ctx, nullptr, &outlen, ct, ct_len);
+    pt.resize(outlen);
+    EVP_PKEY_decrypt(ctx, pt.data(), &outlen, ct, ct_len);
+    auto end = Clock::now();
+    pt.resize(outlen);
+    EVP_PKEY_CTX_free(ctx);
+    return Duration(end - start).count();
+}
 
-        // Variables to store times for ratio comparison
-        double openssl_keygen = 0, kctsb_keygen = 0;
-        double openssl_oaep_enc = 0, kctsb_oaep_enc = 0;
-        double openssl_oaep_dec = 0, kctsb_oaep_dec = 0;
-        double openssl_pss_sign = 0, kctsb_pss_sign = 0;
-        double openssl_pss_verify = 0, kctsb_pss_verify = 0;
+static double benchmark_openssl_rsa_pss_sign(
+    EVP_PKEY* pkey, const uint8_t* hash, std::vector<uint8_t>& sig
+) {
+    EVP_MD_CTX* md_ctx = EVP_MD_CTX_new();
+    EVP_PKEY_CTX* pkey_ctx = nullptr;
+    size_t sig_len = 0;
+    auto start = Clock::now();
+    EVP_DigestSignInit(md_ctx, &pkey_ctx, EVP_sha256(), nullptr, pkey);
+    EVP_PKEY_CTX_set_rsa_padding(pkey_ctx, RSA_PKCS1_PSS_PADDING);
+    EVP_PKEY_CTX_set_rsa_pss_saltlen(pkey_ctx, RSA_PSS_SALTLEN_DIGEST);
+    EVP_DigestSignUpdate(md_ctx, hash, HASH_SIZE);
+    EVP_DigestSignFinal(md_ctx, nullptr, &sig_len);
+    sig.resize(sig_len);
+    EVP_DigestSignFinal(md_ctx, sig.data(), &sig_len);
+    auto end = Clock::now();
+    sig.resize(sig_len);
+    EVP_MD_CTX_free(md_ctx);
+    return Duration(end - start).count();
+}
 
-        // ================================================================
-        // OpenSSL Key Generation Benchmark
-        // ================================================================
-        openssl_keygen = run_benchmark(
-            "Key Generation",
-            "OpenSSL",
-            KEYGEN_ITERATIONS,
-            [&]() { return benchmark_openssl_rsa_keygen(key_bits); }
-        );
+static double benchmark_openssl_rsa_pss_verify(
+    EVP_PKEY* pkey, const uint8_t* hash, const uint8_t* sig, size_t sig_len
+) {
+    EVP_MD_CTX* md_ctx = EVP_MD_CTX_new();
+    EVP_PKEY_CTX* pkey_ctx = nullptr;
+    auto start = Clock::now();
+    EVP_DigestVerifyInit(md_ctx, &pkey_ctx, EVP_sha256(), nullptr, pkey);
+    EVP_PKEY_CTX_set_rsa_padding(pkey_ctx, RSA_PKCS1_PSS_PADDING);
+    EVP_PKEY_CTX_set_rsa_pss_saltlen(pkey_ctx, RSA_PSS_SALTLEN_DIGEST);
+    EVP_DigestVerifyUpdate(md_ctx, hash, HASH_SIZE);
+    EVP_DigestVerifyFinal(md_ctx, sig, sig_len);
+    auto end = Clock::now();
+    EVP_MD_CTX_free(md_ctx);
+    return Duration(end - start).count();
+}
 
 #ifdef KCTSB_HAS_RSA
-        // kctsb Key Generation
-        kctsb_keygen = run_benchmark(
-            "Key Generation",
-            "kctsb",
-            KEYGEN_ITERATIONS,
+/**
+ * @brief Template benchmark for kctsb RSA operations
+ */
+template<size_t BITS>
+static void benchmark_kctsb_rsa_impl(
+    double openssl_keygen_time,
+    const uint8_t* plaintext,
+    size_t pt_size,
+    const uint8_t* hash
+) {
+    using RSAType = kctsb::rsa::RSA<BITS>;
+    using KeyPair = typename RSAType::KeyPair;
+    
+    // Key Generation
+    double kctsb_keygen = run_benchmark("Key Generation", "kctsb", KEYGEN_ITERATIONS,
+        []() {
+            auto start = Clock::now();
+            auto kp = RSAType::generate_keypair();
+            auto end = Clock::now();
+            (void)kp;
+            return Duration(end - start).count();
+        }
+    );
+    print_ratio(kctsb_keygen, openssl_keygen_time);
+    
+    KeyPair kctsb_keypair = RSAType::generate_keypair();
+    
+    // OAEP Encryption
+    std::vector<uint8_t> kctsb_ct;
+    bool oaep_works = true;
+    try {
+        kctsb_ct = RSAType::encrypt_oaep(plaintext, pt_size, kctsb_keypair.public_key);
+    } catch (...) { oaep_works = false; }
+    
+    if (oaep_works) {
+        run_benchmark("OAEP Encryption", "kctsb", CRYPTO_ITERATIONS,
             [&]() {
                 auto start = Clock::now();
-                auto keypair = kctsb::rsa::RSA::generate_keypair(key_bits);
+                auto ct = RSAType::encrypt_oaep(plaintext, pt_size, kctsb_keypair.public_key);
                 auto end = Clock::now();
-                Duration elapsed = end - start;
-                return elapsed.count();
+                (void)ct;
+                return Duration(end - start).count();
             }
         );
-        kctsb_bench::print_time_ratio(kctsb_keygen, openssl_keygen);
-#else
-        std::cout << std::left << std::setw(25) << "Key Generation"
-                  << std::setw(12) << "kctsb"
-                  << "  (not compiled)" << std::endl;
+        
+        // OAEP Decryption
+        run_benchmark("OAEP Decryption", "kctsb", CRYPTO_ITERATIONS,
+            [&]() {
+                auto start = Clock::now();
+                auto pt = RSAType::decrypt_oaep(kctsb_ct.data(), kctsb_ct.size(), kctsb_keypair.private_key);
+                auto end = Clock::now();
+                (void)pt;
+                return Duration(end - start).count();
+            }
+        );
+    }
+    
+    // PSS Sign
+    std::vector<uint8_t> kctsb_sig;
+    bool pss_works = true;
+    try {
+        kctsb_sig = RSAType::sign_pss(hash, HASH_SIZE, kctsb_keypair.private_key);
+    } catch (...) { pss_works = false; }
+    
+    if (pss_works) {
+        run_benchmark("PSS Sign", "kctsb", CRYPTO_ITERATIONS,
+            [&]() {
+                auto start = Clock::now();
+                auto sig = RSAType::sign_pss(hash, HASH_SIZE, kctsb_keypair.private_key);
+                auto end = Clock::now();
+                (void)sig;
+                return Duration(end - start).count();
+            }
+        );
+        
+        // PSS Verify
+        run_benchmark("PSS Verify", "kctsb", CRYPTO_ITERATIONS,
+            [&]() {
+                auto start = Clock::now();
+                bool valid = RSAType::verify_pss(hash, HASH_SIZE, kctsb_sig.data(), kctsb_sig.size(), kctsb_keypair.public_key);
+                auto end = Clock::now();
+                (void)valid;
+                return Duration(end - start).count();
+            }
+        );
+    }
+}
 #endif
 
-        // Generate persistent key pair for other tests
-        EVP_PKEY_CTX* keygen_ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, nullptr);
+/**
+ * @brief Main RSA benchmark function
+ */
+void benchmark_rsa() {
+    std::cout << "\n";
+    std::cout << "╔═══════════════════════════════════════════════════════════════════╗\n";
+    std::cout << "║           RSA Performance Benchmark: kctsb vs OpenSSL 3.6.0       ║\n";
+    std::cout << "╚═══════════════════════════════════════════════════════════════════╝\n";
+
+    uint8_t hash[HASH_SIZE];
+    uint8_t plaintext[128];
+    generate_random(hash, sizeof(hash));
+    generate_random(plaintext, sizeof(plaintext));
+
+    // RSA-2048
+    {
+        constexpr int BITS = 2048;
+        print_header("RSA-2048");
+        
+        double ssl_keygen = run_benchmark("Key Generation", "OpenSSL", KEYGEN_ITERATIONS,
+            [&]() { return benchmark_openssl_rsa_keygen(BITS); });
+        
+        EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, nullptr);
         EVP_PKEY* pkey = nullptr;
-        EVP_PKEY_keygen_init(keygen_ctx);
-        EVP_PKEY_CTX_set_rsa_keygen_bits(keygen_ctx, key_bits);
-        EVP_PKEY_keygen(keygen_ctx, &pkey);
-        EVP_PKEY_CTX_free(keygen_ctx);
-
-        // Calculate max plaintext size for OAEP
-        size_t max_pt_size = (static_cast<size_t>(key_bits) / 8) - 2 * HASH_SIZE - 2;
-        size_t pt_size = std::min(sizeof(plaintext), max_pt_size);
-
+        EVP_PKEY_keygen_init(ctx);
+        EVP_PKEY_CTX_set_rsa_keygen_bits(ctx, BITS);
+        EVP_PKEY_keygen(ctx, &pkey);
+        EVP_PKEY_CTX_free(ctx);
+        
+        size_t pt_size = std::min(sizeof(plaintext), static_cast<size_t>((BITS / 8) - 2 * HASH_SIZE - 2));
+        
+        std::vector<uint8_t> ct, sig;
+        run_benchmark("OAEP Encryption", "OpenSSL", CRYPTO_ITERATIONS,
+            [&]() { return benchmark_openssl_rsa_oaep_encrypt(pkey, plaintext, pt_size, ct); });
+        
+        benchmark_openssl_rsa_oaep_encrypt(pkey, plaintext, pt_size, ct);
+        std::vector<uint8_t> dec;
+        run_benchmark("OAEP Decryption", "OpenSSL", CRYPTO_ITERATIONS,
+            [&]() { return benchmark_openssl_rsa_oaep_decrypt(pkey, ct.data(), ct.size(), dec); });
+        
+        run_benchmark("PSS Sign", "OpenSSL", CRYPTO_ITERATIONS,
+            [&]() { return benchmark_openssl_rsa_pss_sign(pkey, hash, sig); });
+        
+        benchmark_openssl_rsa_pss_sign(pkey, hash, sig);
+        run_benchmark("PSS Verify", "OpenSSL", CRYPTO_ITERATIONS,
+            [&]() { return benchmark_openssl_rsa_pss_verify(pkey, hash, sig.data(), sig.size()); });
+        
 #ifdef KCTSB_HAS_RSA
-        // Generate kctsb keypair for other tests
-        auto kctsb_keypair = kctsb::rsa::RSA::generate_keypair(key_bits);
+        benchmark_kctsb_rsa_impl<2048>(ssl_keygen, plaintext, pt_size, hash);
 #endif
-
-        // ================================================================
-        // RSA-OAEP Encryption Benchmark
-        // ================================================================
-        std::vector<uint8_t> ciphertext;
-        openssl_oaep_enc = run_benchmark(
-            "OAEP Encryption",
-            "OpenSSL",
-            CRYPTO_ITERATIONS,
-            [&]() {
-                return benchmark_openssl_rsa_oaep_encrypt(
-                    pkey, plaintext, pt_size, ciphertext);
-            }
-        );
-
-#ifdef KCTSB_HAS_RSA
-        // Test if kctsb encryption works before benchmarking
-        bool kctsb_oaep_works = true;
-        std::vector<uint8_t> kctsb_test_ct;
-        try {
-            kctsb_test_ct = kctsb::rsa::RSA::encrypt_oaep(
-                plaintext, pt_size, kctsb_keypair.public_key);
-        } catch (const std::exception& e) {
-            kctsb_oaep_works = false;
-            std::cout << std::left << std::setw(25) << "OAEP Encryption"
-                      << std::setw(12) << "kctsb"
-                      << "  (error: " << e.what() << ")" << std::endl;
-        }
-
-        if (kctsb_oaep_works) {
-            kctsb_oaep_enc = run_benchmark(
-                "OAEP Encryption",
-                "kctsb",
-                CRYPTO_ITERATIONS,
-                [&]() {
-                    auto start = Clock::now();
-                    try {
-                        auto ct = kctsb::rsa::RSA::encrypt_oaep(
-                            plaintext, pt_size, kctsb_keypair.public_key);
-                    } catch (...) {
-                        return -1.0;
-                    }
-                    auto end = Clock::now();
-                    Duration elapsed = end - start;
-                    return elapsed.count();
-                }
-            );
-            kctsb_bench::print_time_ratio(kctsb_oaep_enc, openssl_oaep_enc);
-        }
-#else
-        std::cout << std::left << std::setw(25) << "OAEP Encryption"
-                  << std::setw(12) << "kctsb"
-                  << "  (not compiled)" << std::endl;
-#endif
-
-        // ================================================================
-        // RSA-OAEP Decryption Benchmark
-        // ================================================================
-        // Encrypt once to get valid ciphertext
-        benchmark_openssl_rsa_oaep_encrypt(pkey, plaintext, pt_size, ciphertext);
-
-        std::vector<uint8_t> decrypted;
-        openssl_oaep_dec = run_benchmark(
-            "OAEP Decryption",
-            "OpenSSL",
-            CRYPTO_ITERATIONS,
-            [&]() {
-                return benchmark_openssl_rsa_oaep_decrypt(
-                    pkey, ciphertext.data(), ciphertext.size(), decrypted);
-            }
-        );
-
-#ifdef KCTSB_HAS_RSA
-        // Decrypt with kctsb (only if encryption worked)
-        if (kctsb_oaep_works) {
-            kctsb_oaep_dec = run_benchmark(
-                "OAEP Decryption",
-                "kctsb",
-                CRYPTO_ITERATIONS,
-                [&]() {
-                    auto start = Clock::now();
-                    try {
-                        auto pt = kctsb::rsa::RSA::decrypt_oaep(
-                            kctsb_test_ct.data(), kctsb_test_ct.size(),
-                            kctsb_keypair.private_key);
-                    } catch (...) {
-                        return -1.0;
-                    }
-                    auto end = Clock::now();
-                    Duration elapsed = end - start;
-                    return elapsed.count();
-                }
-            );
-            kctsb_bench::print_time_ratio(kctsb_oaep_dec, openssl_oaep_dec);
-        } else {
-            std::cout << std::left << std::setw(25) << "OAEP Decryption"
-                      << std::setw(12) << "kctsb"
-                      << "  (skipped - encryption failed)" << std::endl;
-        }
-#else
-        std::cout << std::left << std::setw(25) << "OAEP Decryption"
-                  << std::setw(12) << "kctsb"
-                  << "  (not compiled)" << std::endl;
-#endif
-
-        // ================================================================
-        // RSA-PSS Sign Benchmark
-        // ================================================================
-        std::vector<uint8_t> signature;
-        openssl_pss_sign = run_benchmark(
-            "PSS Sign",
-            "OpenSSL",
-            CRYPTO_ITERATIONS,
-            [&]() { return benchmark_openssl_rsa_pss_sign(pkey, hash, signature); }
-        );
-
-#ifdef KCTSB_HAS_RSA
-        // Test if kctsb PSS signing works
-        bool kctsb_pss_works = true;
-        std::vector<uint8_t> kctsb_test_sig;
-        try {
-            kctsb_test_sig = kctsb::rsa::RSA::sign_pss(
-                hash, HASH_SIZE, kctsb_keypair.private_key);
-        } catch (const std::exception& e) {
-            kctsb_pss_works = false;
-            std::cout << std::left << std::setw(25) << "PSS Sign"
-                      << std::setw(12) << "kctsb"
-                      << "  (error: " << e.what() << ")" << std::endl;
-        }
-
-        if (kctsb_pss_works) {
-            kctsb_pss_sign = run_benchmark(
-                "PSS Sign",
-                "kctsb",
-                CRYPTO_ITERATIONS,
-                [&]() {
-                    auto start = Clock::now();
-                    try {
-                        auto sig = kctsb::rsa::RSA::sign_pss(
-                            hash, HASH_SIZE, kctsb_keypair.private_key);
-                    } catch (...) {
-                        return -1.0;
-                    }
-                    auto end = Clock::now();
-                    Duration elapsed = end - start;
-                    return elapsed.count();
-                }
-            );
-            kctsb_bench::print_time_ratio(kctsb_pss_sign, openssl_pss_sign);
-        }
-#else
-        std::cout << std::left << std::setw(25) << "PSS Sign"
-                  << std::setw(12) << "kctsb"
-                  << "  (not compiled)" << std::endl;
-#endif
-
-        // ================================================================
-        // RSA-PSS Verify Benchmark
-        // ================================================================
-        // Sign once to get valid signature
-        benchmark_openssl_rsa_pss_sign(pkey, hash, signature);
-
-        openssl_pss_verify = run_benchmark(
-            "PSS Verify",
-            "OpenSSL",
-            CRYPTO_ITERATIONS,
-            [&]() {
-                return benchmark_openssl_rsa_pss_verify(
-                    pkey, hash, signature.data(), signature.size());
-            }
-        );
-
-#ifdef KCTSB_HAS_RSA
-        // Verify with kctsb (only if signing worked)
-        if (kctsb_pss_works) {
-            kctsb_pss_verify = run_benchmark(
-                "PSS Verify",
-                "kctsb",
-                CRYPTO_ITERATIONS,
-                [&]() {
-                    auto start = Clock::now();
-                    try {
-                        bool valid = kctsb::rsa::RSA::verify_pss(
-                            hash, HASH_SIZE, kctsb_test_sig.data(),
-                            kctsb_test_sig.size(), kctsb_keypair.public_key);
-                        (void)valid;
-                    } catch (...) {
-                        return -1.0;
-                    }
-                    auto end = Clock::now();
-                    Duration elapsed = end - start;
-                    return elapsed.count();
-                }
-            );
-            kctsb_bench::print_time_ratio(kctsb_pss_verify, openssl_pss_verify);
-        } else {
-            std::cout << std::left << std::setw(25) << "PSS Verify"
-                      << std::setw(12) << "kctsb"
-                      << "  (skipped - signing failed)" << std::endl;
-        }
-#else
-        std::cout << std::left << std::setw(25) << "PSS Verify"
-                  << std::setw(12) << "kctsb"
-                  << "  (not compiled)" << std::endl;
-#endif
-
-        // Cleanup
         EVP_PKEY_free(pkey);
-
-        std::cout << std::endl;
     }
 
-    // Summary
+    // RSA-3072
+    {
+        constexpr int BITS = 3072;
+        print_header("RSA-3072");
+        
+        double ssl_keygen = run_benchmark("Key Generation", "OpenSSL", KEYGEN_ITERATIONS,
+            [&]() { return benchmark_openssl_rsa_keygen(BITS); });
+        
+        EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, nullptr);
+        EVP_PKEY* pkey = nullptr;
+        EVP_PKEY_keygen_init(ctx);
+        EVP_PKEY_CTX_set_rsa_keygen_bits(ctx, BITS);
+        EVP_PKEY_keygen(ctx, &pkey);
+        EVP_PKEY_CTX_free(ctx);
+        
+        size_t pt_size = std::min(sizeof(plaintext), static_cast<size_t>((BITS / 8) - 2 * HASH_SIZE - 2));
+        
+        std::vector<uint8_t> ct, sig;
+        run_benchmark("OAEP Encryption", "OpenSSL", CRYPTO_ITERATIONS,
+            [&]() { return benchmark_openssl_rsa_oaep_encrypt(pkey, plaintext, pt_size, ct); });
+        
+        benchmark_openssl_rsa_oaep_encrypt(pkey, plaintext, pt_size, ct);
+        std::vector<uint8_t> dec;
+        run_benchmark("OAEP Decryption", "OpenSSL", CRYPTO_ITERATIONS,
+            [&]() { return benchmark_openssl_rsa_oaep_decrypt(pkey, ct.data(), ct.size(), dec); });
+        
+        run_benchmark("PSS Sign", "OpenSSL", CRYPTO_ITERATIONS,
+            [&]() { return benchmark_openssl_rsa_pss_sign(pkey, hash, sig); });
+        
+        benchmark_openssl_rsa_pss_sign(pkey, hash, sig);
+        run_benchmark("PSS Verify", "OpenSSL", CRYPTO_ITERATIONS,
+            [&]() { return benchmark_openssl_rsa_pss_verify(pkey, hash, sig.data(), sig.size()); });
+        
+#ifdef KCTSB_HAS_RSA
+        benchmark_kctsb_rsa_impl<3072>(ssl_keygen, plaintext, pt_size, hash);
+#endif
+        EVP_PKEY_free(pkey);
+    }
+
+    // RSA-4096
+    {
+        constexpr int BITS = 4096;
+        print_header("RSA-4096");
+        
+        double ssl_keygen = run_benchmark("Key Generation", "OpenSSL", KEYGEN_ITERATIONS,
+            [&]() { return benchmark_openssl_rsa_keygen(BITS); });
+        
+        EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, nullptr);
+        EVP_PKEY* pkey = nullptr;
+        EVP_PKEY_keygen_init(ctx);
+        EVP_PKEY_CTX_set_rsa_keygen_bits(ctx, BITS);
+        EVP_PKEY_keygen(ctx, &pkey);
+        EVP_PKEY_CTX_free(ctx);
+        
+        size_t pt_size = std::min(sizeof(plaintext), static_cast<size_t>((BITS / 8) - 2 * HASH_SIZE - 2));
+        
+        std::vector<uint8_t> ct, sig;
+        run_benchmark("OAEP Encryption", "OpenSSL", CRYPTO_ITERATIONS,
+            [&]() { return benchmark_openssl_rsa_oaep_encrypt(pkey, plaintext, pt_size, ct); });
+        
+        benchmark_openssl_rsa_oaep_encrypt(pkey, plaintext, pt_size, ct);
+        std::vector<uint8_t> dec;
+        run_benchmark("OAEP Decryption", "OpenSSL", CRYPTO_ITERATIONS,
+            [&]() { return benchmark_openssl_rsa_oaep_decrypt(pkey, ct.data(), ct.size(), dec); });
+        
+        run_benchmark("PSS Sign", "OpenSSL", CRYPTO_ITERATIONS,
+            [&]() { return benchmark_openssl_rsa_pss_sign(pkey, hash, sig); });
+        
+        benchmark_openssl_rsa_pss_sign(pkey, hash, sig);
+        run_benchmark("PSS Verify", "OpenSSL", CRYPTO_ITERATIONS,
+            [&]() { return benchmark_openssl_rsa_pss_verify(pkey, hash, sig.data(), sig.size()); });
+        
+#ifdef KCTSB_HAS_RSA
+        benchmark_kctsb_rsa_impl<4096>(ssl_keygen, plaintext, pt_size, hash);
+#endif
+        EVP_PKEY_free(pkey);
+    }
+
     std::cout << "\n  Performance Comparison Summary:\n";
     std::cout << "  - OpenSSL 3.6.0 uses highly optimized assembly implementations\n";
-    std::cout << "  - kctsb uses NTL backend with CRT optimization\n";
-    std::cout << "  - Ratio shows percentage of OpenSSL performance (higher = faster)\n";}
+    std::cout << "  - kctsb uses template-based BigInt with CRT optimization\n";
+}
 
-// Declare external benchmark entry
 extern void benchmark_rsa();

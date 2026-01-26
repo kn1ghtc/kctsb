@@ -1,11 +1,7 @@
 # ============================================================================
-# kctsb v5.0 Benchmarks - Self-Contained Performance Testing
+# kctsb v5.1 Benchmarks - Performance Testing with OpenSSL Comparison
 #
-# v5.0 Architecture: No external dependencies required
-# Compares kctsb implementations against hardcoded baselines from:
-# - OpenSSL 3.6.0 (captured measurements in baseline_data.hpp)
-# - SEAL 4.1.2 (captured measurements for FHE comparison)
-#
+# v5.1 Architecture: Real-time comparison with OpenSSL 3.6.0
 # Benchmark Categories:
 # - AES-256-GCM: AEAD encryption/decryption throughput
 # - ChaCha20-Poly1305: Stream cipher AEAD throughput  
@@ -18,9 +14,20 @@
 cmake_minimum_required(VERSION 3.20)
 
 message(STATUS "")
-message(STATUS "=== kctsb v5.0 Benchmark Configuration ===")
-message(STATUS "Mode: Self-contained (no external dependencies)")
-message(STATUS "Baselines: Hardcoded from OpenSSL 3.6.0 measurements")
+message(STATUS "=== kctsb v5.1 Benchmark Configuration ===")
+message(STATUS "Mode: Runtime comparison with OpenSSL 3.6.0")
+
+# ============================================================================
+# Find OpenSSL for real-time comparison
+# ============================================================================
+find_package(OpenSSL 3.0 QUIET)
+if(OpenSSL_FOUND)
+    message(STATUS "✓ OpenSSL ${OPENSSL_VERSION} found for runtime comparison")
+    set(BENCHMARK_HAS_OPENSSL TRUE)
+else()
+    message(STATUS "⚠ OpenSSL not found - will use hardcoded baselines")
+    set(BENCHMARK_HAS_OPENSSL FALSE)
+endif()
 
 # ============================================================================
 # Main Benchmark - kctsb vs Hardcoded Baselines
@@ -83,6 +90,12 @@ elseif(TARGET kctsb_shared)
     )
 else()
     message(FATAL_ERROR "kctsb library target not found - cannot build benchmarks")
+endif()
+
+# Link OpenSSL for real-time comparison
+if(BENCHMARK_HAS_OPENSSL)
+    target_link_libraries(kctsb_benchmark PRIVATE OpenSSL::SSL OpenSSL::Crypto)
+    target_compile_definitions(kctsb_benchmark PRIVATE KCTSB_BENCHMARK_WITH_OPENSSL=1)
 endif()
 
 set_target_properties(kctsb_benchmark PROPERTIES

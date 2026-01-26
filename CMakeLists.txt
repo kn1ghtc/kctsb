@@ -441,6 +441,12 @@ set(OPENSSL_FOUND FALSE)
 set(KCTSB_ENABLE_OPENSSL OFF)
 
 # ============================================================================
+# SIMD Optimization Support (v5.0.0 Performance Enhancement)
+# ============================================================================
+
+option(KCTSB_ENABLE_SIMD "Enable SIMD optimizations (AVX2, AES-NI)" ON)
+
+# ============================================================================
 # Source Files - Auto-include all .cpp/.c files with minimal exclusions
 # ============================================================================
 
@@ -462,6 +468,15 @@ set(KCTSB_ALL_SOURCES ${KCTSB_ALL_CPP_SOURCES} ${KCTSB_ALL_C_SOURCES})
 # Exclude CLI sources from library (CLI has its own main())
 list(FILTER KCTSB_ALL_SOURCES EXCLUDE REGEX ".*/cli/.*")
 message(STATUS "✓ CLI sources excluded from library (separate executable)")
+
+# Conditional SIMD optimizations (v5.0.0)
+if(NOT KCTSB_ENABLE_SIMD)
+    list(FILTER KCTSB_ALL_SOURCES EXCLUDE REGEX ".*/sm3_avx2\\.cpp")
+    list(FILTER KCTSB_ALL_SOURCES EXCLUDE REGEX ".*/sm4_aesni\\.cpp")
+    message(STATUS "⚠ SIMD optimizations disabled (portable mode)")
+else()
+    message(STATUS "✓ SIMD optimizations enabled (AVX2, AES-NI)")
+endif()
 
 # Exclude incomplete modules with missing headers (fuzzy, whitebox)
 list(FILTER KCTSB_ALL_SOURCES EXCLUDE REGEX ".*/advanced/fuzzy/.*")
@@ -557,6 +572,30 @@ function(kctsb_configure_library_target TARGET_NAME)
     
     # v5.0: All external dependencies REMOVED
     # SEAL, OpenSSL, GMP, gf2x, NTL - all replaced with native implementation
+    
+    # v5.0.0: SIMD optimization file-specific compiler flags
+    if(KCTSB_ENABLE_SIMD AND NOT MSVC)
+        # AVX2 flags for SM3 acceleration
+        set_source_files_properties(
+            ${KCTSB_SRC_DIR}/crypto/sm/sm3_avx2.cpp
+            PROPERTIES COMPILE_FLAGS "-mavx2 -msse4.1")
+        
+        # AES-NI flags for SM4 acceleration
+        set_source_files_properties(
+            ${KCTSB_SRC_DIR}/crypto/sm/sm4_aesni.cpp
+            PROPERTIES COMPILE_FLAGS "-maes -mssse3 -msse4.1")
+        
+        message(STATUS "  - SM3 AVX2 acceleration: enabled")
+        message(STATUS "  - SM4 AES-NI acceleration: enabled")
+    elseif(KCTSB_ENABLE_SIMD AND MSVC)
+        # MSVC flags
+        set_source_files_properties(
+            ${KCTSB_SRC_DIR}/crypto/sm/sm3_avx2.cpp
+            PROPERTIES COMPILE_FLAGS "/arch:AVX2")
+        
+        message(STATUS "  - SM3 AVX2 acceleration: enabled (MSVC)")
+        message(STATUS "  - SM4 AES-NI acceleration: enabled (MSVC)")
+    endif()
     
     if(APPLE)
         target_link_libraries(${TARGET_NAME} PRIVATE "-framework Security")
