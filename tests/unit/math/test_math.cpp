@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file test_math.cpp
  * @brief Math utilities unit tests
  *
@@ -24,10 +24,9 @@
 
 // Bignum-dependent tests
 #ifdef KCTSB_HAS_BIGNUM_MODULES
-#include "kctsb/math/bignum/ZZ.h"
-#include "kctsb/math/bignum/ZZX.h"
-#include "kctsb/math/bignum/GF2X.h"
-#define KCTSB_HAS_GF2X_TESTS 1
+#include "kctsb/math/ZZ.h"
+#include "kctsb/math/ZZ_p.h"
+// Note: ZZX and GF2X modules removed in v5.1 cleanup
 #endif
 
 class MathTest : public ::testing::Test {
@@ -151,10 +150,10 @@ TEST_F(MathTest, ModularInverse) {
         return x1;
     };
 
-    // 3 * 5 = 15 鈮?1 (mod 7)
+    // 3 * 5 = 15 �?1 (mod 7)
     EXPECT_EQ(mod_inverse(3, 7), 5);
 
-    // Verify: a * a^(-1) 鈮?1 (mod m)
+    // Verify: a * a^(-1) �?1 (mod m)
     int64_t a = 17, m = 43;
     int64_t inv = mod_inverse(a, m);
     EXPECT_EQ((a * inv) % m, 1);
@@ -185,75 +184,8 @@ TEST_F(MathTest, BigInteger_Basic) {
     EXPECT_EQ(c / b, a);
 }
 
-/**
- * @brief Test polynomial operations
- * @note Uses simple polynomial operations to avoid Vec::SetLength issues on MinGW
- */
-TEST_F(MathTest, Polynomial_GF2) {
-    // Test polynomial degree and coefficient operations
-    // Use GF2X instead of ZZX to avoid Vec::SetLength overflow on MinGW
-    kctsb::GF2X f, g, h;
-
-    // f(x) = x^2 + x + 1 in GF(2)
-    kctsb::SetCoeff(f, 0, 1);  // constant term
-    kctsb::SetCoeff(f, 1, 1);  // x coefficient
-    kctsb::SetCoeff(f, 2, 1);  // x^2 coefficient
-
-    EXPECT_EQ(kctsb::deg(f), 2);
-    EXPECT_EQ(kctsb::coeff(f, 0), 1);  // coeff returns int for GF2X
-    EXPECT_EQ(kctsb::coeff(f, 1), 1);
-    EXPECT_EQ(kctsb::coeff(f, 2), 1);
-
-    // g(x) = x + 1
-    kctsb::SetCoeff(g, 0, 1);
-    kctsb::SetCoeff(g, 1, 1);
-    
-    EXPECT_EQ(kctsb::deg(g), 1);
-    
-    // Test polynomial multiplication
-    h = f * g;
-    EXPECT_GT(kctsb::deg(h), kctsb::deg(f));
-}
-
-/**
- * @brief Test polynomial factorization
- * @note Commented out due to API compatibility issues on Windows
- */
-/*
-TEST_F(MathTest, Polynomial_Factorization) {
-    kctsb::ZZX f;
-
-    // f(x) = x^2 - 1 = (x-1)(x+1)
-    kctsb::SetCoeff(f, 0, -1);
-    kctsb::SetCoeff(f, 2, 1);
-
-    // TODO: Fix NTL factorization API usage
-    // NTL::vec_pair_ZZX_long factors;
-    // NTL::ZZ c;
-    // NTL::factor(c, factors, f);
-
-    // Should have 2 factors
-    // EXPECT_EQ(factors.length(), 2);
-}
-*/
-
-/**
- * @brief Test GF(2) polynomial (binary field)
- */
-TEST_F(MathTest, Polynomial_GF2_AES) {
-    kctsb::GF2X f, g, h;
-
-    // f(x) = x^3 + x + 1 (irreducible over GF(2), AES polynomial)
-    kctsb::SetCoeff(f, 0, 1);
-    kctsb::SetCoeff(f, 1, 1);
-    kctsb::SetCoeff(f, 3, 1);
-
-    // Test that it's non-zero
-    EXPECT_NE(kctsb::IsZero(f), 1);
-
-    // Test degree
-    EXPECT_EQ(kctsb::deg(f), 3);
-}
+// Note: GF2X polynomial tests removed in v5.1 cleanup
+// The GF2X module has been deprecated in favor of direct implementations
 
 /**
  * @brief Test Miller-Rabin primality test
@@ -311,7 +243,7 @@ TEST_F(MathTest, Statistics_Variance) {
     // Mean = 5
     double mean = 5.0;
 
-    // Variance = E[(X - 渭)^2]
+    // Variance = E[(X - μ)^2]
     double variance = 0;
     for (double x : data) {
         variance += (x - mean) * (x - mean);

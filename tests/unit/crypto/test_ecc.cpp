@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file test_ecc.cpp
  * @brief ECC (Elliptic Curve Cryptography) unit tests
  * 
@@ -7,7 +7,7 @@
  * - Generator point validation for secp256k1, P-256, SM2
  * - Scalar multiplication (Montgomery ladder)
  * - Point addition and doubling
- * - Coordinate conversion (Jacobian 鈫?Affine)
+ * - Coordinate conversion (Jacobian �?Affine)
  * 
  * Tests migrated from test_fe256_point.cpp (v4.6.0)
  * 
@@ -25,8 +25,8 @@
 // Check if bignum modules are available
 #if defined(KCTSB_HAS_BIGNUM_MODULES) || defined(KCTSB_USE_BIGNUM)
 
-#include "kctsb/math/bignum/ZZ.h"
-#include "kctsb/math/bignum/ZZ_p.h"
+#include "kctsb/math/ZZ.h"
+#include "kctsb/math/ZZ_p.h"
 #include "kctsb/crypto/ecc/ecc_curve.h"
 using namespace kctsb;
 using namespace kctsb::ecc::internal;  // ZZ-based internal implementation

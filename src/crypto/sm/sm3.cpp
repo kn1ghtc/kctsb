@@ -475,3 +475,12 @@ std::string SM3::hashHex(const std::string& str) {
 }
 
 } // namespace kctsb
+
+// ============================================================================
+// Scalar compress function for AVX2 fallback
+// ============================================================================
+
+extern "C" void sm3_compress_scalar(kctsb_sm3_ctx_t* ctx, const uint8_t* block) {
+    kctsb::internal::SM3Compressor::compress(ctx, block);
+}
+

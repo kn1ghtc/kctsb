@@ -169,10 +169,14 @@ public:
     /** @brief Set bit at position */
     void set_bit(size_t pos, bool value = true) noexcept {
         if (pos >= BITS) return;
+        const size_t idx = pos / 64;
+        // Explicit bounds check to help compiler optimization
+        if (idx >= NUM_LIMBS) return;
+        const limb_t mask = 1ULL << (pos % 64);
         if (value) {
-            limbs_[pos / 64] |= (1ULL << (pos % 64));
+            limbs_[idx] |= mask;
         } else {
-            limbs_[pos / 64] &= ~(1ULL << (pos % 64));
+            limbs_[idx] &= ~mask;
         }
     }
     

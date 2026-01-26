@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file pqc.cpp
  * @brief Post-Quantum Cryptography Implementation
  * 
@@ -9,7 +9,7 @@
  */
 
 #include <kctsb/advanced/pqc/pqc.h>
-#include <kctsb/math/bignum/ZZ.h>
+#include <kctsb/math/ZZ.h>
 #include <cstring>
 #include <random>
 #include <stdexcept>

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file ecc_curve.h
  * @brief Elliptic Curve Definitions and Core Operations - Bignum Implementation
  * 
@@ -18,9 +18,9 @@
 #ifndef KCTSB_CRYPTO_ECC_CURVE_H
 #define KCTSB_CRYPTO_ECC_CURVE_H
 
-#include <kctsb/math/bignum/ZZ.h>
-#include <kctsb/math/bignum/ZZ_p.h>
-#include <kctsb/math/bignum/ZZ_pX.h>
+#include <kctsb/math/ZZ.h>
+#include <kctsb/math/ZZ_p.h>
+#include <kctsb/math/ZZ_pX.h>
 #include <string>
 #include <cstring>
 #include <memory>
@@ -65,7 +65,7 @@ enum class CurveType : int {
 /**
  * @brief Elliptic curve parameters structure
  * 
- * Defines a curve in short Weierstrass form: y² = x³ + ax + b (mod p)
+ * Defines a curve in short Weierstrass form: y2 = x3 + ax + b (mod p)
  */
 struct CurveParams {
     ZZ p;               // Prime modulus
@@ -115,7 +115,7 @@ struct AffinePoint {
 /**
  * @brief Jacobian projective coordinates (X : Y : Z)
  * 
- * Represents point (x, y) as (X/Z², Y/Z³).
+ * Represents point (x, y) as (X/Z2, Y/Z3).
  * Point at infinity has Z = 0.
  * 
  * Jacobian coordinates provide faster addition and doubling

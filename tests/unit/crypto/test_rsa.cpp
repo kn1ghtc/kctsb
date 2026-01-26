@@ -13,8 +13,8 @@
 // Check if bignum modules are available
 #if defined(KCTSB_HAS_BIGNUM_MODULES) || defined(KCTSB_USE_BIGNUM)
 
-#include "kctsb/math/bignum/ZZ.h"
-#include "kctsb/math/bignum/vec_ZZ.h"
+#include "kctsb/math/ZZ.h"
+#include "kctsb/math/vec_ZZ.h"
 using namespace kctsb;
 
 // RSA functions from kc_rsa.cpp
@@ -84,9 +84,9 @@ TEST(RSATest, EulerTotient) {
     // Verify GCD(e, φ(n)) = 1
     EXPECT_EQ(GCD(e, phi_n), ZZ(1)) << "e and φ(n) must be coprime";
     
-    // Verify e * d ≡ 1 (mod φ(n))
+    // Verify e * d �?1 (mod φ(n))
     ZZ ed_mod_phi = MulMod(e, d, phi_n);
-    EXPECT_EQ(ed_mod_phi, ZZ(1)) << "e * d must be ≡ 1 (mod φ(n))";
+    EXPECT_EQ(ed_mod_phi, ZZ(1)) << "e * d must be �?1 (mod φ(n))";
 }
 
 // ============================================================================

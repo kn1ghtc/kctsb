@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file test_fe256_debug.cpp
  * @brief fe256 Layer Debug Tests
  *
@@ -19,8 +19,8 @@
 
 #if defined(KCTSB_HAS_BIGNUM_MODULES) || defined(KCTSB_USE_BIGNUM)
 
-#include "kctsb/math/bignum/ZZ.h"
-#include "kctsb/math/bignum/ZZ_p.h"
+#include "kctsb/math/ZZ.h"
+#include "kctsb/math/ZZ_p.h"
 #include "kctsb/crypto/ecc/ecc_curve.h"
 
 using namespace kctsb;

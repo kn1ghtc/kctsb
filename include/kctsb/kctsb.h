@@ -52,7 +52,6 @@
 // ============================================================================
 
 #include "kctsb/crypto/rsa/rsa.h"       // RSA, RSA2048, RSA4096
-#include "kctsb/crypto/rsa/dh.h"        // DH, DH2048, DH4096
 #include "kctsb/crypto/ecc/ecc.h"       // ECCurve, ECDSA, ECDH
 #include "kctsb/crypto/sm/sm2.h"        // SM2Signer, SM2Encryptor
 
@@ -72,11 +71,6 @@ namespace kctsb {
 using RSA2048 = rsa::RSA2048;
 using RSA3072 = rsa::RSA3072;
 using RSA4096 = rsa::RSA4096;
-
-// DH convenience aliases
-using DH2048 = dh::DH2048;
-using DH3072 = dh::DH3072;
-using DH4096 = dh::DH4096;
 
 // ECC types (forward declarations - actual types in ecc.h)
 // Note: These will be available after ecc.h V5 suffix removal

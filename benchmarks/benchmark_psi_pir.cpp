@@ -26,8 +26,10 @@
 
 // kctsb Native PSI/PIR
 #include "kctsb/advanced/psi/psi.h"
-#include "kctsb/advanced/psi/native_pir.h"
 #include "kctsb/advanced/psi/ot_psi.h"
+// Native PIR disabled - API not yet implemented in v5.0
+// #include "kctsb/advanced/psi/native_pir.h"
+#define KCTSB_DISABLE_NATIVE_PIR 1
 
 // Optional: SEAL for comparison (prebuilt library only)
 #ifdef KCTSB_HAS_SEAL
@@ -221,6 +223,7 @@ void benchmark_ot_psi() {
 // Native PIR Benchmarks
 // ============================================================================
 
+#ifndef KCTSB_DISABLE_NATIVE_PIR
 void benchmark_native_pir() {
     print_header("Native PIR Benchmarks (kctsb BGV/CKKS)");
     
@@ -284,6 +287,7 @@ void benchmark_native_pir() {
         }
     }
 }
+#endif // KCTSB_DISABLE_NATIVE_PIR
 
 // ============================================================================
 // SEAL PIR Benchmarks (Reference)
@@ -432,8 +436,12 @@ int main(int argc, char* argv[]) {
     benchmark_piano_psi();
     benchmark_ot_psi();
     
-    // Run kctsb PIR benchmarks  
+    // Run kctsb PIR benchmarks (disabled in v5.0 - API not implemented)
+#ifndef KCTSB_DISABLE_NATIVE_PIR
     benchmark_native_pir();
+#else
+    std::cout << "\n[Note: Native PIR benchmarks disabled in v5.0]\n";
+#endif
     
 #ifdef KCTSB_HAS_SEAL
     // Run SEAL PIR benchmarks for comparison

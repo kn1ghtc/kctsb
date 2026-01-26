@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file byte_order.h
  * @brief Byte Order Conversion Utilities for bignum Integration
  *
@@ -121,8 +121,8 @@ KCTSB_API void kctsb_be_to_le(const uint8_t* be_bytes, uint8_t* le_bytes, size_t
 // ============================================================================
 
 #ifdef KCTSB_USE_NTL
-#include <kctsb/math/bignum/ZZ.h>
-#include <kctsb/math/bignum/ZZ_p.h>
+#include <kctsb/math/ZZ.h>
+#include <kctsb/math/ZZ_p.h>
 #include <vector>
 #include <array>
 #include <cstring>

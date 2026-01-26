@@ -1892,16 +1892,11 @@ JacobianPoint ECCurve::montgomery_ladder(const ZZ& k, const JacobianPoint& P) co
     }
     
     // v4.8.2+: fe256 fast path for 256-bit curves
-    // Enable with KCTSB_DEBUG_FE256 to verify correctness
-#if defined(KCTSB_DEBUG_FE256) || 0  // TEMP: Disabled for debugging - use NTL fallback
-    const Fe256CurveOps* ops = get_fe256_ops(name_);
-    const Fe256MontFn to_mont = get_fe256_to_mont(name_);
-    const Fe256MontFn from_mont = get_fe256_from_mont(name_);
-#else
-    const Fe256CurveOps* ops = nullptr; // Disabled pending validation
+    // DISABLED: fe256 Montgomery ladder has issues with SM2 (see troubleshooting/sm2_reduction_bug.md)
+    // The NTL-based fallback is slower but correct. Enable fe256 only after thorough validation.
+    const Fe256CurveOps* ops = nullptr;  // Disabled pending validation
     const Fe256MontFn to_mont = nullptr;
     const Fe256MontFn from_mont = nullptr;
-#endif
     if (ops != nullptr && bit_size_ == 256 && to_mont != nullptr && from_mont != nullptr) {
         // CRITICAL: Initialize modulus before any ZZ_p operations
         ZZ_p::init(p_);

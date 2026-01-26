@@ -7,11 +7,11 @@
  * v5.0 Architecture:
  * - ZZ: Arbitrary-precision integers (replaces NTL::ZZ)
  * - ZZ_p: Integers modulo prime p (replaces NTL::ZZ_p)
- * - ZZX: Polynomials over integers (replaces NTL::ZZX)
- * - ZZ_pX: Polynomials over Z/pZ (replaces NTL::ZZ_pX)
- * - GF2X: Polynomials over GF(2)
- * - mat_ZZ: Matrix of ZZ elements
- * - LLL: Lattice reduction
+ * - vec_ZZ: Vector of ZZ elements
+ * - vec_ZZ_p: Vector of ZZ_p elements
+ * - mat_ZZ: Matrix of ZZ elements (for crypto applications)
+ * 
+ * v5.1: Removed unused headers (GF2*, LLL, Factoring) to reduce compile time
  * 
  * All functionality is now self-contained with no external dependencies.
  * 
@@ -25,7 +25,7 @@
  * @endcode
  * 
  * @author knightc
- * @version 5.0.0 - Self-contained, NTL removed
+ * @version 5.1.0 - Streamlined, unused headers removed
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
  * @license Apache License 2.0
  */
@@ -33,30 +33,19 @@
 #ifndef KCTSB_MATH_BIGNUM_MODULE_H
 #define KCTSB_MATH_BIGNUM_MODULE_H
 
-// Core ZZ implementation
-#include "bignum/ZZ.h"
+// Core ZZ implementation (arbitrary-precision integers)
+#include "ZZ.h"
 
-// Modular arithmetic
-#include "bignum/ZZ_p.h"
+// Modular arithmetic (required for ECC/RSA/SM2)
+#include "ZZ_p.h"
 
-// Polynomial arithmetic
-#include "bignum/ZZX.h"
-#include "bignum/ZZXFactoring.h"
-#include "bignum/ZZ_pX.h"
-#include "bignum/ZZ_pXFactoring.h"
+// Vector types (required for crypto operations)
+#include "vec_ZZ.h"
+#include "vec_ZZ_p.h"
 
-// Binary field polynomials
-#include "bignum/GF2X.h"
-#include "bignum/mat_GF2.h"
-
-// Vector types
-#include "bignum/vec_ZZ.h"
-#include "bignum/vec_ZZ_p.h"
-
-// Matrix and vector types
-#include "bignum/mat_ZZ.h"
-
-// Lattice reduction
-#include "bignum/LLL.h"
+// Polynomial types (required for FHE) - optional
+#ifdef KCTSB_HAS_FHE
+#include "ZZ_pX.h"
+#endif
 
 #endif // KCTSB_MATH_BIGNUM_MODULE_H

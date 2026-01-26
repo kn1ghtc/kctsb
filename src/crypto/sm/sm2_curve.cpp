@@ -24,8 +24,8 @@
 #include "kctsb/core/security.h"
 #include "kctsb/core/common.h"
 
-#include <kctsb/math/bignum/ZZ.h>
-#include <kctsb/math/bignum/ZZ_p.h>
+#include <kctsb/math/ZZ.h>
+#include <kctsb/math/ZZ_p.h>
 
 #include <cstring>
 #include <array>

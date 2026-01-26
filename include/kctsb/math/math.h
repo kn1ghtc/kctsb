@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file math.h
  * @brief Unified mathematical utilities header for kctsb library
  * 
@@ -24,14 +24,8 @@
 
 // bignum support for high-precision arithmetic
 #ifdef KCTSB_HAS_BIGNUM_MODULES
-#include <kctsb/math/bignum/ZZ.h>
-#include <kctsb/math/bignum/ZZX.h>
-#include <kctsb/math/bignum/GF2X.h>
-#include <kctsb/math/bignum/vec_ZZ.h>
-#include <kctsb/math/bignum/mat_ZZ.h>
-#include <kctsb/math/bignum/mat_GF2.h>
-#include <kctsb/math/bignum/mat_GF2E.h>
-#include <kctsb/math/bignum/mat_ZZ_p.h>
+#include <kctsb/math/ZZ.h>
+#include <kctsb/math/ZZ_p.h>
 #include <vector>
 
 namespace kctsb {
