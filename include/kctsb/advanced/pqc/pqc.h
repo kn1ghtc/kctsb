@@ -379,6 +379,12 @@ public:
                 const DilithiumSignature& signature,
                 const uint8_t* message, size_t message_len) const;
 
+    /**
+     * @brief Get the security level
+     * @return Current Dilithium security level
+     */
+    DilithiumLevel get_level() const { return level_; }
+
 private:
     DilithiumLevel level_;
     DilithiumParams params_;

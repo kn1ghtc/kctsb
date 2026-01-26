@@ -643,9 +643,10 @@ bool Kyber::decaps(const KyberSecretKey& secret_key,
             for (size_t k = 0; k < 4 && offset + 3 <= s_len; ++k) {
                 int16_t c0 = secret_key.data[offset] | ((secret_key.data[offset + 1] & 0x0F) << 8);
                 int16_t c1 = (secret_key.data[offset + 1] >> 4) | (secret_key.data[offset + 2] << 4);
-                // Sign extend if needed
-                if (c0 > KYBER_Q / 2) c0 -= KYBER_Q;
-                if (c1 > KYBER_Q / 2) c1 -= KYBER_Q;
+                // Sign extend if needed (use signed comparison)
+                constexpr int16_t half_q = static_cast<int16_t>(KYBER_Q / 2);
+                if (c0 > half_q) c0 -= static_cast<int16_t>(KYBER_Q);
+                if (c1 > half_q) c1 -= static_cast<int16_t>(KYBER_Q);
                 s.polys[i].coeffs[j + 2*k] = c0;
                 s.polys[i].coeffs[j + 2*k + 1] = c1;
                 offset += 3;
@@ -720,10 +721,12 @@ bool Kyber::decaps(const KyberSecretKey& secret_key,
     
     // Decode message
     uint8_t m[32] = {0};
+    constexpr int16_t quarter_q = static_cast<int16_t>(KYBER_Q / 4);
+    constexpr int16_t three_quarter_q = static_cast<int16_t>(3 * KYBER_Q / 4);
     for (size_t i = 0; i < KYBER_N; ++i) {
         int16_t diff = mod_sub(v.coeffs[i], mp.coeffs[i]);
         // Round: if closer to q/2 than to 0, bit = 1
-        if (diff > KYBER_Q / 4 && diff < 3 * KYBER_Q / 4) {
+        if (diff > quarter_q && diff < three_quarter_q) {
             m[i / 8] |= 1 << (i % 8);
         }
     }

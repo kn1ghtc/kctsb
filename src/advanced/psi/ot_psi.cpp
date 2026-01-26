@@ -38,7 +38,7 @@ namespace {
 class OTPSIImpl {
 public:
     explicit OTPSIImpl(const kctsb_ot_psi_config_t& config)
-        : config_(config)
+        : security_parameter_(config.security_parameter)
         , rng_(std::random_device{}())
     {}
 
@@ -46,8 +46,10 @@ public:
                const int64_t* server_set, size_t server_size,
                kctsb_ot_psi_result_t* result);
 
+    size_t get_security_parameter() const { return security_parameter_; }
+
 private:
-    kctsb_ot_psi_config_t config_;
+    size_t security_parameter_;
     std::mt19937_64 rng_;
 
     // OT helpers

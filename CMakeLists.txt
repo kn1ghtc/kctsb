@@ -41,11 +41,11 @@ if(KCTSB_ENABLE_CUDA)
         set(KCTSB_CUDA_ENABLED ON)
         set(CMAKE_CUDA_STANDARD 17)
         set(CMAKE_CUDA_STANDARD_REQUIRED ON)
-        
+
         # Detect CUDA compute capabilities
         # RTX 4060 = SM 8.9, RTX 3090 = SM 8.6, A100 = SM 8.0
         set(CMAKE_CUDA_ARCHITECTURES "80;86;89" CACHE STRING "CUDA architectures to build for")
-        
+
         add_definitions(-DKCTSB_HAS_CUDA)
         message(STATUS "✓ CUDA enabled: ${CMAKE_CUDA_COMPILER_VERSION}")
         message(STATUS "  CUDA Toolkit: ${CUDAToolkit_VERSION}")
@@ -158,9 +158,7 @@ endif()
 
 message(STATUS "Platform suffix: ${KCTSB_PLATFORM_SUFFIX}")
 
-# Thirdparty directories
-set(KCTSB_THIRDPARTY_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty)
-set(KCTSB_THIRDPARTY_PLATFORM_DIR ${KCTSB_THIRDPARTY_DIR}/${KCTSB_PLATFORM_SUFFIX})
+# v5.0: Self-contained architecture - no thirdparty dependencies
 set(KCTSB_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 set(KCTSB_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
@@ -177,7 +175,7 @@ if(KCTSB_ENABLE_LTO)
         if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "12.0")
             set(KCTSB_LTO_SUPPORTED TRUE)
             message(STATUS "LTO: Enabled (GCC ${CMAKE_CXX_COMPILER_VERSION})")
-            
+
             # Use gcc-ar for LTO static libraries
             get_filename_component(COMPILER_DIR ${CMAKE_CXX_COMPILER} DIRECTORY)
             if(EXISTS "${COMPILER_DIR}/gcc-ar.exe")
@@ -223,7 +221,7 @@ else()
         -fPIC
         -fstack-protector-strong
     )
-    
+
     # LTO flags - Use parallel/incremental LTO for faster builds
     # Target: 30s incremental vs 2min full rebuild
     if(KCTSB_LTO_SUPPORTED)
@@ -244,18 +242,18 @@ else()
             add_link_options(-flto=auto -fuse-linker-plugin)
             message(STATUS "LTO: Parallel LTO enabled (GCC -flto=auto)")
         endif()
-        
+
         # Fat LTO objects for better incremental builds (GCC)
         if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
             add_compile_options(-ffat-lto-objects)
         endif()
     endif()
-    
+
     # Hardware acceleration
     if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
         add_compile_options(-maes -mpclmul -msse4.1 -msse4.2 -mssse3 -mavx2 -mbmi2 -msha)
         message(STATUS "Hardware acceleration: AES-NI, PCLMUL, SSE4.2, AVX2, SHA-NI")
-        
+
         # Check for AVX-512 IFMA support (Ice Lake+, Zen4+)
         include(CheckCXXCompilerFlag)
         check_cxx_compiler_flag("-mavx512ifma" HAVE_AVX512IFMA)
@@ -266,7 +264,7 @@ else()
             message(STATUS "AVX-512 IFMA support: Compiler doesn't support -mavx512ifma")
         endif()
     endif()
-    
+
     # v5.0: Release mode optimizations
     if(CMAKE_BUILD_TYPE STREQUAL "Release")
         # Strip debug symbols to reduce binary size
@@ -280,7 +278,7 @@ else()
             message(STATUS "Release mode: Debug symbols will be stripped")
         endif()
     endif()
-    
+
     if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
         add_compile_options(-march=armv8-a+crypto)
         message(STATUS "Hardware acceleration: ARM64 NEON + Crypto")
@@ -326,7 +324,7 @@ if(NOT MSVC)
         -Wno-conversion
         -finput-charset=UTF-8
     )
-    
+
     # GCC-specific warnings (not supported by AppleClang)
     if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
         add_compile_options(
@@ -344,7 +342,7 @@ if(NOT MSVC)
         # Clang/AppleClang equivalent
         add_compile_options(-Wno-uninitialized)
     endif()
-    
+
     # C++ only warning suppressions (common to GCC and Clang)
     add_compile_options(
         "$<$<COMPILE_LANGUAGE:CXX>:-Wno-old-style-cast>"
@@ -401,65 +399,18 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 # ============================================================================
-# Third-Party Dependencies
-# ============================================================================
-
-# Helper macros
-macro(kctsb_find_thirdparty_lib OUT_VAR LIB_NAME)
-    find_library(${OUT_VAR} NAMES ${LIB_NAME} lib${LIB_NAME}
-        HINTS "${KCTSB_THIRDPARTY_PLATFORM_DIR}/lib"
-              "${KCTSB_THIRDPARTY_DIR}/lib"
-        NO_DEFAULT_PATH)
-    if(NOT ${OUT_VAR})
-        find_library(${OUT_VAR} NAMES ${LIB_NAME} lib${LIB_NAME})
-    endif()
-endmacro()
-
-macro(kctsb_find_thirdparty_inc OUT_VAR HEADER_FILE)
-    find_path(${OUT_VAR} ${HEADER_FILE}
-        HINTS "${KCTSB_THIRDPARTY_PLATFORM_DIR}/include"
-              "${KCTSB_THIRDPARTY_DIR}/include"
-        NO_DEFAULT_PATH)
-    if(NOT ${OUT_VAR})
-        find_path(${OUT_VAR} ${HEADER_FILE})
-    endif()
-endmacro()
-
-# Create IMPORTED target with automatic static/shared detection
-macro(kctsb_create_imported_target TARGET_NAME LIBRARY_PATH INCLUDE_DIRS)
-    if(NOT TARGET ${TARGET_NAME})
-        get_filename_component(LIB_EXT "${LIBRARY_PATH}" EXT)
-        if(LIB_EXT STREQUAL ".a" OR LIB_EXT STREQUAL ".lib")
-            add_library(${TARGET_NAME} STATIC IMPORTED GLOBAL)
-            set_target_properties(${TARGET_NAME} PROPERTIES
-                IMPORTED_LOCATION "${LIBRARY_PATH}"
-                INTERFACE_INCLUDE_DIRECTORIES "${INCLUDE_DIRS}"
-                IMPORTED_LINK_INTERFACE_LANGUAGES "CXX")
-        else()
-            add_library(${TARGET_NAME} SHARED IMPORTED GLOBAL)
-            set_target_properties(${TARGET_NAME} PROPERTIES
-                IMPORTED_LOCATION "${LIBRARY_PATH}"
-                INTERFACE_INCLUDE_DIRECTORIES "${INCLUDE_DIRS}")
-        endif()
-    endif()
-endmacro()
-
-# -----------------------------------------------------------------------------
 # v5.0: SELF-CONTAINED ARCHITECTURE - All external dependencies REMOVED
+# ============================================================================
 # SEAL and OpenSSL sections removed - benchmark uses hardcoded baseline_data.hpp
+# GMP, gf2x, NTL - all replaced with native kctsb::ZZ, kctsb::GF2X implementation
 # -----------------------------------------------------------------------------
 message(STATUS "✓ v5.0 Self-Contained: Native ZZ/BigInt implementation (no external deps)")
 message(STATUS "  Benchmark baselines: hardcoded from OpenSSL 3.6.0 measurements")
 
-# -----------------------------------------------------------------------------
-# SEAL Detection REMOVED in v5.0
-# Benchmark comparison now uses hardcoded baseline data in baseline_data.hpp
-# Historical measurements captured from SEAL 4.1.2 on Windows x64
-# -----------------------------------------------------------------------------
 set(SEAL_FOUND FALSE)
 set(KCTSB_ENABLE_SEAL OFF)
-
-# -----------------------------------------------------------------------------
+set(OPENSSL_FOUND FALSE)
+set(KCTSB_ENABLE_OPENSSL OFF)
 # OpenSSL Detection REMOVED in v5.0
 # Benchmark comparison now uses hardcoded baseline data in baseline_data.hpp
 # Historical measurements captured from OpenSSL 3.6.0 on Windows x64
@@ -479,10 +430,10 @@ option(KCTSB_ENABLE_SIMD "Enable SIMD optimizations (AVX2, AES-NI)" ON)
 # ============================================================================
 
 # Collect ALL source files from src directory (auto-discovery)
-file(GLOB_RECURSE KCTSB_ALL_CPP_SOURCES 
+file(GLOB_RECURSE KCTSB_ALL_CPP_SOURCES
     ${KCTSB_SRC_DIR}/*.cpp
 )
-file(GLOB_RECURSE KCTSB_ALL_C_SOURCES 
+file(GLOB_RECURSE KCTSB_ALL_C_SOURCES
     ${KCTSB_SRC_DIR}/*.c
 )
 
@@ -589,35 +540,30 @@ message(STATUS "")
 # Include directories (v5.0: self-contained - no external dependencies)
 set(KCTSB_ALL_INCLUDE_DIRS
     ${KCTSB_INCLUDE_DIR}
-    ${KCTSB_THIRDPARTY_PLATFORM_DIR}/include
-    ${KCTSB_THIRDPARTY_DIR}/include
 )
 
 # Unified library configuration function
 function(kctsb_configure_library_target TARGET_NAME)
-    # v5.0: Self-contained - no external dependencies
-    target_include_directories(${TARGET_NAME} SYSTEM PUBLIC
-        $<BUILD_INTERFACE:${KCTSB_THIRDPARTY_PLATFORM_DIR}/include>
-        $<BUILD_INTERFACE:${KCTSB_THIRDPARTY_DIR}/include>)
+    # v5.0: Self-contained - only internal headers needed
     target_include_directories(${TARGET_NAME} PUBLIC
         $<BUILD_INTERFACE:${KCTSB_INCLUDE_DIR}>
         $<INSTALL_INTERFACE:include>)
-    
+
     # v5.0: All external dependencies REMOVED
     # SEAL, OpenSSL, GMP, gf2x, NTL - all replaced with native implementation
-    
+
     # v5.0.0: SIMD optimization file-specific compiler flags
     if(KCTSB_ENABLE_SIMD AND NOT MSVC)
         # AVX2 flags for SM3 acceleration
         set_source_files_properties(
             ${KCTSB_SRC_DIR}/crypto/sm/sm3_avx2.cpp
             PROPERTIES COMPILE_FLAGS "-mavx2 -msse4.1")
-        
+
         # AES-NI flags for SM4 acceleration
         set_source_files_properties(
             ${KCTSB_SRC_DIR}/crypto/sm/sm4_aesni.cpp
             PROPERTIES COMPILE_FLAGS "-maes -mssse3 -msse4.1")
-        
+
         message(STATUS "  - SM3 AVX2 acceleration: enabled")
         message(STATUS "  - SM4 AES-NI acceleration: enabled")
     elseif(KCTSB_ENABLE_SIMD AND MSVC)
@@ -625,11 +571,11 @@ function(kctsb_configure_library_target TARGET_NAME)
         set_source_files_properties(
             ${KCTSB_SRC_DIR}/crypto/sm/sm3_avx2.cpp
             PROPERTIES COMPILE_FLAGS "/arch:AVX2")
-        
+
         message(STATUS "  - SM3 AVX2 acceleration: enabled (MSVC)")
         message(STATUS "  - SM4 AES-NI acceleration: enabled (MSVC)")
     endif()
-    
+
     if(APPLE)
         target_link_libraries(${TARGET_NAME} PRIVATE "-framework Security")
     endif()
@@ -662,26 +608,13 @@ if(KCTSB_CUDA_ENABLED AND KCTSB_CUDA_SOURCES)
     # Link CUDA runtime
     target_link_libraries(kctsb_cuda PUBLIC CUDA::cudart)
     message(STATUS "✓ CUDA library: kctsb_cuda (standalone)")
-    
+
     # Note: kctsb_cuda is standalone and NOT linked to main library
     # This is because MSVC (required for CUDA) doesn't support __int128
     # which is used in the FHE modules. The CUDA kernels are self-contained.
 endif()
 
-# Function to copy DLL dependencies on Windows
-function(kctsb_copy_dll TARGET_NAME DLL_VAR_NAME DLL_NAMES)
-    if(WIN32)
-        find_file(${DLL_VAR_NAME} NAMES ${DLL_NAMES}
-            HINTS "${KCTSB_THIRDPARTY_PLATFORM_DIR}/bin"
-                  "${KCTSB_THIRDPARTY_PLATFORM_DIR}/lib")
-        if(${DLL_VAR_NAME})
-            add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                    "${${DLL_VAR_NAME}}" $<TARGET_FILE_DIR:${TARGET_NAME}>
-                COMMENT "Copying ${DLL_VAR_NAME} to output directory")
-        endif()
-    endif()
-endfunction()
+# v5.0: No DLL copy function needed - fully self-contained
 
 if(KCTSB_BUILD_SHARED)
     add_library(kctsb_shared SHARED ${KCTSB_ALL_SOURCES})
@@ -689,7 +622,7 @@ if(KCTSB_BUILD_SHARED)
     set_target_properties(kctsb_shared PROPERTIES
         OUTPUT_NAME kctsb VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR})
     kctsb_configure_library_target(kctsb_shared)
-    
+
     # v5.0: Self-contained - no DLL dependencies to copy
 endif()
 
@@ -711,17 +644,17 @@ if(KCTSB_BUILD_CLI)
     add_executable(kctsb_cli ${KCTSB_CLI_SOURCES})
     target_include_directories(kctsb_cli PRIVATE ${KCTSB_INCLUDE_DIR})
     set_target_properties(kctsb_cli PROPERTIES OUTPUT_NAME kctsb)
-    
+
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
         target_link_options(kctsb_cli PRIVATE -static-libgcc -static-libstdc++)
     endif()
-    
+
     if(KCTSB_BUILD_STATIC)
         target_link_libraries(kctsb_cli PRIVATE kctsb_static)
     else()
         target_link_libraries(kctsb_cli PRIVATE kctsb_shared)
     endif()
-    
+
     message(STATUS "✓ CLI tool: kctsb.exe")
 endif()
 
