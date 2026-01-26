@@ -410,6 +410,16 @@ release/
 │   │   └── libkctsb_bundled.a       # ★ 打包库 (6.2 MB) ★
 │   └── include/kctsb_api.h          # 唯一公共头文件
 │
+├── macos-x64/                       # ★ macOS 动态库版本 (v5.0.0) ★
+│   ├── bin/kctsb                    # CLI 工具 (74 KB)
+│   ├── lib/
+│   │   ├── libkctsb.5.0.0.dylib     # 共享库 (1.5 MB, 自包含)
+│   │   ├── libkctsb.5.dylib         # 版本符号链接
+│   │   └── libkctsb.dylib           # 通用符号链接
+│   ├── include/kctsb_api.h          # 唯一公共头文件
+│   ├── README.md                    # macOS 使用指南
+│   └── RELEASE_INFO.txt             # 详细构建信息
+│
 └── cuda-win-x64/                    # ★ CUDA GPU 加速库 (v4.14.0+) ★
     ├── bin/                         # CUDA 测试和 benchmark 工具
     │   ├── test_cuda_runtime.exe    # CUDA 环境验证
@@ -445,9 +455,26 @@ g++ -O3 myapp.cpp -I.\include -L.\lib `
     -lbcrypt -lws2_32 -o myapp.exe
 ```
 
+**macOS (Clang)**:
+```bash
+# 使用动态库（v5.0.0 自包含）
+clang++ -std=c++17 myapp.cpp -I./include -L./lib -lkctsb -o myapp
+
+# 方法1: 使用 DYLD_LIBRARY_PATH
+export DYLD_LIBRARY_PATH=/path/to/release/macos-x64/lib:$DYLD_LIBRARY_PATH
+./myapp
+
+# 方法2: 使用 install_name_tool（推荐分发）
+install_name_tool -change @rpath/libkctsb.5.dylib \
+  /absolute/path/to/lib/libkctsb.5.dylib myapp
+./myapp
+
+# 详见 release/macos-x64/README.md
+```
+
 **CMake 项目集成**:
 ```cmake
-# 使用 bundled 库（推荐）
+# Linux/Windows - 使用 bundled 库（推荐）
 add_executable(myapp main.cpp)
 target_include_directories(myapp PRIVATE ${KCTSB_DIR}/include)
 target_link_libraries(myapp PRIVATE
@@ -458,6 +485,17 @@ target_link_libraries(myapp PRIVATE
 )
 if(WIN32)
     target_link_libraries(myapp PRIVATE bcrypt ws2_32)
+endif()
+
+# macOS - 使用动态库
+if(APPLE)
+    find_library(KCTSB_LIB kctsb PATHS ${KCTSB_DIR}/lib)
+    target_link_libraries(myapp PRIVATE ${KCTSB_LIB})
+    # 设置 rpath
+    set_target_properties(myapp PROPERTIES
+        BUILD_RPATH "${KCTSB_DIR}/lib"
+        INSTALL_RPATH "@executable_path/../lib"
+    )
 endif()
 ```
 

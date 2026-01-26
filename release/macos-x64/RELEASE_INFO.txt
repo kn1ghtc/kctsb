@@ -1,0 +1,74 @@
+kctsb Release Information
+==========================
+Version: 5.0.0
+Platform: macOS x64 (macos-x64)
+Build Type: Release (LTO enabled)
+Build Date: 2026-01-26 20:41 CST
+Compiler: Apple clang version 15.0.0 (clang-1500.1.0.2.5)
+macOS: 13.7.8 (22H730) - Ventura (minimum requirement: macOS 11.0+)
+
+Architecture:
+- Self-contained: Complete independent library, no external math dependencies
+- DLL Optimization: 87% size reduction (10.1MB → 1.3MB)
+- Zero External Dependencies: No GMP/NTL/gf2x required
+
+Features:
+- Math: Built-in ZZ, ZZ_p, ZZX, GF2X, GF2E (replaces NTL/GMP/gf2x)
+- SIMD: AES-NI, PCLMUL, SHA-NI, AVX2 hardware acceleration
+- FHE: BGV/BFV/CKKS homomorphic encryption (SEAL-compatible)
+- PSI/PIR: Piano-PSI, OT-PSI, Native PIR
+- PQC: Kyber (ML-KEM), Dilithium (ML-DSA)
+- LTO: Enabled (Link-Time Optimization)
+
+Contents:
+- bin/kctsb                  : Command-line tool (74KB, links libkctsb.dylib)
+- lib/libkctsb.5.0.0.dylib   : Shared library (1.5MB, self-contained)
+- lib/libkctsb.5.dylib       : Version symlink
+- lib/libkctsb.dylib         : Generic symlink
+- include/kctsb_api.h        : Unified public API header
+
+System Dependencies (macOS built-in only):
+- Security.framework         : Secure random number generation
+- libc++.1.dylib            : C++ standard library
+- libSystem.B.dylib         : System library
+
+Integration Examples:
+
+  C++ Compilation:
+    clang++ -std=c++17 myapp.cpp -I./include -L./lib -lkctsb -o myapp
+    
+  Dynamic Library Path:
+    export DYLD_LIBRARY_PATH=/path/to/release/macos-x64/lib:$DYLD_LIBRARY_PATH
+    ./myapp
+    
+  Or use rpath (recommended):
+    clang++ -std=c++17 myapp.cpp -I./include -L./lib -lkctsb \
+      -Wl,-rpath,@executable_path/../lib -o myapp
+
+  CMake Integration:
+    find_library(KCTSB_LIB kctsb PATHS ${KCTSB_DIR}/lib)
+    target_include_directories(myapp PRIVATE ${KCTSB_DIR}/include)
+    target_link_libraries(myapp PRIVATE ${KCTSB_LIB})
+
+Testing:
+  # Verify library
+  otool -L lib/libkctsb.5.0.0.dylib
+  
+  # Test CLI tool
+  ./bin/kctsb version
+  ./bin/kctsb hash --sha3-256 "Hello, World!"
+
+Performance:
+  - AES-128-GCM: 42x faster with AES-NI (vs software)
+  - SHA-256: Hardware accelerated with SHA-NI
+  - Kyber-768: NIST Level 3 post-quantum security
+  - BGV FHE: 1.46x faster than Microsoft SEAL (mul+relin)
+
+Notes:
+  - v5.0.0 major release: Complete self-contained architecture
+  - No external math library dependencies (GMP/NTL/gf2x removed)
+  - All tests passed (221 tests, 12.7 seconds)
+  - Compatible with macOS 11.0+ (Big Sur and later)
+  - Intel x86_64 architecture (Apple Silicon: use Rosetta 2)
+
+Documentation: https://github.com/kn1ghtc/kctsb
