@@ -302,6 +302,25 @@ target_include_directories(test_fe256_debug PRIVATE
 target_compile_definitions(test_fe256_debug PRIVATE KCTSB_HAS_BIGNUM_MODULES KCTSB_DEBUG_FE256=1)
 gtest_discover_tests(test_fe256_debug PROPERTIES LABELS "unit;crypto;debug")
 
+# SM2 Montgomery Debug Tests - Isolates Montgomery component issues
+add_executable(test_sm2_mont_debug unit/crypto/test_sm2_mont_debug.cpp)
+if(TARGET kctsb_static)
+    target_link_libraries(test_sm2_mont_debug PRIVATE
+        kctsb_static
+        GTest::gtest_main
+    )
+else()
+    target_link_libraries(test_sm2_mont_debug PRIVATE
+        kctsb
+        GTest::gtest_main
+    )
+endif()
+target_include_directories(test_sm2_mont_debug PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/src
+)
+gtest_discover_tests(test_sm2_mont_debug PROPERTIES LABELS "unit;crypto;sm2;debug")
+
 # ============================================================================
 # ADVANCED CRYPTOGRAPHY TESTS - BGV Homomorphic Encryption (v4.7.0)
 # Label: "unit;fhe" - Run with: ctest -L fhe
