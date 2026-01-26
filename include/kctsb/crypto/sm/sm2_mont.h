@@ -214,6 +214,32 @@ void fe256_modn_neg(fe256* r, const fe256* a);
  */
 void fe256_modn_mont_mul(fe256* r, const fe256* a, const fe256* b);
 
+/**
+ * @brief Montgomery squaring mod n: r = a^2 * R^(-1) mod n
+ */
+void fe256_modn_mont_sqr(fe256* r, const fe256* a);
+
+/**
+ * @brief Convert to Montgomery form mod n: r = a * R mod n
+ */
+void fe256_modn_to_mont(fe256* r, const fe256* a);
+
+/**
+ * @brief Convert from Montgomery form mod n: r = a * R^(-1) mod n
+ */
+void fe256_modn_from_mont(fe256* r, const fe256* a);
+
+/**
+ * @brief Modular inverse mod n using Fermat's little theorem: r = a^(-1) mod n
+ */
+void fe256_modn_inv(fe256* r, const fe256* a);
+
+/**
+ * @brief Modular multiplication mod n: r = (a * b) mod n
+ * Not in Montgomery form - direct multiplication with reduction
+ */
+void fe256_modn_mul(fe256* r, const fe256* a, const fe256* b);
+
 }  // namespace kctsb::internal::sm2::mont
 
 #endif  // KCTSB_CRYPTO_SM_SM2_MONT_H_

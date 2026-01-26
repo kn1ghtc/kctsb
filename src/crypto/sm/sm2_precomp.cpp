@@ -102,6 +102,14 @@ static constexpr fe256 SM2_G_Y = {{
 alignas(64) static sm2_point_jacobian g_precomp_table[PRECOMP_SIZE];
 
 /**
+ * @brief Precomputed odd multiples of G in affine form (for mixed addition)
+ * 
+ * Same points as g_precomp_table but in affine coordinates (Z = 1).
+ * Used for faster mixed addition in scalar multiplication.
+ */
+alignas(64) static sm2_point_affine g_precomp_affine[PRECOMP_SIZE];
+
+/**
  * @brief Flag indicating if precomputation table is initialized
  */
 static bool g_precomp_initialized = false;
@@ -127,6 +135,7 @@ extern void fe256_modp_dbl(fe256* r, const fe256* a);
 extern void fe256_modp_neg(fe256* r, const fe256* a);
 extern void fe256_to_mont(fe256* r, const fe256* a);
 extern void fe256_from_mont(fe256* r, const fe256* a);
+extern void fe256_mont_inv(fe256* r, const fe256* a);
 
 }  // namespace kctsb::internal::sm2::mont
 
@@ -270,6 +279,82 @@ static void point_add_jacobian(sm2_point_jacobian* r,
     memcpy(rz, &Z3, sizeof(MontFe));
 }
 
+/**
+ * @brief Mixed point addition: Jacobian + Affine
+ * 
+ * Optimized addition where Q is an affine point (Z2 = 1).
+ * This saves 3 multiplications compared to general Jacobian addition.
+ * 
+ * Input: P = (X1, Y1, Z1) Jacobian in Montgomery form
+ *        Q = (X2, Y2) Affine in Montgomery form (Z2 = 1 implicit)
+ * Output: P + Q = (X3, Y3, Z3) Jacobian in Montgomery form
+ * 
+ * Formulas (from https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html):
+ *   U1 = X1, U2 = X2*Z1², S1 = Y1, S2 = Y2*Z1³
+ *   H = U2 - U1, R = S2 - S1
+ *   X3 = R² - H³ - 2*U1*H²
+ *   Y3 = R*(U1*H² - X3) - S1*H³
+ *   Z3 = Z1*H
+ * 
+ * Cost: 8M + 3S (vs 16M + 4S for Jacobian + Jacobian)
+ */
+static void point_add_mixed(sm2_point_jacobian* r, 
+                            const sm2_point_jacobian* p,
+                            const fe256* q_x, const fe256* q_y) {
+    using MontFe = mont::fe256;
+    MontFe *px = (MontFe*)&p->X, *py = (MontFe*)&p->Y, *pz = (MontFe*)&p->Z;
+    MontFe *rx = (MontFe*)&r->X, *ry = (MontFe*)&r->Y, *rz = (MontFe*)&r->Z;
+    const MontFe *qx = (const MontFe*)q_x, *qy = (const MontFe*)q_y;
+    
+    MontFe U1, U2, S1, S2, H, R, HH, HHH, V, X3, Y3, Z3;
+    
+    // Z1² and Z1³
+    MontFe Z1_sq, Z1_cubed;
+    mont::fe256_mont_sqr(&Z1_sq, pz);                // Z1²
+    mont::fe256_mont_mul(&Z1_cubed, &Z1_sq, pz);     // Z1³
+    
+    // U1 = X1 (no conversion needed), U2 = X2*Z1²
+    memcpy(&U1, px, sizeof(MontFe));
+    mont::fe256_mont_mul(&U2, qx, &Z1_sq);
+    
+    // S1 = Y1 (no conversion needed), S2 = Y2*Z1³
+    memcpy(&S1, py, sizeof(MontFe));
+    mont::fe256_mont_mul(&S2, qy, &Z1_cubed);
+    
+    // H = U2 - U1, R = S2 - S1
+    mont::fe256_modp_sub(&H, &U2, &U1);
+    mont::fe256_modp_sub(&R, &S2, &S1);
+    
+    // HH = H², HHH = H³
+    mont::fe256_mont_sqr(&HH, &H);                   // H²
+    mont::fe256_mont_mul(&HHH, &HH, &H);             // H³
+    
+    // V = U1*H²
+    mont::fe256_mont_mul(&V, &U1, &HH);
+    
+    // X3 = R² - HHH - 2*V
+    mont::fe256_mont_sqr(&X3, &R);                   // R²
+    mont::fe256_modp_sub(&X3, &X3, &HHH);            // R² - H³
+    MontFe V2;
+    mont::fe256_modp_dbl(&V2, &V);                   // 2*V
+    mont::fe256_modp_sub(&X3, &X3, &V2);             // R² - H³ - 2*V
+    
+    // Y3 = R*(V - X3) - S1*HHH
+    MontFe VmX3, S1HHH;
+    mont::fe256_modp_sub(&VmX3, &V, &X3);            // V - X3
+    mont::fe256_mont_mul(&Y3, &R, &VmX3);            // R*(V - X3)
+    mont::fe256_mont_mul(&S1HHH, &S1, &HHH);         // S1*H³
+    mont::fe256_modp_sub(&Y3, &Y3, &S1HHH);          // R*(V-X3) - S1*H³
+    
+    // Z3 = Z1*H
+    mont::fe256_mont_mul(&Z3, pz, &H);
+    
+    // Store result
+    memcpy(rx, &X3, sizeof(MontFe));
+    memcpy(ry, &Y3, sizeof(MontFe));
+    memcpy(rz, &Z3, sizeof(MontFe));
+}
+
 // ============================================================================
 // Precomputation Table Generation
 // ============================================================================
@@ -277,7 +362,9 @@ static void point_add_jacobian(sm2_point_jacobian* r,
 /**
  * @brief Initialize precomputed table with odd multiples of G
  * 
- * Computes: [G, 3G, 5G, 7G, ..., 31G] in Montgomery-Jacobian form.
+ * Computes: [G, 3G, 5G, 7G, ..., 31G] in both:
+ *   - Montgomery-Jacobian form (g_precomp_table)
+ *   - Montgomery-Affine form (g_precomp_affine) for mixed addition
  * Called once at startup or first use.
  */
 void compute_precomp_table() {
@@ -314,6 +401,26 @@ void compute_precomp_table() {
     // ...
     for (int i = 1; i < PRECOMP_SIZE; i++) {
         point_add_jacobian(&g_precomp_table[i], &g_precomp_table[i-1], &G2);
+    }
+    
+    // Convert Jacobian points to affine for mixed addition
+    // x = X / Z^2, y = Y / Z^3 (all in Montgomery form)
+    for (int i = 0; i < PRECOMP_SIZE; i++) {
+        MontFe* jx = (MontFe*)&g_precomp_table[i].X;
+        MontFe* jy = (MontFe*)&g_precomp_table[i].Y;
+        MontFe* jz = (MontFe*)&g_precomp_table[i].Z;
+        MontFe* ax = (MontFe*)&g_precomp_affine[i].x;
+        MontFe* ay = (MontFe*)&g_precomp_affine[i].y;
+        
+        // Compute Z^(-1), Z^(-2), Z^(-3)
+        MontFe z_inv, z_inv2, z_inv3;
+        mont::fe256_mont_inv(&z_inv, jz);
+        mont::fe256_mont_sqr(&z_inv2, &z_inv);           // Z^(-2)
+        mont::fe256_mont_mul(&z_inv3, &z_inv2, &z_inv);  // Z^(-3)
+        
+        // x = X * Z^(-2), y = Y * Z^(-3)
+        mont::fe256_mont_mul(ax, jx, &z_inv2);
+        mont::fe256_mont_mul(ay, jy, &z_inv3);
     }
     
     g_precomp_initialized = true;
@@ -392,6 +499,8 @@ int compute_wnaf(int8_t* naf, const uint64_t* scalar, int w) {
 /**
  * @brief Compute k * G using precomputed table and wNAF
  * 
+ * Uses affine precomputed points for faster mixed addition.
+ * 
  * @param[out] r Result point (Jacobian, Montgomery form)
  * @param[in] k 256-bit scalar (4 x 64-bit limbs)
  */
@@ -420,31 +529,33 @@ void scalar_mul_base(sm2_point_jacobian* r, const uint64_t* k) {
         if (naf[i] != 0) {
             // Lookup table: index = (|naf[i]| - 1) / 2
             int idx = (naf[i] > 0 ? naf[i] : -naf[i]) >> 1;
-            sm2_point_jacobian p = g_precomp_table[idx];
+            
+            // Get affine point from precomputed table
+            fe256 px, py;
+            memcpy(&px, &g_precomp_affine[idx].x, sizeof(fe256));
+            memcpy(&py, &g_precomp_affine[idx].y, sizeof(fe256));
             
             // Negate Y if naf[i] < 0
             if (naf[i] < 0) {
-                // Negate Y coordinate: Y = -Y = p - Y
-                using MontFe = mont::fe256;
-                static const fe256 SM2_P = {{
-                    0xFFFFFFFFFFFFFFFFULL,
-                    0xFFFFFFFF00000000ULL,
-                    0xFFFFFFFFFFFFFFFFULL,
-                    0xFFFFFFFEFFFFFFFFULL
-                }};
-                // In Montgomery form, negation is still p - Y
-                for (int j = 0; j < 4; j++) {
-                    // Subtract using 256-bit arithmetic
-                    // (simplified negation)
-                }
-                mont::fe256_modp_sub((MontFe*)&p.Y, (MontFe*)&SM2_P, (MontFe*)&p.Y);
+                mont::fe256_modp_neg((mont::fe256*)&py, (const mont::fe256*)&py);
             }
             
             if (first_nonzero) {
-                memcpy(r, &p, sizeof(sm2_point_jacobian));
+                // First point: convert affine to Jacobian (Z = 1)
+                memcpy(&r->X, &px, sizeof(fe256));
+                memcpy(&r->Y, &py, sizeof(fe256));
+                // Z = 1 in Montgomery form
+                static const fe256 MONT_ONE = {{
+                    0x0000000000000001ULL,
+                    0x00000000FFFFFFFFULL,
+                    0x0000000000000000ULL,
+                    0x0000000100000000ULL
+                }};
+                memcpy(&r->Z, &MONT_ONE, sizeof(fe256));
                 first_nonzero = false;
             } else {
-                point_add_jacobian(r, r, &p);
+                // Use mixed addition (Jacobian + Affine)
+                point_add_mixed(r, r, &px, &py);
             }
         }
     }
@@ -492,4 +603,327 @@ const char* get_precomp_info() {
     return "wNAF w=5, 16 precomputed points, ~51 additions/scalar";
 }
 
+/**
+ * @brief Compute k * P for arbitrary point P using wNAF
+ * 
+ * This function dynamically computes the precomputation table for point P
+ * and then performs wNAF scalar multiplication.
+ * 
+ * @param[out] r Result point (Jacobian, Montgomery form)
+ * @param[in] k 256-bit scalar (4 x 64-bit limbs)
+ * @param[in] P Input point (Jacobian, Montgomery form)
+ */
+void scalar_mul_point(sm2_point_jacobian* r, const uint64_t* k, 
+                      const sm2_point_jacobian* P) {
+    using MontFe = mont::fe256;
+    
+    // Check if P is point at infinity
+    bool p_is_inf = (P->Z.limb[0] == 0 && P->Z.limb[1] == 0 && 
+                     P->Z.limb[2] == 0 && P->Z.limb[3] == 0);
+    if (p_is_inf) {
+        // k * O = O
+        memset(r, 0, sizeof(sm2_point_jacobian));
+        return;
+    }
+    
+    // Check if k is zero
+    if (k[0] == 0 && k[1] == 0 && k[2] == 0 && k[3] == 0) {
+        memset(r, 0, sizeof(sm2_point_jacobian));
+        return;
+    }
+    
+    // Build precomputation table for P: [P, 3P, 5P, ..., 31P]
+    sm2_point_jacobian table[PRECOMP_SIZE];
+    
+    // table[0] = P
+    memcpy(&table[0], P, sizeof(sm2_point_jacobian));
+    
+    // Compute 2P for stepping
+    sm2_point_jacobian P2;
+    point_double_jacobian(&P2, P);
+    
+    // table[i] = (2*i + 1) * P
+    for (int i = 1; i < PRECOMP_SIZE; i++) {
+        point_add_jacobian(&table[i], &table[i-1], &P2);
+    }
+    
+    // Compute wNAF representation
+    int8_t naf[257] = {0};
+    int naf_len = compute_wnaf(naf, k, WNAF_WINDOW);
+    
+    // Initialize result to point at infinity
+    memset(r, 0, sizeof(sm2_point_jacobian));
+    
+    bool first_nonzero = true;
+    
+    // Process wNAF digits from MSB to LSB
+    for (int i = naf_len - 1; i >= 0; i--) {
+        if (!first_nonzero) {
+            point_double_jacobian(r, r);
+        }
+        
+        if (naf[i] != 0) {
+            int idx = (naf[i] > 0 ? naf[i] : -naf[i]) >> 1;
+            sm2_point_jacobian p_tmp = table[idx];
+            
+            // Negate Y if naf[i] < 0
+            if (naf[i] < 0) {
+                mont::fe256_modp_neg((MontFe*)&p_tmp.Y, (MontFe*)&p_tmp.Y);
+            }
+            
+            if (first_nonzero) {
+                memcpy(r, &p_tmp, sizeof(sm2_point_jacobian));
+                first_nonzero = false;
+            } else {
+                point_add_jacobian(r, r, &p_tmp);
+            }
+        }
+    }
+}
+
 }  // namespace kctsb::internal::sm2::precomp
+
+namespace kctsb::internal::sm2 {
+
+// External point addition function for use from sm2_mont_curve.h
+void point_add_jacobian_ext(precomp::sm2_point_jacobian* r,
+                            const precomp::sm2_point_jacobian* p,
+                            const precomp::sm2_point_jacobian* q) {
+    using MontFe = mont::fe256;
+    
+    MontFe *px = (MontFe*)&p->X, *py = (MontFe*)&p->Y, *pz = (MontFe*)&p->Z;
+    MontFe *qx = (MontFe*)&q->X, *qy = (MontFe*)&q->Y, *qz = (MontFe*)&q->Z;
+    MontFe *rx = (MontFe*)&r->X, *ry = (MontFe*)&r->Y, *rz = (MontFe*)&r->Z;
+    
+    MontFe U1, U2, S1, S2, H, R, HH, HHH, V, X3, Y3, Z3;
+    
+    // U1 = X1*Z2², U2 = X2*Z1²
+    MontFe Z1_sq, Z2_sq;
+    mont::fe256_mont_sqr(&Z1_sq, pz);
+    mont::fe256_mont_sqr(&Z2_sq, qz);
+    mont::fe256_mont_mul(&U1, px, &Z2_sq);
+    mont::fe256_mont_mul(&U2, qx, &Z1_sq);
+    
+    // S1 = Y1*Z2³, S2 = Y2*Z1³
+    MontFe Z1_cubed, Z2_cubed;
+    mont::fe256_mont_mul(&Z1_cubed, &Z1_sq, pz);
+    mont::fe256_mont_mul(&Z2_cubed, &Z2_sq, qz);
+    mont::fe256_mont_mul(&S1, py, &Z2_cubed);
+    mont::fe256_mont_mul(&S2, qy, &Z1_cubed);
+    
+    // H = U2 - U1, R = S2 - S1
+    mont::fe256_modp_sub(&H, &U2, &U1);
+    mont::fe256_modp_sub(&R, &S2, &S1);
+    
+    // HH = H², HHH = H³
+    mont::fe256_mont_sqr(&HH, &H);
+    mont::fe256_mont_mul(&HHH, &HH, &H);
+    
+    // V = U1*H²
+    mont::fe256_mont_mul(&V, &U1, &HH);
+    
+    // X3 = R² - HHH - 2*V
+    mont::fe256_mont_sqr(&X3, &R);
+    mont::fe256_modp_sub(&X3, &X3, &HHH);
+    MontFe V2;
+    mont::fe256_modp_dbl(&V2, &V);
+    mont::fe256_modp_sub(&X3, &X3, &V2);
+    
+    // Y3 = R*(V - X3) - S1*HHH
+    MontFe VmX3, S1HHH;
+    mont::fe256_modp_sub(&VmX3, &V, &X3);
+    mont::fe256_mont_mul(&Y3, &R, &VmX3);
+    mont::fe256_mont_mul(&S1HHH, &S1, &HHH);
+    mont::fe256_modp_sub(&Y3, &Y3, &S1HHH);
+    
+    // Z3 = Z1*Z2*H
+    mont::fe256_mont_mul(&Z3, pz, qz);
+    mont::fe256_mont_mul(&Z3, &Z3, &H);
+    
+    // Store result
+    memcpy(rx, &X3, sizeof(MontFe));
+    memcpy(ry, &Y3, sizeof(MontFe));
+    memcpy(rz, &Z3, sizeof(MontFe));
+}
+
+/**
+ * @brief Shamir's trick: compute k1*G + k2*P simultaneously
+ * 
+ * This is optimized for SM2 verification where we compute s*G + t*P.
+ * Uses interleaved wNAF with joint scanning for both scalars.
+ * 
+ * Optimizations:
+ * - Uses affine precomputed G table for mixed addition (8M+3S vs 16M+4S)
+ * - Uses Jacobian P table (dynamic precomputation)
+ * - Joint scanning shares doublings between both scalars
+ * 
+ * This saves ~50% compared to computing k1*G and k2*P separately.
+ * 
+ * @param[out] r Result point (Jacobian, Montgomery form)
+ * @param[in] k1 256-bit scalar for G (4 x 64-bit limbs)
+ * @param[in] k2 256-bit scalar for P (4 x 64-bit limbs)
+ * @param[in] P Input point (Jacobian, Montgomery form, already converted)
+ */
+void scalar_mul_shamir(precomp::sm2_point_jacobian* r, 
+                       const uint64_t* k1, 
+                       const uint64_t* k2,
+                       const precomp::sm2_point_jacobian* P) {
+    using MontFe = mont::fe256;
+    
+    // Ensure G table is initialized
+    if (!precomp::g_precomp_initialized) {
+        precomp::compute_precomp_table();
+    }
+    
+    // Build precomputation table for P: [P, 3P, 5P, ..., 31P]
+    precomp::sm2_point_jacobian p_jac_table[precomp::PRECOMP_SIZE];
+    precomp::sm2_point_affine p_affine_table[precomp::PRECOMP_SIZE];
+    
+    // Check if P is point at infinity
+    bool p_is_inf = (P->Z.limb[0] == 0 && P->Z.limb[1] == 0 && 
+                     P->Z.limb[2] == 0 && P->Z.limb[3] == 0);
+    
+    if (!p_is_inf) {
+        // table[0] = P
+        memcpy(&p_jac_table[0], P, sizeof(precomp::sm2_point_jacobian));
+        
+        // Compute 2P for stepping
+        precomp::sm2_point_jacobian P2;
+        precomp::point_double_jacobian(&P2, P);
+        
+        // table[i] = (2*i + 1) * P
+        for (int i = 1; i < precomp::PRECOMP_SIZE; i++) {
+            precomp::point_add_jacobian(&p_jac_table[i], &p_jac_table[i-1], &P2);
+        }
+        
+        // Batch conversion to affine using Montgomery's trick
+        // This uses only ONE modular inversion for all 16 points
+        // 
+        // Algorithm:
+        // 1. Compute cumulative products: c[i] = Z[0] * Z[1] * ... * Z[i]
+        // 2. Invert once: inv_all = 1 / c[n-1]
+        // 3. Compute individual inverses: Z[i]^(-1) = c[i-1] * inv_all * (Z[i+1] * ... * Z[n-1])
+        
+        MontFe cumul[precomp::PRECOMP_SIZE];
+        MontFe z_invs[precomp::PRECOMP_SIZE];
+        
+        // Step 1: Cumulative products
+        memcpy(&cumul[0], &p_jac_table[0].Z, sizeof(MontFe));
+        for (int i = 1; i < precomp::PRECOMP_SIZE; i++) {
+            mont::fe256_mont_mul(&cumul[i], &cumul[i-1], (MontFe*)&p_jac_table[i].Z);
+        }
+        
+        // Step 2: Single inversion
+        MontFe inv_all;
+        mont::fe256_mont_inv(&inv_all, &cumul[precomp::PRECOMP_SIZE - 1]);
+        
+        // Step 3: Compute individual Z inverses
+        for (int i = precomp::PRECOMP_SIZE - 1; i > 0; i--) {
+            // z_inv[i] = cumul[i-1] * inv_all
+            mont::fe256_mont_mul(&z_invs[i], &cumul[i-1], &inv_all);
+            // Update inv_all = inv_all * Z[i] for next iteration
+            mont::fe256_mont_mul(&inv_all, &inv_all, (MontFe*)&p_jac_table[i].Z);
+        }
+        z_invs[0] = inv_all;  // inv_all now equals Z[0]^(-1)
+        
+        // Step 4: Convert to affine coordinates
+        for (int i = 0; i < precomp::PRECOMP_SIZE; i++) {
+            MontFe* jx = (MontFe*)&p_jac_table[i].X;
+            MontFe* jy = (MontFe*)&p_jac_table[i].Y;
+            MontFe* ax = (MontFe*)&p_affine_table[i].x;
+            MontFe* ay = (MontFe*)&p_affine_table[i].y;
+            
+            // z_inv2 = z_inv^2, z_inv3 = z_inv^3
+            MontFe z_inv2, z_inv3;
+            mont::fe256_mont_sqr(&z_inv2, &z_invs[i]);
+            mont::fe256_mont_mul(&z_inv3, &z_inv2, &z_invs[i]);
+            
+            // x = X * Z^(-2), y = Y * Z^(-3)
+            mont::fe256_mont_mul(ax, jx, &z_inv2);
+            mont::fe256_mont_mul(ay, jy, &z_inv3);
+        }
+    }
+    
+    // Compute wNAF for both scalars
+    int8_t naf1[257] = {0};
+    int8_t naf2[257] = {0};
+    int naf1_len = precomp::compute_wnaf(naf1, k1, precomp::WNAF_WINDOW);
+    int naf2_len = precomp::compute_wnaf(naf2, k2, precomp::WNAF_WINDOW);
+    
+    // Find maximum length
+    int max_len = (naf1_len > naf2_len) ? naf1_len : naf2_len;
+    
+    // Initialize result to point at infinity
+    memset(r, 0, sizeof(precomp::sm2_point_jacobian));
+    bool first_nonzero = true;
+    
+    // Z = 1 in Montgomery form (for first point initialization)
+    static const precomp::fe256 MONT_ONE = {{
+        0x0000000000000001ULL,
+        0x00000000FFFFFFFFULL,
+        0x0000000000000000ULL,
+        0x0000000100000000ULL
+    }};
+    
+    // Joint scan from MSB to LSB
+    for (int i = max_len - 1; i >= 0; i--) {
+        // Double if not first iteration
+        if (!first_nonzero) {
+            precomp::point_double_jacobian(r, r);
+        }
+        
+        // Add contribution from k1*G (using affine G table for mixed addition)
+        if (naf1[i] != 0) {
+            int idx = (naf1[i] > 0 ? naf1[i] : -naf1[i]) >> 1;
+            
+            // Get affine point from G table
+            precomp::fe256 gx, gy;
+            memcpy(&gx, &precomp::g_precomp_affine[idx].x, sizeof(precomp::fe256));
+            memcpy(&gy, &precomp::g_precomp_affine[idx].y, sizeof(precomp::fe256));
+            
+            // Negate Y if digit is negative
+            if (naf1[i] < 0) {
+                mont::fe256_modp_neg((MontFe*)&gy, (MontFe*)&gy);
+            }
+            
+            if (first_nonzero) {
+                // First point: set as affine (Z = 1)
+                memcpy(&r->X, &gx, sizeof(precomp::fe256));
+                memcpy(&r->Y, &gy, sizeof(precomp::fe256));
+                memcpy(&r->Z, &MONT_ONE, sizeof(precomp::fe256));
+                first_nonzero = false;
+            } else {
+                // Mixed addition: Jacobian + Affine
+                precomp::point_add_mixed(r, r, &gx, &gy);
+            }
+        }
+        
+        // Add contribution from k2*P (using affine P table for mixed addition)
+        if (naf2[i] != 0 && !p_is_inf) {
+            int idx = (naf2[i] > 0 ? naf2[i] : -naf2[i]) >> 1;
+            
+            // Get affine point from P table
+            precomp::fe256 px, py;
+            memcpy(&px, &p_affine_table[idx].x, sizeof(precomp::fe256));
+            memcpy(&py, &p_affine_table[idx].y, sizeof(precomp::fe256));
+            
+            // Negate Y if digit is negative
+            if (naf2[i] < 0) {
+                mont::fe256_modp_neg((MontFe*)&py, (MontFe*)&py);
+            }
+            
+            if (first_nonzero) {
+                // First point: set as affine (Z = 1)
+                memcpy(&r->X, &px, sizeof(precomp::fe256));
+                memcpy(&r->Y, &py, sizeof(precomp::fe256));
+                memcpy(&r->Z, &MONT_ONE, sizeof(precomp::fe256));
+                first_nonzero = false;
+            } else {
+                // Mixed addition: Jacobian + Affine
+                precomp::point_add_mixed(r, r, &px, &py);
+            }
+        }
+    }
+}
+
+}  // namespace kctsb::internal::sm2

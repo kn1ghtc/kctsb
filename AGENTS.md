@@ -1,4 +1,4 @@
-# AGENTS.md - kctsb AI Development Guidelines
+﻿# AGENTS.md - kctsb AI Development Guidelines
 
 > **项目**: kctsb - Knight's Cryptographic Trusted Security Base  
 > **版本**: 5.0.0  

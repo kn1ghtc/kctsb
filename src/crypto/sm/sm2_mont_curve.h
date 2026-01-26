@@ -21,23 +21,18 @@
 #include <cstddef>
 #include <cstring>
 
+// Include sm2_mont.h for fe256 and related types
+#include "kctsb/crypto/sm/sm2_mont.h"
+
 namespace kctsb::internal::sm2 {
 
 /**
- * @brief 256-bit field element (4 x 64-bit limbs, little-endian)
- * 
- * This type is binary-compatible with mont::fe256 and precomp::fe256.
- */
-struct alignas(32) sm2_fe256 {
-    uint64_t limb[4];
-};
-
-/**
  * @brief SM2 point in affine coordinates (x, y)
+ * Uses mont::fe256 from sm2_mont.h
  */
 struct sm2_point_affine {
-    sm2_fe256 x;
-    sm2_fe256 y;
+    mont::fe256 x;
+    mont::fe256 y;
 };
 
 /**
@@ -45,11 +40,12 @@ struct sm2_point_affine {
  * 
  * Affine conversion: x = X/Z^2, y = Y/Z^3
  * Point at infinity: Z = 0
+ * Uses mont::fe256 from sm2_mont.h
  */
 struct sm2_point_jacobian {
-    sm2_fe256 X;
-    sm2_fe256 Y;
-    sm2_fe256 Z;
+    mont::fe256 X;
+    mont::fe256 Y;
+    mont::fe256 Z;
 };
 
 /**
@@ -63,10 +59,8 @@ struct sm2_point_result {
 
 // Forward declarations of internal functions from sm2_precomp.cpp
 namespace precomp {
-    // Types defined in sm2_precomp.cpp
-    struct alignas(32) fe256 {
-        uint64_t limb[4];
-    };
+    // Use mont::fe256 from sm2_mont.h
+    using fe256 = mont::fe256;
     
     struct sm2_point_jacobian {
         fe256 X;
@@ -79,24 +73,10 @@ namespace precomp {
     const char* get_precomp_info();
 }
 
-// Forward declarations of internal functions from sm2_mont.cpp
-namespace mont {
-    struct fe256 {
-        uint64_t limb[4];
-    };
-    void fe256_from_mont(fe256* r, const fe256* a);
-    void fe256_to_mont(fe256* r, const fe256* a);
-    void fe256_mont_mul(fe256* r, const fe256* a, const fe256* b);
-    void fe256_mont_sqr(fe256* r, const fe256* a);
-    void fe256_modp_add(fe256* r, const fe256* a, const fe256* b);
-    void fe256_modp_sub(fe256* r, const fe256* a, const fe256* b);
-    void fe256_mont_inv(fe256* r, const fe256* a);
-}
-
 /**
  * @brief Convert field element from Montgomery form to bytes (big-endian)
  */
-inline void fe256_to_bytes(uint8_t out[32], const mont::fe256* a) {
+inline void mont_fe256_to_bytes(uint8_t out[32], const mont::fe256* a) {
     mont::fe256 tmp;
     mont::fe256_from_mont(&tmp, a);
     
@@ -112,19 +92,10 @@ inline void fe256_to_bytes(uint8_t out[32], const mont::fe256* a) {
 /**
  * @brief Convert bytes (big-endian) to field element in Montgomery form
  */
-inline void fe256_from_bytes(mont::fe256* r, const uint8_t in[32]) {
+inline void mont_fe256_from_bytes(mont::fe256* r, const uint8_t in[32]) {
     mont::fe256 tmp;
     
     // Convert from big-endian bytes to little-endian limbs
-    for (int i = 0; i < 4; i++) {
-        uint64_t limb = 0;
-        for (int j = 0; j < 8; j++) {
-            limb = (limb << 8) | in[(3 - i) * 8 + (7 - j)];
-        }
-        tmp.limb[i] = limb;
-    }
-    
-    // Wrong direction - fix:
     tmp.limb[0] = tmp.limb[1] = tmp.limb[2] = tmp.limb[3] = 0;
     for (int i = 0; i < 4; i++) {
         uint64_t limb = 0;
@@ -216,8 +187,8 @@ inline bool scalar_mult_base_mont(sm2_point_result* result, const uint8_t k[32])
     jacobian_to_affine(&aff, &jac);
     
     // Convert to bytes
-    fe256_to_bytes(result->x, (const mont::fe256*)&aff.x);
-    fe256_to_bytes(result->y, (const mont::fe256*)&aff.y);
+    mont_fe256_to_bytes(result->x, (const mont::fe256*)&aff.x);
+    mont_fe256_to_bytes(result->y, (const mont::fe256*)&aff.y);
     result->is_infinity = false;
     
     return true;
@@ -235,6 +206,206 @@ inline bool is_mont_accel_available() {
  */
 inline const char* get_mont_accel_info() {
     return precomp::get_precomp_info();
+}
+
+// Forward declaration of arbitrary point scalar multiplication
+namespace precomp {
+    void scalar_mul_point(sm2_point_jacobian* r, const uint64_t* k, 
+                          const sm2_point_jacobian* P);
+}
+
+/**
+ * @brief Compute k * P for arbitrary point P using Montgomery acceleration
+ * 
+ * This function implements wNAF scalar multiplication for any point P.
+ * Uses real-time precomputation of odd multiples of P.
+ * 
+ * @param[out] result Output point coordinates (x, y) in big-endian bytes
+ * @param[in] k 256-bit scalar as bytes (big-endian)
+ * @param[in] P_x X coordinate of input point (big-endian)
+ * @param[in] P_y Y coordinate of input point (big-endian)
+ * @return true on success, false if result is point at infinity
+ */
+inline bool scalar_mult_point_mont(sm2_point_result* result, 
+                                    const uint8_t k[32],
+                                    const uint8_t P_x[32],
+                                    const uint8_t P_y[32]) {
+    // Convert scalar from big-endian bytes to little-endian limbs
+    uint64_t k_limbs[4];
+    for (int i = 0; i < 4; i++) {
+        uint64_t limb = 0;
+        int offset = (3 - i) * 8;  // 24, 16, 8, 0
+        for (int j = 0; j < 8; j++) {
+            limb = (limb << 8) | k[offset + j];
+        }
+        k_limbs[i] = limb;
+    }
+    
+    // Convert point P from bytes to Montgomery-Jacobian form
+    precomp::sm2_point_jacobian P_jac;
+    
+    // X coordinate
+    mont::fe256 P_x_fe;
+    for (int i = 0; i < 4; i++) {
+        uint64_t limb = 0;
+        int offset = (3 - i) * 8;
+        for (int j = 0; j < 8; j++) {
+            limb = (limb << 8) | P_x[offset + j];
+        }
+        P_x_fe.limb[i] = limb;
+    }
+    mont::fe256_to_mont((mont::fe256*)&P_jac.X, &P_x_fe);
+    
+    // Y coordinate
+    mont::fe256 P_y_fe;
+    for (int i = 0; i < 4; i++) {
+        uint64_t limb = 0;
+        int offset = (3 - i) * 8;
+        for (int j = 0; j < 8; j++) {
+            limb = (limb << 8) | P_y[offset + j];
+        }
+        P_y_fe.limb[i] = limb;
+    }
+    mont::fe256_to_mont((mont::fe256*)&P_jac.Y, &P_y_fe);
+    
+    // Z = 1 in Montgomery form
+    static const precomp::fe256 MONT_ONE = {{
+        0x0000000000000001ULL,
+        0x00000000FFFFFFFFULL,
+        0x0000000000000000ULL,
+        0x0000000100000000ULL
+    }};
+    std::memcpy(&P_jac.Z, &MONT_ONE, sizeof(precomp::fe256));
+    
+    // Perform scalar multiplication
+    precomp::sm2_point_jacobian jac;
+    precomp::scalar_mul_point(&jac, k_limbs, &P_jac);
+    
+    // Check for point at infinity
+    if (is_point_at_infinity(&jac)) {
+        result->is_infinity = true;
+        std::memset(result->x, 0, 32);
+        std::memset(result->y, 0, 32);
+        return false;
+    }
+    
+    // Convert to affine
+    sm2_point_affine_result aff;
+    jacobian_to_affine(&aff, &jac);
+    
+    // Convert to bytes
+    mont_fe256_to_bytes(result->x, (const mont::fe256*)&aff.x);
+    mont_fe256_to_bytes(result->y, (const mont::fe256*)&aff.y);
+    result->is_infinity = false;
+    
+    return true;
+}
+
+// Forward declaration for Shamir's trick
+extern void scalar_mul_shamir(precomp::sm2_point_jacobian* r, 
+                               const uint64_t* k1, 
+                               const uint64_t* k2,
+                               const precomp::sm2_point_jacobian* P);
+
+/**
+ * @brief Compute k1*G + k2*P using Shamir's trick (interleaved scalar multiplication)
+ * 
+ * This is optimized for signature verification where we need s*G + t*P.
+ * Uses joint wNAF scanning for both scalars simultaneously, which is ~50%
+ * faster than computing k1*G and k2*P separately.
+ * 
+ * @param[out] result Output point coordinates (x, y) in big-endian bytes
+ * @param[in] k1 256-bit scalar for G (big-endian)
+ * @param[in] k2 256-bit scalar for P (big-endian)
+ * @param[in] P_x X coordinate of point P (big-endian)
+ * @param[in] P_y Y coordinate of point P (big-endian)
+ * @return true on success
+ */
+inline bool scalar_mult_shamir_mont(sm2_point_result* result,
+                                     const uint8_t k1[32],
+                                     const uint8_t k2[32],
+                                     const uint8_t P_x[32],
+                                     const uint8_t P_y[32]) {
+    // Convert k1 from big-endian bytes to little-endian limbs
+    uint64_t k1_limbs[4];
+    for (int i = 0; i < 4; i++) {
+        uint64_t limb = 0;
+        int offset = (3 - i) * 8;
+        for (int j = 0; j < 8; j++) {
+            limb = (limb << 8) | k1[offset + j];
+        }
+        k1_limbs[i] = limb;
+    }
+    
+    // Convert k2 from big-endian bytes to little-endian limbs
+    uint64_t k2_limbs[4];
+    for (int i = 0; i < 4; i++) {
+        uint64_t limb = 0;
+        int offset = (3 - i) * 8;
+        for (int j = 0; j < 8; j++) {
+            limb = (limb << 8) | k2[offset + j];
+        }
+        k2_limbs[i] = limb;
+    }
+    
+    // Convert point P from bytes to Montgomery-Jacobian form
+    precomp::sm2_point_jacobian P_jac;
+    
+    // X coordinate
+    mont::fe256 P_x_fe;
+    for (int i = 0; i < 4; i++) {
+        uint64_t limb = 0;
+        int offset = (3 - i) * 8;
+        for (int j = 0; j < 8; j++) {
+            limb = (limb << 8) | P_x[offset + j];
+        }
+        P_x_fe.limb[i] = limb;
+    }
+    mont::fe256_to_mont((mont::fe256*)&P_jac.X, &P_x_fe);
+    
+    // Y coordinate
+    mont::fe256 P_y_fe;
+    for (int i = 0; i < 4; i++) {
+        uint64_t limb = 0;
+        int offset = (3 - i) * 8;
+        for (int j = 0; j < 8; j++) {
+            limb = (limb << 8) | P_y[offset + j];
+        }
+        P_y_fe.limb[i] = limb;
+    }
+    mont::fe256_to_mont((mont::fe256*)&P_jac.Y, &P_y_fe);
+    
+    // Z = 1 in Montgomery form
+    static const precomp::fe256 MONT_ONE = {{
+        0x0000000000000001ULL,
+        0x00000000FFFFFFFFULL,
+        0x0000000000000000ULL,
+        0x0000000100000000ULL
+    }};
+    std::memcpy(&P_jac.Z, &MONT_ONE, sizeof(precomp::fe256));
+    
+    // Call optimized Shamir's trick implementation
+    precomp::sm2_point_jacobian jac;
+    scalar_mul_shamir(&jac, k1_limbs, k2_limbs, &P_jac);
+    
+    // Check for point at infinity
+    if (is_point_at_infinity(&jac)) {
+        result->is_infinity = true;
+        std::memset(result->x, 0, 32);
+        std::memset(result->y, 0, 32);
+        return false;
+    }
+    
+    // Convert to affine
+    sm2_point_affine_result aff;
+    jacobian_to_affine(&aff, &jac);
+    
+    // Convert to bytes
+    mont_fe256_to_bytes(result->x, (const mont::fe256*)&aff.x);
+    mont_fe256_to_bytes(result->y, (const mont::fe256*)&aff.y);
+    result->is_infinity = false;
+    
+    return true;
 }
 
 }  // namespace kctsb::internal::sm2

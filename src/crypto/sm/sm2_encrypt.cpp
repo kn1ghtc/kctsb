@@ -222,16 +222,18 @@ kctsb_error_t encrypt_internal(
         ZZ x1 = bytes_to_zz(C1_mont.x, FIELD_SIZE);
         ZZ y1 = bytes_to_zz(C1_mont.y, FIELD_SIZE);
         
-        // Step 3: Compute (x2, y2) = k * P (using Montgomery ladder)
-        ecc::internal::JacobianPoint kP = curve.scalar_mult(k, P_jac);
-        if (kP.is_infinity()) {
-            continue;  // Retry with new k
+        // Step 3: Compute (x2, y2) = k * P using Montgomery acceleration
+        sm2_point_result kP_mont;
+        if (!scalar_mult_point_mont(&kP_mont, k_bytes, public_key, public_key + FIELD_SIZE)) {
+            // Point at infinity (extremely rare)
+            kctsb_secure_zero(k_bytes, sizeof(k_bytes));
+            continue;
         }
-        ecc::internal::AffinePoint kP_aff = curve.to_affine(kP);
+        kctsb_secure_zero(k_bytes, sizeof(k_bytes));
         
-        // Extract ZZ values immediately after to_affine (ZZ_p context still valid)
-        ZZ x2 = rep(kP_aff.x);
-        ZZ y2 = rep(kP_aff.y);
+        // Extract coordinates from Montgomery result
+        ZZ x2 = bytes_to_zz(kP_mont.x, FIELD_SIZE);
+        ZZ y2 = bytes_to_zz(kP_mont.y, FIELD_SIZE);
         
         // Prepare x2||y2 for KDF
         std::vector<uint8_t> x2y2(2 * FIELD_SIZE);
@@ -374,16 +376,25 @@ kctsb_error_t decrypt_internal(
     const uint8_t* c3_ptr = ciphertext + 1 + 2 * FIELD_SIZE;
     const uint8_t* c2_ptr = c3_ptr + 32;
     
-    // Step 3: Compute (x2, y2) = d * C1 (using Montgomery ladder)
-    ecc::internal::JacobianPoint dC1 = curve.scalar_mult(d, C1_jac);
-    if (dC1.is_infinity()) {
+    // Step 3: Compute (x2, y2) = d * C1 using Montgomery acceleration
+    uint8_t d_bytes[FIELD_SIZE];
+    zz_to_bytes(d, d_bytes, FIELD_SIZE);
+    
+    // C1 coordinates as bytes (already in ciphertext)
+    const uint8_t* C1_x = ciphertext + 1;
+    const uint8_t* C1_y = ciphertext + 1 + FIELD_SIZE;
+    
+    sm2_point_result dC1_mont;
+    if (!scalar_mult_point_mont(&dC1_mont, d_bytes, C1_x, C1_y)) {
+        // Point at infinity
+        kctsb_secure_zero(d_bytes, sizeof(d_bytes));
         return KCTSB_ERROR_DECRYPTION_FAILED;
     }
-    ecc::internal::AffinePoint dC1_aff = curve.to_affine(dC1);
+    kctsb_secure_zero(d_bytes, sizeof(d_bytes));
     
-    // Extract ZZ values immediately after to_affine (ZZ_p context still valid)
-    ZZ x2 = rep(dC1_aff.x);
-    ZZ y2 = rep(dC1_aff.y);
+    // Extract coordinates from Montgomery result
+    ZZ x2 = bytes_to_zz(dC1_mont.x, FIELD_SIZE);
+    ZZ y2 = bytes_to_zz(dC1_mont.y, FIELD_SIZE);
     
     // Prepare x2||y2
     uint8_t x2_bytes[FIELD_SIZE], y2_bytes[FIELD_SIZE];

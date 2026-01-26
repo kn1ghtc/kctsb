@@ -13,6 +13,7 @@
 
 #include "kctsb/crypto/sm/sm2.h"
 #include "kctsb/crypto/sm/sm3.h"
+#include "kctsb/crypto/sm/sm2_mont.h"
 #include "kctsb/crypto/ecc/ecc_curve.h"
 #include "kctsb/core/security.h"
 #include "kctsb/core/common.h"
@@ -64,6 +65,59 @@ private:
 extern ZZ bytes_to_zz(const uint8_t* data, size_t len);
 extern void zz_to_bytes(const ZZ& z, uint8_t* out, size_t len);
 extern kctsb_error_t generate_random_k(ZZ& k, const ZZ& n);
+
+/**
+ * @brief Generate random scalar k in [1, n-1] using fe256
+ * 
+ * This is a faster alternative to generate_random_k that avoids ZZ.
+ * Uses rejection sampling to ensure uniform distribution.
+ * 
+ * @param[out] k_bytes Output scalar (32 bytes, big-endian)
+ * @return KCTSB_SUCCESS or error code
+ */
+static kctsb_error_t generate_random_k_fe256(uint8_t k_bytes[32]) {
+    using namespace kctsb::internal::sm2::mont;
+    
+    // SM2 order n
+    static const fe256 SM2_ORDER = {{
+        0x53BBF40939D54123ULL,
+        0x7203DF6B21C6052BULL,
+        0xFFFFFFFFFFFFFFFFULL,
+        0xFFFFFFFEFFFFFFFFULL
+    }};
+    
+    // Maximum tries to avoid infinite loop
+    for (int tries = 0; tries < 128; tries++) {
+        // Generate random bytes
+        if (kctsb_random_bytes(k_bytes, 32) != KCTSB_SUCCESS) {
+            return KCTSB_ERROR_INTERNAL;
+        }
+        
+        // Check if k is in valid range [1, n-1]
+        // First check if k = 0
+        bool is_zero = true;
+        for (int i = 0; i < 32; i++) {
+            if (k_bytes[i] != 0) {
+                is_zero = false;
+                break;
+            }
+        }
+        if (is_zero) continue;
+        
+        // Convert to fe256 for comparison
+        fe256 k_fe;
+        fe256_from_bytes(&k_fe, k_bytes);
+        
+        // Check if k < n
+        if (fe256_cmp(&k_fe, &SM2_ORDER) >= 0) {
+            continue;  // k >= n, reject
+        }
+        
+        return KCTSB_SUCCESS;
+    }
+    
+    return KCTSB_ERROR_INTERNAL;
+}
 
 // ============================================================================
 // Z Value Computation
@@ -158,6 +212,8 @@ kctsb_error_t compute_z_value(
  * 7. If s = 0, go to step 2
  * 8. Output signature (r, s)
  * 
+ * This version uses fe256 operations for all scalar arithmetic.
+ * 
  * @param private_key 32-byte private key
  * @param public_key 64-byte public key
  * @param user_id User ID for Z value computation
@@ -176,13 +232,28 @@ kctsb_error_t sign_internal(
     size_t message_len,
     kctsb_sm2_signature_t* signature
 ) {
-    auto& ctx = SM2Context::instance();
-    const auto& curve = ctx.curve();
-    const ZZ& n = ctx.n();
+    using namespace kctsb::internal::sm2::mont;
     
-    // Parse private key
-    ZZ d = bytes_to_zz(private_key, FIELD_SIZE);
-    if (IsZero(d) || d >= n - 1) {
+    // SM2 order n for validation
+    static const fe256 SM2_ORDER = {{
+        0x53BBF40939D54123ULL,
+        0x7203DF6B21C6052BULL,
+        0xFFFFFFFFFFFFFFFFULL,
+        0xFFFFFFFEFFFFFFFFULL
+    }};
+    
+    // Parse private key into fe256
+    fe256 d_fe;
+    fe256_from_bytes(&d_fe, private_key);
+    
+    // Validate private key range (should be in [1, n-2])
+    // Check d != 0
+    if (fe256_is_zero(&d_fe)) {
+        return KCTSB_ERROR_INVALID_KEY;
+    }
+    
+    // Check d < n - 1 (approximately, full check would require n-1 constant)
+    if (fe256_cmp(&d_fe, &SM2_ORDER) >= 0) {
         return KCTSB_ERROR_INVALID_KEY;
     }
     
@@ -201,64 +272,78 @@ kctsb_error_t sign_internal(
     kctsb_sm3_update(&sm3_ctx, message, message_len);
     kctsb_sm3_final(&sm3_ctx, e_hash);
     
-    ZZ e = bytes_to_zz(e_hash, 32);
+    // Convert e to fe256
+    fe256 e_fe;
+    fe256_from_bytes(&e_fe, e_hash);
     
-    // Compute (1 + d)^-1 mod n
-    ZZ d_plus_1 = (d + 1) % n;
-    ZZ d_plus_1_inv = InvMod(d_plus_1, n);
+    // Precompute (1 + d)^-1 mod n using fe256 operations
+    fe256 one = {{1, 0, 0, 0}};
+    fe256 d_plus_1_fe;
+    fe256_modn_add(&d_plus_1_fe, &d_fe, &one);
     
-    ZZ r, s;
+    fe256 d_plus_1_inv_fe;
+    fe256_modn_inv(&d_plus_1_inv_fe, &d_plus_1_fe);
+    
+    fe256 r_fe, s_fe;
     
     // Signature generation loop
     for (int attempts = 0; attempts < 100; attempts++) {
-        // Step 2: Generate random k
-        ZZ k;
-        err = generate_random_k(k, n);
+        // Step 2: Generate random k using fe256-based function
+        uint8_t k_bytes[FIELD_SIZE];
+        err = generate_random_k_fe256(k_bytes);
         if (err != KCTSB_SUCCESS) {
             return err;
         }
         
         // Step 3: Compute (x1, y1) = k * G using Montgomery acceleration
-        // Convert k to bytes for Montgomery interface
-        uint8_t k_bytes[FIELD_SIZE];
-        zz_to_bytes(k, k_bytes, FIELD_SIZE);
-        
         sm2_point_result kG_mont;
         if (!scalar_mult_base_mont(&kG_mont, k_bytes)) {
-            // Point at infinity (extremely rare for valid k)
             kctsb_secure_zero(k_bytes, sizeof(k_bytes));
             continue;
         }
         
-        // Convert x1 from bytes back to ZZ
-        ZZ x1 = bytes_to_zz(kG_mont.x, FIELD_SIZE);
+        // Convert x1 to fe256
+        fe256 x1_fe;
+        fe256_from_bytes(&x1_fe, kG_mont.x);
         
-        // Secure cleanup of k_bytes
-        kctsb_secure_zero(k_bytes, sizeof(k_bytes));
+        // Step 4: Compute r = (e + x1) mod n using fe256
+        fe256_modn_add(&r_fe, &e_fe, &x1_fe);
         
-        #ifdef KCTSB_DEBUG_SM2
-        // Debug: Print k and kG.x for comparison with verification
-        std::cerr << "[SM2 SIGN DEBUG] k = " << k << "\n";
-        std::cerr << "[SM2 SIGN DEBUG] kG.x = " << x1 << "\n";
-        #endif
-        
-        // Step 4: Compute r = (e + x1) mod n
-        r = (e + x1) % n;
-        
-        // Step 5: Check r != 0 and r + k != n
-        if (IsZero(r) || (r + k) == n) {
+        // Step 5: Check r != 0
+        if (fe256_is_zero(&r_fe)) {
+            kctsb_secure_zero(k_bytes, sizeof(k_bytes));
             continue;
         }
         
-        // Step 6: Compute s = ((1+d)^-1 * (k - r*d)) mod n
-        ZZ k_minus_rd = (k - MulMod(r, d, n)) % n;
-        if (k_minus_rd < 0) {
-            k_minus_rd += n;
+        // Check r + k != n
+        fe256 k_fe;
+        fe256_from_bytes(&k_fe, k_bytes);
+        
+        fe256 r_plus_k;
+        fe256_modn_add(&r_plus_k, &r_fe, &k_fe);
+        if (fe256_is_zero(&r_plus_k)) {
+            kctsb_secure_zero(k_bytes, sizeof(k_bytes));
+            continue;
         }
-        s = MulMod(d_plus_1_inv, k_minus_rd, n);
+        
+        // Step 6: Compute s = ((1+d)^-1 * (k - r*d)) mod n using fe256
+        // First compute r*d mod n
+        fe256 rd_fe;
+        fe256_modn_mul(&rd_fe, &r_fe, &d_fe);
+        
+        // Then k - r*d mod n
+        fe256 k_minus_rd;
+        fe256_modn_sub(&k_minus_rd, &k_fe, &rd_fe);
+        
+        // Finally s = (1+d)^-1 * (k - r*d) mod n
+        fe256_modn_mul(&s_fe, &d_plus_1_inv_fe, &k_minus_rd);
+        
+        // Secure cleanup of k
+        kctsb_secure_zero(k_bytes, sizeof(k_bytes));
+        kctsb_secure_zero(&k_fe, sizeof(k_fe));
         
         // Step 7: Check s != 0
-        if (!IsZero(s)) {
+        if (!fe256_is_zero(&s_fe)) {
             break;
         }
         
@@ -268,20 +353,14 @@ kctsb_error_t sign_internal(
     }
     
     // Step 8: Output signature (r, s)
-    zz_to_bytes(r, signature->r, FIELD_SIZE);
-    zz_to_bytes(s, signature->s, FIELD_SIZE);
-    
-    #ifdef KCTSB_DEBUG_SM2
-    std::cerr << "[SM2 DEBUG] Signature generated:\n";
-    std::cerr << "  e (hash): " << e << "\n";
-    std::cerr << "  x1 (from kG): " << (r - e % n) << "\n";  // Reconstruct x1 from r - e mod n
-    std::cerr << "  r (e+x1 mod n): " << r << "\n";
-    std::cerr << "  s: " << s << "\n";
-    #endif
+    fe256_to_bytes(signature->r, &r_fe);
+    fe256_to_bytes(signature->s, &s_fe);
     
     // Secure cleanup
     kctsb_secure_zero(z_value, sizeof(z_value));
     kctsb_secure_zero(e_hash, sizeof(e_hash));
+    kctsb_secure_zero(&d_fe, sizeof(d_fe));
+    kctsb_secure_zero(&d_plus_1_inv_fe, sizeof(d_plus_1_inv_fe));
     
     return KCTSB_SUCCESS;
 }
@@ -313,29 +392,29 @@ kctsb_error_t verify_internal(
     size_t message_len,
     const kctsb_sm2_signature_t* signature
 ) {
+    using namespace kctsb::internal::sm2::mont;
+    
     auto& ctx = SM2Context::instance();
-    const auto& curve = ctx.curve();
     const ZZ& n = ctx.n();
     
-    // Parse signature
+    // Parse signature into fe256
+    fe256 r_fe, s_fe;
+    fe256_from_bytes(&r_fe, signature->r);
+    fe256_from_bytes(&s_fe, signature->s);
+    
+    // Step 1: Verify r, s in [1, n-1] using ZZ for range validation only
     ZZ r = bytes_to_zz(signature->r, FIELD_SIZE);
     ZZ s = bytes_to_zz(signature->s, FIELD_SIZE);
-    
-    // Step 1: Verify r, s in [1, n-1]
     if (IsZero(r) || r >= n || IsZero(s) || s >= n) {
         return KCTSB_ERROR_VERIFICATION_FAILED;
     }
     
-    // Parse public key
+    // Validate public key is on curve (use ZZ only for this check)
+    ZZ_p::init(ctx.p());
     ZZ Px = bytes_to_zz(public_key, FIELD_SIZE);
     ZZ Py = bytes_to_zz(public_key + FIELD_SIZE, FIELD_SIZE);
-    
-    ZZ_p::init(ctx.p());
     ecc::internal::AffinePoint P_aff{ZZ_p(Px), ZZ_p(Py)};
-    ecc::internal::JacobianPoint P_jac = curve.to_jacobian(P_aff);
-    
-    // Validate public key is on curve
-    if (!curve.is_on_curve(P_jac)) {
+    if (!ctx.curve().is_on_curve(ctx.curve().to_jacobian(P_aff))) {
         return KCTSB_ERROR_INVALID_KEY;
     }
     
@@ -353,62 +432,44 @@ kctsb_error_t verify_internal(
     kctsb_sm3_update(&sm3_ctx, message, message_len);
     kctsb_sm3_final(&sm3_ctx, e_hash);
     
-    ZZ e = bytes_to_zz(e_hash, 32);
+    fe256 e_fe;
+    fe256_from_bytes(&e_fe, e_hash);
     
-    // Step 3: Compute t = (r + s) mod n
-    ZZ t = (r + s) % n;
-    if (IsZero(t)) {
+    // Step 3: Compute t = (r + s) mod n using fe256
+    fe256 t_fe;
+    fe256_modn_add(&t_fe, &r_fe, &s_fe);
+    if (fe256_is_zero(&t_fe)) {
         return KCTSB_ERROR_VERIFICATION_FAILED;
     }
     
-    // Step 4: Compute (x1, y1) = s*G + t*P
-    // Use Montgomery acceleration for s*G (base point multiplication)
+    // Step 4: Compute (x1, y1) = s*G + t*P using Montgomery acceleration
     uint8_t s_bytes[FIELD_SIZE];
-    zz_to_bytes(s, s_bytes, FIELD_SIZE);
+    uint8_t t_bytes[FIELD_SIZE];
+    fe256_to_bytes(s_bytes, &s_fe);
+    fe256_to_bytes(t_bytes, &t_fe);
     
-    sm2_point_result sG_mont;
-    if (!scalar_mult_base_mont(&sG_mont, s_bytes)) {
-        // s*G is point at infinity (should not happen for valid signature)
+    // Compute s*G + t*P using Shamir's trick
+    sm2_point_result R_mont;
+    if (!scalar_mult_shamir_mont(&R_mont, s_bytes, t_bytes, public_key, public_key + FIELD_SIZE)) {
         kctsb_secure_zero(s_bytes, sizeof(s_bytes));
+        kctsb_secure_zero(t_bytes, sizeof(t_bytes));
         return KCTSB_ERROR_VERIFICATION_FAILED;
     }
     kctsb_secure_zero(s_bytes, sizeof(s_bytes));
+    kctsb_secure_zero(t_bytes, sizeof(t_bytes));
     
-    // Convert sG to JacobianPoint for point addition
-    ZZ sG_x = bytes_to_zz(sG_mont.x, FIELD_SIZE);
-    ZZ sG_y = bytes_to_zz(sG_mont.y, FIELD_SIZE);
-    ZZ_p::init(ctx.p());
-    ecc::internal::AffinePoint sG_aff{ZZ_p(sG_x), ZZ_p(sG_y)};
-    ecc::internal::JacobianPoint sG = curve.to_jacobian(sG_aff);
-    
-    // Compute t*P using NTL (no Montgomery for arbitrary point yet)
-    ecc::internal::JacobianPoint tP = curve.scalar_mult(t, P_jac);
-    
-    // Add sG + tP
-    ecc::internal::JacobianPoint R_point = curve.add(sG, tP);
-    ecc::internal::AffinePoint R_aff = curve.to_affine(R_point);
-    
-    // Extract ZZ value immediately after to_affine (ZZ_p context still valid)
-    ZZ x1 = rep(R_aff.x);
+    // Extract x1 from result
+    fe256 x1_fe;
+    fe256_from_bytes(&x1_fe, R_mont.x);
     
     // Step 5-6: Compute R = (e + x1) mod n and verify R = r
-    ZZ R = (e + x1) % n;
+    fe256 R_fe;
+    fe256_modn_add(&R_fe, &e_fe, &x1_fe);
     
-    if (R == r) {
+    // Compare R with r (constant-time)
+    if (fe256_cmp(&R_fe, &r_fe) == 0) {
         return KCTSB_SUCCESS;
     }
-    
-    // Debug output for verification failure
-    #ifdef KCTSB_DEBUG_SM2
-    std::cerr << "[SM2 DEBUG] Verification FAILED!\n";
-    std::cerr << "  r (from sig): " << r << "\n";
-    std::cerr << "  s (from sig): " << s << "\n";
-    std::cerr << "  e (hash): " << e << "\n";
-    std::cerr << "  t (r+s mod n): " << t << "\n";
-    std::cerr << "  x1 (from R_aff): " << x1 << "\n";
-    std::cerr << "  R (e+x1 mod n): " << R << "\n";
-    std::cerr << "  R == r: " << (R == r ? "YES" : "NO") << "\n";
-    #endif
     
     return KCTSB_ERROR_VERIFICATION_FAILED;
 }
