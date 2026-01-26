@@ -87,6 +87,8 @@ extern "C" {
  * Error Codes
  * ============================================================================ */
 
+#ifndef KCTSB_ERROR_T_DEFINED
+#define KCTSB_ERROR_T_DEFINED
 typedef enum {
     KCTSB_SUCCESS               =  0,
     KCTSB_ERROR_INVALID_PARAM   = -1,
@@ -103,6 +105,7 @@ typedef enum {
     KCTSB_ERROR_RANDOM_FAILED   = -12,
     KCTSB_ERROR_SECURITY_CHECK  = -13
 } kctsb_error_t;
+#endif
 
 /* ============================================================================
  * Algorithm Constants
@@ -274,15 +277,20 @@ typedef struct {
 /**
  * @brief ChaCha20 context
  */
+#ifndef KCTSB_CHACHA20_CTX_DEFINED
+#define KCTSB_CHACHA20_CTX_DEFINED
 typedef struct {
     uint32_t state[16];
     uint8_t keystream[64];
     size_t remaining;
 } kctsb_chacha20_ctx_t;
+#endif
 
 /**
  * @brief Poly1305 context
  */
+#ifndef KCTSB_POLY1305_CTX_DEFINED
+#define KCTSB_POLY1305_CTX_DEFINED
 typedef struct {
     uint32_t r[5];        // Clamped key r (radix-2^26, for fallback)
     uint32_t s[4];        // Key s
@@ -294,10 +302,13 @@ typedef struct {
     size_t buffer_len;    // Bytes in buffer
     int finalized;        // Whether finalized
 } kctsb_poly1305_ctx_t;
+#endif
 
 /**
  * @brief ChaCha20-Poly1305 streaming context
  */
+#ifndef KCTSB_CHACHA20_POLY1305_CTX_DEFINED
+#define KCTSB_CHACHA20_POLY1305_CTX_DEFINED
 typedef struct {
     kctsb_chacha20_ctx_t chacha_ctx;
     kctsb_poly1305_ctx_t poly_ctx;
@@ -306,6 +317,7 @@ typedef struct {
     int aad_finalized;
     int finalized;
 } kctsb_chacha20_poly1305_ctx_t;
+#endif
 
 /**
  * @brief HMAC context (opaque)

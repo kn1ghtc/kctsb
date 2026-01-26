@@ -16,6 +16,8 @@
 #include <vector>
 #include <string>
 
+// Include chacha20_poly1305.h first for complete context definitions and streaming APIs
+#include "kctsb/crypto/chacha20_poly1305.h"
 #include "kctsb/kctsb_api.h"
 
 /**

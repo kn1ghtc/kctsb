@@ -66,9 +66,10 @@ extern "C" {
 #endif
 
 // ============================================================================
-// Error codes (skip if kctsb.h already included)
+// Error codes
 // ============================================================================
-#ifndef KCTSB_API_H
+#ifndef KCTSB_ERROR_T_DEFINED
+#define KCTSB_ERROR_T_DEFINED
 typedef enum {
     KCTSB_SUCCESS = 0,
     KCTSB_ERROR_INVALID_PARAM = -1,

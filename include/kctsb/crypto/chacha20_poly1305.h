@@ -35,11 +35,14 @@ extern "C" {
 /**
  * @brief ChaCha20 context
  */
+#ifndef KCTSB_CHACHA20_CTX_DEFINED
+#define KCTSB_CHACHA20_CTX_DEFINED
 typedef struct {
     uint32_t state[16];    // Current state
     uint8_t keystream[64]; // Current keystream block
     size_t remaining;      // Remaining bytes in keystream
 } kctsb_chacha20_ctx_t;
+#endif
 
 /**
  * @brief Initialize ChaCha20 context
@@ -113,6 +116,8 @@ KCTSB_API void kctsb_chacha20_clear(kctsb_chacha20_ctx_t* ctx);
  * 
  * Vectorized mode precomputes r^2, r^3, r^4 for processing 4 blocks in parallel.
  */
+#ifndef KCTSB_POLY1305_CTX_DEFINED
+#define KCTSB_POLY1305_CTX_DEFINED
 typedef struct {
     // Scalar fallback (radix-2^26)
     uint32_t r[5];        // Clamped key r (radix-2^26)
@@ -150,6 +155,7 @@ typedef struct {
     int finalized;        // Whether finalized
     int use_avx2;         // Whether AVX2 path is active
 } kctsb_poly1305_ctx_t;
+#endif
 
 /**
  * @brief Initialize Poly1305 context with one-time key
@@ -235,6 +241,8 @@ KCTSB_API void kctsb_poly1305_clear(kctsb_poly1305_ctx_t* ctx);
 /**
  * @brief ChaCha20-Poly1305 AEAD context for streaming operations
  */
+#ifndef KCTSB_CHACHA20_POLY1305_CTX_DEFINED
+#define KCTSB_CHACHA20_POLY1305_CTX_DEFINED
 typedef struct {
     kctsb_chacha20_ctx_t chacha_ctx;
     kctsb_poly1305_ctx_t poly_ctx;
@@ -243,6 +251,7 @@ typedef struct {
     int aad_finalized;
     int finalized;
 } kctsb_chacha20_poly1305_ctx_t;
+#endif
 
 /**
  * @brief ChaCha20-Poly1305 authenticated encryption
