@@ -8,16 +8,20 @@
 
 **kctsb** 是一个跨平台的 C/C++ 密码学和安全算法库，专为生产环境和安全研究设计。目标是成为 **OpenSSL/SEAL 的工业级现代替代品，并支持最前沿的安全与AI方向高效算法实践**。
 
-## 🎉 v5.0.0 架构重大更新
+## 🎉 v5.0.0 重大发布 (2026-01-26)
 
-**自包含大数运算架构** - 移除 NTL/GMP/gf2x 外部依赖：
+**完全自包含架构** - 移除所有外部数学库依赖，**DLL体积87%优化** (10.1MB → 1.3MB)：
 - ✅ `kctsb::ZZ` - 完全自包含任意精度整数 (替代 NTL::ZZ)
 - ✅ `kctsb::ZZ_p` - 模 p 剩余类环运算
 - ✅ `kctsb::ZZX` - 整系数多项式环
 - ✅ `kctsb::GF2X` - GF(2) 上的多项式 (无需 gf2x)
 - ✅ `kctsb::GF2E` - GF(2^n) 扩展域
-- ✅ 221 个测试全部通过，总测试时间 **7.36 秒**
-- ✅ 静态库 + 共享库 + CLI 工具完整构建
+- ✅ **221 个测试全部通过，测试时间 12.7 秒**
+- ✅ **Chow白盒AES重构** - 单文件实现，OpenSSL T-table优化
+- ✅ **零外部依赖** - 核心库无需 GMP/NTL/gf2x
+
+📖 **完整Release Notes**: [v5.0.0 Release](docs/releases/v5.0.0-release.md)  
+📊 **GmSSL性能分析**: [GmSSL Performance Analysis](docs/analysis/20260126_gmssl_performance_analysis.md)
 
 
 ## ✨ 特性

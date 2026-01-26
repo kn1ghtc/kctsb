@@ -262,6 +262,13 @@ else()
         endif()
     endif()
     
+    # v5.0: Release mode optimizations
+    if(CMAKE_BUILD_TYPE STREQUAL "Release")
+        # Strip debug symbols to reduce binary size
+        add_link_options(-Wl,--strip-all)
+        message(STATUS "Release mode: Debug symbols will be stripped")
+    endif()
+    
     if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
         add_compile_options(-march=armv8-a+crypto)
         message(STATUS "Hardware acceleration: ARM64 NEON + Crypto")
@@ -272,11 +279,9 @@ endif()
 # Bignum Source Code Defines (KCTSB v5.0 Self-Contained)
 # ============================================================================
 
-# v5.0: Bignum is now fully self-contained - NO external GMP/gf2x linking
-# The internal _kctsb_mpn_* functions provide all bignum operations
+# v5.0: Bignum is now fully self-contained - NO external GMP/gf2x dependencies
+# All bignum operations use internal kctsb::ZZ, kctsb::ZZ_p implementations
 add_definitions(
-    # -DKCTSB_GMP_LIP         # v5.0: DISABLED - use internal implementation
-    # -DKCTSB_GF2X_LIB        # v5.0: DISABLED - use software implementation
     -DKCTSB_THREADS           # Enable threading
     -DKCTSB_STD_CXX17         # C++17 standard
     -DKCTSB_EXCEPTIONS        # Enable exceptions
@@ -304,9 +309,8 @@ if(NOT MSVC)
     add_compile_options(
         -Wall -Wextra -Wpedantic
         -Werror=return-type
-        # Note: -Werror=uninitialized disabled due to false positives in NTL bignum code
-        # The bignum module is ported from mature mathematical libraries (NTL/GMP)
-        # where these warnings are known false positives in complex control flow
+        # Note: -Wno-maybe-uninitialized suppresses false positives in bignum code
+        # The bignum module uses verified mathematical algorithms from NTL/GMP references
         -Wno-maybe-uninitialized
         -Wno-unused-parameter
         -Wno-sign-conversion
@@ -340,9 +344,9 @@ endif()
 option(KCTSB_BUILD_SHARED "Build shared library" ON)
 option(KCTSB_BUILD_STATIC "Build static library" OFF)
 
-# 使用 -DKCTSB_BUILD_TESTS=ON 或 -DKCTSB_BUILD_BENCHMARKS=ON 单独启用
-option(KCTSB_BUILD_TESTS "Build unit tests (default OFF for faster builds)" OFF)
-option(KCTSB_BUILD_BENCHMARKS "Build benchmarks (default OFF for faster builds)" OFF)
+# v5.0: 默认启用所有构建选项以确保完整性验证
+option(KCTSB_BUILD_TESTS "Build unit tests (default ON in v5.0)" ON)
+option(KCTSB_BUILD_BENCHMARKS "Build benchmarks (default ON in v5.0)" ON)
 option(KCTSB_BUILD_CLI "Build kctsb.exe CLI tool" ON)
 
 # 测试需要静态库以确保所有bignum符号可用

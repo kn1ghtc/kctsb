@@ -32,6 +32,7 @@
 #include <numeric>
 #include <set>
 #include "kctsb/kctsb.h"
+#include "kctsb/kctsb_api.h"  // v5.0: Include API header for kctsb_init/cleanup
 #include "kctsb/utils/console.h"
 
 // OpenSSL headers
