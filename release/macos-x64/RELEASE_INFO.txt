@@ -36,11 +36,11 @@ Integration Examples:
 
   C++ Compilation:
     clang++ -std=c++17 myapp.cpp -I./include -L./lib -lkctsb -o myapp
-    
+
   Dynamic Library Path:
     export DYLD_LIBRARY_PATH=/path/to/release/macos-x64/lib:$DYLD_LIBRARY_PATH
     ./myapp
-    
+
   Or use rpath (recommended):
     clang++ -std=c++17 myapp.cpp -I./include -L./lib -lkctsb \
       -Wl,-rpath,@executable_path/../lib -o myapp
@@ -53,7 +53,7 @@ Integration Examples:
 Testing:
   # Verify library
   otool -L lib/libkctsb.5.0.0.dylib
-  
+
   # Test CLI tool
   ./bin/kctsb version
   ./bin/kctsb hash --sha3-256 "Hello, World!"

@@ -94,22 +94,22 @@ int main() {
     // SHA3-256 example
     const char* message = "Hello, kctsb!";
     uint8_t digest[32];
-    
+
     kctsb_error_t ret = kctsb_sha3_256(
         reinterpret_cast<const uint8_t*>(message),
         strlen(message),
         digest
     );
-    
+
     if (ret == KCTSB_SUCCESS) {
         std::cout << "SHA3-256: ";
         for (int i = 0; i < 32; i++) {
-            std::cout << std::hex << std::setw(2) << std::setfill('0') 
+            std::cout << std::hex << std::setw(2) << std::setfill('0')
                       << (int)digest[i];
         }
         std::cout << std::endl;
     }
-    
+
     return 0;
 }
 ```
