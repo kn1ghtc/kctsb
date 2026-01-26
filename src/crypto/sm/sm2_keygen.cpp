@@ -1,31 +1,57 @@
 /**
  * @file sm2_keygen.cpp
- * @brief SM2 Key Generation Module
+ * @brief SM2 Key Generation Implementation
  * 
- * Implements SM2 key pair generation and self-test functionality.
- * 
- * Key Generation Algorithm:
- * 1. Generate random private key d in [1, n-2]
- * 2. Compute public key P = d * G (point multiplication using Montgomery ladder)
- * 3. Export keys in big-endian byte format
+ * SM2 key pair generation following GB/T 32918-2016:
+ * - Private key d: random integer in [1, n-2]
+ * - Public key P = d * G (point multiplication)
  * 
  * @author knightc
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
  * @license Apache License 2.0
  */
 
-#include "sm2_internal.h"
 #include "kctsb/crypto/sm/sm2.h"
-#include "kctsb/crypto/sm/sm3.h"
 #include "kctsb/crypto/ecc/ecc_curve.h"
 #include "kctsb/core/security.h"
+#include "kctsb/core/common.h"
+
+#include <kctsb/math/bignum/ZZ.h>
+#include <kctsb/math/bignum/ZZ_p.h>
 
 #include <cstring>
-#include <vector>
 
+// Bignum namespace is now kctsb (was bignum)
 using namespace kctsb;
 
 namespace kctsb::internal::sm2 {
+
+// External declarations from sm2_curve.cpp
+constexpr size_t FIELD_SIZE = 32;
+
+/**
+ * @brief SM2 internal context for curve operations
+ * 
+ * Defined in sm2_curve.cpp, accessed via singleton pattern.
+ */
+class SM2Context {
+public:
+    static SM2Context& instance();
+    const ecc::internal::ECCurve& curve() const;
+    const ZZ& n() const;
+    const ZZ& p() const;
+    int bit_size() const;
+private:
+    SM2Context();
+    ecc::internal::ECCurve curve_;
+    ZZ n_;
+    ZZ p_;
+    int bit_size_;
+};
+
+// External utility functions from sm2_curve.cpp
+extern ZZ bytes_to_zz(const uint8_t* data, size_t len);
+extern void zz_to_bytes(const ZZ& z, uint8_t* out, size_t len);
 
 // ============================================================================
 // Key Generation
@@ -84,108 +110,19 @@ kctsb_error_t generate_keypair_internal(kctsb_sm2_keypair_t* keypair) {
     return KCTSB_ERROR_RANDOM_FAILED;
 }
 
+}  // namespace kctsb::internal::sm2
+
 // ============================================================================
-// Self Test
+// C API Implementation
 // ============================================================================
 
-/**
- * @brief SM2 self test with standard test vectors
- * 
- * Tests key generation, signature, verification, encryption, and decryption.
- * 
- * @return KCTSB_SUCCESS if all tests pass
- */
-kctsb_error_t self_test_internal() {
-    // Test 1: Key generation
-    kctsb_sm2_keypair_t keypair;
-    kctsb_error_t err = generate_keypair_internal(&keypair);
-    if (err != KCTSB_SUCCESS) {
-        return err;
+extern "C" {
+
+kctsb_error_t kctsb_sm2_generate_keypair(kctsb_sm2_keypair_t* keypair) {
+    if (keypair == nullptr) {
+        return KCTSB_ERROR_INVALID_PARAM;
     }
-    
-    // Test 2: Sign and verify
-    const uint8_t test_message[] = "SM2 Test Message for Signature";
-    const size_t msg_len = sizeof(test_message) - 1;
-    const char* default_uid = "1234567812345678";
-    
-    kctsb_sm2_signature_t sig;
-    err = sign_internal(
-        keypair.private_key,
-        keypair.public_key,
-        reinterpret_cast<const uint8_t*>(default_uid),
-        16,
-        test_message,
-        msg_len,
-        &sig
-    );
-    if (err != KCTSB_SUCCESS) {
-        return err;
-    }
-    
-    err = verify_internal(
-        keypair.public_key,
-        reinterpret_cast<const uint8_t*>(default_uid),
-        16,
-        test_message,
-        msg_len,
-        &sig
-    );
-    if (err != KCTSB_SUCCESS) {
-        return err;
-    }
-    
-    // Test 3: Verify with wrong message should fail
-    const uint8_t wrong_message[] = "Wrong Message";
-    err = verify_internal(
-        keypair.public_key,
-        reinterpret_cast<const uint8_t*>(default_uid),
-        16,
-        wrong_message,
-        sizeof(wrong_message) - 1,
-        &sig
-    );
-    if (err == KCTSB_SUCCESS) {
-        return KCTSB_ERROR_INTERNAL;  // Should have failed
-    }
-    
-    // Test 4: Encryption and decryption
-    const uint8_t plaintext[] = "SM2 Encryption Test Data";
-    const size_t pt_len = sizeof(plaintext) - 1;
-    
-    size_t ct_len = 0;
-    encrypt_internal(keypair.public_key, plaintext, pt_len, nullptr, &ct_len);
-    
-    std::vector<uint8_t> ciphertext(ct_len);
-    err = encrypt_internal(
-        keypair.public_key,
-        plaintext,
-        pt_len,
-        ciphertext.data(),
-        &ct_len
-    );
-    if (err != KCTSB_SUCCESS) {
-        return err;
-    }
-    
-    size_t dec_len = ct_len;
-    std::vector<uint8_t> decrypted(pt_len + 32);  // Extra space for safety
-    err = decrypt_internal(
-        keypair.private_key,
-        ciphertext.data(),
-        ct_len,
-        decrypted.data(),
-        &dec_len
-    );
-    if (err != KCTSB_SUCCESS) {
-        return err;
-    }
-    
-    // Verify decrypted matches original
-    if (dec_len != pt_len || std::memcmp(plaintext, decrypted.data(), pt_len) != 0) {
-        return KCTSB_ERROR_INTERNAL;
-    }
-    
-    return KCTSB_SUCCESS;
+    return kctsb::internal::sm2::generate_keypair_internal(keypair);
 }
 
-}  // namespace kctsb::internal::sm2
+}  // extern "C"

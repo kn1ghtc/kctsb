@@ -1,46 +1,85 @@
 /**
  * @file sm2_encrypt.cpp
- * @brief SM2 Public Key Encryption Module
+ * @brief SM2 Public Key Encryption Implementation
  * 
- * Implements SM2 public key encryption as specified in 
- * GB/T 32918.4-2016 Chinese National Standard.
- * 
- * Encryption Algorithm:
- * 1. Generate random k in [1, n-1]
- * 2. Compute C1 = k * G (point on curve)
- * 3. Compute (x2, y2) = k * P (shared point)
- * 4. Compute t = KDF(x2 || y2, klen)
- * 5. Compute C2 = M XOR t
- * 6. Compute C3 = SM3(x2 || M || y2)
- * 7. Output C = C1 || C3 || C2 (new format)
- * 
- * Decryption Algorithm:
- * 1. Parse C1 from ciphertext
- * 2. Verify C1 is on curve
- * 3. Compute (x2, y2) = d * C1
- * 4. Compute t = KDF(x2 || y2, C2_len)
- * 5. Compute M = C2 XOR t
- * 6. Compute u = SM3(x2 || M || y2)
- * 7. Verify u == C3
- * 8. Output M
+ * SM2 encryption scheme following GB/T 32918.4-2016:
+ * - Key Derivation Function (KDF)
+ * - Public key encryption and private key decryption
+ * - Self-test implementation
+ * - C++ wrapper classes
  * 
  * @author knightc
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
  * @license Apache License 2.0
  */
 
-#include "sm2_internal.h"
 #include "kctsb/crypto/sm/sm2.h"
 #include "kctsb/crypto/sm/sm3.h"
 #include "kctsb/crypto/ecc/ecc_curve.h"
 #include "kctsb/core/security.h"
+#include "kctsb/core/common.h"
+
+#include <kctsb/math/bignum/ZZ.h>
+#include <kctsb/math/bignum/ZZ_p.h>
 
 #include <cstring>
 #include <vector>
+#include <stdexcept>
 
+// Bignum namespace is now kctsb (was bignum)
 using namespace kctsb;
 
 namespace kctsb::internal::sm2 {
+
+// External declarations from sm2_curve.cpp
+constexpr size_t FIELD_SIZE = 32;
+
+/**
+ * @brief SM2 internal context for curve operations
+ * 
+ * Defined in sm2_curve.cpp, accessed via singleton pattern.
+ */
+class SM2Context {
+public:
+    static SM2Context& instance();
+    const ecc::internal::ECCurve& curve() const;
+    const ZZ& n() const;
+    const ZZ& p() const;
+    int bit_size() const;
+private:
+    SM2Context();
+    ecc::internal::ECCurve curve_;
+    ZZ n_;
+    ZZ p_;
+    int bit_size_;
+};
+
+// External utility functions from sm2_curve.cpp
+extern ZZ bytes_to_zz(const uint8_t* data, size_t len);
+extern void zz_to_bytes(const ZZ& z, uint8_t* out, size_t len);
+extern kctsb_error_t generate_random_k(ZZ& k, const ZZ& n);
+
+// External functions from sm2_keygen.cpp
+extern kctsb_error_t generate_keypair_internal(kctsb_sm2_keypair_t* keypair);
+
+// External functions from sm2_sign.cpp
+extern kctsb_error_t sign_internal(
+    const uint8_t private_key[32],
+    const uint8_t public_key[64],
+    const uint8_t* user_id,
+    size_t user_id_len,
+    const uint8_t* message,
+    size_t message_len,
+    kctsb_sm2_signature_t* signature
+);
+extern kctsb_error_t verify_internal(
+    const uint8_t public_key[64],
+    const uint8_t* user_id,
+    size_t user_id_len,
+    const uint8_t* message,
+    size_t message_len,
+    const kctsb_sm2_signature_t* signature
+);
 
 // ============================================================================
 // Key Derivation Function (KDF)
@@ -395,4 +434,322 @@ kctsb_error_t decrypt_internal(
     return KCTSB_SUCCESS;
 }
 
+// ============================================================================
+// Self Test
+// ============================================================================
+
+/**
+ * @brief SM2 self test with standard test vectors
+ * 
+ * Tests key generation, signature, verification, encryption, and decryption.
+ * 
+ * @return KCTSB_SUCCESS if all tests pass
+ */
+kctsb_error_t self_test_internal() {
+    // Test 1: Key generation
+    kctsb_sm2_keypair_t keypair;
+    kctsb_error_t err = generate_keypair_internal(&keypair);
+    if (err != KCTSB_SUCCESS) {
+        return err;
+    }
+    
+    // Test 2: Sign and verify
+    const uint8_t test_message[] = "SM2 Test Message for Signature";
+    const size_t msg_len = sizeof(test_message) - 1;
+    const char* default_uid = "1234567812345678";
+    
+    kctsb_sm2_signature_t sig;
+    err = sign_internal(
+        keypair.private_key,
+        keypair.public_key,
+        reinterpret_cast<const uint8_t*>(default_uid),
+        16,
+        test_message,
+        msg_len,
+        &sig
+    );
+    if (err != KCTSB_SUCCESS) {
+        return err;
+    }
+    
+    err = verify_internal(
+        keypair.public_key,
+        reinterpret_cast<const uint8_t*>(default_uid),
+        16,
+        test_message,
+        msg_len,
+        &sig
+    );
+    if (err != KCTSB_SUCCESS) {
+        return err;
+    }
+    
+    // Test 3: Verify with wrong message should fail
+    const uint8_t wrong_message[] = "Wrong Message";
+    err = verify_internal(
+        keypair.public_key,
+        reinterpret_cast<const uint8_t*>(default_uid),
+        16,
+        wrong_message,
+        sizeof(wrong_message) - 1,
+        &sig
+    );
+    if (err == KCTSB_SUCCESS) {
+        return KCTSB_ERROR_INTERNAL;  // Should have failed
+    }
+    
+    // Test 4: Encryption and decryption
+    const uint8_t plaintext[] = "SM2 Encryption Test Data";
+    const size_t pt_len = sizeof(plaintext) - 1;
+    
+    size_t ct_len = 0;
+    encrypt_internal(keypair.public_key, plaintext, pt_len, nullptr, &ct_len);
+    
+    std::vector<uint8_t> ciphertext(ct_len);
+    err = encrypt_internal(
+        keypair.public_key,
+        plaintext,
+        pt_len,
+        ciphertext.data(),
+        &ct_len
+    );
+    if (err != KCTSB_SUCCESS) {
+        return err;
+    }
+    
+    size_t dec_len = ct_len;
+    std::vector<uint8_t> decrypted(pt_len + 32);  // Extra space for safety
+    err = decrypt_internal(
+        keypair.private_key,
+        ciphertext.data(),
+        ct_len,
+        decrypted.data(),
+        &dec_len
+    );
+    if (err != KCTSB_SUCCESS) {
+        return err;
+    }
+    
+    // Verify decrypted matches original
+    if (dec_len != pt_len || std::memcmp(plaintext, decrypted.data(), pt_len) != 0) {
+        return KCTSB_ERROR_INTERNAL;
+    }
+    
+    return KCTSB_SUCCESS;
+}
+
 }  // namespace kctsb::internal::sm2
+
+// ============================================================================
+// C API Implementation
+// ============================================================================
+
+extern "C" {
+
+kctsb_error_t kctsb_sm2_encrypt(
+    const uint8_t public_key[64],
+    const uint8_t* plaintext,
+    size_t plaintext_len,
+    uint8_t* ciphertext,
+    size_t* ciphertext_len
+) {
+    if (public_key == nullptr || plaintext == nullptr || ciphertext_len == nullptr) {
+        return KCTSB_ERROR_INVALID_PARAM;
+    }
+    if (plaintext_len == 0) {
+        return KCTSB_ERROR_INVALID_PARAM;
+    }
+    
+    return kctsb::internal::sm2::encrypt_internal(
+        public_key, plaintext, plaintext_len, ciphertext, ciphertext_len
+    );
+}
+
+kctsb_error_t kctsb_sm2_decrypt(
+    const uint8_t private_key[32],
+    const uint8_t* ciphertext,
+    size_t ciphertext_len,
+    uint8_t* plaintext,
+    size_t* plaintext_len
+) {
+    if (private_key == nullptr || ciphertext == nullptr || plaintext_len == nullptr) {
+        return KCTSB_ERROR_INVALID_PARAM;
+    }
+    
+    return kctsb::internal::sm2::decrypt_internal(
+        private_key, ciphertext, ciphertext_len, plaintext, plaintext_len
+    );
+}
+
+kctsb_error_t kctsb_sm2_self_test(void) {
+    return kctsb::internal::sm2::self_test_internal();
+}
+
+}  // extern "C"
+
+// ============================================================================
+// C++ Class Implementation
+// ============================================================================
+
+namespace kctsb {
+
+// SM2KeyPair implementation
+SM2KeyPair::SM2KeyPair() {
+    std::memset(&keypair_, 0, sizeof(keypair_));
+}
+
+SM2KeyPair::SM2KeyPair(const ByteVec& privateKey) {
+    if (privateKey.size() != KCTSB_SM2_PRIVATE_KEY_SIZE) {
+        throw std::invalid_argument("Invalid SM2 private key size");
+    }
+    
+    std::memcpy(keypair_.private_key, privateKey.data(), KCTSB_SM2_PRIVATE_KEY_SIZE);
+    
+    // Derive public key from private key (using Montgomery ladder)
+    auto& ctx = internal::sm2::SM2Context::instance();
+    const auto& curve = ctx.curve();
+    
+    kctsb::ZZ d = internal::sm2::bytes_to_zz(keypair_.private_key, KCTSB_SM2_PRIVATE_KEY_SIZE);
+    ecc::internal::JacobianPoint P_jac = curve.scalar_mult_base(d);
+    ecc::internal::AffinePoint P_aff = curve.to_affine(P_jac);
+    
+    kctsb::ZZ_p::init(ctx.p());
+    kctsb::ZZ Px = IsZero(P_aff.x) ? kctsb::ZZ(0) : rep(P_aff.x);
+    kctsb::ZZ Py = IsZero(P_aff.y) ? kctsb::ZZ(0) : rep(P_aff.y);
+    
+    internal::sm2::zz_to_bytes(Px, keypair_.public_key, internal::sm2::FIELD_SIZE);
+    internal::sm2::zz_to_bytes(Py, keypair_.public_key + internal::sm2::FIELD_SIZE, 
+                               internal::sm2::FIELD_SIZE);
+}
+
+SM2KeyPair SM2KeyPair::generate() {
+    SM2KeyPair kp;
+    kctsb_error_t err = kctsb_sm2_generate_keypair(&kp.keypair_);
+    if (err != KCTSB_SUCCESS) {
+        throw std::runtime_error("SM2 key generation failed");
+    }
+    return kp;
+}
+
+ByteVec SM2KeyPair::getPrivateKey() const {
+    return ByteVec(keypair_.private_key, 
+                   keypair_.private_key + KCTSB_SM2_PRIVATE_KEY_SIZE);
+}
+
+ByteVec SM2KeyPair::getPublicKey() const {
+    return ByteVec(keypair_.public_key, 
+                   keypair_.public_key + KCTSB_SM2_PUBLIC_KEY_SIZE);
+}
+
+// SM2 class static methods
+ByteVec SM2::sign(
+    const SM2KeyPair& keypair,
+    const ByteVec& message,
+    const std::string& userId
+) {
+    kctsb_sm2_signature_t sig;
+    ByteVec priv = keypair.getPrivateKey();
+    ByteVec pub = keypair.getPublicKey();
+    
+    kctsb_error_t err = kctsb_sm2_sign(
+        priv.data(),
+        pub.data(),
+        reinterpret_cast<const uint8_t*>(userId.data()),
+        userId.size(),
+        message.data(),
+        message.size(),
+        &sig
+    );
+    
+    if (err != KCTSB_SUCCESS) {
+        throw std::runtime_error("SM2 signing failed");
+    }
+    
+    ByteVec result(KCTSB_SM2_SIGNATURE_SIZE);
+    std::memcpy(result.data(), sig.r, 32);
+    std::memcpy(result.data() + 32, sig.s, 32);
+    return result;
+}
+
+bool SM2::verify(
+    const ByteVec& publicKey,
+    const ByteVec& message,
+    const ByteVec& signature,
+    const std::string& userId
+) {
+    if (publicKey.size() != KCTSB_SM2_PUBLIC_KEY_SIZE ||
+        signature.size() != KCTSB_SM2_SIGNATURE_SIZE) {
+        return false;
+    }
+    
+    kctsb_sm2_signature_t sig;
+    std::memcpy(sig.r, signature.data(), 32);
+    std::memcpy(sig.s, signature.data() + 32, 32);
+    
+    kctsb_error_t err = kctsb_sm2_verify(
+        publicKey.data(),
+        reinterpret_cast<const uint8_t*>(userId.data()),
+        userId.size(),
+        message.data(),
+        message.size(),
+        &sig
+    );
+    
+    return err == KCTSB_SUCCESS;
+}
+
+ByteVec SM2::encrypt(const ByteVec& publicKey, const ByteVec& plaintext) {
+    if (publicKey.size() != KCTSB_SM2_PUBLIC_KEY_SIZE) {
+        throw std::invalid_argument("Invalid public key size");
+    }
+    
+    // Get required output size
+    size_t ct_len = 0;
+    kctsb_sm2_encrypt(publicKey.data(), plaintext.data(), plaintext.size(), 
+                      nullptr, &ct_len);
+    
+    ByteVec ciphertext(ct_len);
+    kctsb_error_t err = kctsb_sm2_encrypt(
+        publicKey.data(),
+        plaintext.data(),
+        plaintext.size(),
+        ciphertext.data(),
+        &ct_len
+    );
+    
+    if (err != KCTSB_SUCCESS) {
+        throw std::runtime_error("SM2 encryption failed");
+    }
+    
+    ciphertext.resize(ct_len);
+    return ciphertext;
+}
+
+ByteVec SM2::decrypt(const ByteVec& privateKey, const ByteVec& ciphertext) {
+    if (privateKey.size() != KCTSB_SM2_PRIVATE_KEY_SIZE) {
+        throw std::invalid_argument("Invalid private key size");
+    }
+    
+    // Get required output size
+    size_t pt_len = 0;
+    kctsb_sm2_decrypt(privateKey.data(), ciphertext.data(), ciphertext.size(),
+                      nullptr, &pt_len);
+    
+    ByteVec plaintext(pt_len);
+    kctsb_error_t err = kctsb_sm2_decrypt(
+        privateKey.data(),
+        ciphertext.data(),
+        ciphertext.size(),
+        plaintext.data(),
+        &pt_len
+    );
+    
+    if (err != KCTSB_SUCCESS) {
+        throw std::runtime_error("SM2 decryption failed");
+    }
+    
+    plaintext.resize(pt_len);
+    return plaintext;
+}
+
+}  // namespace kctsb

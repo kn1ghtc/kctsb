@@ -1,51 +1,69 @@
 /**
  * @file sm2_sign.cpp
- * @brief SM2 Digital Signature Module
+ * @brief SM2 Digital Signature Implementation
  * 
- * Implements SM2DSA (SM2 Digital Signature Algorithm) as specified in 
- * GB/T 32918.2-2016 Chinese National Standard.
- * 
- * Signature Algorithm:
- * 1. Compute e = SM3(Z || M) where Z is user identification hash
- * 2. Generate random k in [1, n-1]
- * 3. Compute point (x1, y1) = k * G
- * 4. Compute r = (e + x1) mod n
- * 5. Compute s = ((1 + d)^-1 * (k - r*d)) mod n
- * 6. Output signature (r, s)
- * 
- * Verification Algorithm:
- * 1. Verify r, s in [1, n-1]
- * 2. Compute e = SM3(Z || M)
- * 3. Compute t = (r + s) mod n, verify t != 0
- * 4. Compute point (x1, y1) = s*G + t*P
- * 5. Compute R = (e + x1) mod n
- * 6. Verify R = r
+ * SM2 digital signature (SM2DSA) following GB/T 32918.2-2016:
+ * - ZA hash computation (user identification)
+ * - Signature generation and verification
  * 
  * @author knightc
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
  * @license Apache License 2.0
  */
 
-#include "sm2_internal.h"
 #include "kctsb/crypto/sm/sm2.h"
 #include "kctsb/crypto/sm/sm3.h"
 #include "kctsb/crypto/ecc/ecc_curve.h"
 #include "kctsb/core/security.h"
+#include "kctsb/core/common.h"
+
+#include <kctsb/math/bignum/ZZ.h>
+#include <kctsb/math/bignum/ZZ_p.h>
 
 #include <cstring>
+#include <vector>
 
 // Enable debug output for SM2 verification failures
-// #define KCTSB_DEBUG_SM2 1
+// #define KCTSB_DEBUG_SM2 1  // Disabled - SM2 signature verification now works correctly
 #ifdef KCTSB_DEBUG_SM2
 #include <iostream>
 #endif
 
+// Bignum namespace is now kctsb (was bignum)
 using namespace kctsb;
 
 namespace kctsb::internal::sm2 {
 
+// External declarations from sm2_curve.cpp
+constexpr size_t FIELD_SIZE = 32;
+
+/**
+ * @brief SM2 internal context for curve operations
+ * 
+ * Defined in sm2_curve.cpp, accessed via singleton pattern.
+ */
+class SM2Context {
+public:
+    static SM2Context& instance();
+    const ecc::internal::ECCurve& curve() const;
+    const ZZ& n() const;
+    const ZZ& p() const;
+    int bit_size() const;
+private:
+    SM2Context();
+    ecc::internal::ECCurve curve_;
+    ZZ n_;
+    ZZ p_;
+    int bit_size_;
+};
+
+// External utility functions from sm2_curve.cpp
+extern ZZ bytes_to_zz(const uint8_t* data, size_t len);
+extern void zz_to_bytes(const ZZ& z, uint8_t* out, size_t len);
+extern kctsb_error_t generate_random_k(ZZ& k, const ZZ& n);
+
 // ============================================================================
-// Utility Functions for Signature
+// Z Value Computation
 // ============================================================================
 
 /**
@@ -118,37 +136,6 @@ kctsb_error_t compute_z_value(
     kctsb_sm3_final(&sm3_ctx, z_value);
     
     return KCTSB_SUCCESS;
-}
-
-/**
- * @brief Generate random k for signature (must be in [1, n-1])
- * @param k Output random value
- * @param n Curve order
- * @return KCTSB_SUCCESS or error code
- */
-kctsb_error_t generate_random_k(ZZ& k, const ZZ& n) {
-    uint8_t k_bytes[FIELD_SIZE];
-    
-    // Retry until we get a valid k in [1, n-1]
-    for (int attempts = 0; attempts < 100; attempts++) {
-        if (kctsb_random_bytes(k_bytes, FIELD_SIZE) != KCTSB_SUCCESS) {
-            return KCTSB_ERROR_RANDOM_FAILED;
-        }
-        
-        k = bytes_to_zz(k_bytes, FIELD_SIZE);
-        
-        // Reduce k modulo n
-        k = k % n;
-        
-        // k must be in [1, n-1]
-        if (!IsZero(k) && k < n) {
-            kctsb_secure_zero(k_bytes, sizeof(k_bytes));
-            return KCTSB_SUCCESS;
-        }
-    }
-    
-    kctsb_secure_zero(k_bytes, sizeof(k_bytes));
-    return KCTSB_ERROR_RANDOM_FAILED;
 }
 
 // ============================================================================
@@ -276,7 +263,7 @@ kctsb_error_t sign_internal(
     #ifdef KCTSB_DEBUG_SM2
     std::cerr << "[SM2 DEBUG] Signature generated:\n";
     std::cerr << "  e (hash): " << e << "\n";
-    std::cerr << "  x1 (from kG): " << (r - e % n) << "\n";
+    std::cerr << "  x1 (from kG): " << (r - e % n) << "\n";  // Reconstruct x1 from r - e mod n
     std::cerr << "  r (e+x1 mod n): " << r << "\n";
     std::cerr << "  s: " << s << "\n";
     #endif
@@ -382,7 +369,7 @@ kctsb_error_t verify_internal(
     // Use separate scalar multiplications for debugging
     // R_point = s*G + t*P
     // Note: Use scalar_mult_base for G to use same path as signature
-    ecc::internal::JacobianPoint sG = curve.scalar_mult_base(s);
+    ecc::internal::JacobianPoint sG = curve.scalar_mult_base(s);  // Use cached table like signature
     ecc::internal::JacobianPoint tP = curve.scalar_mult(t, P_jac);
     ecc::internal::JacobianPoint R_point = curve.add(sG, tP);
     ecc::internal::AffinePoint R_aff = curve.to_affine(R_point);
@@ -413,3 +400,65 @@ kctsb_error_t verify_internal(
 }
 
 }  // namespace kctsb::internal::sm2
+
+// ============================================================================
+// C API Implementation
+// ============================================================================
+
+extern "C" {
+
+kctsb_error_t kctsb_sm2_sign(
+    const uint8_t private_key[32],
+    const uint8_t public_key[64],
+    const uint8_t* user_id,
+    size_t user_id_len,
+    const uint8_t* message,
+    size_t message_len,
+    kctsb_sm2_signature_t* signature
+) {
+    if (private_key == nullptr || public_key == nullptr || 
+        message == nullptr || signature == nullptr) {
+        return KCTSB_ERROR_INVALID_PARAM;
+    }
+    
+    // Use default user ID if not provided
+    const uint8_t* uid = user_id;
+    size_t uid_len = user_id_len;
+    const char* default_uid = "1234567812345678";
+    if (uid == nullptr || uid_len == 0) {
+        uid = reinterpret_cast<const uint8_t*>(default_uid);
+        uid_len = 16;
+    }
+    
+    return kctsb::internal::sm2::sign_internal(
+        private_key, public_key, uid, uid_len,
+        message, message_len, signature
+    );
+}
+
+kctsb_error_t kctsb_sm2_verify(
+    const uint8_t public_key[64],
+    const uint8_t* user_id,
+    size_t user_id_len,
+    const uint8_t* message,
+    size_t message_len,
+    const kctsb_sm2_signature_t* signature
+) {
+    if (public_key == nullptr || message == nullptr || signature == nullptr) {
+        return KCTSB_ERROR_INVALID_PARAM;
+    }
+    
+    const uint8_t* uid = user_id;
+    size_t uid_len = user_id_len;
+    const char* default_uid = "1234567812345678";
+    if (uid == nullptr || uid_len == 0) {
+        uid = reinterpret_cast<const uint8_t*>(default_uid);
+        uid_len = 16;
+    }
+    
+    return kctsb::internal::sm2::verify_internal(
+        public_key, uid, uid_len, message, message_len, signature
+    );
+}
+
+}  // extern "C"
