@@ -26,7 +26,7 @@
  * @endcode
  *
  * @author knightc
- * @version 3.4.0
+ * @version 5.0.0
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
  * @license Apache License 2.0
  */
@@ -77,10 +77,10 @@ extern "C" {
  * ============================================================================ */
 
 #ifndef KCTSB_VERSION_MAJOR
-#define KCTSB_VERSION_MAJOR 3
-#define KCTSB_VERSION_MINOR 4
+#define KCTSB_VERSION_MAJOR 5
+#define KCTSB_VERSION_MINOR 0
 #define KCTSB_VERSION_PATCH 0
-#define KCTSB_VERSION_STRING "3.4.0"
+#define KCTSB_VERSION_STRING "5.0.0"
 #endif
 
 /* ============================================================================
@@ -155,6 +155,23 @@ typedef struct {
     int key_bits;
     int rounds;
 } kctsb_aes_ctx_t;
+
+/**
+ * @brief AES-GCM context for streaming operations
+ */
+#ifndef KCTSB_AES_GCM_CTX_DEFINED
+#define KCTSB_AES_GCM_CTX_DEFINED
+typedef struct {
+    kctsb_aes_ctx_t aes_ctx;
+    uint8_t h[16];            /**< H = AES(K, 0^128) for GHASH */
+    uint8_t j0[16];           /**< Initial counter block */
+    uint8_t counter[16];      /**< Current counter */
+    uint8_t tag[16];          /**< Running authentication tag */
+    uint64_t aad_len;         /**< Total AAD length processed */
+    uint64_t ct_len;          /**< Total ciphertext length processed */
+    int finalized;            /**< Whether finalized */
+} kctsb_aes_gcm_ctx_t;
+#endif
 
 /**
  * @brief SHA-256 context
@@ -504,6 +521,88 @@ KCTSB_API kctsb_error_t kctsb_aes_gcm_decrypt(
  * @param ctx Context to clear
  */
 KCTSB_API void kctsb_aes_clear(kctsb_aes_ctx_t* ctx);
+
+/* ============================================================================
+ * AES-GCM Streaming API
+ * ============================================================================ */
+
+/**
+ * @brief Initialize streaming GCM encryption context
+ * @param ctx GCM context to initialize
+ * @param key Encryption key
+ * @param key_len Key length (16, 24, or 32)
+ * @param iv Initialization vector
+ * @param iv_len IV length (12 bytes recommended)
+ * @return KCTSB_SUCCESS or error code
+ */
+KCTSB_API kctsb_error_t kctsb_aes_gcm_init(
+    kctsb_aes_gcm_ctx_t* ctx,
+    const uint8_t* key, size_t key_len,
+    const uint8_t* iv, size_t iv_len);
+
+/**
+ * @brief Process additional authenticated data (AAD)
+ * @note Must be called before any update_encrypt/update_decrypt calls
+ * @param ctx GCM context
+ * @param aad Additional authenticated data
+ * @param aad_len AAD length
+ * @return KCTSB_SUCCESS or error code
+ */
+KCTSB_API kctsb_error_t kctsb_aes_gcm_update_aad(
+    kctsb_aes_gcm_ctx_t* ctx,
+    const uint8_t* aad, size_t aad_len);
+
+/**
+ * @brief Encrypt data in streaming mode
+ * @param ctx GCM context
+ * @param input Plaintext input
+ * @param input_len Input length
+ * @param output Ciphertext output
+ * @return KCTSB_SUCCESS or error code
+ */
+KCTSB_API kctsb_error_t kctsb_aes_gcm_update_encrypt(
+    kctsb_aes_gcm_ctx_t* ctx,
+    const uint8_t* input, size_t input_len,
+    uint8_t* output);
+
+/**
+ * @brief Finalize GCM encryption and get authentication tag
+ * @param ctx GCM context
+ * @param tag 16-byte authentication tag output
+ * @return KCTSB_SUCCESS or error code
+ */
+KCTSB_API kctsb_error_t kctsb_aes_gcm_final_encrypt(
+    kctsb_aes_gcm_ctx_t* ctx,
+    uint8_t tag[16]);
+
+/**
+ * @brief Decrypt data in streaming mode
+ * @param ctx GCM context
+ * @param input Ciphertext input
+ * @param input_len Input length
+ * @param output Plaintext output
+ * @return KCTSB_SUCCESS or error code
+ */
+KCTSB_API kctsb_error_t kctsb_aes_gcm_update_decrypt(
+    kctsb_aes_gcm_ctx_t* ctx,
+    const uint8_t* input, size_t input_len,
+    uint8_t* output);
+
+/**
+ * @brief Finalize GCM decryption and verify tag
+ * @param ctx GCM context
+ * @param tag 16-byte authentication tag to verify
+ * @return KCTSB_SUCCESS or KCTSB_ERROR_AUTH_FAILED
+ */
+KCTSB_API kctsb_error_t kctsb_aes_gcm_final_decrypt(
+    kctsb_aes_gcm_ctx_t* ctx,
+    const uint8_t tag[16]);
+
+/**
+ * @brief Clear GCM context (secure zeroing)
+ * @param ctx Context to clear
+ */
+KCTSB_API void kctsb_aes_gcm_clear(kctsb_aes_gcm_ctx_t* ctx);
 
 /* ============================================================================
  * ChaCha20-Poly1305 AEAD
