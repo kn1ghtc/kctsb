@@ -238,12 +238,17 @@ kctsb/
 │   │   │   ├── libkctsb.a      # 静态库
 │   │   │   └── libkctsb_bundled.a  # ★ 打包库（含所有依赖）★
 │   │   └── include/kctsb_api.h # 唯一公共头文件
-│   └── linux-x64/              # Linux x64 构建产物
-│       ├── bin/kctsb           # CLI 工具 (全静态链接)
-│       ├── lib/
-│       │   ├── libkctsb.a      # 静态库
-│       │   └── libkctsb_bundled.a  # ★ 打包库（含所有依赖）★
-│       └── include/kctsb_api.h # 唯一公共头文件
+│   ├── linux-x64/              # Linux x64 构建产物
+│   │   ├── bin/kctsb           # CLI 工具 (全静态链接)
+│   │   ├── lib/
+│   │   │   ├── libkctsb.a      # 静态库
+│   │   │   └── libkctsb_bundled.a  # ★ 打包库（含所有依赖）★
+│   │   └── include/kctsb_api.h # 唯一公共头文件
+│   └── cuda-win-x64/           # ★ CUDA GPU 加速库 (Windows x64) ★
+│       ├── bin/                # CUDA 测试和 benchmark 工具
+│       ├── lib/kctsb_cuda.lib  # CUDA 静态库
+│       ├── include/cuda_api.h  # CUDA API 头文件
+│       └── README.md           # CUDA 库使用文档
 ├── docs/                       # 文档
 │   ├── releases/               # 版本发布说明
 │   └── third-party-dependencies.md  # 源码安装指南
@@ -399,12 +404,21 @@ release/
 │   │   └── libkctsb_bundled.a       # ★ 打包库 (13 MB, 包含所有依赖) ★
 │   └── include/kctsb_api.h          # 唯一公共头文件
 │
-└── win-x64/
-    ├── bin/kctsb.exe                # CLI 工具 (3.3 MB, 仅需Windows系统DLL)
-    ├── lib/
-    │   ├── libkctsb.a               # 静态库 (4.7 MB)
-    │   └── libkctsb_bundled.a       # ★ 打包库 (6.2 MB) ★
-    └── include/kctsb_api.h          # 唯一公共头文件
+├── win-x64/
+│   ├── bin/kctsb.exe                # CLI 工具 (3.3 MB, 仅需Windows系统DLL)
+│   ├── lib/
+│   │   ├── libkctsb.a               # 静态库 (4.7 MB)
+│   │   └── libkctsb_bundled.a       # ★ 打包库 (6.2 MB) ★
+│   └── include/kctsb_api.h          # 唯一公共头文件
+│
+└── cuda-win-x64/                    # ★ CUDA GPU 加速库 (v4.14.0+) ★
+    ├── bin/                         # CUDA 测试和 benchmark 工具
+    │   ├── test_cuda_runtime.exe    # CUDA 环境验证
+    │   ├── test_modular_ops.exe     # 模算术正确性测试
+    │   └── benchmark_ntt_final.exe  # NTT 性能基准测试
+    ├── lib/kctsb_cuda.lib           # CUDA 静态库
+    ├── include/cuda_api.h           # CUDA API 头文件
+    └── README.md                    # 使用文档 (环境要求/集成示例/性能基线)
 ```
 
 
