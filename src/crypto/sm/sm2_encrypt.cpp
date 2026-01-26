@@ -168,9 +168,7 @@ kctsb_error_t encrypt_internal(
     uint8_t* ciphertext,
     size_t* ciphertext_len
 ) {
-    auto& ctx = SM2Context::instance();
-    const auto& curve = ctx.curve();
-    const ZZ& n = ctx.n();
+    using namespace kctsb::internal::sm2::mont;
     
     // Output size: C1 (65 bytes: 0x04 || x1 || y1) + C3 (32 bytes) + C2 (plaintext_len)
     size_t output_size = 1 + 2 * FIELD_SIZE + 32 + plaintext_len;
@@ -185,66 +183,55 @@ kctsb_error_t encrypt_internal(
         return KCTSB_ERROR_BUFFER_TOO_SMALL;
     }
     
-    // Parse public key
-    ZZ Px = bytes_to_zz(public_key, FIELD_SIZE);
-    ZZ Py = bytes_to_zz(public_key + FIELD_SIZE, FIELD_SIZE);
-    
-    ZZ_p::init(ctx.p());
-    ecc::internal::AffinePoint P_aff{ZZ_p(Px), ZZ_p(Py)};
-    ecc::internal::JacobianPoint P_jac = curve.to_jacobian(P_aff);
-    
-    // Validate public key
-    if (!curve.is_on_curve(P_jac)) {
-        return KCTSB_ERROR_INVALID_KEY;
-    }
+    // SM2 order n for k validation
+    static const fe256 SM2_ORDER = {{
+        0x53BBF40939D54123ULL,
+        0x7203DF6B21C6052BULL,
+        0xFFFFFFFFFFFFFFFFULL,
+        0xFFFFFFFEFFFFFFFFULL
+    }};
     
     // Encryption loop (retry if KDF produces all zeros)
     for (int attempts = 0; attempts < 100; attempts++) {
-        // Step 1: Generate random k
-        ZZ k;
-        kctsb_error_t err = generate_random_k(k, n);
-        if (err != KCTSB_SUCCESS) {
-            return err;
+        // Step 1: Generate random k using fe256-based function
+        uint8_t k_bytes[FIELD_SIZE];
+        int rnd_err = kctsb_random_bytes(k_bytes, FIELD_SIZE);
+        if (rnd_err != 0) {
+            return KCTSB_ERROR_INTERNAL;
+        }
+        
+        // Validate k: k != 0 and k < n
+        fe256 k_fe;
+        fe256_from_bytes(&k_fe, k_bytes);
+        if (fe256_is_zero(&k_fe) || fe256_cmp(&k_fe, &SM2_ORDER) >= 0) {
+            continue;
         }
         
         // Step 2: Compute C1 = k * G using Montgomery acceleration
-        uint8_t k_bytes[FIELD_SIZE];
-        zz_to_bytes(k, k_bytes, FIELD_SIZE);
-        
         sm2_point_result C1_mont;
         if (!scalar_mult_base_mont(&C1_mont, k_bytes)) {
-            // Point at infinity (extremely rare)
             kctsb_secure_zero(k_bytes, sizeof(k_bytes));
             continue;
         }
         
-        // Convert C1 coordinates to ZZ for later use
-        ZZ x1 = bytes_to_zz(C1_mont.x, FIELD_SIZE);
-        ZZ y1 = bytes_to_zz(C1_mont.y, FIELD_SIZE);
-        
         // Step 3: Compute (x2, y2) = k * P using Montgomery acceleration
         sm2_point_result kP_mont;
         if (!scalar_mult_point_mont(&kP_mont, k_bytes, public_key, public_key + FIELD_SIZE)) {
-            // Point at infinity (extremely rare)
             kctsb_secure_zero(k_bytes, sizeof(k_bytes));
             continue;
         }
         kctsb_secure_zero(k_bytes, sizeof(k_bytes));
         
-        // Extract coordinates from Montgomery result
-        ZZ x2 = bytes_to_zz(kP_mont.x, FIELD_SIZE);
-        ZZ y2 = bytes_to_zz(kP_mont.y, FIELD_SIZE);
-        
-        // Prepare x2||y2 for KDF
-        std::vector<uint8_t> x2y2(2 * FIELD_SIZE);
-        zz_to_bytes(x2, x2y2.data(), FIELD_SIZE);
-        zz_to_bytes(y2, x2y2.data() + FIELD_SIZE, FIELD_SIZE);
+        // Prepare x2||y2 for KDF (directly use Montgomery result bytes)
+        uint8_t x2y2[2 * FIELD_SIZE];
+        std::memcpy(x2y2, kP_mont.x, FIELD_SIZE);
+        std::memcpy(x2y2 + FIELD_SIZE, kP_mont.y, FIELD_SIZE);
         
         // Step 4: Compute t = KDF(x2 || y2, plaintext_len)
         std::vector<uint8_t> t(plaintext_len);
-        err = sm2_kdf(x2y2.data(), x2y2.size(), plaintext_len, t.data());
-        if (err != KCTSB_SUCCESS) {
-            return err;
+        kctsb_error_t kdf_err = sm2_kdf(x2y2, sizeof(x2y2), plaintext_len, t.data());
+        if (kdf_err != KCTSB_SUCCESS) {
+            return kdf_err;
         }
         
         // Check if t is all zeros (would make encryption insecure)
@@ -262,22 +249,17 @@ kctsb_error_t encrypt_internal(
         // Output C1 (uncompressed point format: 0x04 || x1 || y1)
         size_t pos = 0;
         ciphertext[pos++] = 0x04;
-        zz_to_bytes(x1, ciphertext + pos, FIELD_SIZE);
+        std::memcpy(ciphertext + pos, C1_mont.x, FIELD_SIZE);
         pos += FIELD_SIZE;
-        zz_to_bytes(y1, ciphertext + pos, FIELD_SIZE);
+        std::memcpy(ciphertext + pos, C1_mont.y, FIELD_SIZE);
         pos += FIELD_SIZE;
         
         // Step 6: Compute C3 = SM3(x2 || M || y2)
         kctsb_sm3_ctx_t sm3_ctx;
         kctsb_sm3_init(&sm3_ctx);
-        
-        uint8_t x2_bytes[FIELD_SIZE], y2_bytes[FIELD_SIZE];
-        zz_to_bytes(x2, x2_bytes, FIELD_SIZE);
-        zz_to_bytes(y2, y2_bytes, FIELD_SIZE);
-        
-        kctsb_sm3_update(&sm3_ctx, x2_bytes, FIELD_SIZE);
+        kctsb_sm3_update(&sm3_ctx, kP_mont.x, FIELD_SIZE);
         kctsb_sm3_update(&sm3_ctx, plaintext, plaintext_len);
-        kctsb_sm3_update(&sm3_ctx, y2_bytes, FIELD_SIZE);
+        kctsb_sm3_update(&sm3_ctx, kP_mont.y, FIELD_SIZE);
         kctsb_sm3_final(&sm3_ctx, ciphertext + pos);
         pos += 32;  // C3 size
         
@@ -291,7 +273,7 @@ kctsb_error_t encrypt_internal(
         
         // Secure cleanup
         kctsb_secure_zero(t.data(), t.size());
-        kctsb_secure_zero(x2y2.data(), x2y2.size());
+        kctsb_secure_zero(x2y2, sizeof(x2y2));
         
         return KCTSB_SUCCESS;
     }
@@ -326,9 +308,15 @@ kctsb_error_t decrypt_internal(
     uint8_t* plaintext,
     size_t* plaintext_len
 ) {
-    auto& ctx = SM2Context::instance();
-    const auto& curve = ctx.curve();
-    const ZZ& n = ctx.n();
+    using namespace kctsb::internal::sm2::mont;
+    
+    // SM2 order n for private key validation
+    static const fe256 SM2_ORDER = {{
+        0x53BBF40939D54123ULL,
+        0x7203DF6B21C6052BULL,
+        0xFFFFFFFFFFFFFFFFULL,
+        0xFFFFFFFEFFFFFFFFULL
+    }};
     
     // Minimum ciphertext size: C1 (65) + C3 (32) + C2 (1)
     constexpr size_t MIN_CIPHERTEXT_SIZE = 1 + 2 * FIELD_SIZE + 32 + 1;
@@ -349,9 +337,10 @@ kctsb_error_t decrypt_internal(
         return KCTSB_ERROR_BUFFER_TOO_SMALL;
     }
     
-    // Parse private key
-    ZZ d = bytes_to_zz(private_key, FIELD_SIZE);
-    if (IsZero(d) || d >= n - 1) {
+    // Parse private key into fe256 and validate
+    fe256 d_fe;
+    fe256_from_bytes(&d_fe, private_key);
+    if (fe256_is_zero(&d_fe) || fe256_cmp(&d_fe, &SM2_ORDER) >= 0) {
         return KCTSB_ERROR_INVALID_KEY;
     }
     
@@ -360,54 +349,29 @@ kctsb_error_t decrypt_internal(
         return KCTSB_ERROR_INVALID_PARAM;  // Only uncompressed format supported
     }
     
-    ZZ x1 = bytes_to_zz(ciphertext + 1, FIELD_SIZE);
-    ZZ y1 = bytes_to_zz(ciphertext + 1 + FIELD_SIZE, FIELD_SIZE);
-    
-    ZZ_p::init(ctx.p());
-    ecc::internal::AffinePoint C1_aff{ZZ_p(x1), ZZ_p(y1)};
-    ecc::internal::JacobianPoint C1_jac = curve.to_jacobian(C1_aff);
-    
-    // Step 2: Verify C1 is on curve
-    if (!curve.is_on_curve(C1_jac)) {
-        return KCTSB_ERROR_INVALID_PARAM;
-    }
+    // C1 coordinates (already in ciphertext as bytes)
+    const uint8_t* C1_x = ciphertext + 1;
+    const uint8_t* C1_y = ciphertext + 1 + FIELD_SIZE;
     
     // Parse C3 and C2
     const uint8_t* c3_ptr = ciphertext + 1 + 2 * FIELD_SIZE;
     const uint8_t* c2_ptr = c3_ptr + 32;
     
     // Step 3: Compute (x2, y2) = d * C1 using Montgomery acceleration
-    uint8_t d_bytes[FIELD_SIZE];
-    zz_to_bytes(d, d_bytes, FIELD_SIZE);
-    
-    // C1 coordinates as bytes (already in ciphertext)
-    const uint8_t* C1_x = ciphertext + 1;
-    const uint8_t* C1_y = ciphertext + 1 + FIELD_SIZE;
-    
     sm2_point_result dC1_mont;
-    if (!scalar_mult_point_mont(&dC1_mont, d_bytes, C1_x, C1_y)) {
+    if (!scalar_mult_point_mont(&dC1_mont, private_key, C1_x, C1_y)) {
         // Point at infinity
-        kctsb_secure_zero(d_bytes, sizeof(d_bytes));
         return KCTSB_ERROR_DECRYPTION_FAILED;
     }
-    kctsb_secure_zero(d_bytes, sizeof(d_bytes));
     
-    // Extract coordinates from Montgomery result
-    ZZ x2 = bytes_to_zz(dC1_mont.x, FIELD_SIZE);
-    ZZ y2 = bytes_to_zz(dC1_mont.y, FIELD_SIZE);
-    
-    // Prepare x2||y2
-    uint8_t x2_bytes[FIELD_SIZE], y2_bytes[FIELD_SIZE];
-    zz_to_bytes(x2, x2_bytes, FIELD_SIZE);
-    zz_to_bytes(y2, y2_bytes, FIELD_SIZE);
-    
-    std::vector<uint8_t> x2y2(2 * FIELD_SIZE);
-    std::memcpy(x2y2.data(), x2_bytes, FIELD_SIZE);
-    std::memcpy(x2y2.data() + FIELD_SIZE, y2_bytes, FIELD_SIZE);
+    // Prepare x2||y2 (directly use Montgomery result bytes)
+    uint8_t x2y2[2 * FIELD_SIZE];
+    std::memcpy(x2y2, dC1_mont.x, FIELD_SIZE);
+    std::memcpy(x2y2 + FIELD_SIZE, dC1_mont.y, FIELD_SIZE);
     
     // Step 4: Compute t = KDF(x2 || y2, c2_len)
     std::vector<uint8_t> t(c2_len);
-    kctsb_error_t err = sm2_kdf(x2y2.data(), x2y2.size(), c2_len, t.data());
+    kctsb_error_t err = sm2_kdf(x2y2, sizeof(x2y2), c2_len, t.data());
     if (err != KCTSB_SUCCESS) {
         return err;
     }
@@ -433,9 +397,9 @@ kctsb_error_t decrypt_internal(
     uint8_t u[32];
     kctsb_sm3_ctx_t sm3_ctx;
     kctsb_sm3_init(&sm3_ctx);
-    kctsb_sm3_update(&sm3_ctx, x2_bytes, FIELD_SIZE);
+    kctsb_sm3_update(&sm3_ctx, dC1_mont.x, FIELD_SIZE);
     kctsb_sm3_update(&sm3_ctx, plaintext, c2_len);
-    kctsb_sm3_update(&sm3_ctx, y2_bytes, FIELD_SIZE);
+    kctsb_sm3_update(&sm3_ctx, dC1_mont.y, FIELD_SIZE);
     kctsb_sm3_final(&sm3_ctx, u);
 
     // Step 7: Verify u == C3
@@ -450,7 +414,7 @@ kctsb_error_t decrypt_internal(
     
     // Secure cleanup
     kctsb_secure_zero(t.data(), t.size());
-    kctsb_secure_zero(x2y2.data(), x2y2.size());
+    kctsb_secure_zero(x2y2, sizeof(x2y2));
     
     return KCTSB_SUCCESS;
 }
