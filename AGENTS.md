@@ -425,6 +425,172 @@ src/crypto/sm/
 ├── sm_util.c        # ❌
 ```
 
+---
+
+### 🥇 第四原则：三层头文件架构
+
+**头文件分为三层，各司其职，严格遵循包含关系。**
+
+#### 头文件层次定义
+
+| 层级 | 头文件 | 用途 | 包含者 |
+|------|--------|------|--------|
+| **外部公共层** | `kctsb_api.h` | 外部程序/独立二进制调用的唯一公共头 | 外部用户 |
+| **内部公共层** | `kctsb.h` + 各模块 `.h` | 内部模块间调用 | 内部 cpp 文件 |
+| **内部私有层** | 各模块 `.hpp` | 单个 cpp 文件内部闭环 | 仅对应的 cpp |
+
+#### 外部公共层: `kctsb_api.h`
+
+**设计原则**:
+- 类似 OpenSSL 的 evp.h，是外部用户唯一需要的头文件
+- **完全自包含**：不依赖任何内部头文件
+- 仅包含 C ABI 函数声明和必要的类型定义
+- 使用类型守卫宏防止重复定义
+
+```c
+// kctsb_api.h - 外部公共 API
+#ifndef KCTSB_API_H
+#define KCTSB_API_H
+
+#include <stdint.h>
+#include <stddef.h>
+#include <stdbool.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+// 自包含的类型定义（带类型守卫）
+#ifndef KCTSB_ERROR_T_DEFINED
+#define KCTSB_ERROR_T_DEFINED
+typedef enum { KCTSB_SUCCESS = 0, ... } kctsb_error_t;
+#endif
+
+#ifndef KCTSB_SHA256_CTX_DEFINED
+#define KCTSB_SHA256_CTX_DEFINED
+typedef struct { uint8_t opaque[128]; } kctsb_sha256_ctx_t;
+#endif
+
+// C ABI 函数声明
+KCTSB_API kctsb_error_t kctsb_sha256(const uint8_t* data, size_t len, uint8_t* digest);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif // KCTSB_API_H
+```
+
+#### 内部公共层: `kctsb.h` + 模块 `.h`
+
+**设计原则**:
+- `kctsb.h` 作为内部统一入口，包含所有模块头文件
+- 各模块 `.h` 供内部模块间调用
+- 可以包含 C++ 类定义和 namespace
+
+```cpp
+// kctsb.h - 内部统一入口
+#include "kctsb/core/common.h"      // 内部通用定义
+#include "kctsb/crypto/sha256.h"    // SHA-256 模块
+#include "kctsb/crypto/aes.h"       // AES 模块
+// ...
+
+// sha256.h - SHA-256 模块头文件（内部公共）
+namespace kctsb {
+class SHA256 {
+public:
+    void update(const uint8_t* data, size_t len);
+    void final(uint8_t digest[32]);
+};
+}
+
+// 同时暴露 C ABI（供 kctsb_api.h 转发）
+extern "C" {
+    kctsb_error_t kctsb_sha256_init(kctsb_sha256_ctx_t* ctx);
+    // ...
+}
+```
+
+#### 内部私有层: 模块 `.hpp`
+
+**设计原则**:
+- 仅供对应的 `.cpp` 文件包含
+- 包含实现细节：模板实现、内联函数、私有辅助类
+- 文件名与 `.cpp` 对应
+
+```cpp
+// sha256_impl.hpp - SHA-256 内部实现细节
+#ifndef KCTSB_SHA256_IMPL_HPP
+#define KCTSB_SHA256_IMPL_HPP
+
+namespace kctsb::internal {
+
+// 编译期 S-Box 生成
+static constexpr std::array<uint32_t, 64> generate_k_constants() noexcept {
+    // ...
+}
+
+// 内联辅助函数
+inline uint32_t ch(uint32_t x, uint32_t y, uint32_t z) noexcept {
+    return (x & y) ^ (~x & z);
+}
+
+} // namespace kctsb::internal
+
+#endif // KCTSB_SHA256_IMPL_HPP
+```
+
+#### 头文件包含规则
+
+| 文件类型 | 可以包含 | 禁止包含 |
+|----------|----------|----------|
+| `kctsb_api.h` | 仅 `<stdint.h>` 等标准库 | 任何内部头文件 |
+| `kctsb.h` | 所有模块 `.h` | 模块 `.hpp` |
+| 模块 `.h` | `core/common.h`, 其他模块 `.h` | 具体模块 `.hpp` |
+| 模块 `.cpp` | 对应 `.h`, 对应 `.hpp`, 其他模块 `.h` | 其他模块 `.hpp` |
+| 模块 `.hpp` | 对应 `.h` | 其他模块文件 |
+
+#### 类型守卫命名规范
+
+```c
+// 格式: KCTSB_<TYPE_NAME>_DEFINED
+#ifndef KCTSB_SHA256_CTX_DEFINED
+#define KCTSB_SHA256_CTX_DEFINED
+typedef struct { ... } kctsb_sha256_ctx_t;
+#endif
+```
+
+#### ✅ 正确的包含示例
+
+```cpp
+// 外部用户
+#include <kctsb_api.h>  // 唯一需要的头文件
+
+// 内部模块 (sha256.cpp)
+#include "kctsb/crypto/sha256.h"      // 对应的模块头文件
+#include "kctsb/crypto/sha256_impl.hpp"  // 内部实现细节
+
+// 内部模块间调用 (sm2.cpp 需要使用 SHA-256)
+#include "kctsb/crypto/sm/sm2.h"      // 自身模块
+#include "kctsb/crypto/sha256.h"      // 调用其他模块
+```
+
+#### ❌ 禁止的包含方式
+
+```cpp
+// 禁止: kctsb_api.h 包含内部头文件
+#include "kctsb/core/common.h"  // ❌
+
+// 禁止: 模块 A 包含模块 B 的 .hpp
+#include "kctsb/crypto/sha256_impl.hpp"  // ❌ (仅 sha256.cpp 可包含)
+
+// 禁止: 测试文件同时包含 kctsb_api.h 和内部 .hpp
+#include "kctsb_api.h"
+#include "kctsb/crypto/sha256_impl.hpp"  // ❌ 混乱的层级
+```
+
+---
+
 #### 头文件模板
 
 ```c
