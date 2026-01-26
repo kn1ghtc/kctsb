@@ -1,9 +1,9 @@
 /**
  * @file pqc.cpp
  * @brief Post-Quantum Cryptography Implementation
- * 
+ *
  * Implements ML-KEM (Kyber) and ML-DSA (Dilithium) per NIST FIPS 203/204.
- * 
+ *
  * @author knightc
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
  */
@@ -166,7 +166,7 @@ void random_bytes(uint8_t* out, size_t len) {
 KyberParams KyberParams::get(KyberLevel level) {
     KyberParams p;
     p.shared_secret_size = 32;
-    
+
     switch (level) {
         case KyberLevel::KYBER512:
             p.k = 2;
@@ -336,18 +336,18 @@ void Kyber::gen_matrix(std::vector<std::vector<KyberPoly>>& A,
                 xof_in[32] = (uint8_t)i;
                 xof_in[33] = (uint8_t)j;
             }
-            
+
             // Sample polynomial from SHAKE128
             uint8_t buf[672];  // Enough for rejection sampling
             shake128(buf, sizeof(buf), xof_in, 34);
-            
+
             size_t ctr = 0;
             size_t pos = 0;
             while (ctr < KYBER_N && pos + 3 <= sizeof(buf)) {
                 uint16_t d1 = buf[pos] | ((uint16_t)(buf[pos + 1] & 0x0F) << 8);
                 uint16_t d2 = (buf[pos + 1] >> 4) | ((uint16_t)buf[pos + 2] << 4);
                 pos += 3;
-                
+
                 if (d1 < KYBER_Q) {
                     A[i][j].coeffs[ctr++] = d1;
                 }
@@ -361,15 +361,15 @@ void Kyber::gen_matrix(std::vector<std::vector<KyberPoly>>& A,
 
 void Kyber::sample_noise(KyberPolyVec& r, const uint8_t seed[32], uint8_t nonce) const {
     size_t eta = (nonce < params_.k) ? params_.eta1 : params_.eta2;
-    
+
     for (size_t i = 0; i < r.polys.size(); ++i) {
         uint8_t prf_in[33];
         memcpy(prf_in, seed, 32);
         prf_in[32] = nonce + i;
-        
+
         uint8_t buf[eta * KYBER_N / 4];
         shake256(buf, sizeof(buf), prf_in, 33);
-        
+
         // CBD (Centered Binomial Distribution)
         size_t j = 0;
         for (size_t k = 0; k < KYBER_N && j < sizeof(buf); ++k) {
@@ -386,30 +386,30 @@ void Kyber::sample_noise(KyberPolyVec& r, const uint8_t seed[32], uint8_t nonce)
 
 KyberKeyPair Kyber::keygen() const {
     KyberKeyPair kp;
-    
+
     // Generate random seed
     uint8_t d[32];
     random_bytes(d, 32);
-    
+
     // Expand seed
     uint8_t buf[64];
     sha3_512(buf, d, 32);
     uint8_t* rho = buf;       // Public seed
     uint8_t* sigma = buf + 32; // Noise seed
-    
+
     // Generate matrix A
     std::vector<std::vector<KyberPoly>> A;
     gen_matrix(A, rho, false);
-    
+
     // Sample secret s and error e
     KyberPolyVec s(params_.k), e(params_.k);
     sample_noise(s, sigma, 0);
     sample_noise(e, sigma, params_.k);
-    
+
     // NTT domain
     s.ntt();
     e.ntt();
-    
+
     // t = A*s + e
     KyberPolyVec t(params_.k);
     for (size_t i = 0; i < params_.k; ++i) {
@@ -423,7 +423,7 @@ KyberKeyPair Kyber::keygen() const {
         t.polys[i] += e.polys[i];
     }
     t.reduce();
-    
+
     // Pack public key: t || rho
     kp.public_key.data.resize(params_.public_key_size);
     size_t offset = 0;
@@ -440,7 +440,7 @@ KyberKeyPair Kyber::keygen() const {
         }
     }
     memcpy(kp.public_key.data.data() + offset, rho, 32);
-    
+
     // Pack secret key: s || pk || H(pk) || z
     kp.secret_key.data.resize(params_.secret_key_size);
     offset = 0;
@@ -455,55 +455,55 @@ KyberKeyPair Kyber::keygen() const {
             }
         }
     }
-    
+
     // Append pk
     memcpy(kp.secret_key.data.data() + offset, kp.public_key.data.data(), params_.public_key_size);
     offset += params_.public_key_size;
-    
+
     // H(pk)
     sha3_256(kp.secret_key.data.data() + offset, kp.public_key.data.data(), params_.public_key_size);
     offset += 32;
-    
+
     // Random z for implicit rejection
     random_bytes(kp.secret_key.data.data() + offset, 32);
-    
+
     return kp;
 }
 
 KyberCiphertext Kyber::encaps(const KyberPublicKey& public_key,
                               std::array<uint8_t, 32>& shared_secret) const {
     KyberCiphertext ct;
-    
+
     // Generate random message m
     uint8_t m[32];
     random_bytes(m, 32);
-    
+
     // K || r = G(H(pk) || m)
     uint8_t h_pk[32];
     sha3_256(h_pk, public_key.data.data(), public_key.data.size());
-    
+
     uint8_t g_input[64];
     memcpy(g_input, h_pk, 32);
     memcpy(g_input + 32, m, 32);
-    
+
     uint8_t kr[64];
     sha3_512(kr, g_input, 64);
-    
+
     // Unpack public key
     KyberPolyVec t(params_.k);
     uint8_t rho[32];
     unpack_pk(t, rho, public_key.data);
-    
+
     // Generate matrix A^T
     std::vector<std::vector<KyberPoly>> At;
     gen_matrix(At, rho, true);
-    
+
     // Sample r, e1, e2
     KyberPolyVec r_vec(params_.k), e1(params_.k);
     KyberPoly e2;
     sample_noise(r_vec, kr + 32, 0);
     sample_noise(e1, kr + 32, params_.k);
-    
+
     // e2 from single byte
     uint8_t e2_seed[33];
     memcpy(e2_seed, kr + 32, 32);
@@ -515,10 +515,10 @@ KyberCiphertext Kyber::encaps(const KyberPublicKey& public_key,
         int16_t b = (e2_buf[i / 4] >> (2 * (i % 4) + 1)) & 1;
         e2.coeffs[i] = a - b;
     }
-    
+
     // NTT
     r_vec.ntt();
-    
+
     // u = A^T * r + e1
     KyberPolyVec u(params_.k);
     for (size_t i = 0; i < params_.k; ++i) {
@@ -532,7 +532,7 @@ KyberCiphertext Kyber::encaps(const KyberPublicKey& public_key,
     u.inv_ntt();
     u += e1;
     u.reduce();
-    
+
     // v = t^T * r + e2 + m * q/2
     KyberPoly v;
     for (size_t i = 0; i < params_.k; ++i) {
@@ -543,18 +543,18 @@ KyberCiphertext Kyber::encaps(const KyberPublicKey& public_key,
     }
     v.inv_ntt();
     v += e2;
-    
+
     // Add message
     for (size_t i = 0; i < KYBER_N; ++i) {
         uint8_t bit = (m[i / 8] >> (i % 8)) & 1;
         v.coeffs[i] = mod_add(v.coeffs[i], bit * ((KYBER_Q + 1) / 2));
     }
     v.reduce();
-    
+
     // Compress and pack ciphertext
     ct.data.resize(params_.ciphertext_size);
     size_t offset = 0;
-    
+
     // Compress u (du bits)
     for (size_t i = 0; i < params_.k; ++i) {
         for (size_t j = 0; j < KYBER_N; j += 4) {
@@ -580,7 +580,7 @@ KyberCiphertext Kyber::encaps(const KyberPublicKey& public_key,
             }
         }
     }
-    
+
     // Compress v (dv bits)
     for (size_t j = 0; j < KYBER_N; j += 8) {
         uint8_t c[8];
@@ -600,16 +600,16 @@ KyberCiphertext Kyber::encaps(const KyberPublicKey& public_key,
             ct.data[offset++] = (c[6] >> 2) | (c[7] << 3);
         }
     }
-    
+
     // K = KDF(K' || H(c))
     uint8_t h_c[32];
     sha3_256(h_c, ct.data.data(), ct.data.size());
-    
+
     uint8_t kdf_input[64];
     memcpy(kdf_input, kr, 32);
     memcpy(kdf_input + 32, h_c, 32);
     shake256(shared_secret.data(), 32, kdf_input, 64);
-    
+
     return ct;
 }
 
@@ -617,7 +617,7 @@ void Kyber::unpack_pk(KyberPolyVec& pk, uint8_t seed[32],
                       const std::vector<uint8_t>& data) const {
     pk = KyberPolyVec(params_.k);
     size_t offset = 0;
-    
+
     for (size_t i = 0; i < params_.k; ++i) {
         for (size_t j = 0; j < KYBER_N; j += 8) {
             for (size_t k = 0; k < 4 && offset + 3 <= data.size() - 32; ++k) {
@@ -636,7 +636,7 @@ bool Kyber::decaps(const KyberSecretKey& secret_key,
     // Unpack secret key components
     KyberPolyVec s(params_.k);
     size_t s_len = params_.k * KYBER_N * 3 / 2;
-    
+
     size_t offset = 0;
     for (size_t i = 0; i < params_.k; ++i) {
         for (size_t j = 0; j < KYBER_N; j += 8) {
@@ -653,7 +653,7 @@ bool Kyber::decaps(const KyberSecretKey& secret_key,
             }
         }
     }
-    
+
     // Decompress u from ciphertext
     KyberPolyVec u(params_.k);
     offset = 0;
@@ -679,7 +679,7 @@ bool Kyber::decaps(const KyberSecretKey& secret_key,
             }
         }
     }
-    
+
     // Decompress v
     KyberPoly v;
     for (size_t j = 0; j < KYBER_N; j += 8) {
@@ -705,11 +705,11 @@ bool Kyber::decaps(const KyberSecretKey& secret_key,
             v.coeffs[j + k] = (c[k] * KYBER_Q + (1 << (params_.dv - 1))) >> params_.dv;
         }
     }
-    
+
     // m' = v - s^T * u
     s.ntt();
     u.ntt();
-    
+
     KyberPoly mp;
     for (size_t i = 0; i < params_.k; ++i) {
         for (size_t k = 0; k < KYBER_N; ++k) {
@@ -718,7 +718,7 @@ bool Kyber::decaps(const KyberSecretKey& secret_key,
         }
     }
     mp.inv_ntt();
-    
+
     // Decode message
     uint8_t m[32] = {0};
     constexpr int16_t quarter_q = static_cast<int16_t>(KYBER_Q / 4);
@@ -730,27 +730,27 @@ bool Kyber::decaps(const KyberSecretKey& secret_key,
             m[i / 8] |= 1 << (i % 8);
         }
     }
-    
+
     // Re-encapsulate and compare
     const uint8_t* h_pk = secret_key.data.data() + s_len + params_.public_key_size;
     const uint8_t* z = h_pk + 32;
-    
+
     uint8_t g_input[64];
     memcpy(g_input, h_pk, 32);
     memcpy(g_input + 32, m, 32);
-    
+
     uint8_t kr[64];
     sha3_512(kr, g_input, 64);
-    
+
     // Compute shared secret
     uint8_t h_c[32];
     sha3_256(h_c, ciphertext.data.data(), ciphertext.data.size());
-    
+
     uint8_t kdf_input[64];
     memcpy(kdf_input, kr, 32);
     memcpy(kdf_input + 32, h_c, 32);
     shake256(shared_secret.data(), 32, kdf_input, 64);
-    
+
     return true;
 }
 
@@ -760,7 +760,7 @@ bool Kyber::decaps(const KyberSecretKey& secret_key,
 
 DilithiumParams DilithiumParams::get(DilithiumLevel level) {
     DilithiumParams p;
-    
+
     switch (level) {
         case DilithiumLevel::DILITHIUM2:
             p.k = 4; p.l = 4;
@@ -893,32 +893,32 @@ Dilithium::Dilithium(DilithiumLevel level)
 
 DilithiumKeyPair Dilithium::keygen() const {
     DilithiumKeyPair kp;
-    
+
     // Generate random seed
     uint8_t zeta[32];
     random_bytes(zeta, 32);
-    
+
     // Expand: rho, rhoprime, K = H(zeta)
     uint8_t seedbuf[128];
     shake256(seedbuf, 128, zeta, 32);
     uint8_t* rho = seedbuf;
     uint8_t* rhoprime = seedbuf + 32;
     uint8_t* K = seedbuf + 96;
-    
+
     // Expand matrix A
     std::vector<std::vector<DilithiumPoly>> A;
     expand_matrix(A, rho);
-    
+
     // Sample s1, s2
     DilithiumPolyVec s1(params_.l), s2(params_.k);
     sample_s(s1, rhoprime);
-    
+
     // Offset nonce for s2
     uint8_t rhoprime2[64];
     memcpy(rhoprime2, rhoprime, 64);
     rhoprime2[0] ^= params_.l;
     sample_s(s2, rhoprime2);
-    
+
     // t = A*s1 + s2
     DilithiumPolyVec t(params_.k);
     s1.ntt();
@@ -933,11 +933,11 @@ DilithiumKeyPair Dilithium::keygen() const {
     t.inv_ntt();
     t += s2;
     t.reduce();
-    
+
     // Pack public key: rho || t1
     kp.public_key.data.resize(params_.public_key_size);
     memcpy(kp.public_key.data.data(), rho, 32);
-    
+
     // Pack t1 (high bits)
     size_t offset = 32;
     for (size_t i = 0; i < params_.k; ++i) {
@@ -949,24 +949,24 @@ DilithiumKeyPair Dilithium::keygen() const {
             }
         }
     }
-    
+
     // Pack secret key: rho || K || tr || s1 || s2 || t0
     kp.secret_key.data.resize(params_.secret_key_size);
     offset = 0;
     memcpy(kp.secret_key.data.data() + offset, rho, 32); offset += 32;
     memcpy(kp.secret_key.data.data() + offset, K, 32); offset += 32;
-    
+
     // tr = H(pk)
     sha3_256(kp.secret_key.data.data() + offset, kp.public_key.data.data(), params_.public_key_size);
     offset += 32;
-    
+
     // Pack s1, s2, t0 (simplified)
     for (size_t i = 0; i < params_.l && offset < params_.secret_key_size; ++i) {
         for (size_t j = 0; j < DILITHIUM_N && offset < params_.secret_key_size; ++j) {
             kp.secret_key.data[offset++] = s1.polys[i].coeffs[j] & 0xFF;
         }
     }
-    
+
     return kp;
 }
 
@@ -980,10 +980,10 @@ void Dilithium::expand_matrix(std::vector<std::vector<DilithiumPoly>>& A,
             memcpy(xof_in, rho, 32);
             xof_in[32] = j;
             xof_in[33] = i;
-            
+
             uint8_t buf[840];
             shake128(buf, sizeof(buf), xof_in, 34);
-            
+
             size_t ctr = 0, pos = 0;
             while (ctr < DILITHIUM_N && pos + 3 <= sizeof(buf)) {
                 uint32_t t = buf[pos] | ((uint32_t)buf[pos + 1] << 8) |
@@ -1005,7 +1005,7 @@ void Dilithium::sample_s(DilithiumPolyVec& s, const uint8_t rhoprime[64]) const 
         nonce[64] = i & 0xFF;
         nonce[65] = i >> 8;
         shake256(buf, sizeof(buf), nonce, 66);
-        
+
         for (size_t j = 0; j < DILITHIUM_N; ++j) {
             int32_t a = buf[j % sizeof(buf)] & ((1 << (params_.eta + 1)) - 1);
             int32_t b = (buf[j % sizeof(buf)] >> (params_.eta + 1)) & ((1 << params_.eta) - 1);
@@ -1017,27 +1017,27 @@ void Dilithium::sample_s(DilithiumPolyVec& s, const uint8_t rhoprime[64]) const 
 DilithiumPoly Dilithium::challenge(const uint8_t mu[64], size_t tau) const {
     DilithiumPoly c;
     std::fill(c.coeffs.begin(), c.coeffs.end(), 0);
-    
+
     uint8_t buf[136];
     shake256(buf, sizeof(buf), mu, 64);
-    
+
     size_t signs = 0;
     for (size_t i = 0; i < 8; ++i) {
         signs |= (size_t)buf[i] << (8 * i);
     }
-    
+
     size_t pos = 8;
     for (size_t i = DILITHIUM_N - tau; i < DILITHIUM_N; ++i) {
         size_t j;
         do {
             j = buf[pos++ % sizeof(buf)];
         } while (j > i);
-        
+
         c.coeffs[i] = c.coeffs[j];
         c.coeffs[j] = (signs & 1) ? -1 : 1;
         signs >>= 1;
     }
-    
+
     return c;
 }
 
@@ -1045,32 +1045,32 @@ DilithiumSignature Dilithium::sign(const DilithiumSecretKey& secret_key,
                                     const uint8_t* message, size_t message_len) const {
     DilithiumSignature sig;
     sig.data.resize(params_.signature_size);
-    
+
     // Extract components from secret key
     const uint8_t* rho = secret_key.data.data();
     const uint8_t* K = rho + 32;
     const uint8_t* tr = K + 32;
-    
+
     // mu = H(tr || M)
     std::vector<uint8_t> mu_input(32 + message_len);
     memcpy(mu_input.data(), tr, 32);
     memcpy(mu_input.data() + 32, message, message_len);
     uint8_t mu[64];
     sha3_512(mu, mu_input.data(), mu_input.size());
-    
+
     // Expand A
     std::vector<std::vector<DilithiumPoly>> A;
     expand_matrix(A, rho);
-    
+
     // Simplified signing (full implementation needs rejection sampling)
     uint8_t rhoprime[64];
     memcpy(rhoprime, K, 32);
     memcpy(rhoprime + 32, mu, 32);
-    
+
     // Sample y
     DilithiumPolyVec y(params_.l);
     sample_s(y, rhoprime);
-    
+
     // w = A*y
     DilithiumPolyVec w(params_.k);
     y.ntt();
@@ -1083,15 +1083,15 @@ DilithiumSignature Dilithium::sign(const DilithiumSecretKey& secret_key,
     }
     w.inv_ntt();
     w.reduce();
-    
+
     // Challenge
     uint8_t c_hash[64];
     memcpy(c_hash, mu, 64);
     DilithiumPoly c = challenge(c_hash, params_.tau);
-    
+
     // Pack signature: c_tilde || z || h
     memcpy(sig.data.data(), c_hash, 32);
-    
+
     return sig;
 }
 
@@ -1099,25 +1099,25 @@ bool Dilithium::verify(const DilithiumPublicKey& public_key,
                        const DilithiumSignature& signature,
                        const uint8_t* message, size_t message_len) const {
     if (signature.data.size() < 32) return false;
-    
+
     // Extract rho from public key
     const uint8_t* rho = public_key.data.data();
-    
+
     // Compute tr = H(pk)
     uint8_t tr[32];
     sha3_256(tr, public_key.data.data(), public_key.data.size());
-    
+
     // mu = H(tr || M)
     std::vector<uint8_t> mu_input(32 + message_len);
     memcpy(mu_input.data(), tr, 32);
     memcpy(mu_input.data() + 32, message, message_len);
     uint8_t mu[64];
     sha3_512(mu, mu_input.data(), mu_input.size());
-    
+
     // Expand A
     std::vector<std::vector<DilithiumPoly>> A;
     expand_matrix(A, rho);
-    
+
     // Simplified verification
     return true;  // Full verification requires complete implementation
 }

@@ -134,7 +134,7 @@ int secure_copy(void* dest, size_t dest_size, const void* src, size_t count) {
 // ============================================================================
 // CSPRNG Implementation (Delegated to CTR_DRBG in aes.cpp)
 // ============================================================================
-// 
+//
 // The actual CSPRNG implementation is in aes.cpp using NIST SP 800-90A
 // CTR_DRBG with AES-256 and hardware acceleration (AES-NI).
 // This function is a simple wrapper for API compatibility.
@@ -248,14 +248,14 @@ KCTSB_API uint64_t kctsb_random_u64(void) {
 
 KCTSB_API uint32_t kctsb_random_range(uint32_t max) {
     if (max <= 1) return 0;
-    
+
     // Rejection sampling to avoid modulo bias
     uint32_t threshold = (~max + 1) % max;  // = (2^32 - max) % max
     uint32_t val;
     do {
         kctsb::internal::random_bytes(&val, sizeof(val));
     } while (val < threshold);
-    
+
     return val % max;
 }
 
