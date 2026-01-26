@@ -19,6 +19,9 @@
 #include "kctsb/core/security.h"
 #include "kctsb/core/common.h"
 
+// Montgomery acceleration header
+#include "sm2_mont_curve.h"
+
 #include <kctsb/math/ZZ.h>
 #include <kctsb/math/ZZ_p.h>
 
@@ -204,13 +207,20 @@ kctsb_error_t encrypt_internal(
             return err;
         }
         
-        // Step 2: Compute C1 = k * G (using Montgomery ladder)
-        ecc::internal::JacobianPoint C1_jac = curve.scalar_mult_base(k);
-        ecc::internal::AffinePoint C1_aff = curve.to_affine(C1_jac);
+        // Step 2: Compute C1 = k * G using Montgomery acceleration
+        uint8_t k_bytes[FIELD_SIZE];
+        zz_to_bytes(k, k_bytes, FIELD_SIZE);
         
-        // Extract ZZ values immediately after to_affine (ZZ_p context still valid)
-        ZZ x1 = rep(C1_aff.x);
-        ZZ y1 = rep(C1_aff.y);
+        sm2_point_result C1_mont;
+        if (!scalar_mult_base_mont(&C1_mont, k_bytes)) {
+            // Point at infinity (extremely rare)
+            kctsb_secure_zero(k_bytes, sizeof(k_bytes));
+            continue;
+        }
+        
+        // Convert C1 coordinates to ZZ for later use
+        ZZ x1 = bytes_to_zz(C1_mont.x, FIELD_SIZE);
+        ZZ y1 = bytes_to_zz(C1_mont.y, FIELD_SIZE);
         
         // Step 3: Compute (x2, y2) = k * P (using Montgomery ladder)
         ecc::internal::JacobianPoint kP = curve.scalar_mult(k, P_jac);
@@ -605,21 +615,16 @@ SM2KeyPair::SM2KeyPair(const ByteVec& privateKey) {
     
     std::memcpy(keypair_.private_key, privateKey.data(), KCTSB_SM2_PRIVATE_KEY_SIZE);
     
-    // Derive public key from private key (using Montgomery ladder)
-    auto& ctx = internal::sm2::SM2Context::instance();
-    const auto& curve = ctx.curve();
+    // Derive public key from private key using Montgomery acceleration
+    internal::sm2::sm2_point_result P_mont;
+    if (!internal::sm2::scalar_mult_base_mont(&P_mont, keypair_.private_key)) {
+        throw std::runtime_error("Failed to derive SM2 public key");
+    }
     
-    kctsb::ZZ d = internal::sm2::bytes_to_zz(keypair_.private_key, KCTSB_SM2_PRIVATE_KEY_SIZE);
-    ecc::internal::JacobianPoint P_jac = curve.scalar_mult_base(d);
-    ecc::internal::AffinePoint P_aff = curve.to_affine(P_jac);
-    
-    kctsb::ZZ_p::init(ctx.p());
-    kctsb::ZZ Px = IsZero(P_aff.x) ? kctsb::ZZ(0) : rep(P_aff.x);
-    kctsb::ZZ Py = IsZero(P_aff.y) ? kctsb::ZZ(0) : rep(P_aff.y);
-    
-    internal::sm2::zz_to_bytes(Px, keypair_.public_key, internal::sm2::FIELD_SIZE);
-    internal::sm2::zz_to_bytes(Py, keypair_.public_key + internal::sm2::FIELD_SIZE, 
-                               internal::sm2::FIELD_SIZE);
+    // Copy public key coordinates
+    std::memcpy(keypair_.public_key, P_mont.x, KCTSB_SM2_PRIVATE_KEY_SIZE);
+    std::memcpy(keypair_.public_key + KCTSB_SM2_PRIVATE_KEY_SIZE, P_mont.y, 
+                KCTSB_SM2_PRIVATE_KEY_SIZE);
 }
 
 SM2KeyPair SM2KeyPair::generate() {

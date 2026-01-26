@@ -39,7 +39,8 @@
 #endif
 
 /* Enable assembly by default on supported platforms */
-#if defined(KCTSB_SM2_X86_64) && !defined(KCTSB_SM2_NO_ASM)
+/* TEMPORARILY DISABLED for debugging - using C++ implementation */
+#if 0 && defined(KCTSB_SM2_X86_64) && !defined(KCTSB_SM2_NO_ASM)
     #define KCTSB_SM2_USE_ASM 1
 #endif
 

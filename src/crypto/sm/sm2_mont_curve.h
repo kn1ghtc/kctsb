@@ -188,13 +188,15 @@ inline void jacobian_to_affine(sm2_point_affine_result* r, const precomp::sm2_po
  */
 inline bool scalar_mult_base_mont(sm2_point_result* result, const uint8_t k[32]) {
     // Convert scalar from big-endian bytes to little-endian limbs
+    // k_be[24:32] -> limbs[0], k_be[16:24] -> limbs[1], etc.
     uint64_t k_limbs[4];
     for (int i = 0; i < 4; i++) {
         uint64_t limb = 0;
+        int offset = (3 - i) * 8;  // 24, 16, 8, 0
         for (int j = 0; j < 8; j++) {
-            limb = (limb << 8) | k[(3 - i) * 8 + j];
+            limb = (limb << 8) | k[offset + j];
         }
-        k_limbs[3 - i] = limb;
+        k_limbs[i] = limb;  // limbs[0]=LSB, limbs[3]=MSB
     }
     
     // Perform scalar multiplication

@@ -17,6 +17,9 @@
 #include "kctsb/core/security.h"
 #include "kctsb/core/common.h"
 
+// Montgomery acceleration header
+#include "sm2_mont_curve.h"
+
 #include <kctsb/math/ZZ.h>
 #include <kctsb/math/ZZ_p.h>
 
@@ -215,21 +218,29 @@ kctsb_error_t sign_internal(
             return err;
         }
         
-        // Step 3: Compute (x1, y1) = k * G (using Montgomery ladder)
-        ecc::internal::JacobianPoint kG = curve.scalar_mult_base(k);
-        ecc::internal::AffinePoint kG_aff = curve.to_affine(kG);
+        // Step 3: Compute (x1, y1) = k * G using Montgomery acceleration
+        // Convert k to bytes for Montgomery interface
+        uint8_t k_bytes[FIELD_SIZE];
+        zz_to_bytes(k, k_bytes, FIELD_SIZE);
+        
+        sm2_point_result kG_mont;
+        if (!scalar_mult_base_mont(&kG_mont, k_bytes)) {
+            // Point at infinity (extremely rare for valid k)
+            kctsb_secure_zero(k_bytes, sizeof(k_bytes));
+            continue;
+        }
+        
+        // Convert x1 from bytes back to ZZ
+        ZZ x1 = bytes_to_zz(kG_mont.x, FIELD_SIZE);
+        
+        // Secure cleanup of k_bytes
+        kctsb_secure_zero(k_bytes, sizeof(k_bytes));
         
         #ifdef KCTSB_DEBUG_SM2
         // Debug: Print k and kG.x for comparison with verification
-        ZZ_p::init(ctx.p());
-        ecc::internal::AffinePoint G_aff_sign = curve.to_affine(curve.get_generator());
         std::cerr << "[SM2 SIGN DEBUG] k = " << k << "\n";
-        std::cerr << "[SM2 SIGN DEBUG] G.x in sign = " << rep(G_aff_sign.x) << "\n";
-        std::cerr << "[SM2 SIGN DEBUG] kG.x = " << rep(kG_aff.x) << "\n";
+        std::cerr << "[SM2 SIGN DEBUG] kG.x = " << x1 << "\n";
         #endif
-        
-        // Extract ZZ value immediately after to_affine (ZZ_p context still valid)
-        ZZ x1 = rep(kG_aff.x);
         
         // Step 4: Compute r = (e + x1) mod n
         r = (e + x1) % n;
@@ -350,27 +361,30 @@ kctsb_error_t verify_internal(
         return KCTSB_ERROR_VERIFICATION_FAILED;
     }
     
-    // Step 4: Compute (x1, y1) = s*G + t*P (using Shamir's trick)
-    ecc::internal::JacobianPoint G = curve.get_generator();
+    // Step 4: Compute (x1, y1) = s*G + t*P
+    // Use Montgomery acceleration for s*G (base point multiplication)
+    uint8_t s_bytes[FIELD_SIZE];
+    zz_to_bytes(s, s_bytes, FIELD_SIZE);
     
-    #ifdef KCTSB_DEBUG_SM2
-    // Debug: Check generator point in Jacobian coordinates
+    sm2_point_result sG_mont;
+    if (!scalar_mult_base_mont(&sG_mont, s_bytes)) {
+        // s*G is point at infinity (should not happen for valid signature)
+        kctsb_secure_zero(s_bytes, sizeof(s_bytes));
+        return KCTSB_ERROR_VERIFICATION_FAILED;
+    }
+    kctsb_secure_zero(s_bytes, sizeof(s_bytes));
+    
+    // Convert sG to JacobianPoint for point addition
+    ZZ sG_x = bytes_to_zz(sG_mont.x, FIELD_SIZE);
+    ZZ sG_y = bytes_to_zz(sG_mont.y, FIELD_SIZE);
     ZZ_p::init(ctx.p());
-    std::cerr << "[SM2 DEBUG] G.X (Jacobian) = " << rep(G.X) << "\n";
-    std::cerr << "[SM2 DEBUG] G.Y (Jacobian) = " << rep(G.Y) << "\n";
-    std::cerr << "[SM2 DEBUG] G.Z (Jacobian) = " << rep(G.Z) << "\n";
-    std::cerr << "[SM2 DEBUG] P_jac.X = " << rep(P_jac.X) << "\n";
-    std::cerr << "[SM2 DEBUG] P_jac.Y = " << rep(P_jac.Y) << "\n";
-    std::cerr << "[SM2 DEBUG] P_jac.Z = " << rep(P_jac.Z) << "\n";
-    std::cerr << "[SM2 DEBUG] s = " << s << "\n";
-    std::cerr << "[SM2 DEBUG] t = " << t << "\n";
-    #endif
+    ecc::internal::AffinePoint sG_aff{ZZ_p(sG_x), ZZ_p(sG_y)};
+    ecc::internal::JacobianPoint sG = curve.to_jacobian(sG_aff);
     
-    // Use separate scalar multiplications for debugging
-    // R_point = s*G + t*P
-    // Note: Use scalar_mult_base for G to use same path as signature
-    ecc::internal::JacobianPoint sG = curve.scalar_mult_base(s);  // Use cached table like signature
+    // Compute t*P using NTL (no Montgomery for arbitrary point yet)
     ecc::internal::JacobianPoint tP = curve.scalar_mult(t, P_jac);
+    
+    // Add sG + tP
     ecc::internal::JacobianPoint R_point = curve.add(sG, tP);
     ecc::internal::AffinePoint R_aff = curve.to_affine(R_point);
     

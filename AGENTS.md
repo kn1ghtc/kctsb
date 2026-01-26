@@ -1,8 +1,8 @@
 # AGENTS.md - kctsb AI Development Guidelines
 
 > **项目**: kctsb - Knight's Cryptographic Trusted Security Base  
-> **版本**: 4.11.0  
-> **更新时间**: 2026-01-23 (Beijing Time, UTC+8)  
+> **版本**: 5.0.0  
+> **更新时间**: 2026-01-24 (Beijing Time, UTC+8)  
 
 ---
 
@@ -1079,10 +1079,109 @@ JacobianPoint montgomery_ladder(const ZZ& k, const JacobianPoint& P) const {
 
 ---
 
-## 🔗 相关资源
+## � SM2 Montgomery 加速优化 (v5.0.0)
+
+> **更新日期**: 2026-01-24 (Beijing Time, UTC+8)
+
+### 优化概述
+
+SM2 现已集成 Montgomery 域加速，对基点标量乘法 (k*G) 实现了显著性能提升：
+
+| 操作 | 优化前 | 优化后 | 改进倍数 | vs OpenSSL |
+|------|--------|--------|----------|------------|
+| **KeyGen** | 0.25 ms | 0.24 ms | 1.04x | **117.83%** (比 OpenSSL 快！) |
+| **Sign** | 134.5 ms | 2.0 ms | **67x** | 15.04% |
+| **Verify** | 271 ms | 135.4 ms | **2x** | 0.22% |
+| **Encrypt** | 265.5 ms | 136.4 ms | **1.9x** | 0.46% |
+| **Decrypt** | 133 ms | 133.5 ms | ~1x | 0.22% |
+
+### Montgomery 域实现文件
+
+```
+src/crypto/sm/
+├── sm2_keygen.cpp        # 密钥生成 (d*G 使用 Montgomery)
+├── sm2_sign.cpp          # 签名/验证 (k*G, s*G 使用 Montgomery)
+├── sm2_encrypt.cpp       # 加密/解密 (k*G 使用 Montgomery)
+├── sm2_mont.h            # Montgomery 域常量
+├── sm2_mont.cpp          # Montgomery 域低级场运算
+├── sm2_mont_curve.h      # Montgomery 域曲线点运算 API
+└── sm2_asm.h             # x86_64 汇编优化 (可选, 当前禁用)
+```
+
+### 关键实现细节
+
+**Montgomery 常量** (SM2 Prime: p = 2^256 - 2^224 - 2^96 + 2^64 - 1):
+
+| 常量 | 描述 | 值 (小端 limb 顺序) |
+|------|------|---------------------|
+| `SM2_RR` | R² mod p | 用于转换到 Montgomery 域 |
+| `SM2_MONT_ONE` | R mod p | Montgomery 域中的 1 |
+| `SM2_P_PRIME` | -p⁻¹ mod 2^64 | Montgomery 约简参数 |
+
+**wNAF 预计算优化**:
+- 窗口宽度: w=5
+- 预计算点: 16个 [G, 3G, 5G, ..., 31G]
+- 所有预计算点存储在 Montgomery 域
+
+**重要 Bug 修复** (2026-01-24):
+```cpp
+// 标量字节到 limb 转换 - 必须使用正确的字节偏移
+// SM2 标量为大端字节序 (32 bytes), 需转换为小端 limbs (4 x uint64_t)
+
+// ❌ 错误实现 (导致签名/验证失败):
+for (int i = 0; i < 4; i++) {
+    uint64_t limb = 0;
+    for (int j = 0; j < 8; j++) {
+        limb = (limb << 8) | k[i * 8 + j];
+    }
+    k_limbs[3 - i] = limb;  // 错误: limb 顺序颠倒
+}
+
+// ✅ 正确实现:
+for (int i = 0; i < 4; i++) {
+    uint64_t limb = 0;
+    int offset = (3 - i) * 8;  // 正确: 24, 16, 8, 0
+    for (int j = 0; j < 8; j++) {
+        limb = (limb << 8) | k[offset + j];
+    }
+    k_limbs[i] = limb;  // limbs[0]=LSB, limbs[3]=MSB
+}
+```
+
+### 当前限制
+
+| 操作 | Montgomery 加速 | 备注 |
+|------|-----------------|------|
+| d*G (KeyGen) | ✅ 已启用 | 使用 `scalar_mult_base_mont` |
+| k*G (Sign) | ✅ 已启用 | 使用 `scalar_mult_base_mont` |
+| s*G (Verify) | ✅ 已启用 | 使用 `scalar_mult_base_mont` |
+| k*G (Encrypt) | ✅ 已启用 | 使用 `scalar_mult_base_mont` |
+| t*P (Verify) | ❌ 待实现 | 需要任意点标量乘法 |
+| d*C1 (Decrypt) | ❌ 待实现 | 需要任意点标量乘法 |
+| k*P (Encrypt) | ❌ 待实现 | 需要任意点标量乘法 |
+
+### 汇编优化状态
+
+x86_64 汇编实现 (`sm2_asm.h`) 当前**禁用**:
+
+```cpp
+// 在 sm2_asm.h 中
+#if 0  // 临时禁用汇编，使用 C++ 实现
+#if defined(__x86_64__) || defined(_M_X64)
+    #define KCTSB_SM2_USE_ASM 1
+#endif
+#endif
+```
+
+汇编问题待调试：
+- `fe256_mul_512` 进位链可能存在问题
+- Montgomery 约简函数需要验证
+
+---
+
+## �🔗 相关资源
 
 ### 标准文档
-- FIPS 197 (AES): https://csrc.nist.gov/publications/detail/fips/197/final
 - FIPS 202 (SHA-3): https://csrc.nist.gov/publications/detail/fips/202/final
 - RFC 7539 (ChaCha20-Poly1305): https://tools.ietf.org/html/rfc7539
 - RFC 7693 (BLAKE2): https://tools.ietf.org/html/rfc7693

@@ -109,12 +109,14 @@ static constexpr fe256 SM2_P_PRIME = {{
  * R = 2^256, so RR = 2^512 mod p
  * 
  * to_mont(a) = mont_mul(a, RR)
+ * 
+ * Computed: RR = 0x0000000400000002_0000000100000001_00000002FFFFFFFF_0000000200000003
  */
 static constexpr fe256 SM2_RR = {{
-    0x0000000400000002ULL,
-    0x0000000100000001ULL,
-    0x00000002FFFFFFFFULL,
-    0x0000000200000003ULL
+    0x0000000200000003ULL,  // limb[0] - LSB
+    0x00000002FFFFFFFFULL,  // limb[1]
+    0x0000000100000001ULL,  // limb[2]
+    0x0000000400000002ULL   // limb[3] - MSB
 }};
 
 /**
@@ -344,82 +346,113 @@ void fe256_modp_half(fe256* r, const fe256* a) {
 
 /**
  * @brief 256x256 -> 512-bit schoolbook multiplication
+ * 
+ * Computes r = a * b as a 512-bit product.
+ * Uses schoolbook algorithm with proper carry propagation.
  */
 static void fe256_mul_512(fe512* r, const fe256* a, const fe256* b) {
-    uint64_t hi, lo;
-    uint64_t t[8] = {0};
+    // Use 128-bit intermediate products
+    uint128_t acc;
     uint64_t carry;
     
-    // Schoolbook multiplication with carry accumulation
+    // Initialize result to zero
+    for (int i = 0; i < 8; i++) {
+        r->limb[i] = 0;
+    }
+    
+    // Schoolbook multiplication
     for (int i = 0; i < 4; i++) {
         carry = 0;
         for (int j = 0; j < 4; j++) {
-            mul64x64(a->limb[i], b->limb[j], &hi, &lo);
+            // acc = a[i] * b[j] + r[i+j] + carry
+            acc = (uint128_t)a->limb[i] * b->limb[j];
+            acc += r->limb[i + j];
+            acc += carry;
             
-            // Add to accumulator with carry chain
-            uint64_t c1, c2;
-            t[i+j] = adc64(t[i+j], lo, 0, &c1);
-            t[i+j+1] = adc64(t[i+j+1], hi, c1, &c2);
-            
-            // Propagate carry to higher limbs
-            for (int k = i+j+2; c2 && k < 8; k++) {
-                t[k] = adc64(t[k], 0, c2, &c2);
-            }
+            r->limb[i + j] = (uint64_t)acc;
+            carry = (uint64_t)(acc >> 64);
         }
-    }
-    
-    for (int i = 0; i < 8; i++) {
-        r->limb[i] = t[i];
+        // Propagate final carry - must ADD to existing value, not overwrite
+        r->limb[i + 4] += carry;
     }
 }
 
 /**
  * @brief Montgomery reduction step
  * 
- * Given z (512-bit), compute:
- *   t = low(z) * p' mod 2^256
- *   t = low(t) * p
- *   r = high((z + t) / 2^256)
+ * Given z (512-bit), compute r = z * R^(-1) mod p
  * 
- * This is the CIOS (Coarsely Integrated Operand Scanning) method.
+ * Algorithm (CIOS - Coarsely Integrated Operand Scanning):
+ *   1. m = (z mod R) * p' mod R    (where R = 2^256)
+ *   2. t = z + m * p
+ *   3. r = t / R  (right shift by 256 bits)
+ *   4. if r >= p then r -= p
+ * 
+ * The key insight is that m * p makes the low 256 bits of (z + m*p) zero,
+ * so dividing by R is just taking the high 256 bits.
  */
 static void fe256_mont_reduce(fe256* r, const fe512* z) {
-    fe512 t, tmp;
+    fe512 mp;    // m * p (512-bit)
     uint64_t c;
     
-    // t = low(z) * p' (only need low 256 bits of result)
-    fe256 z_low;
-    z_low.limb[0] = z->limb[0];
-    z_low.limb[1] = z->limb[1];
-    z_low.limb[2] = z->limb[2];
-    z_low.limb[3] = z->limb[3];
-    
-    fe256_mul_512(&t, &z_low, &SM2_P_PRIME);
-    
-    // t = low(t) * p (full 512-bit result)
-    fe256 t_low;
-    t_low.limb[0] = t.limb[0];
-    t_low.limb[1] = t.limb[1];
-    t_low.limb[2] = t.limb[2];
-    t_low.limb[3] = t.limb[3];
-    
-    fe256_mul_512(&t, &t_low, &SM2_P);
-    
-    // tmp = z + t (512-bit addition)
-    c = 0;
-    for (int i = 0; i < 8; i++) {
-        tmp.limb[i] = adc64(z->limb[i], t.limb[i], c, &c);
+    // Step 1: m = z_low * p' mod 2^256 (only need low 256 bits)
+    // We compute m = z[0..3] * p'[0..3] and take only low 256 bits
+    fe256 m;
+    {
+        // m[0] = z[0] * p'[0] mod 2^64
+        // m[1] = (z[0] * p'[1] + z[1] * p'[0] + carry) mod 2^64
+        // etc.
+        // Since we only need low 256 bits, we can use a simplified multiply
+        uint128_t acc;
+        uint64_t carry = 0;
+        
+        // m[0] = z[0] * p'[0] mod 2^64
+        acc = (uint128_t)z->limb[0] * SM2_P_PRIME.limb[0];
+        m.limb[0] = (uint64_t)acc;
+        carry = (uint64_t)(acc >> 64);
+        
+        // m[1]
+        acc = (uint128_t)z->limb[0] * SM2_P_PRIME.limb[1] + 
+              (uint128_t)z->limb[1] * SM2_P_PRIME.limb[0] + carry;
+        m.limb[1] = (uint64_t)acc;
+        carry = (uint64_t)(acc >> 64);
+        
+        // m[2]
+        acc = (uint128_t)z->limb[0] * SM2_P_PRIME.limb[2] + 
+              (uint128_t)z->limb[1] * SM2_P_PRIME.limb[1] + 
+              (uint128_t)z->limb[2] * SM2_P_PRIME.limb[0] + carry;
+        m.limb[2] = (uint64_t)acc;
+        carry = (uint64_t)(acc >> 64);
+        
+        // m[3]
+        acc = (uint128_t)z->limb[0] * SM2_P_PRIME.limb[3] + 
+              (uint128_t)z->limb[1] * SM2_P_PRIME.limb[2] + 
+              (uint128_t)z->limb[2] * SM2_P_PRIME.limb[1] + 
+              (uint128_t)z->limb[3] * SM2_P_PRIME.limb[0] + carry;
+        m.limb[3] = (uint64_t)acc;
+        // Higher bits discarded (mod 2^256)
     }
     
-    // r = high(tmp) = tmp[4..7]
+    // Step 2: mp = m * p (full 512-bit result)
+    fe256_mul_512(&mp, &m, &SM2_P);
+    
+    // Step 3: tmp = z + mp (512-bit addition)
+    fe512 tmp;
+    c = 0;
+    for (int i = 0; i < 8; i++) {
+        tmp.limb[i] = adc64(z->limb[i], mp.limb[i], c, &c);
+    }
+    
+    // Step 4: r = tmp >> 256 (high 256 bits)
+    // Note: tmp.limb[0..3] should be zero if algorithm is correct
     r->limb[0] = tmp.limb[4];
     r->limb[1] = tmp.limb[5];
     r->limb[2] = tmp.limb[6];
     r->limb[3] = tmp.limb[7];
     
-    // Final reduction: if carry or r >= p, subtract p
+    // Step 5: Final reduction - if carry or r >= p, subtract p
     if (c) {
-        // r += 2^256 - p = NEG_P (wrapping addition)
+        // tmp was >= 2^512, so r + (2^256 mod p) = r + NEG_P
         fe256_add(r, r, &SM2_NEG_P);
     } else if (fe256_cmp(r, &SM2_P) >= 0) {
         fe256_sub(r, r, &SM2_P);

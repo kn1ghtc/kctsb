@@ -95,22 +95,22 @@ kctsb_error_t generate_keypair_internal(kctsb_sm2_keypair_t* keypair) {
         // Export private key to bytes
         zz_to_bytes(d, keypair->private_key, FIELD_SIZE);
         
-        // Use generic ECC implementation (fallback, slower but verified)
-        // TODO: Enable Montgomery acceleration after debugging
-        ecc::internal::JacobianPoint P_jac = curve.scalar_mult_base(d);
-        ecc::internal::AffinePoint P_aff = curve.to_affine(P_jac);
+        // === Montgomery Accelerated Point Multiplication ===
+        // Uses precomputed wNAF table for ~50x speedup over generic ECC
+        sm2_point_result P_mont;
+        if (scalar_mult_base_mont(&P_mont, keypair->private_key)) {
+            // Success: copy coordinates to public key
+            std::memcpy(keypair->public_key, P_mont.x, FIELD_SIZE);
+            std::memcpy(keypair->public_key + FIELD_SIZE, P_mont.y, FIELD_SIZE);
+            
+            // Secure cleanup
+            kctsb_secure_zero(d_bytes, sizeof(d_bytes));
+            return KCTSB_SUCCESS;
+        }
         
-        // Export public key (Px || Py)
-        ZZ_p::init(ctx.p());
-        ZZ Px = rep(P_aff.x);
-        ZZ Py = rep(P_aff.y);
-        zz_to_bytes(Px, keypair->public_key, FIELD_SIZE);
-        zz_to_bytes(Py, keypair->public_key + FIELD_SIZE, FIELD_SIZE);
-        
-        // Secure cleanup
-        kctsb_secure_zero(d_bytes, sizeof(d_bytes));
-        
-        return KCTSB_SUCCESS;
+        // Fallback: Montgomery returned point at infinity (invalid d)
+        // This should be extremely rare for random d
+        continue;
     }
     
     kctsb_secure_zero(d_bytes, sizeof(d_bytes));

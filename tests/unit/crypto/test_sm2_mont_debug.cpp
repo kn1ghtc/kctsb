@@ -332,4 +332,44 @@ TEST_F(SM2MontDebugTest, IntegrationTest_KeyGenPath) {
 
     std::cerr << "Integration test completed successfully!" << std::endl;
 }
+// ============================================================================
+// Test 7: Verify fe256_mont_inv works correctly
+// ============================================================================
 
+namespace kctsb::internal::sm2::mont {
+    extern void fe256_mont_inv(fe256* r, const fe256* a);
+}
+
+TEST_F(SM2MontDebugTest, MontInverseWorks) {
+    using namespace kctsb::internal::sm2::mont;
+
+    std::cerr << "=== Testing fe256_mont_inv ===" << std::endl;
+
+    // Test: a * a^(-1) = 1 (in Montgomery domain, = MONT_ONE)
+    // Use a = 2 as test value
+    MontFe a = {{2, 0, 0, 0}};  // a = 2 (normal form)
+    MontFe a_mont, a_inv, product;
+
+    // Convert to Montgomery
+    fe256_to_mont(&a_mont, &a);
+    print_fe256("a (mont)", a_mont.limb);
+
+    // Compute inverse
+    fe256_mont_inv(&a_inv, &a_mont);
+    print_fe256("a^(-1) (mont)", a_inv.limb);
+
+    // Verify: a * a^(-1) = 1 in Montgomery domain (= MONT_ONE)
+    fe256_mont_mul(&product, &a_mont, &a_inv);
+    print_fe256("a * a^(-1) (mont)", product.limb);
+
+    // Convert to normal form - should be 1
+    MontFe product_norm;
+    fe256_from_mont(&product_norm, &product);
+    print_fe256("a * a^(-1) (normal)", product_norm.limb);
+
+    // Expected: 1
+    EXPECT_EQ(product_norm.limb[0], 1ULL);
+    EXPECT_EQ(product_norm.limb[1], 0ULL);
+    EXPECT_EQ(product_norm.limb[2], 0ULL);
+    EXPECT_EQ(product_norm.limb[3], 0ULL);
+}
