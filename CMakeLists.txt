@@ -227,8 +227,13 @@ else()
     # LTO flags - Use parallel/incremental LTO for faster builds
     # Target: 30s incremental vs 2min full rebuild
     if(KCTSB_LTO_SUPPORTED)
-        # Detect if using GCC or Clang for appropriate LTO options
-        if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        # Detect if using GCC, Clang or AppleClang for appropriate LTO options
+        if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
+            # Apple Clang: Use standard -flto (ThinLTO by default in recent Xcode)
+            add_compile_options(-flto)
+            add_link_options(-flto)
+            message(STATUS "LTO: Enabled (AppleClang)")
+        elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
             # ThinLTO for Clang - supports incremental/parallel linking
             add_compile_options(-flto=thin)
             add_link_options(-flto=thin)
@@ -265,8 +270,15 @@ else()
     # v5.0: Release mode optimizations
     if(CMAKE_BUILD_TYPE STREQUAL "Release")
         # Strip debug symbols to reduce binary size
-        add_link_options(-Wl,--strip-all)
-        message(STATUS "Release mode: Debug symbols will be stripped")
+        if(APPLE)
+            # macOS uses different strip syntax
+            add_link_options(-Wl,-S)
+            message(STATUS "Release mode: Debug symbols will be stripped (macOS)")
+        else()
+            # Linux/MinGW
+            add_link_options(-Wl,--strip-all)
+            message(STATUS "Release mode: Debug symbols will be stripped")
+        endif()
     endif()
     
     if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
@@ -309,31 +321,47 @@ if(NOT MSVC)
     add_compile_options(
         -Wall -Wextra -Wpedantic
         -Werror=return-type
-        # Note: -Wno-maybe-uninitialized suppresses false positives in bignum code
-        # The bignum module uses verified mathematical algorithms from NTL/GMP references
-        -Wno-maybe-uninitialized
         -Wno-unused-parameter
         -Wno-sign-conversion
         -Wno-conversion
         -finput-charset=UTF-8
-        -fexec-charset=UTF-8
     )
-    # C++ only warning suppressions (invalid for C code)
+    
+    # GCC-specific warnings (not supported by AppleClang)
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        add_compile_options(
+            # Note: -Wno-maybe-uninitialized suppresses false positives in bignum code
+            # The bignum module uses verified mathematical algorithms from NTL/GMP references
+            -Wno-maybe-uninitialized
+            -fexec-charset=UTF-8
+            -Wno-misleading-indentation
+        )
+        # C++ only warning suppressions (GCC-specific)
+        add_compile_options(
+            "$<$<COMPILE_LANGUAGE:CXX>:-Wno-useless-cast>"
+        )
+    elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang|AppleClang")
+        # Clang/AppleClang equivalent
+        add_compile_options(-Wno-uninitialized)
+    endif()
+    
+    # C++ only warning suppressions (common to GCC and Clang)
     add_compile_options(
         "$<$<COMPILE_LANGUAGE:CXX>:-Wno-old-style-cast>"
         "$<$<COMPILE_LANGUAGE:CXX>:-Wno-deprecated-copy>"
-        "$<$<COMPILE_LANGUAGE:CXX>:-Wno-useless-cast>"
     )
     # Suppress bignum-specific warnings (template-heavy code)
     # These warnings are in verified mathematical code and safe to ignore
     add_compile_options(
         -Wno-double-promotion
         -Wno-unused-variable
-        -Wno-unused-but-set-variable
         -Wno-unused-function
-        -Wno-misleading-indentation
         -Wno-pedantic  # Suppress ISO C++ does not support __int128 warning
     )
+    # GCC-specific: -Wno-unused-but-set-variable
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        add_compile_options(-Wno-unused-but-set-variable)
+    endif()
 endif()
 
 # ============================================================================
@@ -497,16 +525,21 @@ endif()
 # Assembly Files - Conditional platform-specific inclusion
 # ============================================================================
 
-if(KCTSB_ASM_ENABLED AND KCTSB_ARCH_X86_64 AND NOT MSVC)
-    # GCC/Clang on Linux/macOS/MinGW - use .S files (GNU as)
+if(KCTSB_ASM_ENABLED AND KCTSB_ARCH_X86_64 AND NOT MSVC AND NOT APPLE)
+    # GCC/Clang on Linux/MinGW - use .S files (GNU as, ELF format)
+    # Note: macOS uses Mach-O format which requires different assembly syntax
     file(GLOB_RECURSE KCTSB_ASM_SOURCES ${KCTSB_SRC_DIR}/*.S)
     if(KCTSB_ASM_SOURCES)
         list(APPEND KCTSB_ALL_SOURCES ${KCTSB_ASM_SOURCES})
         add_definitions(-DKCTSB_HAS_ECC_ASM)
-        message(STATUS "✓ Assembly optimizations enabled (x86_64 GAS)")
+        message(STATUS "✓ Assembly optimizations enabled (x86_64 GAS, ELF)")
     else()
         message(STATUS "  Assembly: No .S files found, using C++ implementation")
     endif()
+elseif(KCTSB_ASM_ENABLED AND KCTSB_ARCH_X86_64 AND APPLE)
+    # macOS uses Mach-O format - current .S files are ELF syntax
+    # TODO: Add Mach-O compatible assembly files for macOS
+    message(STATUS "⚠ Assembly: macOS Mach-O requires different syntax (using C++ fallback)")
 elseif(KCTSB_ASM_ENABLED AND KCTSB_ARCH_X86_64 AND MSVC)
     message(STATUS "⚠ Assembly: MSVC MASM support pending (using C++ fallback)")
 else()
