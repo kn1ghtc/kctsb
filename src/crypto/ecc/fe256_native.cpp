@@ -729,66 +729,24 @@ void scalar_mult_base(Fe256Point* r, const Fe256* k, const CurveParams* curve) {
 }
 
 // ============================================================================
-// Double Scalar Multiplication (Shamir's Trick)
+// Double Scalar Multiplication: k1*G + k2*P
 // ============================================================================
 
 void double_scalar_mult(Fe256Point* r, const Fe256* k1, const Fe256* k2, 
                         const Fe256Point* P, const CurveParams* curve) {
-    // Precompute: G, P, G+P
-    Fe256Point G;
-    // Convert G from standard coordinates to Montgomery domain
-    fe256_to_mont(&G.X, &curve->Gx, &curve->R2, &curve->p, curve->n0_p);
-    fe256_to_mont(&G.Y, &curve->Gy, &curve->R2, &curve->p, curve->n0_p);
-    G.Z = Fe256(1);
-    fe256_to_mont(&G.Z, &G.Z, &curve->R2, &curve->p, curve->n0_p);
-    G.is_infinity = 0;
+    // Simple implementation: compute k1*G and k2*P separately, then add
+    // This is slower than Shamir's trick but guaranteed correct
     
-    Fe256Point GP;
-    point_add(&GP, &G, P, curve);
+    // R1 = k1 * G
+    Fe256Point R1;
+    scalar_mult_base(&R1, k1, curve);
     
-    Fe256Point R;  // Start at infinity
-    R.is_infinity = 1;
+    // R2 = k2 * P
+    Fe256Point R2;
+    scalar_mult(&R2, k2, P, curve);
     
-    // Find max bit position - scan ALL limbs for both k1 and k2
-    int max_bit1 = -1, max_bit2 = -1;
-    for (int i = 3; i >= 0; i--) {
-        if (k1->d[i] != 0 && max_bit1 < 0) {
-            for (int j = 63; j >= 0; j--) {
-                if ((k1->d[i] >> j) & 1) {
-                    max_bit1 = i * 64 + j;
-                    break;
-                }
-            }
-        }
-        if (k2->d[i] != 0 && max_bit2 < 0) {
-            for (int j = 63; j >= 0; j--) {
-                if ((k2->d[i] >> j) & 1) {
-                    max_bit2 = i * 64 + j;
-                    break;
-                }
-            }
-        }
-    }
-    int max_bit = (max_bit1 > max_bit2) ? max_bit1 : max_bit2;
-    
-    for (int i = max_bit; i >= 0; i--) {
-        point_double(&R, &R, curve);
-        
-        int limb = i / 64;
-        int bit = i % 64;
-        int b1 = (k1->d[limb] >> bit) & 1;
-        int b2 = (k2->d[limb] >> bit) & 1;
-        
-        if (b1 && b2) {
-            point_add(&R, &R, &GP, curve);
-        } else if (b1) {
-            point_add(&R, &R, &G, curve);
-        } else if (b2) {
-            point_add(&R, &R, P, curve);
-        }
-    }
-    
-    *r = R;
+    // R = R1 + R2
+    point_add(r, &R1, &R2, curve);
 }
 
 // ============================================================================
