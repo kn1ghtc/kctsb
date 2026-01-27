@@ -7,6 +7,7 @@
  * - ECDSA sign/verify operations
  * - ECDH key agreement
  * 
+ * v5.2.0: Uses NATIVE ECC API (fe256_native) - zero NTL dependency
  * v5.1.0: Uses internal ECC API (ZZ-based) for benchmarking
  * v4.6.0: Removed P-384/P-521, focus on 256-bit curves
  *
@@ -36,13 +37,15 @@
 #include <openssl/bn.h>
 #include <openssl/obj_mac.h>
 
-// kctsb ECC internal API (ZZ-based, fully implemented)
+// kctsb NATIVE ECC API (fe256_native - zero NTL dependency)
+#include "../src/crypto/ecc/fe256_native.h"
+namespace kctsb_native = kctsb::ecc::native;
+
+// Legacy NTL-based ECC API (kept for reference, but not used in benchmark)
 #ifdef KCTSB_HAS_ECC
 #include "kctsb/crypto/ecc/ecdsa.h"
 #include "kctsb/crypto/ecc/ecdh.h"
 #include "kctsb/crypto/ecc/ecc_curve.h"
-
-// Bring internal namespace into scope for convenience
 namespace kctsb_ecc = kctsb::ecc::internal;
 #endif
 
@@ -68,22 +71,15 @@ static void generate_random(uint8_t* buf, size_t len) {
  * @brief Curve configurations for testing
  */
 struct CurveConfig {
-    int nid;                  // OpenSSL NID
-    const char* name;         // Display name
-    size_t key_bits;          // Key size in bits
-#ifdef KCTSB_HAS_ECC
-    kctsb_ecc::CurveType kctsb_type;
-#endif
+    int nid;                              // OpenSSL NID
+    const char* name;                     // Display name
+    size_t key_bits;                      // Key size in bits
+    kctsb_native::CurveId native_id;      // Native ECC implementation
 };
 
 static const CurveConfig TEST_CURVES[] = {
-#ifdef KCTSB_HAS_ECC
-    {NID_secp256k1, "secp256k1", 256, kctsb_ecc::CurveType::SECP256K1},
-    {NID_X9_62_prime256v1, "secp256r1 (P-256)", 256, kctsb_ecc::CurveType::SECP256R1},
-#else
-    {NID_secp256k1, "secp256k1", 256},
-    {NID_X9_62_prime256v1, "secp256r1 (P-256)", 256},
-#endif
+    {NID_secp256k1, "secp256k1", 256, kctsb_native::CurveId::SECP256K1},
+    {NID_X9_62_prime256v1, "secp256r1 (P-256)", 256, kctsb_native::CurveId::P256},
 };
 
 // ============================================================================
@@ -268,6 +264,7 @@ static void print_ratio(double kctsb_time, double openssl_time) {
 void benchmark_ecc() {
     std::cout << "\n" << std::string(80, '=') << std::endl;
     std::cout << "  Elliptic Curve Cryptography (ECC) Benchmark vs OpenSSL 3.6.0" << std::endl;
+    std::cout << "  Implementation: kctsb NATIVE (fe256_native - zero NTL dependency)" << std::endl;
     std::cout << std::string(80, '=') << std::endl;
 
     // Generate test hash
@@ -292,24 +289,24 @@ void benchmark_ecc() {
             [&]() { return benchmark_openssl_ec_keygen(curve.nid); }
         );
 
-#ifdef KCTSB_HAS_ECC
+        // Native implementation
         {
-            kctsb_ecc::ECDSA ecdsa(curve.kctsb_type);
+            uint8_t random32[32];
             
             kctsb_keygen_time = run_benchmark(
                 "Key Generation",
                 "kctsb",
-                [&ecdsa]() {
+                [&]() {
                     auto start = Clock::now();
-                    auto keypair = ecdsa.generate_keypair();
+                    generate_random(random32, 32);
+                    kctsb_native::EcdsaKeyPair kp;
+                    kctsb_native::ecdsa_keygen(&kp, random32, curve.native_id);
                     auto end = Clock::now();
-                    (void)keypair;
                     return Duration(end - start).count();
                 }
             );
             print_ratio(kctsb_keygen_time, openssl_keygen_time);
         }
-#endif
 
         // Generate persistent key pair for sign/verify tests
         EVP_PKEY_CTX* keygen_ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_EC, nullptr);
@@ -328,25 +325,28 @@ void benchmark_ecc() {
             [&]() { return benchmark_openssl_ecdsa_sign(pkey, hash); }
         );
 
-#ifdef KCTSB_HAS_ECC
+        // Native implementation
         {
-            kctsb_ecc::ECDSA ecdsa(curve.kctsb_type);
-            auto keypair = ecdsa.generate_keypair();
+            uint8_t random32[32], k32[32];
+            generate_random(random32, 32);
+            kctsb_native::EcdsaKeyPair kp;
+            kctsb_native::ecdsa_keygen(&kp, random32, curve.native_id);
             
             kctsb_sign_time = run_benchmark(
                 "ECDSA Sign",
                 "kctsb",
-                [&ecdsa, &keypair, &hash]() {
+                [&]() {
                     auto start = Clock::now();
-                    auto sig = ecdsa.sign(hash, HASH_SIZE, keypair.private_key);
+                    generate_random(k32, 32);
+                    kctsb_native::EcdsaSignature sig;
+                    kctsb_native::ecdsa_sign(&sig, hash, HASH_SIZE, 
+                                             &kp.private_key, k32, curve.native_id);
                     auto end = Clock::now();
-                    (void)sig;
                     return Duration(end - start).count();
                 }
             );
             print_ratio(kctsb_sign_time, openssl_sign_time);
         }
-#endif
 
         // Generate a signature for verify benchmark
         EVP_MD_CTX* sign_ctx = EVP_MD_CTX_new();
@@ -370,19 +370,26 @@ void benchmark_ecc() {
             }
         );
 
-#ifdef KCTSB_HAS_ECC
+        // Native implementation
         {
-            kctsb_ecc::ECDSA ecdsa(curve.kctsb_type);
-            auto keypair = ecdsa.generate_keypair();
-            auto kctsb_sig = ecdsa.sign(hash, HASH_SIZE, keypair.private_key);
+            uint8_t random32[32], k32[32];
+            generate_random(random32, 32);
+            kctsb_native::EcdsaKeyPair kp;
+            kctsb_native::ecdsa_keygen(&kp, random32, curve.native_id);
+            
+            // Pre-sign for verify benchmark
+            generate_random(k32, 32);
+            kctsb_native::EcdsaSignature sig;
+            kctsb_native::ecdsa_sign(&sig, hash, HASH_SIZE, 
+                                     &kp.private_key, k32, curve.native_id);
             
             kctsb_verify_time = run_benchmark(
                 "ECDSA Verify",
                 "kctsb",
-                [&ecdsa, &keypair, &kctsb_sig, &hash]() {
+                [&]() {
                     auto start = Clock::now();
-                    bool valid = ecdsa.verify(hash, HASH_SIZE,
-                                             kctsb_sig, keypair.public_key);
+                    int valid = kctsb_native::ecdsa_verify(&sig, hash, HASH_SIZE,
+                                                           &kp.public_key, curve.native_id);
                     auto end = Clock::now();
                     (void)valid;
                     return Duration(end - start).count();
@@ -390,7 +397,6 @@ void benchmark_ecc() {
             );
             print_ratio(kctsb_verify_time, openssl_verify_time);
         }
-#endif
 
         // ================================================================
         // ECDH Key Agreement Benchmark
@@ -408,27 +414,30 @@ void benchmark_ecc() {
             [&]() { return benchmark_openssl_ecdh(pkey, peer_pkey); }
         );
 
-#ifdef KCTSB_HAS_ECC
+        // Native implementation
         {
-            kctsb_ecc::ECDH ecdh(curve.kctsb_type);
-            auto our_keypair = ecdh.generate_keypair();
-            auto peer_keypair = ecdh.generate_keypair();
+            uint8_t random1[32], random2[32];
+            generate_random(random1, 32);
+            generate_random(random2, 32);
+            
+            kctsb_native::EcdsaKeyPair our_kp, peer_kp;
+            kctsb_native::ecdsa_keygen(&our_kp, random1, curve.native_id);
+            kctsb_native::ecdsa_keygen(&peer_kp, random2, curve.native_id);
             
             kctsb_ecdh_time = run_benchmark(
                 "ECDH Key Agreement",
                 "kctsb",
-                [&ecdh, &our_keypair, &peer_keypair]() {
+                [&]() {
                     auto start = Clock::now();
-                    auto secret = ecdh.compute_shared_secret(
-                        our_keypair.private_key, peer_keypair.public_key);
+                    uint8_t shared_secret[32];
+                    kctsb_native::ecdh_compute(shared_secret, &our_kp.private_key,
+                                               &peer_kp.public_key, curve.native_id);
                     auto end = Clock::now();
-                    (void)secret;
                     return Duration(end - start).count();
                 }
             );
             print_ratio(kctsb_ecdh_time, openssl_ecdh_time);
         }
-#endif
 
         // Cleanup
         EVP_PKEY_free(pkey);
@@ -438,7 +447,8 @@ void benchmark_ecc() {
     }
 
     // Summary note
-    std::cout << "\n  Note: kctsb ECC uses NTL-based bignum (constant-time).\n";
+    std::cout << "\n  Note: kctsb ECC uses NATIVE fe256 implementation (zero NTL dependency).\n";
+    std::cout << "  All operations use constant-time Montgomery ladder.\n";
     std::cout << "  OpenSSL uses optimized ASM with platform-specific acceleration.\n";
     std::cout << "  Ratio > 1.0 = kctsb faster, Ratio < 1.0 = OpenSSL faster.\n";
 }
