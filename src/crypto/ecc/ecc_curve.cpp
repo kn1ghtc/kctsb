@@ -434,14 +434,17 @@ static void fe256_mul_wide(Fe512* r, const Fe256* a, const Fe256* b) {
 
 // ============================================================================
 // Montgomery Reduction (256-bit modulus, 4 limbs)
+// v5.0.1: Fixed overflow bug - use 9 limbs to capture final carry
 // ============================================================================
 
 static void fe256_montgomery_reduce(Fe256* r, const Fe512* t,
                                     const Fe256* p, uint64_t n0) {
-    uint64_t tmp[8];
+    // Use 9 limbs to properly handle carry overflow in final iteration
+    uint64_t tmp[9];
     for (int i = 0; i < 8; i++) {
         tmp[i] = t->limb[i];
     }
+    tmp[8] = 0;  // Extra limb for overflow
 
     for (int i = 0; i < 4; i++) {
         uint64_t m = tmp[i] * n0;
@@ -454,25 +457,93 @@ static void fe256_montgomery_reduce(Fe256* r, const Fe512* t,
             carry = (uint64_t)(sum >> 64);
         }
 
+        // Propagate carry to tmp[i+4] and beyond, now including tmp[8]
         uint128_t sum = (uint128_t)tmp[i + 4] + carry;
         tmp[i + 4] = (uint64_t)sum;
         carry = (uint64_t)(sum >> 64);
 
-        int k = i + 5;
-        while (carry != 0 && k < 8) {
+        // Continue propagating through remaining limbs (up to index 8)
+        for (int k = i + 5; k <= 8 && carry != 0; k++) {
             sum = (uint128_t)tmp[k] + carry;
             tmp[k] = (uint64_t)sum;
             carry = (uint64_t)(sum >> 64);
-            k++;
         }
     }
 
+    // Result is in tmp[4..7], with possible overflow in tmp[8]
     Fe256 result;
     result.limb[0] = tmp[4];
     result.limb[1] = tmp[5];
     result.limb[2] = tmp[6];
     result.limb[3] = tmp[7];
 
+    // Handle overflow: if tmp[8] != 0, we need to add tmp[8] * (2^256 mod p) to result
+    // This is equivalent to adding tmp[8] * (R mod p) where R = 2^256
+    // For secp256k1: 2^256 ≡ 0x1000003d1 (mod p)
+    // For P-256: 2^256 ≡ 0xfffffffeffffffffffffffffffffffff000000000000000000000001 (mod p)
+    // For SM2: 2^256 ≡ 0x100000000000000000000000000000000ffffffff0000000000000001 (mod p)
+    // 
+    // For all our curves, tmp[8] is either 0 or 1 (at most), so we can handle it simply
+    if (tmp[8] != 0) {
+        uint64_t carry = 0;
+        
+        if (p->limb[0] == SECP256K1_P.limb[0]) {
+            // secp256k1: 2^256 ≡ 0x1000003d1 (mod p)
+            const uint64_t c = 0x1000003d1ULL;
+            uint128_t sum = (uint128_t)result.limb[0] + tmp[8] * c;
+            result.limb[0] = (uint64_t)sum;
+            carry = (uint64_t)(sum >> 64);
+            
+            sum = (uint128_t)result.limb[1] + carry;
+            result.limb[1] = (uint64_t)sum;
+            carry = (uint64_t)(sum >> 64);
+            
+            sum = (uint128_t)result.limb[2] + carry;
+            result.limb[2] = (uint64_t)sum;
+            carry = (uint64_t)(sum >> 64);
+            
+            sum = (uint128_t)result.limb[3] + carry;
+            result.limb[3] = (uint64_t)sum;
+        } else if (p->limb[0] == P256_P.limb[0]) {
+            // P-256: 2^256 mod p = {0x1, 0xffffffff00000000, 0xffffffffffffffff, 0xfffffffe}
+            const uint64_t c[4] = {0x1ULL, 0xFFFFFFFF00000000ULL, 0xFFFFFFFFFFFFFFFFULL, 0xFFFFFFFEULL};
+            
+            uint128_t sum = (uint128_t)result.limb[0] + tmp[8] * c[0];
+            result.limb[0] = (uint64_t)sum;
+            carry = (uint64_t)(sum >> 64);
+            
+            sum = (uint128_t)result.limb[1] + tmp[8] * c[1] + carry;
+            result.limb[1] = (uint64_t)sum;
+            carry = (uint64_t)(sum >> 64);
+            
+            sum = (uint128_t)result.limb[2] + tmp[8] * c[2] + carry;
+            result.limb[2] = (uint64_t)sum;
+            carry = (uint64_t)(sum >> 64);
+            
+            sum = (uint128_t)result.limb[3] + tmp[8] * c[3] + carry;
+            result.limb[3] = (uint64_t)sum;
+        } else if (p->limb[0] == SM2_P.limb[0]) {
+            // SM2: 2^256 mod p = {0x1, 0xffffffff, 0x0, 0x100000000}
+            const uint64_t c[4] = {0x1ULL, 0xFFFFFFFFULL, 0x0ULL, 0x100000000ULL};
+            
+            uint128_t sum = (uint128_t)result.limb[0] + tmp[8] * c[0];
+            result.limb[0] = (uint64_t)sum;
+            carry = (uint64_t)(sum >> 64);
+            
+            sum = (uint128_t)result.limb[1] + tmp[8] * c[1] + carry;
+            result.limb[1] = (uint64_t)sum;
+            carry = (uint64_t)(sum >> 64);
+            
+            sum = (uint128_t)result.limb[2] + tmp[8] * c[2] + carry;
+            result.limb[2] = (uint64_t)sum;
+            carry = (uint64_t)(sum >> 64);
+            
+            sum = (uint128_t)result.limb[3] + tmp[8] * c[3] + carry;
+            result.limb[3] = (uint64_t)sum;
+        }
+    }
+
+    // Final conditional subtraction to ensure result < p
     Fe256 reduced;
     uint64_t borrow = 0;
     reduced.limb[0] = sbb64(result.limb[0], p->limb[0], 0, &borrow);
@@ -481,6 +552,16 @@ static void fe256_montgomery_reduce(Fe256* r, const Fe512* t,
     reduced.limb[3] = sbb64(result.limb[3], p->limb[3], borrow, &borrow);
 
     fe256_cmov(&result, &reduced, (int)(borrow == 0));
+    
+    // May need a second subtraction if tmp[8] was non-zero and result >= p
+    borrow = 0;
+    reduced.limb[0] = sbb64(result.limb[0], p->limb[0], 0, &borrow);
+    reduced.limb[1] = sbb64(result.limb[1], p->limb[1], borrow, &borrow);
+    reduced.limb[2] = sbb64(result.limb[2], p->limb[2], borrow, &borrow);
+    reduced.limb[3] = sbb64(result.limb[3], p->limb[3], borrow, &borrow);
+
+    fe256_cmov(&result, &reduced, (int)(borrow == 0));
+    
     fe256_copy(r, &result);
 }
 
@@ -1479,19 +1560,19 @@ static void fe256_montgomery_ladder(Fe256Point* r, const uint64_t* k,
 
 /**
  * @brief Convert ZZ to fe256 (big integer -> 4-limb)
- * NTL BytesFromZZ uses little-endian byte order.
- * fe256 uses little-endian limb order (limb[0] = LSB).
- * So we pack bytes 0-7 into limb[0], bytes 8-15 into limb[1], etc.
+ * NTL BytesFromZZ uses big-endian byte order: bytes[0] = MSB, bytes[31] = LSB.
+ * fe256 uses little-endian limb order: limb[0] = LSB, limb[3] = MSB.
  */
 static void zz_to_fe256(Fe256* r, const ZZ& a) {
     std::vector<uint8_t> bytes(32, 0);
     BytesFromZZ(bytes.data(), a, 32);
-    // NTL BytesFromZZ: bytes[0] = LSB, bytes[31] = MSB (little-endian)
-    // fe256 limbs: limb[0] = LSB, limb[3] = MSB (little-endian)
+    // bytes is big-endian: bytes[31] = LSB, bytes[0] = MSB
+    // limbs is little-endian: limb[0] = LSB (comes from bytes[24..31])
     for (int i = 0; i < 4; i++) {
         r->limb[i] = 0;
         for (int j = 0; j < 8; j++) {
-            r->limb[i] |= (uint64_t)bytes[i * 8 + j] << (j * 8);
+            // limb[0] from bytes[31..24], limb[1] from bytes[23..16], etc.
+            r->limb[i] |= (uint64_t)bytes[31 - i * 8 - j] << (j * 8);
         }
     }
 }
@@ -1500,10 +1581,12 @@ static void zz_to_fe256(Fe256* r, const ZZ& a) {
  * @brief Convert fe256 to ZZ (4-limb -> big integer)
  */
 static void fe256_to_zz(ZZ& r, const Fe256* a) {
-    std::vector<uint8_t> bytes(32);
+    std::vector<uint8_t> bytes(32, 0);
+    // Convert little-endian limbs to big-endian bytes
     for (int i = 0; i < 4; i++) {
         for (int j = 0; j < 8; j++) {
-            bytes[i * 8 + j] = (a->limb[i] >> (j * 8)) & 0xFF;
+            // limb[0] (LSB) → bytes[31..24], limb[3] (MSB) → bytes[7..0]
+            bytes[31 - i * 8 - j] = (a->limb[i] >> (j * 8)) & 0xFF;
         }
     }
     r = ZZFromBytes(bytes.data(), 32);
@@ -1891,12 +1974,11 @@ JacobianPoint ECCurve::montgomery_ladder(const ZZ& k, const JacobianPoint& P) co
         return JacobianPoint();
     }
     
-    // v4.8.2+: fe256 fast path for 256-bit curves
-    // DISABLED: fe256 Montgomery ladder has issues with SM2 (see troubleshooting/sm2_reduction_bug.md)
-    // The NTL-based fallback is slower but correct. Enable fe256 only after thorough validation.
-    const Fe256CurveOps* ops = nullptr;  // Disabled pending validation
-    const Fe256MontFn to_mont = nullptr;
-    const Fe256MontFn from_mont = nullptr;
+    // v5.0.0+: fe256 fast path for 256-bit curves
+    // v5.0.1: Montgomery reduction overflow bug fixed, re-enabled
+    const Fe256CurveOps* ops = get_fe256_ops(name_);
+    const Fe256MontFn to_mont = get_fe256_to_mont(name_);
+    const Fe256MontFn from_mont = get_fe256_from_mont(name_);
     if (ops != nullptr && bit_size_ == 256 && to_mont != nullptr && from_mont != nullptr) {
         // CRITICAL: Initialize modulus before any ZZ_p operations
         ZZ_p::init(p_);
@@ -1916,14 +1998,19 @@ JacobianPoint ECCurve::montgomery_ladder(const ZZ& k, const JacobianPoint& P) co
         to_mont(&fe_P.Z, &fe_P.Z);
         fe_P.is_infinity = P.is_infinity() ? 1 : 0;
         
-        // Convert scalar to 4-limb format (big-endian for Montgomery ladder)
+        // Convert scalar to 4-limb format (little-endian limbs)
+        // BytesFromZZ outputs big-endian bytes, need to convert properly
         uint64_t k_limbs[4] = {0};
         std::vector<uint8_t> k_bytes(32, 0);
         BytesFromZZ(k_bytes.data(), k_mod, 32);
+        // k_bytes is big-endian: [MSB...LSB], so bytes[31] is the lowest byte
+        // We need k_limbs in little-endian: k_limbs[0] is the lowest limb
         for (int i = 0; i < 4; i++) {
             k_limbs[i] = 0;
             for (int j = 0; j < 8; j++) {
-                k_limbs[i] |= (uint64_t)k_bytes[i * 8 + j] << (j * 8);
+                // limbs[0] should come from bytes[24..31], limbs[3] from bytes[0..7]
+                // Within each limb, bytes are little-endian
+                k_limbs[i] |= (uint64_t)k_bytes[31 - i * 8 - j] << (j * 8);
             }
         }
         
