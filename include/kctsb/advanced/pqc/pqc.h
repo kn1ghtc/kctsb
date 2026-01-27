@@ -1,21 +1,21 @@
 /**
  * @file pqc.h
  * @brief Post-Quantum Cryptography Interface - NIST Standards
- * 
+ *
  * Implements NIST PQC standardized algorithms:
  * - ML-KEM (Kyber) - Key Encapsulation Mechanism
  * - ML-DSA (Dilithium) - Digital Signature Algorithm
- * 
+ *
  * Security Levels:
  * - Level 1 (128-bit): Kyber512, Dilithium2
  * - Level 3 (192-bit): Kyber768, Dilithium3
  * - Level 5 (256-bit): Kyber1024, Dilithium5
- * 
+ *
  * Based on:
  * - FIPS 203 (ML-KEM)
  * - FIPS 204 (ML-DSA)
  * - Lattice-based cryptography (Module-LWE, Module-SIS)
- * 
+ *
  * @author knightc
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
  */
@@ -23,8 +23,9 @@
 #ifndef KCTSB_CRYPTO_PQC_H
 #define KCTSB_CRYPTO_PQC_H
 
+#include <cstddef>  // for size_t
+#include <cstdint>  // for uint32_t, int16_t, etc.
 #include <vector>
-#include <cstdint>
 #include <array>
 
 namespace kctsb {
@@ -62,13 +63,13 @@ struct KyberParams {
     size_t eta2;        ///< CBD parameter for noise
     size_t du;          ///< Bits for u compression
     size_t dv;          ///< Bits for v compression
-    
+
     // Sizes in bytes
     size_t public_key_size;
     size_t secret_key_size;
     size_t ciphertext_size;
     size_t shared_secret_size;
-    
+
     static KyberParams get(KyberLevel level);
 };
 
@@ -81,12 +82,12 @@ struct KyberParams {
  */
 struct KyberPoly {
     std::array<int16_t, KYBER_N> coeffs;
-    
+
     KyberPoly& operator+=(const KyberPoly& other);
     KyberPoly& operator-=(const KyberPoly& other);
     KyberPoly operator+(const KyberPoly& other) const;
     KyberPoly operator-(const KyberPoly& other) const;
-    
+
     void reduce();  // Barrett reduction mod q
     void ntt();     // Number Theoretic Transform
     void inv_ntt(); // Inverse NTT
@@ -97,9 +98,9 @@ struct KyberPoly {
  */
 struct KyberPolyVec {
     std::vector<KyberPoly> polys;
-    
+
     explicit KyberPolyVec(size_t k) : polys(k) {}
-    
+
     KyberPolyVec& operator+=(const KyberPolyVec& other);
     void ntt();
     void inv_ntt();
@@ -111,7 +112,7 @@ struct KyberPolyVec {
  */
 struct KyberPublicKey {
     std::vector<uint8_t> data;
-    
+
     size_t size() const { return data.size(); }
     const uint8_t* bytes() const { return data.data(); }
 };
@@ -121,10 +122,10 @@ struct KyberPublicKey {
  */
 struct KyberSecretKey {
     std::vector<uint8_t> data;
-    
+
     size_t size() const { return data.size(); }
     const uint8_t* bytes() const { return data.data(); }
-    
+
     void clear();  // Secure zeroing
 };
 
@@ -141,7 +142,7 @@ struct KyberKeyPair {
  */
 struct KyberCiphertext {
     std::vector<uint8_t> data;
-    
+
     size_t size() const { return data.size(); }
     const uint8_t* bytes() const { return data.data(); }
 };
@@ -160,26 +161,26 @@ public:
      * @param level Security level (KYBER512, KYBER768, KYBER1024)
      */
     explicit Kyber(KyberLevel level = KyberLevel::KYBER768);
-    
+
     /**
      * @brief Get current parameters
      */
     const KyberParams& get_params() const { return params_; }
-    
+
     // ========================================================================
     // Key Generation
     // ========================================================================
-    
+
     /**
      * @brief Generate key pair
      * @return Key pair (public key, secret key)
      */
     KyberKeyPair keygen() const;
-    
+
     // ========================================================================
     // Encapsulation/Decapsulation
     // ========================================================================
-    
+
     /**
      * @brief Encapsulate: generate shared secret and ciphertext
      * @param public_key Recipient's public key
@@ -188,7 +189,7 @@ public:
      */
     KyberCiphertext encaps(const KyberPublicKey& public_key,
                            std::array<uint8_t, 32>& shared_secret) const;
-    
+
     /**
      * @brief Decapsulate: recover shared secret from ciphertext
      * @param secret_key Recipient's secret key
@@ -203,7 +204,7 @@ public:
 private:
     KyberLevel level_;
     KyberParams params_;
-    
+
     // Internal functions
     void gen_matrix(std::vector<std::vector<KyberPoly>>& A,
                     const uint8_t seed[32], bool transposed) const;
@@ -239,12 +240,12 @@ struct DilithiumParams {
     size_t gamma1;      ///< y coefficient range
     size_t gamma2;      ///< Low-order rounding range
     size_t omega;       ///< Hint weight bound
-    
+
     // Sizes in bytes
     size_t public_key_size;
     size_t secret_key_size;
     size_t signature_size;
-    
+
     static DilithiumParams get(DilithiumLevel level);
 };
 
@@ -257,12 +258,12 @@ struct DilithiumParams {
  */
 struct DilithiumPoly {
     std::array<int32_t, DILITHIUM_N> coeffs;
-    
+
     DilithiumPoly& operator+=(const DilithiumPoly& other);
     DilithiumPoly& operator-=(const DilithiumPoly& other);
     DilithiumPoly operator+(const DilithiumPoly& other) const;
     DilithiumPoly operator-(const DilithiumPoly& other) const;
-    
+
     void reduce();  // Reduction mod q
     void ntt();     // Number Theoretic Transform
     void inv_ntt(); // Inverse NTT
@@ -273,9 +274,9 @@ struct DilithiumPoly {
  */
 struct DilithiumPolyVec {
     std::vector<DilithiumPoly> polys;
-    
+
     explicit DilithiumPolyVec(size_t n) : polys(n) {}
-    
+
     DilithiumPolyVec& operator+=(const DilithiumPolyVec& other);
     DilithiumPolyVec& operator-=(const DilithiumPolyVec& other);
     void ntt();
@@ -288,7 +289,7 @@ struct DilithiumPolyVec {
  */
 struct DilithiumPublicKey {
     std::vector<uint8_t> data;
-    
+
     size_t size() const { return data.size(); }
     const uint8_t* bytes() const { return data.data(); }
 };
@@ -298,10 +299,10 @@ struct DilithiumPublicKey {
  */
 struct DilithiumSecretKey {
     std::vector<uint8_t> data;
-    
+
     size_t size() const { return data.size(); }
     const uint8_t* bytes() const { return data.data(); }
-    
+
     void clear();  // Secure zeroing
 };
 
@@ -318,7 +319,7 @@ struct DilithiumKeyPair {
  */
 struct DilithiumSignature {
     std::vector<uint8_t> data;
-    
+
     size_t size() const { return data.size(); }
     const uint8_t* bytes() const { return data.data(); }
 };
@@ -337,26 +338,26 @@ public:
      * @param level Security level (DILITHIUM2, DILITHIUM3, DILITHIUM5)
      */
     explicit Dilithium(DilithiumLevel level = DilithiumLevel::DILITHIUM3);
-    
+
     /**
      * @brief Get current parameters
      */
     const DilithiumParams& get_params() const { return params_; }
-    
+
     // ========================================================================
     // Key Generation
     // ========================================================================
-    
+
     /**
      * @brief Generate key pair
      * @return Key pair (public key, secret key)
      */
     DilithiumKeyPair keygen() const;
-    
+
     // ========================================================================
     // Signing and Verification
     // ========================================================================
-    
+
     /**
      * @brief Sign a message
      * @param secret_key Signer's secret key
@@ -366,7 +367,7 @@ public:
      */
     DilithiumSignature sign(const DilithiumSecretKey& secret_key,
                             const uint8_t* message, size_t message_len) const;
-    
+
     /**
      * @brief Verify a signature
      * @param public_key Signer's public key
@@ -379,10 +380,16 @@ public:
                 const DilithiumSignature& signature,
                 const uint8_t* message, size_t message_len) const;
 
+    /**
+     * @brief Get the security level
+     * @return Current Dilithium security level
+     */
+    DilithiumLevel get_level() const { return level_; }
+
 private:
     DilithiumLevel level_;
     DilithiumParams params_;
-    
+
     // Internal functions
     void expand_matrix(std::vector<std::vector<DilithiumPoly>>& A,
                        const uint8_t rho[32]) const;

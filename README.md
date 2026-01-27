@@ -20,7 +20,7 @@
 - ✅ **Chow白盒AES重构** - 单文件实现，OpenSSL T-table优化
 - ✅ **零外部依赖** - 核心库无需 GMP/NTL/gf2x
 
-📖 **完整Release Notes**: [v5.0.0 Release](docs/releases/v5.0.0-release.md)  
+📖 **完整Release Notes**: [v5.0.0 Release](docs/releases/v5.0.0-release.md)
 📊 **GmSSL性能分析**: [GmSSL Performance Analysis](docs/analysis/20260126_gmssl_performance_analysis.md)
 
 
@@ -28,7 +28,7 @@
 
 ### 对称加密算法
 - **AES** - AES-128/192/256，支持 **CTR/GCM** 模式（移除 ECB/CBC的不安全模式）
-- **ChaCha20-Poly1305** - RFC 8439 AEAD 流密码 
+- **ChaCha20-Poly1305** - RFC 8439 AEAD 流密码
 - **SM4-GCM** - 国密 SM4 分组密码，仅支持 GCM 认证加密模式
 
 ### AEAD 认证加密
@@ -103,7 +103,7 @@
     - Encrypt: 0.97x (3.75ms vs 3.62ms)
   - **工业级参数推荐** (128-bit 安全性) 📋
     - 轻量级: `n=4096, L=3, 50-bit primes, t=65537` (≤3次乘法)
-    - 标准级: `n=8192, L=5, 50-bit primes, t=65537` (≤5次乘法)  
+    - 标准级: `n=8192, L=5, 50-bit primes, t=65537` (≤5次乘法)
     - 企业级: `n=16384, L=8, 50-bit primes, t=65537` (≤8次乘法)
     - 高安全: `n=32768, L=12, 45-bit primes, t=65537` (≤12次乘法)
 
@@ -156,9 +156,9 @@
     - 批量 PIR：多查询分摊成本
     - 使用场景：高频查询、客户端有存储空间
   - 详见 [PSI/PIR 性能基线](docs/PSI_PIR_PERFORMANCE.md)
-  
+
   **🎯 PSI/PIR 方案选择指南**
-  
+
   | 场景 | 推荐方案 | 理由 |
   |------|----------|------|
   | 大规模平衡数据集 (百万级) | Piano-PSI | O(√n) 通信，半诚实安全 |
@@ -176,8 +176,8 @@ kctsb/
 ├── CMakeLists.txt              # 主构建配置 (CMake 3.20+, Ninja推荐)
 ├── README.md                   # 项目文档
 ├── AGENTS.md                   # AI开发指南
-├── FHE_PERFORMANCE.md          # FHE 性能规范 
-├── OPENSSL_PERFORMANCE.md      # OpenSSL 性能规范 
+├── FHE_PERFORMANCE.md          # FHE 性能规范
+├── OPENSSL_PERFORMANCE.md      # OpenSSL 性能规范
 ├── deps/                       # 第三方benchmark参考源码 (NTL, openssl, SEAL, HElib)
 ├── LICENSE                     # Apache 2.0 许可证
 │
@@ -260,11 +260,6 @@ kctsb/
 └── cmake/                      # CMake 模块
 ```
 
-**核心依赖** (thirdparty/):
-- ✅ GMP 6.3.0+ (必需)
-- ✅ gf2x 1.3.0+ (必需)
-- ⚠️ SEAL 4.1.2 (可选)
-- ⚠️ HElib v2.3.0 (可选)
 
 
 ## 🚀 快速开始
@@ -272,10 +267,10 @@ kctsb/
 ### 系统要求
 
 - **CMake**: 3.20 或更高版本
-- **构建工具**: Ninja (推荐) 
+- **构建工具**: Ninja (推荐)
 - **编译器**:
-  - Windows: MinGW-w64 GCC 13+ 
-  - Linux: GCC 12+ 
+  - Windows: MinGW-w64 GCC 13+
+  - Linux: GCC 12+
   - macOS:  GCC 12+
 - **C++ 标准**: C++17
 - **C 标准**: C11
@@ -332,7 +327,7 @@ $env:PATH="C:\msys64\mingw64\bin;$env:PATH"; ctest --test-dir build-release --ou
 .\scripts\build.ps1 -All
 
 # 完整构建 + 所有测试 + OpenSSL对比基准测试
-.\scripts\build.ps1 -Full 
+.\scripts\build.ps1 -Full
 
 # 仅构建，不运行测试
 .\scripts\build.ps1 -Clean
@@ -398,7 +393,7 @@ cd build && ctest --output-on-failure
 `docs/examples/psi/SecureComputationDemo.py` 仅生成 HTML 报告与日志输出，不会弹出图形窗口或生成图像文件。
 
 
-**Release 包内容** 
+**Release 包内容**
 ```
 release/
 ├── linux-x64/
@@ -414,6 +409,16 @@ release/
 │   │   ├── libkctsb.a               # 静态库 (4.7 MB)
 │   │   └── libkctsb_bundled.a       # ★ 打包库 (6.2 MB) ★
 │   └── include/kctsb_api.h          # 唯一公共头文件
+│
+├── macos-x64/                       # ★ macOS 动态库版本 (v5.0.0) ★
+│   ├── bin/kctsb                    # CLI 工具 (74 KB)
+│   ├── lib/
+│   │   ├── libkctsb.5.0.0.dylib     # 共享库 (1.5 MB, 自包含)
+│   │   ├── libkctsb.5.dylib         # 版本符号链接
+│   │   └── libkctsb.dylib           # 通用符号链接
+│   ├── include/kctsb_api.h          # 唯一公共头文件
+│   ├── README.md                    # macOS 使用指南
+│   └── RELEASE_INFO.txt             # 详细构建信息
 │
 └── cuda-win-x64/                    # ★ CUDA GPU 加速库 (v4.14.0+) ★
     ├── bin/                         # CUDA 测试和 benchmark 工具
@@ -450,9 +455,26 @@ g++ -O3 myapp.cpp -I.\include -L.\lib `
     -lbcrypt -lws2_32 -o myapp.exe
 ```
 
+**macOS (Clang)**:
+```bash
+# 使用动态库（v5.0.0 自包含）
+clang++ -std=c++17 myapp.cpp -I./include -L./lib -lkctsb -o myapp
+
+# 方法1: 使用 DYLD_LIBRARY_PATH
+export DYLD_LIBRARY_PATH=/path/to/release/macos-x64/lib:$DYLD_LIBRARY_PATH
+./myapp
+
+# 方法2: 使用 install_name_tool（推荐分发）
+install_name_tool -change @rpath/libkctsb.5.dylib \
+  /absolute/path/to/lib/libkctsb.5.dylib myapp
+./myapp
+
+# 详见 release/macos-x64/README.md
+```
+
 **CMake 项目集成**:
 ```cmake
-# 使用 bundled 库（推荐）
+# Linux/Windows - 使用 bundled 库（推荐）
 add_executable(myapp main.cpp)
 target_include_directories(myapp PRIVATE ${KCTSB_DIR}/include)
 target_link_libraries(myapp PRIVATE
@@ -463,6 +485,17 @@ target_link_libraries(myapp PRIVATE
 )
 if(WIN32)
     target_link_libraries(myapp PRIVATE bcrypt ws2_32)
+endif()
+
+# macOS - 使用动态库
+if(APPLE)
+    find_library(KCTSB_LIB kctsb PATHS ${KCTSB_DIR}/lib)
+    target_link_libraries(myapp PRIVATE ${KCTSB_LIB})
+    # 设置 rpath
+    set_target_properties(myapp PROPERTIES
+        BUILD_RPATH "${KCTSB_DIR}/lib"
+        INSTALL_RPATH "@executable_path/../lib"
+    )
 endif()
 ```
 
@@ -482,7 +515,7 @@ endif()
 | `KCTSB_ENABLE_HELIB` | **ON** | 使用HElib (函数加密) |
 
 ```powershell
-ninja.exe -C build -j8 2>&1 
+ninja.exe -C build -j8 2>&1
 ```
 
 ### 🚀 CUDA GPU 加速构建 (v4.14.0+)
