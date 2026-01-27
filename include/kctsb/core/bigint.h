@@ -638,37 +638,73 @@ public:
     }
     
 private:
-    /** @brief Reduce wide integer mod n */
+    /** 
+     * @brief Reduce wide integer mod n using shift-and-subtract
+     * 
+     * For a 2*BITS-bit value a, computes a mod n where n is BITS bits.
+     * Uses a simple but correct shift-and-subtract algorithm.
+     * 
+     * Algorithm: Process from high bit to low bit
+     * - Maintain remainder r
+     * - For each bit of a from high to low: r = 2*r + bit, then if r >= n, r -= n
+     */
     Int reduce_wide(const WideInt& a) const {
-        // Simple reduction by repeated subtraction
-        // TODO: Optimize with Barrett reduction
-        WideInt tmp = a;
-        Int result;
-        
-        for (size_t i = 0; i < Int::NUM_LIMBS; ++i) {
-            result[i] = tmp[i];
-        }
-        
-        // Check if upper half is non-zero
-        bool has_upper = false;
-        for (size_t i = Int::NUM_LIMBS; i < WideInt::NUM_LIMBS; ++i) {
-            if (tmp[i] != 0) {
-                has_upper = true;
+        // Find highest set bit in a
+        size_t top_bit = 0;
+        for (size_t i = WideInt::NUM_LIMBS; i > 0; --i) {
+            if (a[i-1] != 0) {
+                top_bit = (i - 1) * 64 + 64 - __builtin_clzll(a[i-1]);
                 break;
             }
         }
         
-        if (has_upper) {
-            // Full reduction needed - use schoolbook division
-            // For now, just return lower half (caller should use proper reduction)
+        if (top_bit == 0) {
+            return Int();  // a is zero
         }
         
-        // Final reduction
-        while (result >= modulus_) {
-            result.sub(modulus_);
+        // For small values that fit in BITS, just copy and reduce
+        if (top_bit <= BITS) {
+            Int result;
+            for (size_t i = 0; i < Int::NUM_LIMBS; ++i) {
+                result[i] = a[i];
+            }
+            while (result >= modulus_) {
+                result.sub(modulus_);
+            }
+            return result;
         }
         
-        return result;
+        // Shift-and-subtract algorithm for large values
+        // Start with r = 0, then for each bit from top to bottom:
+        // r = 2*r + bit(a, i), if r >= n then r -= n
+        Int r;  // Remainder, starts at 0
+        
+        for (size_t i = top_bit; i > 0; --i) {
+            // r = 2*r (shift left by 1)
+            limb_t carry = 0;
+            for (size_t j = 0; j < Int::NUM_LIMBS; ++j) {
+                limb_t new_carry = r[j] >> 63;
+                r[j] = (r[j] << 1) | carry;
+                carry = new_carry;
+            }
+            
+            // Add bit i-1 of a to r
+            bool bit = a.get_bit(i - 1);
+            if (bit) {
+                limb_t add_carry = 0;
+                add_carry = Int::add_with_carry(r[0], 1, 0, r[0]);
+                for (size_t j = 1; j < Int::NUM_LIMBS && add_carry; ++j) {
+                    add_carry = Int::add_with_carry(r[j], add_carry, 0, r[j]);
+                }
+            }
+            
+            // If r >= n, subtract n (constant-time would use cselect)
+            if (r >= modulus_ || carry) {
+                r.sub(modulus_);
+            }
+        }
+        
+        return r;
     }
     
     /** @brief Standard modular multiplication (for R^2 computation) */
@@ -740,57 +776,100 @@ BigInt<BITS> mod_inverse(const BigInt<BITS>& a, const BigInt<BITS>& n) {
     
     if (a.is_zero()) return Int();
     
-    // Extended binary GCD (constant-time friendly)
-    Int u = a, v = n;
-    Int x1(1), x2(0);
+    // Standard Extended Euclidean Algorithm
+    // We compute gcd(a, n) and coefficients s, t such that:
+    // a * s + n * t = gcd(a, n)
+    // If gcd = 1, then s is the modular inverse of a mod n
     
-    while (!u.is_zero() && !v.is_zero()) {
-        while (!u.is_odd()) {
-            u >>= 1;
-            if (x1.is_odd()) {
-                x1 += n;
-            }
-            x1 >>= 1;
+    Int r0 = n, r1 = a;
+    Int s0(0), s1(1);
+    
+    // Normalize r1 to be less than r0
+    while (r1 >= r0) {
+        r1 -= r0;
+    }
+    
+    while (!r1.is_zero()) {
+        // q = r0 / r1, r = r0 % r1
+        Int q(0), r = r0;
+        
+        // Division: find q such that q * r1 <= r0 < (q+1) * r1
+        // Binary search for quotient bit by bit
+        Int temp = r1;
+        Int temp_q(1);
+        
+        // Find the highest power of 2 where r1 * 2^k <= r0
+        while (temp <= r) {
+            Int doubled = temp;
+            doubled <<= 1;
+            if (doubled > r || doubled < temp) break;  // Overflow check
+            temp = doubled;
+            temp_q <<= 1;
         }
         
-        while (!v.is_odd()) {
-            v >>= 1;
-            if (x2.is_odd()) {
-                x2 += n;
+        // Subtract multiples of r1 from r
+        while (temp >= r1 && !r.is_zero()) {
+            if (r >= temp) {
+                r -= temp;
+                q += temp_q;
             }
-            x2 >>= 1;
+            temp >>= 1;
+            temp_q >>= 1;
         }
         
-        if (u >= v) {
-            u -= v;
-            if (x1 < x2) {
-                x1 += n;
+        // Update: r0 = r1, r1 = r, s0 = s1, s1 = s0 - q * s1
+        r0 = r1;
+        r1 = r;
+        
+        // Compute q * s1 mod n using double-and-add with overflow check
+        Int qs(0);
+        Int q_copy = q;
+        Int s1_copy = s1;
+        
+        // Ensure s1_copy < n before starting
+        while (s1_copy >= n) s1_copy -= n;
+        
+        // qs = q * s1 mod n using doubling
+        while (!q_copy.is_zero()) {
+            if (q_copy.is_odd()) {
+                qs += s1_copy;
+                while (qs >= n) qs -= n;
             }
-            x1 -= x2;
+            // Double s1_copy mod n - must check for overflow before shift
+            // If s1_copy >= n/2, then 2*s1_copy >= n, so we need to handle
+            // Actually, after shift, just reduce mod n
+            bool high_bit = s1_copy[Int::NUM_LIMBS - 1] & (1ULL << 63);
+            s1_copy <<= 1;
+            if (high_bit || s1_copy >= n) {
+                // s1_copy might have overflowed or be >= n
+                while (s1_copy >= n) s1_copy -= n;
+            }
+            q_copy >>= 1;
+        }
+        
+        // s_new = s0 - qs mod n
+        Int s_new;
+        if (s0 >= qs) {
+            s_new = s0;
+            s_new -= qs;
         } else {
-            v -= u;
-            if (x2 < x1) {
-                x2 += n;
-            }
-            x2 -= x1;
+            s_new = n;
+            s_new -= qs;
+            s_new += s0;
+            while (s_new >= n) s_new -= n;
         }
+        
+        s0 = s1;
+        s1 = s_new;
     }
     
-    // Check if GCD is 1
+    // gcd is r0, inverse is s0 if gcd = 1
     Int one(1);
-    if (u == one) {
-        while (x1 >= n) {
-            x1 -= n;
-        }
-        return x1;
-    } else if (v == one) {
-        while (x2 >= n) {
-            x2 -= n;
-        }
-        return x2;
+    if (r0 == one) {
+        return s0;
     }
     
-    return Int();  // No inverse exists
+    return Int();  // No inverse exists (gcd != 1)
 }
 
 } // namespace kctsb
