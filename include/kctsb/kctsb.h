@@ -13,7 +13,7 @@
  * 
  * Modules:
  * - Core: BigInt, Fe256, MontgomeryContext
- * - RSA: RSA (PKCS#1 v2.2: OAEP, PSS)
+ * - RSA: RSA (PKCS#1 v2.2: OAEP/PSS, 3072/4096)
  * - ECC: ECCurve, ECDSA, ECDH (secp256k1, P-256)
  * - SM2: SM2Signer, SM2Encryptor (GM/T 0003-2012)
  * - DH: DH (RFC 7919: ffdhe2048/3072/4096)
@@ -51,7 +51,7 @@
 // Cryptographic Modules
 // ============================================================================
 
-#include "kctsb/crypto/rsa/rsa.h"       // RSA, RSA2048, RSA4096
+#include "kctsb/crypto/rsa.h"           // RSA (C ABI, OAEP/PSS)
 #include "kctsb/crypto/ecc/ecc.h"       // ECCurve, ECDSA, ECDH
 #include "kctsb/crypto/sm/sm2.h"        // SM2Signer, SM2Encryptor
 
@@ -66,11 +66,6 @@ namespace kctsb {
 // ============================================================================
 
 // Core types are already in kctsb namespace via headers
-
-// RSA convenience aliases
-using RSA2048 = rsa::RSA2048;
-using RSA3072 = rsa::RSA3072;
-using RSA4096 = rsa::RSA4096;
 
 // ECC types (forward declarations - actual types in ecc.h)
 // Note: These will be available after ecc.h V5 suffix removal
@@ -87,20 +82,21 @@ using RSA4096 = rsa::RSA4096;
 /**
  * @example rsa_example.cpp
  * @code
- * #include "kctsb/kctsb_v5.h"
- * 
- * using namespace kctsb::v5;
- * 
- * // Generate RSA-2048 key pair
- * RSA2048 rsa;
- * auto [pub, priv] = rsa.generate_keypair();
- * 
- * // Sign with PSS
- * uint8_t hash[32] = {...};
- * auto signature = rsa.sign_pss(hash, sizeof(hash), priv);
- * 
+ * #include "kctsb/kctsb_api.h"
+ *
+ * // Generate RSA-3072 key pair
+ * kctsb_rsa_public_key_t pub;
+ * kctsb_rsa_private_key_t priv;
+ * kctsb_rsa_generate_keypair(KCTSB_RSA_3072_BITS, &pub, &priv);
+ *
+ * // Sign with PSS (SHA-256)
+ * uint8_t hash[32] = {0};
+ * uint8_t sig[KCTSB_RSA_3072_BYTES];
+ * size_t sig_len = sizeof(sig);
+ * kctsb_rsa_pss_sign_sha256(&priv, hash, sizeof(hash), nullptr, 0, sig, &sig_len);
+ *
  * // Verify
- * bool valid = rsa.verify_pss(hash, sizeof(hash), signature, pub);
+ * kctsb_rsa_pss_verify_sha256(&pub, hash, sizeof(hash), sig, sig_len);
  * @endcode
  * 
  * @example ecdsa_example.cpp

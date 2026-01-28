@@ -36,7 +36,7 @@
 - **ChaCha20-Poly1305** - 256-bit 密钥，128-bit 标签
 
 ### 非对称加密算法
-- **RSA** - RSA-2048/3072/4096 OAEP加密/PSS签名 (PKCS#1 v2.2)
+- **RSA** - RSA-3072/4096 OAEP加密/PSS签名 (PKCS#1 v2.2, SHA-256)
 - **ECC** - 完整椭圆曲线密码（secp256k1, P-256）**原生实现**
 - **ECDSA** - RFC 6979 确定性签名
 - **ECDH** - RFC 5869 HKDF 密钥派生
@@ -44,6 +44,8 @@
 - **SM2** - 国密 SM2 椭圆曲线
 - **DH** - Diffie-Hellman 密钥交换 (RFC 3526)
 - **DSA** - FIPS 186-4 数字签名
+
+**RSA 安全策略（2026）**：仅保留 OAEP/PSS + SHA-256，禁用 PKCS#1 v1.5、Raw RSA、2048 位及以下密钥。
 
 ### 后量子密码
 - **Kyber** - ML-KEM (FIPS 203), 512/768/1024

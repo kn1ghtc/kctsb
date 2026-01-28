@@ -3,7 +3,7 @@
  * @brief RSA subcommand implementation for kctsb CLI
  * 
  * Placeholder for RSA operations:
- *   - Key generation (2048/4096 bits)
+ *   - Key generation (3072/4096 bits)
  *   - Encryption/Decryption
  *   - Signing/Verification
  * 
@@ -23,7 +23,7 @@ void print_rsa_help() {
     std::cout << "  -verify           Verify signature with public key\n";
     std::cout << "  -in <file>        Input file\n";
     std::cout << "  -out <file>       Output file\n";
-    std::cout << "  -keysize <bits>   Key size: 2048, 4096 (default: 2048)\n";
+    std::cout << "  -keysize <bits>   Key size: 3072, 4096 (default: 3072)\n";
     std::cout << "  --help            Show this help message\n\n";
     std::cout << "Status: COMING SOON (Implementation in progress)\n\n";
 }

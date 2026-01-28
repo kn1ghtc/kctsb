@@ -143,6 +143,14 @@ typedef enum {
 
 #define KCTSB_SM3_DIGEST_SIZE    32
 
+/* RSA sizes (HTTPS recommended) */
+#define KCTSB_RSA_3072_BITS 3072
+#define KCTSB_RSA_4096_BITS 4096
+#define KCTSB_RSA_3072_BYTES 384
+#define KCTSB_RSA_4096_BYTES 512
+#define KCTSB_RSA_MAX_MODULUS_BYTES 512
+#define KCTSB_RSA_MAX_PRIME_BYTES 256
+
 /* ============================================================================
  * Context Structures
  * ============================================================================ */
@@ -344,6 +352,45 @@ typedef struct {
 typedef struct {
     void* internal;
 } kctsb_hmac_ctx_t;
+#endif
+
+/**
+ * @brief RSA public key container (3072/4096 bits)
+ */
+#ifndef KCTSB_RSA_PUBLIC_KEY_DEFINED
+#define KCTSB_RSA_PUBLIC_KEY_DEFINED
+typedef struct {
+    uint32_t bits;
+    uint32_t n_len;
+    uint32_t e_len;
+    uint8_t n[KCTSB_RSA_MAX_MODULUS_BYTES];
+    uint8_t e[KCTSB_RSA_MAX_MODULUS_BYTES];
+} kctsb_rsa_public_key_t;
+#endif
+
+/**
+ * @brief RSA private key container (optional CRT parameters)
+ */
+#ifndef KCTSB_RSA_PRIVATE_KEY_DEFINED
+#define KCTSB_RSA_PRIVATE_KEY_DEFINED
+typedef struct {
+    uint32_t bits;
+    uint32_t n_len;
+    uint32_t d_len;
+    uint32_t p_len;
+    uint32_t q_len;
+    uint32_t dp_len;
+    uint32_t dq_len;
+    uint32_t qinv_len;
+    uint8_t n[KCTSB_RSA_MAX_MODULUS_BYTES];
+    uint8_t d[KCTSB_RSA_MAX_MODULUS_BYTES];
+    uint8_t p[KCTSB_RSA_MAX_PRIME_BYTES];
+    uint8_t q[KCTSB_RSA_MAX_PRIME_BYTES];
+    uint8_t dp[KCTSB_RSA_MAX_PRIME_BYTES];
+    uint8_t dq[KCTSB_RSA_MAX_PRIME_BYTES];
+    uint8_t qinv[KCTSB_RSA_MAX_PRIME_BYTES];
+    uint8_t has_crt;
+} kctsb_rsa_private_key_t;
 #endif
 
 /* ============================================================================
@@ -1124,6 +1171,125 @@ KCTSB_API kctsb_error_t kctsb_sm4_gcm_decrypt_oneshot(
     const uint8_t* aad, size_t aad_len,
     const uint8_t* ciphertext, size_t ciphertext_len,
     const uint8_t tag[16], uint8_t* plaintext);
+
+/* ============================================================================
+ * RSA (PSS/OAEP, SHA-256 only)
+ * ============================================================================ */
+
+/**
+ * @brief Initialize RSA public key
+ * @param key Output public key
+ * @param n Modulus (big-endian)
+ * @param n_len Modulus length (384 or 512 bytes)
+ * @param e Public exponent (big-endian)
+ * @param e_len Exponent length
+ * @return KCTSB_SUCCESS or error code
+ */
+KCTSB_API kctsb_error_t kctsb_rsa_public_key_init(
+    kctsb_rsa_public_key_t* key,
+    const uint8_t* n, size_t n_len,
+    const uint8_t* e, size_t e_len);
+
+/**
+ * @brief Initialize RSA private key (non-CRT)
+ * @param key Output private key
+ * @param n Modulus (big-endian)
+ * @param n_len Modulus length
+ * @param d Private exponent (big-endian)
+ * @param d_len Exponent length
+ * @return KCTSB_SUCCESS or error code
+ */
+KCTSB_API kctsb_error_t kctsb_rsa_private_key_init(
+    kctsb_rsa_private_key_t* key,
+    const uint8_t* n, size_t n_len,
+    const uint8_t* d, size_t d_len);
+
+/**
+ * @brief Initialize RSA private key with CRT parameters
+ * @return KCTSB_SUCCESS or error code
+ */
+KCTSB_API kctsb_error_t kctsb_rsa_private_key_init_crt(
+    kctsb_rsa_private_key_t* key,
+    const uint8_t* n, size_t n_len,
+    const uint8_t* d, size_t d_len,
+    const uint8_t* p, size_t p_len,
+    const uint8_t* q, size_t q_len,
+    const uint8_t* dp, size_t dp_len,
+    const uint8_t* dq, size_t dq_len,
+    const uint8_t* qinv, size_t qinv_len);
+
+/**
+ * @brief Generate RSA keypair (3072/4096 only)
+ * @param bits Key size in bits (3072 or 4096)
+ * @param pub Output public key
+ * @param priv Output private key
+ * @return KCTSB_SUCCESS or error code
+ */
+KCTSB_API kctsb_error_t kctsb_rsa_generate_keypair(
+    int bits,
+    kctsb_rsa_public_key_t* pub,
+    kctsb_rsa_private_key_t* priv);
+
+/**
+ * @brief RSAES-OAEP encryption (SHA-256)
+ * @param pub RSA public key
+ * @param message Plaintext
+ * @param message_len Plaintext length
+ * @param label Optional OAEP label (can be NULL)
+ * @param label_len Label length
+ * @param ciphertext Output ciphertext (size >= modulus length)
+ * @param ciphertext_len In: buffer size; Out: actual size
+ */
+KCTSB_API kctsb_error_t kctsb_rsa_oaep_encrypt_sha256(
+    const kctsb_rsa_public_key_t* pub,
+    const uint8_t* message, size_t message_len,
+    const uint8_t* label, size_t label_len,
+    uint8_t* ciphertext, size_t* ciphertext_len);
+
+/**
+ * @brief RSAES-OAEP decryption (SHA-256)
+ * @param priv RSA private key
+ * @param ciphertext Input ciphertext
+ * @param ciphertext_len Ciphertext length (modulus length)
+ * @param label Optional OAEP label (can be NULL)
+ * @param label_len Label length
+ * @param message Output plaintext
+ * @param message_len In: buffer size; Out: plaintext length
+ */
+KCTSB_API kctsb_error_t kctsb_rsa_oaep_decrypt_sha256(
+    const kctsb_rsa_private_key_t* priv,
+    const uint8_t* ciphertext, size_t ciphertext_len,
+    const uint8_t* label, size_t label_len,
+    uint8_t* message, size_t* message_len);
+
+/**
+ * @brief RSASSA-PSS signature (SHA-256)
+ * @param priv RSA private key
+ * @param mhash Message hash (32 bytes)
+ * @param mhash_len Hash length
+ * @param salt Optional salt (32 bytes). If NULL, uses CSPRNG.
+ * @param salt_len Salt length (0 if salt is NULL)
+ * @param signature Output signature (size >= modulus length)
+ * @param signature_len In: buffer size; Out: signature length
+ */
+KCTSB_API kctsb_error_t kctsb_rsa_pss_sign_sha256(
+    const kctsb_rsa_private_key_t* priv,
+    const uint8_t* mhash, size_t mhash_len,
+    const uint8_t* salt, size_t salt_len,
+    uint8_t* signature, size_t* signature_len);
+
+/**
+ * @brief RSASSA-PSS verify (SHA-256)
+ * @param pub RSA public key
+ * @param mhash Message hash (32 bytes)
+ * @param mhash_len Hash length
+ * @param signature Input signature
+ * @param signature_len Signature length
+ */
+KCTSB_API kctsb_error_t kctsb_rsa_pss_verify_sha256(
+    const kctsb_rsa_public_key_t* pub,
+    const uint8_t* mhash, size_t mhash_len,
+    const uint8_t* signature, size_t signature_len);
 
 /* ============================================================================
  * HMAC

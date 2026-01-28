@@ -15,7 +15,7 @@
  *   hash    - SHA3-256, BLAKE2b hash functions
  *   mac     - HMAC/CMAC/GMAC
  *   ecc     - Elliptic curve (ECDSA, ECDH)
- *   rsa     - RSA-2048/4096 operations
+ *   rsa     - RSA-3072/4096 operations
  *   sm      - Chinese national crypto (SM2/SM3/SM4)
  *
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
@@ -165,7 +165,7 @@ void print_usage(const char* program_name) {
     std::cout << "  hash    - SHA3-256, BLAKE2b hash functions\n";
     std::cout << "  mac     - HMAC/CMAC/GMAC\n";
     std::cout << "  ecc     - Elliptic curve (ECDSA, ECDH)\n";
-    std::cout << "  rsa     - RSA-2048/4096 operations\n";
+    std::cout << "  rsa     - RSA-3072/4096 operations\n";
     std::cout << "  sm      - Chinese national crypto (SM2/SM3/SM4)\n";
     std::cout << "\nExamples:\n";
     std::cout << "  " << program_name << "        # Run all benchmarks\n";
