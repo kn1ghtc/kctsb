@@ -137,20 +137,20 @@ TEST_F(BFVTest, DeltaVectorIsValid) {
 // ============================================================================
 
 TEST_F(BFVTest, SecretKeyGeneration) {
-    EXPECT_TRUE(sk_.is_ntt_form);
-    EXPECT_FALSE(sk_.s.is_zero());
+    EXPECT_TRUE(sk_->is_ntt_form);
+    EXPECT_FALSE(sk_->s.is_zero());
 }
 
 TEST_F(BFVTest, PublicKeyGeneration) {
-    EXPECT_TRUE(pk_.is_ntt_form);
-    EXPECT_FALSE(pk_.pk0.is_zero());
-    EXPECT_FALSE(pk_.pk1.is_zero());
+    EXPECT_TRUE(pk_->is_ntt_form);
+    EXPECT_FALSE(pk_->pk0.is_zero());
+    EXPECT_FALSE(pk_->pk1.is_zero());
 }
 
 TEST_F(BFVTest, RelinKeyGeneration) {
-    EXPECT_TRUE(rk_.is_ntt_form);
-    EXPECT_FALSE(rk_.ksk0.empty());
-    EXPECT_EQ(rk_.ksk0.size(), rk_.ksk1.size());
+    EXPECT_TRUE(rk_->is_ntt_form);
+    EXPECT_FALSE(rk_->ksk0.empty());
+    EXPECT_EQ(rk_->ksk0.size(), rk_->ksk1.size());
 }
 
 // ============================================================================

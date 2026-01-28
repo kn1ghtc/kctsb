@@ -498,9 +498,18 @@ CKKSCiphertext CKKSEvaluator::add_plain(const CKKSCiphertext& ct, const CKKSPlai
 CKKSCiphertext CKKSEvaluator::multiply(const CKKSCiphertext& ct1, const CKKSCiphertext& ct2) {
     CKKSCiphertext result(context_, ct1.scale() * ct2.scale());
     
+    // CKKS multiplication produces 3-component ciphertext:
+    // (c0_1, c1_1) * (c0_2, c1_2) = (d0, d1, d2)
+    // where:
+    //   d0 = c0_1 * c0_2
+    //   d1 = c0_1 * c1_2 + c1_1 * c0_2
+    //   d2 = c1_1 * c1_2
+    
+    // d0 = c0_1 * c0_2
     result.c0() = ct1.c0();
     result.c0() *= ct2.c0();
     
+    // d1 = c0_1 * c1_2 + c1_1 * c0_2
     RNSPoly temp1 = ct1.c0();
     temp1 *= ct2.c1();
     
@@ -509,6 +518,11 @@ CKKSCiphertext CKKSEvaluator::multiply(const CKKSCiphertext& ct1, const CKKSCiph
     
     result.c1() = temp1;
     result.c1() += temp2;
+    
+    // d2 = c1_1 * c1_2
+    result.set_size(3);
+    result.c2() = ct1.c1();
+    result.c2() *= ct2.c1();
     
     result.set_level(std::min(ct1.level(), ct2.level()));
     return result;
@@ -531,8 +545,38 @@ CKKSCiphertext CKKSEvaluator::multiply_plain(const CKKSCiphertext& ct, const CKK
 }
 
 CKKSCiphertext CKKSEvaluator::relinearize(const CKKSCiphertext& ct, const CKKSRelinKey& rk) {
-    // Simplified: return input (full key switching pending)
-    return ct;
+    // If already 2-component, nothing to do
+    if (ct.size() <= 2) {
+        return ct;
+    }
+    
+    // Relinearization: converts (c0, c1, c2) to (c0', c1')
+    // Using the relinearization key rk = (b, a) where b = -a*s + e + s^2
+    // c0' = c0 + c2 * b
+    // c1' = c1 + c2 * a
+    
+    CKKSCiphertext result(context_, ct.scale());
+    
+    if (rk.key_components.empty()) {
+        throw std::runtime_error("Relinearization key has no components");
+    }
+    
+    const auto& [rk_b, rk_a] = rk.key_components[0];
+    
+    // c0' = c0 + c2 * rk_b
+    RNSPoly c2_times_b = ct.c2();
+    c2_times_b *= rk_b;
+    result.c0() = ct.c0();
+    result.c0() += c2_times_b;
+    
+    // c1' = c1 + c2 * rk_a
+    RNSPoly c2_times_a = ct.c2();
+    c2_times_a *= rk_a;
+    result.c1() = ct.c1();
+    result.c1() += c2_times_a;
+    
+    result.set_level(ct.level());
+    return result;
 }
 
 CKKSCiphertext CKKSEvaluator::rescale(const CKKSCiphertext& ct) {
@@ -541,8 +585,8 @@ CKKSCiphertext CKKSEvaluator::rescale(const CKKSCiphertext& ct) {
     }
     
     size_t level = ct.level();
-    uint64_t divisor = context_->modulus(level).value();
-    double new_scale = ct.scale() / static_cast<double>(divisor);
+    uint64_t q_L = context_->modulus(level).value();
+    double new_scale = ct.scale() / static_cast<double>(q_L);
     
     CKKSCiphertext result(context_, new_scale);
     
@@ -559,17 +603,33 @@ CKKSCiphertext CKKSEvaluator::rescale(const CKKSCiphertext& ct) {
     result.c0() = RNSPoly(context_);
     result.c1() = RNSPoly(context_);
     
-    for (size_t i = 0; i < n; ++i) {
-        uint64_t coef0 = c0(level, i);
-        uint64_t coef1 = c1(level, i);
+    // CKKS rescale: For each coefficient position i:
+    // result[l][i] = (c[l][i] - c[L][i]) * q_L^{-1} mod q_l
+    // where q_L^{-1} is the modular inverse of q_L mod q_l
+    
+    for (size_t l = 0; l < level; ++l) {
+        const Modulus& mod_l = context_->modulus(l);
+        uint64_t q_l = mod_l.value();
+        // Compute q_L^{-1} mod q_l using extended Euclidean algorithm
+        uint64_t q_L_inv = inv_mod(q_L % q_l, mod_l);
         
-        uint64_t scaled0 = coef0 / divisor;
-        uint64_t scaled1 = coef1 / divisor;
-        
-        for (size_t l = 0; l < level; ++l) {
-            uint64_t q = context_->modulus(l).value();
-            result.c0()(l, i) = scaled0 % q;
-            result.c1()(l, i) = scaled1 % q;
+        for (size_t i = 0; i < n; ++i) {
+            // Get coefficients at level l and top level L
+            uint64_t c0_l = c0(l, i);
+            uint64_t c1_l = c1(l, i);
+            uint64_t c0_L = c0(level, i);
+            uint64_t c1_L = c1(level, i);
+            
+            // Reduce top-level coefficient mod q_l
+            uint64_t c0_L_mod = c0_L % q_l;
+            uint64_t c1_L_mod = c1_L % q_l;
+            
+            // Compute (c[l] - c[L] mod q_l) * q_L^{-1} mod q_l
+            uint64_t diff0 = sub_uint_mod(c0_l, c0_L_mod, mod_l);
+            uint64_t diff1 = sub_uint_mod(c1_l, c1_L_mod, mod_l);
+            
+            result.c0()(l, i) = multiply_uint_mod(diff0, q_L_inv, mod_l);
+            result.c1()(l, i) = multiply_uint_mod(diff1, q_L_inv, mod_l);
         }
     }
     

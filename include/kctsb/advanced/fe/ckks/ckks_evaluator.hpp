@@ -104,19 +104,24 @@ private:
 // ============================================================================
 
 /**
- * @brief CKKS ciphertext: (c0, c1) where m ≈ c0 + c1*s
+ * @brief CKKS ciphertext: (c0, c1, [c2]) where m ≈ c0 + c1*s [+ c2*s^2]
+ * 
+ * After multiplication, ciphertext has 3 components. Relinearization
+ * converts it back to 2 components.
  */
 class CKKSCiphertext {
 public:
     CKKSCiphertext() = default;
     explicit CKKSCiphertext(const RNSContext* ctx, double scale = 0.0)
-        : c0_(ctx), c1_(ctx), scale_(scale), level_(ctx ? ctx->level_count() - 1 : 0) {}
+        : c0_(ctx), c1_(ctx), c2_(), scale_(scale), level_(ctx ? ctx->level_count() - 1 : 0), size_(2), context_(ctx) {}
     
     /// Access components
     RNSPoly& c0() { return c0_; }
     RNSPoly& c1() { return c1_; }
+    RNSPoly& c2() { return c2_; }
     const RNSPoly& c0() const { return c0_; }
     const RNSPoly& c1() const { return c1_; }
+    const RNSPoly& c2() const { return c2_; }
     
     /// Scale and level
     double scale() const { return scale_; }
@@ -127,13 +132,21 @@ public:
     /// Check if in NTT form
     bool is_ntt_form() const { return c0_.is_ntt_form() && c1_.is_ntt_form(); }
     
-    /// Size (always 2 for standard ciphertext)
-    size_t size() const { return 2; }
+    /// Size (2 for standard, 3 after multiplication before relinearization)
+    size_t size() const { return size_; }
+    void set_size(size_t s) { 
+        size_ = s; 
+        if (s >= 3 && context_) {
+            c2_ = RNSPoly(context_);
+        }
+    }
     
 private:
-    RNSPoly c0_, c1_;
+    RNSPoly c0_, c1_, c2_;
     double scale_ = 0.0;
     size_t level_ = 0;
+    size_t size_ = 2;
+    const RNSContext* context_ = nullptr;
 };
 
 // ============================================================================
