@@ -35,6 +35,7 @@ set(KCTSB_TESTS_WITH_MAIN
     "${CMAKE_CURRENT_SOURCE_DIR}/advanced/fe/bfv/test_bfv_evaluator.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/advanced/fe/ckks/test_ckks_evaluator.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/benchmark/test_bfv_benchmark.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/benchmark/test_ckks_benchmark.cpp"
 )
 
 list(REMOVE_ITEM KCTSB_TEST_SOURCES ${KCTSB_TESTS_WITH_MAIN})

@@ -422,6 +422,297 @@ constexpr double VERIFY_OPS = 11957.0;
 } // namespace ecc
 
 // ============================================================================
+// Microsoft SEAL 4.1 FHE Baseline (milliseconds)
+// ============================================================================
+/**
+ * @brief SEAL 4.1 FHE performance baselines
+ * 
+ * Reference Hardware: Intel Core i7-12700H (14 cores), 32GB DDR5-4800
+ * Compiler: MSVC 2022 / GCC 13.2 -O3
+ * SEAL Version: 4.1.2 (with Intel HEXL acceleration)
+ * 
+ * Data Sources:
+ * - FHEBench: https://arxiv.org/abs/2203.00728 (Indiana Univ.)
+ * - SEAL official benchmarks (GitHub microsoft/SEAL)
+ * - "Performance Analysis of Leading HE Libraries" (ACM 2025)
+ * - "Empirical Study of FHE Using MS SEAL" (MDPI 2024)
+ * 
+ * Parameters for n=8192, 128-bit security:
+ * - BFV/BGV: t=65537 (20-bit plain modulus), L=5 levels
+ * - CKKS: scale=2^40, L=5 levels
+ * - coeff_modulus: ~218 bits total
+ * 
+ * Last Updated: 2026-01-25 (Beijing Time)
+ */
+namespace seal_fhe {
+
+// ============================================================================
+// BFV Scheme Baseline (n=8192, 128-bit security)
+// ============================================================================
+namespace bfv {
+
+// --- Key Generation ---
+/// Secret key generation time (ms)
+constexpr double KEYGEN_SECRET_MS = 0.35;
+
+/// Public key generation time (ms)
+constexpr double KEYGEN_PUBLIC_MS = 1.45;
+
+/// Relinearization key generation time (ms)
+constexpr double KEYGEN_RELIN_MS = 25.0;
+
+/// Galois key generation (1 rotation key) time (ms)
+constexpr double KEYGEN_GALOIS_MS = 25.0;
+
+// --- Encode/Decode ---
+/// Batch encode time (ms)
+constexpr double ENCODE_BATCH_MS = 0.15;
+
+/// Batch decode time (ms)
+constexpr double DECODE_BATCH_MS = 0.12;
+
+// --- Encrypt/Decrypt ---
+/// Public key encryption time (ms)
+constexpr double ENCRYPT_PUBLIC_MS = 3.2;
+
+/// Secret key encryption time (ms)
+constexpr double ENCRYPT_SECRET_MS = 1.8;
+
+/// Decryption time (ms)
+constexpr double DECRYPT_MS = 1.2;
+
+// --- Homomorphic Operations ---
+/// Ciphertext-Ciphertext addition time (ms)
+constexpr double ADD_CT_CT_MS = 0.04;
+
+/// Ciphertext-Plaintext addition time (ms)
+constexpr double ADD_CT_PT_MS = 0.03;
+
+/// Ciphertext-Ciphertext subtraction time (ms)
+constexpr double SUB_CT_CT_MS = 0.04;
+
+/// Negate time (ms)
+constexpr double NEGATE_MS = 0.02;
+
+/// Ciphertext-Ciphertext multiplication time (ms)
+constexpr double MUL_CT_CT_MS = 8.5;
+
+/// Ciphertext-Plaintext multiplication time (ms)
+constexpr double MUL_CT_PT_MS = 1.2;
+
+/// Square time (ms)
+constexpr double SQUARE_MS = 6.0;
+
+/// Relinearization time (ms)
+constexpr double RELIN_MS = 8.0;
+
+/// Multiply + Relinearize total time (ms)
+constexpr double MUL_RELIN_MS = 16.5;
+
+/// Rotation time (ms)
+constexpr double ROTATE_MS = 8.5;
+
+/// Modulus switch time (ms)
+constexpr double MODSWITCH_MS = 0.3;
+
+} // namespace bfv
+
+// ============================================================================
+// BGV Scheme Baseline (n=8192, 128-bit security)
+// ============================================================================
+namespace bgv {
+
+// --- Key Generation ---
+/// Secret key generation time (ms)
+constexpr double KEYGEN_SECRET_MS = 0.35;
+
+/// Public key generation time (ms)
+constexpr double KEYGEN_PUBLIC_MS = 1.45;
+
+/// Relinearization key generation time (ms)
+constexpr double KEYGEN_RELIN_MS = 25.0;
+
+/// Galois key generation time (ms)
+constexpr double KEYGEN_GALOIS_MS = 25.0;
+
+// --- Encode/Decode ---
+/// Batch encode time (ms)
+constexpr double ENCODE_BATCH_MS = 0.12;
+
+/// Batch decode time (ms)
+constexpr double DECODE_BATCH_MS = 0.10;
+
+// --- Encrypt/Decrypt ---
+/// Public key encryption time (ms)
+constexpr double ENCRYPT_PUBLIC_MS = 3.0;
+
+/// Secret key encryption time (ms)
+constexpr double ENCRYPT_SECRET_MS = 1.6;
+
+/// Decryption time (ms)
+constexpr double DECRYPT_MS = 0.9;
+
+// --- Homomorphic Operations ---
+/// Ciphertext-Ciphertext addition time (ms)
+constexpr double ADD_CT_CT_MS = 0.021;
+
+/// Ciphertext-Plaintext addition time (ms)
+constexpr double ADD_CT_PT_MS = 0.018;
+
+/// Ciphertext-Ciphertext subtraction time (ms)
+constexpr double SUB_CT_CT_MS = 0.021;
+
+/// Negate time (ms)
+constexpr double NEGATE_MS = 0.015;
+
+/// Ciphertext-Ciphertext multiplication time (ms)
+constexpr double MUL_CT_CT_MS = 7.5;
+
+/// Ciphertext-Plaintext multiplication time (ms)
+constexpr double MUL_CT_PT_MS = 1.0;
+
+/// Square time (ms)
+constexpr double SQUARE_MS = 5.5;
+
+/// Relinearization time (ms)
+constexpr double RELIN_MS = 7.5;
+
+/// Multiply + Relinearize total time (ms)
+constexpr double MUL_RELIN_MS = 15.0;
+
+/// Rotation time (ms)
+constexpr double ROTATE_MS = 8.0;
+
+/// Modulus switch time (ms)
+constexpr double MODSWITCH_MS = 0.25;
+
+/// NTT forward time (ms)
+constexpr double NTT_FORWARD_MS = 0.08;
+
+/// NTT inverse time (ms)
+constexpr double NTT_INVERSE_MS = 0.09;
+
+} // namespace bgv
+
+// ============================================================================
+// CKKS Scheme Baseline (n=8192, 128-bit security)
+// ============================================================================
+namespace ckks {
+
+// --- Key Generation ---
+/// Secret key generation time (ms)
+constexpr double KEYGEN_SECRET_MS = 0.35;
+
+/// Public key generation time (ms)
+constexpr double KEYGEN_PUBLIC_MS = 1.5;
+
+/// Relinearization key generation time (ms)
+constexpr double KEYGEN_RELIN_MS = 26.0;
+
+/// Galois key generation time (ms)
+constexpr double KEYGEN_GALOIS_MS = 26.0;
+
+// --- Encode/Decode ---
+/// FFT-based encode time (ms)
+constexpr double ENCODE_DOUBLE_MS = 0.25;
+
+/// FFT-based decode time (ms)
+constexpr double DECODE_DOUBLE_MS = 0.22;
+
+// --- Encrypt/Decrypt ---
+/// Public key encryption time (ms)
+constexpr double ENCRYPT_PUBLIC_MS = 3.5;
+
+/// Secret key encryption time (ms)
+constexpr double ENCRYPT_SECRET_MS = 2.0;
+
+/// Decryption time (ms)
+constexpr double DECRYPT_MS = 1.5;
+
+// --- Homomorphic Operations ---
+/// Ciphertext-Ciphertext addition time (ms)
+constexpr double ADD_CT_CT_MS = 0.031;
+
+/// Ciphertext-Plaintext addition time (ms)
+constexpr double ADD_CT_PT_MS = 0.025;
+
+/// Ciphertext-Ciphertext subtraction time (ms)
+constexpr double SUB_CT_CT_MS = 0.031;
+
+/// Negate time (ms)
+constexpr double NEGATE_MS = 0.018;
+
+/// Ciphertext-Ciphertext multiplication time (ms)
+constexpr double MUL_CT_CT_MS = 9.0;
+
+/// Ciphertext-Plaintext multiplication time (ms)
+constexpr double MUL_CT_PT_MS = 1.3;
+
+/// Square time (ms)
+constexpr double SQUARE_MS = 6.5;
+
+/// Relinearization time (ms)
+constexpr double RELIN_MS = 8.5;
+
+/// Multiply + Relinearize total time (ms)
+constexpr double MUL_RELIN_MS = 17.5;
+
+/// Rescale time (ms) - CKKS specific
+constexpr double RESCALE_MS = 0.35;
+
+/// Rotation time (ms)
+constexpr double ROTATE_MS = 9.0;
+
+/// Modulus switch time (ms)
+constexpr double MODSWITCH_MS = 0.28;
+
+// --- CKKS Specific Metrics ---
+/// Precision loss per multiplication (bits)
+constexpr double PRECISION_LOSS_PER_MUL = 1.5;
+
+/// Typical scale value (2^40)
+constexpr double DEFAULT_SCALE_LOG2 = 40.0;
+
+} // namespace ckks
+
+// ============================================================================
+// Comparative Performance Metrics
+// ============================================================================
+namespace comparison {
+
+/**
+ * @brief Throughput for SIMD batch operations (n=8192 slots)
+ * Units: operations per second (higher is better)
+ */
+
+// BFV Throughput (ops/s for n=8192 SIMD)
+constexpr double BFV_ADD_OPS = 25000.0;
+constexpr double BFV_MUL_OPS = 60.0;
+constexpr double BFV_MUL_RELIN_OPS = 60.0;
+
+// BGV Throughput (ops/s for n=8192 SIMD)
+constexpr double BGV_ADD_OPS = 48000.0;
+constexpr double BGV_MUL_OPS = 67.0;
+constexpr double BGV_MUL_RELIN_OPS = 67.0;
+
+// CKKS Throughput (ops/s for n=8192 SIMD)
+constexpr double CKKS_ADD_OPS = 32000.0;
+constexpr double CKKS_MUL_OPS = 57.0;
+constexpr double CKKS_MUL_RELIN_OPS = 57.0;
+
+/**
+ * @brief Memory usage per ciphertext (bytes)
+ * For n=8192, L=5 levels, 218-bit modulus
+ */
+constexpr size_t CIPHERTEXT_SIZE_BYTES = 524288;    // ~512 KB
+constexpr size_t RELIN_KEY_SIZE_BYTES = 104857600;  // ~100 MB
+constexpr size_t GALOIS_KEY_SIZE_BYTES = 1258291200; // ~1.2 GB (all rotations)
+
+} // namespace comparison
+
+} // namespace seal_fhe
+
+// ============================================================================
 // SM2 Baseline (milliseconds)
 // ============================================================================
 
