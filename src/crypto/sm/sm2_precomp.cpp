@@ -19,6 +19,8 @@
 #include <cstring>
 #include <array>
 
+#include "sm2_mont_curve.h"
+
 namespace kctsb::internal::sm2::precomp {
 
 // ============================================================================
@@ -26,29 +28,12 @@ namespace kctsb::internal::sm2::precomp {
 // ============================================================================
 
 /**
- * @brief 256-bit field element (4 x 64-bit limbs, little-endian)
- * Binary-compatible with mont::fe256
- */
-struct alignas(32) fe256 {
-    uint64_t limb[4];
-};
-
-/**
  * @brief Affine point on SM2 curve (x, y)
+ * Uses mont::fe256 via precomp::fe256 alias
  */
 struct sm2_point_affine {
     fe256 x;
     fe256 y;
-};
-
-/**
- * @brief Jacobian point on SM2 curve (X, Y, Z)
- * Affine coordinates: x = X/Z^2, y = Y/Z^3
- */
-struct sm2_point_jacobian {
-    fe256 X;
-    fe256 Y;
-    fe256 Z;
 };
 
 /**
@@ -115,29 +100,6 @@ alignas(64) static sm2_point_affine g_precomp_affine[PRECOMP_SIZE];
 static bool g_precomp_initialized = false;
 
 }  // namespace kctsb::internal::sm2::precomp
-
-// Include sm2_mont.cpp inline to get access to the implementation
-// This is necessary because we need the full type definition for mont::fe256
-namespace kctsb::internal::sm2::mont {
-
-// Replicate the fe256 struct definition here for complete type
-struct alignas(32) fe256 {
-    uint64_t limb[4];
-};
-
-// Forward declarations of the functions we need from sm2_mont.cpp
-// These are declared extern to link with sm2_mont.cpp
-extern void fe256_mont_mul(fe256* r, const fe256* a, const fe256* b);
-extern void fe256_mont_sqr(fe256* r, const fe256* a);
-extern void fe256_modp_add(fe256* r, const fe256* a, const fe256* b);
-extern void fe256_modp_sub(fe256* r, const fe256* a, const fe256* b);
-extern void fe256_modp_dbl(fe256* r, const fe256* a);
-extern void fe256_modp_neg(fe256* r, const fe256* a);
-extern void fe256_to_mont(fe256* r, const fe256* a);
-extern void fe256_from_mont(fe256* r, const fe256* a);
-extern void fe256_mont_inv(fe256* r, const fe256* a);
-
-}  // namespace kctsb::internal::sm2::mont
 
 namespace kctsb::internal::sm2::precomp {
 

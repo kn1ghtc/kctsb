@@ -8,11 +8,11 @@
 #include <vector>
 #include <random>
 
-#include "kctsb/advanced/fe/bgv/bgv_evaluator.hpp"
+#include "kctsb/advanced/fe/bgv/bgv.hpp"
 #include "kctsb/advanced/fe/common/rns_poly.hpp"
 
+using namespace kctsb::fhe;
 using namespace kctsb::fhe::bgv;
-using namespace kctsb::fhe::common;
 
 void print_first_n(const RNSPoly& p, size_t n, const std::string& name) {
     RNSPoly temp = p;
@@ -31,12 +31,10 @@ void print_first_n(const RNSPoly& p, size_t n, const std::string& name) {
 int main() {
     std::cout << "=== BGV Relinearization Debug ===\n\n";
     
-    // 使用最小参数便于调试
-    size_t n = 4096;
-    size_t L = 2;
-    uint64_t t = 257;  // 更小的明文模数便于调试
+    // 使用标准参数便于调试
+    uint64_t t = 256;  // 更小的明文模数便于调试
     
-    auto context = std::make_shared<RNSContext>(n, L);
+    auto context = StandardParams::SECURITY_128_N4096();
     BGVEvaluator evaluator(context.get(), t);
     
     std::mt19937_64 rng(42);  // 固定种子便于复现

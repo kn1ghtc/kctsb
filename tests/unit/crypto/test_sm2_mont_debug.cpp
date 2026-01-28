@@ -22,47 +22,17 @@
 #include <cstdint>
 
 // ============================================================================
-// SM2 Montgomery namespace declarations (from sm2_mont.cpp)
+// SM2 Montgomery/Precomputation headers
 // ============================================================================
 
-namespace kctsb::internal::sm2::mont {
-
-struct alignas(32) fe256 {
-    uint64_t limb[4];
-};
-
-// Forward declarations - these are defined in sm2_mont.cpp
-extern void fe256_mont_mul(fe256* r, const fe256* a, const fe256* b);
-extern void fe256_mont_sqr(fe256* r, const fe256* a);
-extern void fe256_modp_add(fe256* r, const fe256* a, const fe256* b);
-extern void fe256_modp_sub(fe256* r, const fe256* a, const fe256* b);
-extern void fe256_to_mont(fe256* r, const fe256* a);
-extern void fe256_from_mont(fe256* r, const fe256* a);
-
-}  // namespace kctsb::internal::sm2::mont
-
-// ============================================================================
-// SM2 Precomputation namespace declarations (from sm2_precomp.cpp)
-// ============================================================================
+#include "kctsb/crypto/sm/sm2_mont.h"
+#include "crypto/sm/sm2_mont_curve.h"
 
 namespace kctsb::internal::sm2::precomp {
-
-struct alignas(32) fe256 {
-    uint64_t limb[4];
-};
-
-struct sm2_point_jacobian {
-    fe256 X;
-    fe256 Y;
-    fe256 Z;
-};
-
-// Forward declarations - these are defined in sm2_precomp.cpp
-extern void compute_precomp_table();
-extern void scalar_mul_base(sm2_point_jacobian* r, const uint64_t* k);
-extern bool is_precomp_ready();
-extern void reset_precomp_table();
-
+void compute_precomp_table();
+void scalar_mul_base(sm2_point_jacobian* r, const uint64_t* k);
+bool is_precomp_ready();
+void reset_precomp_table();
 }  // namespace kctsb::internal::sm2::precomp
 
 // ============================================================================

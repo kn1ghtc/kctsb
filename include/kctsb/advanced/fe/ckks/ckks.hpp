@@ -22,19 +22,15 @@
 #ifndef KCTSB_ADVANCED_FE_CKKS_CKKS_HPP
 #define KCTSB_ADVANCED_FE_CKKS_CKKS_HPP
 
-// CKKS module is pending migration to pure RNS architecture
-// Current implementation depends on ZZ/ZZ_p/ZZ_pX types which are being deprecated
-// TODO: v4.14.0 - Migrate CKKS to pure RNS like BGV/BFV
-
-#define KCTSB_CKKS_DISABLED 1
+#include "kctsb/advanced/fe/ckks/ckks_evaluator.hpp"
 
 namespace kctsb::fhe::ckks {
 
 /**
  * @brief Check if CKKS is available
- * @return false - CKKS is pending migration to pure RNS
+ * @return true - CKKS is available via pure RNS evaluator
  */
-inline constexpr bool is_available() { return false; }
+inline constexpr bool is_available() { return true; }
 
 }  // namespace kctsb::fhe::ckks
 

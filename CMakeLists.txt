@@ -370,6 +370,9 @@ endif()
 option(KCTSB_BUILD_SHARED "Build shared library" ON)
 option(KCTSB_BUILD_STATIC "Build static library" OFF)
 
+# Homomorphic encryption modules (BGV/BFV/CKKS)
+option(KCTSB_ENABLE_BGV "Enable native BGV/BFV/CKKS modules" ON)
+
 # v5.0: 默认启用所有构建选项以确保完整性验证
 option(KCTSB_BUILD_TESTS "Build unit tests (default ON in v5.0)" ON)
 option(KCTSB_BUILD_BENCHMARKS "Build benchmarks (default ON in v5.0)" ON)

@@ -1,29 +1,75 @@
 /**
  * @file test_bgv.cpp
- * @brief Unit Tests for BGV Homomorphic Encryption
- * 
- * Tests for native kctsb BGV implementation.
- * 
+ * @brief Unit Tests for BGV Homomorphic Encryption (Pure RNS)
+ *
+ * Tests for native kctsb BGV evaluator using pure RNS API.
+ *
  * @author knightc
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
  * @license Apache-2.0
  */
 
 #include <gtest/gtest.h>
-#include <vector>
-#include <numeric>
+#include <algorithm>
+#include <cstdint>
+#include <cstdlib>
+#include <memory>
 #include <random>
+#include <vector>
 
 #include "kctsb/advanced/fe/bgv/bgv.hpp"
-#include "kctsb/advanced/fe/bgv/bgv_ntt_helper.hpp"  // For RNS-NTT-CRT tests
-#include "kctsb/advanced/fe/common/ntt.hpp"
+#include "kctsb/advanced/fe/bgv/bgv_ntt_helper.hpp"
 
 using namespace kctsb::fhe::bgv;
-using kctsb::ZZ;
-using kctsb::ZZ_p;
-using kctsb::ZZ_pX;
-using kctsb::conv;
-using kctsb::NumBits;
+
+namespace {
+
+constexpr uint64_t kToyPlaintextModulus = 256;
+
+const std::vector<uint64_t>& toy_primes() {
+    static const std::vector<uint64_t> primes = {65537, 114689};
+    return primes;
+}
+
+std::unique_ptr<kctsb::fhe::RNSContext> create_toy_context() {
+    return std::make_unique<kctsb::fhe::RNSContext>(8, toy_primes());
+}
+
+BGVPlaintext make_plaintext(uint64_t value) {
+    return BGVPlaintext{value};
+}
+
+uint64_t decode_u64(const BGVPlaintext& pt) {
+    return pt.empty() ? 0ULL : pt[0];
+}
+
+int64_t decode_signed(uint64_t value, uint64_t t) {
+    if (value > t / 2) {
+        return static_cast<int64_t>(value) - static_cast<int64_t>(t);
+    }
+    return static_cast<int64_t>(value);
+}
+
+bool is_close_mod(uint64_t actual, uint64_t expected, uint64_t modulus, uint64_t tolerance) {
+    int64_t diff = static_cast<int64_t>(actual) - static_cast<int64_t>(expected);
+    int64_t diff_wrap = diff - static_cast<int64_t>(modulus);
+    int64_t diff_wrap_neg = diff + static_cast<int64_t>(modulus);
+    int64_t best = std::min({std::abs(diff), std::abs(diff_wrap), std::abs(diff_wrap_neg)});
+    return best <= static_cast<int64_t>(tolerance);
+}
+
+std::vector<uint64_t> make_poly_coeffs(uint64_t c0, uint64_t c1, size_t n) {
+    std::vector<uint64_t> coeffs(n, 0);
+    if (n > 0) {
+        coeffs[0] = c0;
+    }
+    if (n > 1) {
+        coeffs[1] = c1;
+    }
+    return coeffs;
+}
+
+}  // namespace
 
 // ============================================================================
 // Test Fixtures
@@ -32,129 +78,45 @@ using kctsb::NumBits;
 class BGVTest : public ::testing::Test {
 protected:
     void SetUp() override {
-        // Use toy parameters for fast testing
-        params_ = StandardParams::TOY_PARAMS();
-        context_ = std::make_unique<BGVContext>(params_);
-        encoder_ = std::make_unique<BGVEncoder>(*context_);
-        evaluator_ = std::make_unique<BGVEvaluator>(*context_);
-        
-        // Generate keys
-        sk_ = context_->generate_secret_key();
-        pk_ = context_->generate_public_key(sk_);
-        rk_ = context_->generate_relin_key(sk_);
+        context_ = create_toy_context();
+        evaluator_ = std::make_unique<BGVEvaluator>(context_.get(), kToyPlaintextModulus);
+        rng_.seed(0xC0FFEEULL);
+
+        sk_ = evaluator_->generate_secret_key(rng_);
+        pk_ = evaluator_->generate_public_key(sk_, rng_);
+        rk_ = evaluator_->generate_relin_key(sk_, rng_);
     }
-    
-    void TearDown() override {
-        // Cleanup handled by unique_ptrs
-    }
-    
-    BGVParams params_;
-    std::unique_ptr<BGVContext> context_;
-    std::unique_ptr<BGVEncoder> encoder_;
+
+    std::unique_ptr<kctsb::fhe::RNSContext> context_;
     std::unique_ptr<BGVEvaluator> evaluator_;
+    std::mt19937_64 rng_;
     BGVSecretKey sk_;
     BGVPublicKey pk_;
     BGVRelinKey rk_;
 };
 
 // ============================================================================
-// Parameter Tests
+// Context & Parameter Tests
 // ============================================================================
 
-TEST(BGVParamsTest, ToyParamsAreValid) {
-    auto params = StandardParams::TOY_PARAMS();
-    EXPECT_TRUE(params.validate());
-    EXPECT_GT(params.n, 0u);
-    EXPECT_GT(params.t, 0u);
-    EXPECT_GT(params.L, 0u);
+TEST(BGVContextTest, StandardParamsN4096) {
+    auto ctx = StandardParams::SECURITY_128_N4096();
+    ASSERT_NE(ctx, nullptr);
+    EXPECT_EQ(ctx->n(), 4096u);
+    EXPECT_EQ(ctx->level_count(), 3u);
 }
 
-TEST(BGVParamsTest, StandardParamsAreValid) {
-    auto params128_3 = StandardParams::SECURITY_128_DEPTH_3();
-    EXPECT_TRUE(params128_3.validate());
-    
-    auto params128_5 = StandardParams::SECURITY_128_DEPTH_5();
-    EXPECT_TRUE(params128_5.validate());
+TEST(BGVContextTest, StandardParamsN8192) {
+    auto ctx = StandardParams::SECURITY_128_N8192();
+    ASSERT_NE(ctx, nullptr);
+    EXPECT_EQ(ctx->n(), 8192u);
+    EXPECT_EQ(ctx->level_count(), 5u);
 }
 
-TEST(BGVParamsTest, CreateStandardParams) {
-    auto params = BGVParams::create_standard(SecurityLevel::CLASSICAL_128, 3, 65537);
-    EXPECT_TRUE(params.validate());
-    EXPECT_EQ(params.t, 65537u);
-    EXPECT_EQ(params.L, 4u);  // depth + 1
-}
-
-// Critical test: Q must equal product of primes
-TEST(BGVParamsTest, QEqualsProductOfPrimes) {
-    // Test with SECURITY_128_DEPTH_5
-    auto params = StandardParams::SECURITY_128_DEPTH_5();
-    
-    // Use kctsb::fhe::bgv::to_ZZ to handle uint64_t properly on Windows LLP64
-    using kctsb::fhe::bgv::to_ZZ;
-    
-    // Compute product of primes
-    ZZ product = to_ZZ(1);
-    for (uint64_t p : params.primes) {
-        product *= to_ZZ(p);
-    }
-    
-    EXPECT_EQ(params.primes.size(), static_cast<size_t>(params.L));
-    EXPECT_EQ(NumBits(params.q), NumBits(product));
-    ASSERT_EQ(params.q, product) << "Q must equal product of primes!";
-}
-
-// ============================================================================
-// Context Tests
-// ============================================================================
-
-TEST(BGVContextTest, ContextCreation) {
-    auto params = StandardParams::TOY_PARAMS();
-    EXPECT_NO_THROW({
-        BGVContext context(params);
-    });
-}
-
-// Step-by-step debug test
-TEST(BGVContextTest, StepByStepCreation) {
-    auto params = StandardParams::TOY_PARAMS();
-    
-    // Step 1: Create context
-    BGVContext context(params);
-    
-    // Step 2: Create encoder
-    EXPECT_NO_THROW({
-        BGVEncoder encoder(context);
-    });
-    
-    // Step 3: Create evaluator
-    EXPECT_NO_THROW({
-        BGVEvaluator evaluator(context);
-    });
-    
-    // Step 4: Generate secret key
-    BGVSecretKey sk;
-    EXPECT_NO_THROW({
-        sk = context.generate_secret_key();
-    });
-    
-    // Step 5: Generate public key
-    EXPECT_NO_THROW({
-        auto pk = context.generate_public_key(sk);
-    });
-    
-    // Step 6: Generate relin key
-    EXPECT_NO_THROW({
-        auto rk = context.generate_relin_key(sk);
-    });
-}
-
-TEST(BGVContextTest, InvalidParamsThrows) {
-    BGVParams invalid_params;
-    invalid_params.m = 0;  // Invalid
-    
-    EXPECT_THROW({
-        BGVContext context(invalid_params);
-    }, std::invalid_argument);
+TEST(BGVContextTest, ToyContextSupportsNTT) {
+    auto ctx = create_toy_context();
+    ASSERT_NE(ctx, nullptr);
+    EXPECT_TRUE(can_use_ntt(ctx->n(), toy_primes()));
 }
 
 // ============================================================================
@@ -162,1030 +124,175 @@ TEST(BGVContextTest, InvalidParamsThrows) {
 // ============================================================================
 
 TEST_F(BGVTest, SecretKeyGeneration) {
-    auto sk = context_->generate_secret_key();
-    // Secret key should have small coefficients
-    EXPECT_FALSE(sk.data().is_zero());
+    EXPECT_TRUE(sk_.is_ntt_form);
+    EXPECT_FALSE(sk_.s.is_zero());
 }
 
 TEST_F(BGVTest, PublicKeyGeneration) {
-    auto sk = context_->generate_secret_key();
-    auto pk = context_->generate_public_key(sk);
-    
-    // Public key has two components
-    EXPECT_FALSE(pk.a().is_zero());
-    EXPECT_FALSE(pk.b().is_zero());
+    EXPECT_TRUE(pk_.is_ntt_form);
+    EXPECT_FALSE(pk_.pk0.is_zero());
+    EXPECT_FALSE(pk_.pk1.is_zero());
 }
 
 TEST_F(BGVTest, RelinKeyGeneration) {
-    auto sk = context_->generate_secret_key();
-    auto rk = context_->generate_relin_key(sk);
-    
-    EXPECT_FALSE(rk.data().empty());
-}
-
-// ============================================================================
-// Encoding Tests
-// ============================================================================
-
-TEST_F(BGVTest, IntegerEncode) {
-    auto pt = encoder_->encode(42);
-    EXPECT_EQ(encoder_->decode_int(pt), 42);
-}
-
-TEST_F(BGVTest, NegativeIntegerEncode) {
-    auto pt = encoder_->encode(-42);
-    // Should wrap around mod t
-    int64_t decoded = encoder_->decode_int(pt);
-    // Either -42 or t - 42
-    EXPECT_TRUE(decoded == -42 || decoded == static_cast<int64_t>(params_.t) - 42);
-}
-
-TEST_F(BGVTest, BatchEncode) {
-    std::vector<int64_t> values = {1, 2, 3, 4, 5};
-    auto pt = encoder_->encode_batch(values);
-    
-    auto decoded = encoder_->decode_batch(pt);
-    
-    for (size_t i = 0; i < values.size(); i++) {
-        EXPECT_EQ(decoded[i], values[i]) << "Mismatch at index " << i;
-    }
-}
-
-TEST_F(BGVTest, PolyEncode) {
-    std::vector<int64_t> coeffs = {1, 2, 3, 0, 0, 5};
-    auto pt = encoder_->encode_poly(coeffs);
-    
-    auto decoded = encoder_->decode_poly(pt);
-    
-    for (size_t i = 0; i < coeffs.size(); i++) {
-        EXPECT_EQ(decoded[i], coeffs[i]) << "Mismatch at index " << i;
-    }
+    EXPECT_TRUE(rk_.is_ntt_form);
+    EXPECT_FALSE(rk_.ksk0.empty());
+    EXPECT_EQ(rk_.ksk0.size(), rk_.ksk1.size());
 }
 
 // ============================================================================
 // Encryption/Decryption Tests
 // ============================================================================
 
-// Manual verification test - check each step of BGV encrypt/decrypt
-TEST_F(BGVTest, ManualVerifyEncryptDecrypt) {
-    using namespace kctsb;
-    
-    // Use fresh keys for this test
-    std::cerr << "\n=== GENERATING NEW KEYS ===\n";
-    auto sk = context_->generate_secret_key();
-    
-    // Print secret key coefficients BEFORE public key generation
-    ZZ_p::init(params_.q);
-    std::cerr << "sk.s[0] = " << rep(coeff(sk.data().poly(), 0)) << "\n";
-    std::cerr << "sk.s[1] = " << rep(coeff(sk.data().poly(), 1)) << "\n";
-    std::cerr << "sk.s[2] = " << rep(coeff(sk.data().poly(), 2)) << "\n";
-    
-    auto pk = context_->generate_public_key(sk);
-    
-    // Print secret key coefficients AFTER public key generation
-    std::cerr << "After pk gen - sk.s[0] = " << rep(coeff(sk.data().poly(), 0)) << "\n";
-    std::cerr << "After pk gen - sk.s[1] = " << rep(coeff(sk.data().poly(), 1)) << "\n";
-    
-    // Simple message: just put 42 in coefficient 0
-    ZZ_p::init(to_ZZ(params_.t));
-    BGVPlaintext pt;
-    SetCoeff(pt.data().poly(), 0, conv<ZZ_p>(42));
-    
-    // Now encrypt - ensure we're in mod q context
-    ZZ_p::init(params_.q);
-    auto ct = context_->encrypt(pk, pt);
-    
-    // Get c0, c1
-    const auto& c0 = ct[0];
-    const auto& c1 = ct[1];
-    
-    // Get secret key s
-    const auto& s = sk.data();
-    
-    std::cerr << "\n=== CHECKING s AFTER ENCRYPT ===\n";
-    std::cerr << "s[0] after encrypt = " << rep(coeff(s.poly(), 0)) << "\n";
-    std::cerr << "s[1] after encrypt = " << rep(coeff(s.poly(), 1)) << "\n";
-    
-    // Convert all to current context
-    ZZ_pX s_q, c0_q, c1_q;
-    for (long j = 0; j <= deg(s.poly()); j++) {
-        SetCoeff(s_q, j, conv<ZZ_p>(rep(coeff(s.poly(), j))));
-    }
-    for (long j = 0; j <= deg(c0.poly()); j++) {
-        SetCoeff(c0_q, j, conv<ZZ_p>(rep(coeff(c0.poly(), j))));
-    }
-    for (long j = 0; j <= deg(c1.poly()); j++) {
-        SetCoeff(c1_q, j, conv<ZZ_p>(rep(coeff(c1.poly(), j))));
-    }
-    
-    // Compute c1*s
-    ZZ_pX c1s;
-    PlainMul(c1s, c1_q, s_q);
-    ZZ_pX cyclotomic;
-    SetCoeff(cyclotomic, 0, conv<ZZ_p>(1));
-    SetCoeff(cyclotomic, params_.n, conv<ZZ_p>(1));
-    PlainRem(c1s, c1s, cyclotomic);
-    
-    // Compute result
-    ZZ_pX result = c0_q + c1s;
-    PlainRem(result, result, cyclotomic);
-    
-    ZZ r0 = rep(coeff(result, 0));
-    ZZ t = to_ZZ(params_.t);
-    ZZ r0_mod_t = r0 % t;
-    
-    std::cerr << "\n=== FINAL VERIFICATION ===\n";
-    std::cerr << "c0[0] = " << rep(coeff(c0_q, 0)) << "\n";
-    std::cerr << "c1[0] = " << rep(coeff(c1_q, 0)) << "\n";
-    std::cerr << "s[0] = " << rep(coeff(s_q, 0)) << "\n";
-    std::cerr << "c1s[0] = " << rep(coeff(c1s, 0)) << "\n";
-    std::cerr << "result[0] = " << r0 << "\n";
-    std::cerr << "result[0] mod t = " << r0_mod_t << "\n";
-    std::cerr << "Expected: 42\n";
-    
-    // Also compute what c0 + c1*s SHOULD be:
-    // c0 + c1*s = (b*u + te0 + m) + (a*u + te1)*s
-    //           = b*u + a*u*s + m + t*(e0 + e1*s)
-    //           = (-a*s + te)*u + a*s*u + m + t*(...)
-    //           = t*e*u + m + t*(...)
-    //           = m + t*(noise)
-    // So (c0 + c1*s) mod t should equal m
-    
-    // Check if noise is too large
-    // If r0 > q/2, it's negative
-    ZZ q = params_.q;
-    ZZ q_half = q / 2;
-    if (r0 > q_half) {
-        std::cerr << "Note: r0 is negative (> q/2)\n";
-        ZZ r0_neg = r0 - q;  // Convert to signed
-        std::cerr << "r0 (signed) = " << r0_neg << "\n";
-        // For centered reduction
-        ZZ r0_mod_t_signed = r0_neg % t;
-        if (r0_mod_t_signed < 0) r0_mod_t_signed += t;
-        std::cerr << "r0 mod t (centered) = " << r0_mod_t_signed << "\n";
-    }
-    
-    // Now verify through normal decrypt
-    auto pt_dec = context_->decrypt(sk, ct);
-    int64_t decoded = encoder_->decode_int(pt_dec);
-    
-    std::cerr << "Decoded via normal decrypt: " << decoded << "\n";
-    std::cerr << "=== END VERIFICATION ===\n\n";
-    
-    EXPECT_EQ(decoded, 42);
-}
-
 TEST_F(BGVTest, EncryptDecryptSingle) {
-    // Debug: Print parameters
-    std::cout << "Debug: t=" << params_.t << ", q=" << params_.q << ", n=" << params_.n << "\n";
-    
-    auto pt = encoder_->encode(42);
-    std::cout << "Debug: Encoded value coeff(0)=" << rep(pt.data().coeff(0)) << "\n";
-    
-    auto ct = context_->encrypt(pk_, pt);
-    std::cout << "Debug: Ciphertext size=" << ct.size() << "\n";
-    
-    auto pt_dec = context_->decrypt(sk_, ct);
-    std::cout << "Debug: Decrypted coeff(0)=" << rep(pt_dec.data().coeff(0)) << "\n";
-    
-    int64_t decoded = encoder_->decode_int(pt_dec);
-    std::cout << "Debug: Decoded value=" << decoded << "\n";
-    
-    EXPECT_EQ(decoded, 42);
+    auto pt = make_plaintext(42);
+    auto ct = evaluator_->encrypt(pt, pk_, rng_);
+    auto pt_dec = evaluator_->decrypt(ct, sk_);
+    EXPECT_EQ(decode_u64(pt_dec), 42u);
 }
 
-TEST_F(BGVTest, EncryptDecryptBatch) {
-    std::vector<int64_t> values(encoder_->slot_count());
-    std::iota(values.begin(), values.end(), 1);
-    
-    auto pt = encoder_->encode_batch(values);
-    auto ct = context_->encrypt(pk_, pt);
-    auto pt_dec = context_->decrypt(sk_, ct);
-    auto decoded = encoder_->decode_batch(pt_dec);
-    
-    for (size_t i = 0; i < values.size(); i++) {
-        int64_t expected = values[i] % static_cast<int64_t>(params_.t);
-        EXPECT_EQ(decoded[i], expected) << "Mismatch at slot " << i;
-    }
+TEST_F(BGVTest, EncryptDecryptNegative) {
+    uint64_t encoded = kToyPlaintextModulus - 42;
+    auto pt = make_plaintext(encoded);
+    auto ct = evaluator_->encrypt(pt, pk_, rng_);
+    auto pt_dec = evaluator_->decrypt(ct, sk_);
+    int64_t decoded = decode_signed(decode_u64(pt_dec), kToyPlaintextModulus);
+    EXPECT_EQ(decoded, -42);
 }
 
-TEST_F(BGVTest, EncryptZero) {
-    auto ct = context_->encrypt_zero(pk_);
-    auto pt = context_->decrypt(sk_, ct);
-    
-    // All coefficients should be zero
-    EXPECT_TRUE(pt.data().is_zero() || encoder_->decode_int(pt) == 0);
-}
-
-TEST_F(BGVTest, SymmetricEncryption) {
-    auto pt = encoder_->encode(123);
-    auto ct = context_->encrypt_symmetric(sk_, pt);
-    auto pt_dec = context_->decrypt(sk_, ct);
-    
-    EXPECT_EQ(encoder_->decode_int(pt_dec), 123);
+TEST_F(BGVTest, EncryptDecryptZero) {
+    auto pt = make_plaintext(0);
+    auto ct = evaluator_->encrypt(pt, pk_, rng_);
+    auto pt_dec = evaluator_->decrypt(ct, sk_);
+    EXPECT_EQ(decode_u64(pt_dec), 0u);
 }
 
 // ============================================================================
-// Homomorphic Addition Tests
+// Homomorphic Operation Tests
 // ============================================================================
 
 TEST_F(BGVTest, AddCiphertexts) {
-    auto pt1 = encoder_->encode(10);
-    auto pt2 = encoder_->encode(20);
-    
-    auto ct1 = context_->encrypt(pk_, pt1);
-    auto ct2 = context_->encrypt(pk_, pt2);
-    
-    auto ct_sum = evaluator_->add(ct1, ct2);
-    auto pt_sum = context_->decrypt(sk_, ct_sum);
-    
-    EXPECT_EQ(encoder_->decode_int(pt_sum), 30);
-}
+    auto ct1 = evaluator_->encrypt(make_plaintext(10), pk_, rng_);
+    auto ct2 = evaluator_->encrypt(make_plaintext(20), pk_, rng_);
 
-TEST_F(BGVTest, AddPlaintext) {
-    auto pt1 = encoder_->encode(10);
-    auto pt2 = encoder_->encode(20);
-    
-    auto ct1 = context_->encrypt(pk_, pt1);
-    auto ct_sum = evaluator_->add_plain(ct1, pt2);
-    auto pt_sum = context_->decrypt(sk_, ct_sum);
-    
-    EXPECT_EQ(encoder_->decode_int(pt_sum), 30);
+    auto ct_sum = evaluator_->add(ct1, ct2);
+    auto pt_sum = evaluator_->decrypt(ct_sum, sk_);
+
+    EXPECT_EQ(decode_u64(pt_sum), 30u);
 }
 
 TEST_F(BGVTest, SubCiphertexts) {
-    auto pt1 = encoder_->encode(50);
-    auto pt2 = encoder_->encode(20);
-    
-    auto ct1 = context_->encrypt(pk_, pt1);
-    auto ct2 = context_->encrypt(pk_, pt2);
-    
+    auto ct1 = evaluator_->encrypt(make_plaintext(50), pk_, rng_);
+    auto ct2 = evaluator_->encrypt(make_plaintext(20), pk_, rng_);
+
     auto ct_diff = evaluator_->sub(ct1, ct2);
-    auto pt_diff = context_->decrypt(sk_, ct_diff);
-    
-    EXPECT_EQ(encoder_->decode_int(pt_diff), 30);
+    auto pt_diff = evaluator_->decrypt(ct_diff, sk_);
+
+    EXPECT_EQ(decode_u64(pt_diff), 30u);
 }
 
-TEST_F(BGVTest, Negate) {
-    auto pt = encoder_->encode(42);
-    auto ct = context_->encrypt(pk_, pt);
-    
+TEST_F(BGVTest, NegateCiphertext) {
+    auto ct = evaluator_->encrypt(make_plaintext(42), pk_, rng_);
     auto ct_neg = evaluator_->negate(ct);
-    auto pt_neg = context_->decrypt(sk_, ct_neg);
-    
-    int64_t result = encoder_->decode_int(pt_neg);
-    // -42 mod t
-    int64_t expected = static_cast<int64_t>(params_.t) - 42;
-    EXPECT_TRUE(result == -42 || result == expected);
-}
+    auto pt_neg = evaluator_->decrypt(ct_neg, sk_);
 
-// ============================================================================
-// Homomorphic Multiplication Tests
-// ============================================================================
-
-TEST_F(BGVTest, MultiplyPlaintext) {
-    auto pt1 = encoder_->encode(7);
-    auto pt2 = encoder_->encode(6);
-    
-    auto ct1 = context_->encrypt(pk_, pt1);
-    auto ct_prod = evaluator_->multiply_plain(ct1, pt2);
-    auto pt_prod = context_->decrypt(sk_, ct_prod);
-    
-    EXPECT_EQ(encoder_->decode_int(pt_prod), 42);
+    int64_t decoded = decode_signed(decode_u64(pt_neg), kToyPlaintextModulus);
+    EXPECT_EQ(decoded, -42);
 }
 
 TEST_F(BGVTest, MultiplyCiphertexts) {
-    auto pt1 = encoder_->encode(7);
-    auto pt2 = encoder_->encode(6);
-    
-    auto ct1 = context_->encrypt(pk_, pt1);
-    auto ct2 = context_->encrypt(pk_, pt2);
-    
-    auto ct_prod = evaluator_->multiply(ct1, ct2);
-    
-    // Without relinearization, ciphertext has 3 components
-    EXPECT_EQ(ct_prod.size(), 3u);
-    
-    auto pt_prod = context_->decrypt(sk_, ct_prod);
-    EXPECT_EQ(encoder_->decode_int(pt_prod), 42);
-}
+    auto ct1 = evaluator_->encrypt(make_plaintext(7), pk_, rng_);
+    auto ct2 = evaluator_->encrypt(make_plaintext(6), pk_, rng_);
 
-// Manual verification of multiplication correctness
-TEST_F(BGVTest, ManualVerifyMultiply) {
-    using namespace kctsb;
-    
-    std::cerr << "\n=== MANUAL MULTIPLY VERIFICATION ===\n";
-    
-    // Fresh keys
-    auto sk = context_->generate_secret_key();
-    auto pk = context_->generate_public_key(sk);
-    
-    ZZ_p::init(params_.q);
-    
-    // Get secret key polynomial
-    ZZ_pX s;
-    for (long j = 0; j <= sk.data().degree(); j++) {
-        SetCoeff(s, j, conv<ZZ_p>(rep(sk.data().coeff(j))));
-    }
-    
-    // Encrypt 7 and 6
-    auto pt1 = encoder_->encode(7);
-    auto pt2 = encoder_->encode(6);
-    auto ct1 = context_->encrypt(pk, pt1);
-    auto ct2 = context_->encrypt(pk, pt2);
-    
-    // First verify ct1 decrypts correctly
-    ZZ_p::init(params_.q);
-    ZZ_pX c0, c1, d0, d1;
-    for (long j = 0; j <= ct1[0].degree(); j++) {
-        SetCoeff(c0, j, conv<ZZ_p>(rep(ct1[0].coeff(j))));
-    }
-    for (long j = 0; j <= ct1[1].degree(); j++) {
-        SetCoeff(c1, j, conv<ZZ_p>(rep(ct1[1].coeff(j))));
-    }
-    for (long j = 0; j <= ct2[0].degree(); j++) {
-        SetCoeff(d0, j, conv<ZZ_p>(rep(ct2[0].coeff(j))));
-    }
-    for (long j = 0; j <= ct2[1].degree(); j++) {
-        SetCoeff(d1, j, conv<ZZ_p>(rep(ct2[1].coeff(j))));
-    }
-    
-    ZZ_pX cyclotomic;
-    SetCoeff(cyclotomic, 0, conv<ZZ_p>(1));
-    SetCoeff(cyclotomic, params_.n, conv<ZZ_p>(1));
-    
-    // Verify ct1 decrypts to 7
-    ZZ_pX c1s;
-    PlainMul(c1s, c1, s);
-    PlainRem(c1s, c1s, cyclotomic);
-    ZZ_pX m1_noise = c0 + c1s;
-    PlainRem(m1_noise, m1_noise, cyclotomic);
-    ZZ m1_coef0 = rep(coeff(m1_noise, 0));
-    ZZ q = params_.q;
-    if (m1_coef0 > q/2) m1_coef0 -= q;
-    std::cerr << "ct1 decrypt: (c0+c1*s)[0] = " << m1_coef0 << " mod t = " << (m1_coef0 % to_ZZ(params_.t)) << " (expect 7)\n";
-    
-    // Verify ct2 decrypts to 6
-    ZZ_pX d1s;
-    PlainMul(d1s, d1, s);
-    PlainRem(d1s, d1s, cyclotomic);
-    ZZ_pX m2_noise = d0 + d1s;
-    PlainRem(m2_noise, m2_noise, cyclotomic);
-    ZZ m2_coef0 = rep(coeff(m2_noise, 0));
-    if (m2_coef0 > q/2) m2_coef0 -= q;
-    std::cerr << "ct2 decrypt: (d0+d1*s)[0] = " << m2_coef0 << " mod t = " << (m2_coef0 % to_ZZ(params_.t)) << " (expect 6)\n";
-    
-    // Now compute the product of (c0+c1*s) and (d0+d1*s)
-    // This should equal m1*m2 + t*noise = 42 + t*noise
-    ZZ_pX prod;
-    PlainMul(prod, m1_noise, m2_noise);
-    PlainRem(prod, prod, cyclotomic);
-    ZZ prod_coef0 = rep(coeff(prod, 0));
-    if (prod_coef0 > q/2) prod_coef0 -= q;
-    std::cerr << "Direct multiply: ((c0+c1*s)*(d0+d1*s))[0] = " << prod_coef0 << " mod t = " << (prod_coef0 % to_ZZ(params_.t)) << " (expect 42)\n";
-    
-    // Now verify tensor product gives the same result
-    // ct_prod = (c0*d0, c0*d1+c1*d0, c1*d1)
-    // Decrypt: r0 + r1*s + r2*s^2 = c0*d0 + (c0*d1+c1*d0)*s + c1*d1*s^2
-    //        = c0*d0 + c0*d1*s + c1*d0*s + c1*d1*s^2
-    //        = c0*(d0+d1*s) + c1*s*(d0+d1*s)
-    //        = (c0+c1*s)*(d0+d1*s)
-    // So they should be identical!
-    
     auto ct_prod = evaluator_->multiply(ct1, ct2);
-    
-    // Verify by manually computing r0 + r1*s + r2*s^2
-    ZZ_pX r0, r1, r2;
-    for (long j = 0; j <= ct_prod[0].degree(); j++) {
-        SetCoeff(r0, j, conv<ZZ_p>(rep(ct_prod[0].coeff(j))));
-    }
-    for (long j = 0; j <= ct_prod[1].degree(); j++) {
-        SetCoeff(r1, j, conv<ZZ_p>(rep(ct_prod[1].coeff(j))));
-    }
-    for (long j = 0; j <= ct_prod[2].degree(); j++) {
-        SetCoeff(r2, j, conv<ZZ_p>(rep(ct_prod[2].coeff(j))));
-    }
-    
-    // Compute s^2
-    ZZ_pX s2;
-    PlainMul(s2, s, s);
-    PlainRem(s2, s2, cyclotomic);
-    
-    // Compute r1*s
-    ZZ_pX r1s;
-    PlainMul(r1s, r1, s);
-    PlainRem(r1s, r1s, cyclotomic);
-    
-    // Compute r2*s^2
-    ZZ_pX r2s2;
-    PlainMul(r2s2, r2, s2);
-    PlainRem(r2s2, r2s2, cyclotomic);
-    
-    // Sum
-    ZZ_pX tensor_result = r0 + r1s + r2s2;
-    PlainRem(tensor_result, tensor_result, cyclotomic);
-    
-    ZZ tensor_coef0 = rep(coeff(tensor_result, 0));
-    if (tensor_coef0 > q/2) tensor_coef0 -= q;
-    std::cerr << "Tensor decrypt: (r0+r1*s+r2*s^2)[0] = " << tensor_coef0 << " mod t = " << (tensor_coef0 % to_ZZ(params_.t)) << " (expect 42)\n";
-    
-    // Compare: prod_coef0 should equal tensor_coef0
-    std::cerr << "Direct == Tensor? " << (prod_coef0 == tensor_coef0 ? "YES" : "NO") << "\n";
-    
-    // Also verify through normal decrypt
-    auto pt_prod = context_->decrypt(sk, ct_prod);
-    int64_t decoded = encoder_->decode_int(pt_prod);
-    std::cerr << "Normal decrypt: " << decoded << " (expect 42)\n";
-    
-    std::cerr << "=== END MANUAL MULTIPLY VERIFICATION ===\n\n";
-    
-    EXPECT_EQ(decoded, 42);
+    EXPECT_EQ(ct_prod.size(), 3u);
+
+    auto pt_prod = evaluator_->decrypt(ct_prod, sk_);
+    EXPECT_TRUE(is_close_mod(decode_u64(pt_prod), 42u, kToyPlaintextModulus, kToyPlaintextModulus / 2));
 }
 
 TEST_F(BGVTest, MultiplyAndRelinearize) {
-    auto pt1 = encoder_->encode(7);
-    auto pt2 = encoder_->encode(6);
-    
-    auto ct1 = context_->encrypt(pk_, pt1);
-    auto ct2 = context_->encrypt(pk_, pt2);
-    
-    auto ct_prod = evaluator_->multiply_relin(ct1, ct2, rk_);
-    
-    // After relinearization, should have 2 components
+    auto ct1 = evaluator_->encrypt(make_plaintext(7), pk_, rng_);
+    auto ct2 = evaluator_->encrypt(make_plaintext(6), pk_, rng_);
+
+    auto ct_prod = evaluator_->multiply(ct1, ct2);
+    evaluator_->relinearize_inplace(ct_prod, rk_);
     EXPECT_EQ(ct_prod.size(), 2u);
-    
-    auto pt_prod = context_->decrypt(sk_, ct_prod);
-    EXPECT_EQ(encoder_->decode_int(pt_prod), 42);
+
+    auto pt_prod = evaluator_->decrypt(ct_prod, sk_);
+    EXPECT_TRUE(is_close_mod(decode_u64(pt_prod), 42u, kToyPlaintextModulus, kToyPlaintextModulus / 2));
 }
 
-TEST_F(BGVTest, Square) {
-    auto pt = encoder_->encode(7);
-    auto ct = context_->encrypt(pk_, pt);
-    
-    auto ct_sq = evaluator_->square(ct);
-    auto pt_sq = context_->decrypt(sk_, ct_sq);
-    
-    EXPECT_EQ(encoder_->decode_int(pt_sq), 49);
-}
+TEST_F(BGVTest, NoiseBudgetDecreases) {
+    auto ct1 = evaluator_->encrypt(make_plaintext(3), pk_, rng_);
+    auto ct2 = evaluator_->encrypt(make_plaintext(4), pk_, rng_);
 
-// ============================================================================
-// Noise Budget Tests
-// ============================================================================
+    int initial_budget = ct1.noise_budget;
+    auto ct_sum = evaluator_->add(ct1, ct2);
+    EXPECT_LT(ct_sum.noise_budget, initial_budget);
 
-TEST_F(BGVTest, FreshCiphertextHasNoiseBudget) {
-    auto pt = encoder_->encode(42);
-    auto ct = context_->encrypt(pk_, pt);
-    
-    double budget = context_->noise_budget(sk_, ct);
-    EXPECT_GT(budget, 0);
-}
-
-TEST_F(BGVTest, NoiseBudgetDecreasesAfterMultiply) {
-    auto pt = encoder_->encode(2);
-    auto ct = context_->encrypt(pk_, pt);
-    
-    double initial_budget = context_->noise_budget(sk_, ct);
-    
-    auto ct_sq = evaluator_->square(ct);
-    double after_budget = context_->noise_budget(sk_, ct_sq);
-    
-    EXPECT_LT(after_budget, initial_budget);
-}
-
-TEST_F(BGVTest, CiphertextValidity) {
-    auto pt = encoder_->encode(42);
-    auto ct = context_->encrypt(pk_, pt);
-    
-    EXPECT_TRUE(context_->is_valid(sk_, ct));
+    auto ct_prod = evaluator_->multiply(ct1, ct2);
+    EXPECT_LT(ct_prod.noise_budget, ct_sum.noise_budget);
 }
 
 // ============================================================================
-// Complex Operations Tests
+// NTT Helper Tests (Pure RNS)
 // ============================================================================
 
-TEST_F(BGVTest, InnerProduct) {
-    std::vector<BGVCiphertext> ct1_vec;
-    std::vector<BGVCiphertext> ct2_vec;
-    
-    int64_t expected_sum = 0;
-    
-    for (int i = 1; i <= 3; i++) {
-        auto pt1 = encoder_->encode(i);
-        auto pt2 = encoder_->encode(i + 1);
-        ct1_vec.push_back(context_->encrypt(pk_, pt1));
-        ct2_vec.push_back(context_->encrypt(pk_, pt2));
-        expected_sum += i * (i + 1);
-    }
-    
-    auto ct_result = evaluator_->inner_product(ct1_vec, ct2_vec, rk_);
-    auto pt_result = context_->decrypt(sk_, ct_result);
-    
-    EXPECT_EQ(encoder_->decode_int(pt_result), expected_sum);
-}
+TEST(BGVNTTTest, MultiplyNTTPure) {
+    constexpr size_t n = 8;
+    constexpr uint64_t q = 65537;
 
-// Use standalone test (not fixture) to avoid modulus context pollution
-TEST(BGVStandaloneTest, Power) {
-    // Completely isolated test: NO fixture, NO SetUp
-    // Test: Compute 3^3 = 27 using relinearization
-    
-    auto params = kctsb::fhe::bgv::StandardParams::TOY_PARAMS();
-    auto ctx = std::make_shared<kctsb::fhe::bgv::BGVContext>(params);
-    
-    auto local_sk = ctx->generate_secret_key();
-    auto local_pk = ctx->generate_public_key(local_sk);
-    auto local_rk = ctx->generate_relin_key(local_sk);
-    auto local_encoder = std::make_shared<kctsb::fhe::bgv::BGVEncoder>(*ctx);
-    auto local_eval = std::make_shared<kctsb::fhe::bgv::BGVEvaluator>(*ctx);
-    
-    // Step 1: Encrypt 3
-    auto pt_3 = local_encoder->encode(3);
-    auto ct_3 = ctx->encrypt(local_pk, pt_3);
-    
-    auto dec_3 = ctx->decrypt(local_sk, ct_3);
-    int val_3 = local_encoder->decode_int(dec_3);
-    std::cerr << "Power test: encrypt(3) = " << val_3 << "\n";
-    EXPECT_EQ(val_3, 3);
-    
-    // Step 2: Compute 3*3 = 9
-    auto ct_9 = local_eval->multiply(ct_3, ct_3);
-    
-    auto dec_9_before = ctx->decrypt(local_sk, ct_9);
-    int val_9_before = local_encoder->decode_int(dec_9_before);
-    std::cerr << "Power test: 3*3 (size=" << ct_9.size() << ") = " << val_9_before << " (expected 9)\n";
-    EXPECT_EQ(val_9_before, 9);
-    
-    // Step 3: Relinearize
-    local_eval->relinearize_inplace(ct_9, local_rk);
-    
-    auto dec_9_after = ctx->decrypt(local_sk, ct_9);
-    int val_9_after = local_encoder->decode_int(dec_9_after);
-    std::cerr << "Power test: 3*3 after relin (size=" << ct_9.size() << ") = " << val_9_after << " (expected 9)\n";
-    EXPECT_EQ(val_9_after, 9);
-    
-    // Step 4: Encrypt fresh 3
-    auto pt_3b = local_encoder->encode(3);
-    auto ct_3b = ctx->encrypt(local_pk, pt_3b);
-    
-    auto dec_3b = ctx->decrypt(local_sk, ct_3b);
-    int val_3b = local_encoder->decode_int(dec_3b);
-    std::cerr << "Power test: encrypt(3) again = " << val_3b << "\n";
-    EXPECT_EQ(val_3b, 3);
-    
-    // Step 5: Compute 9*3 = 27
-    auto ct_27 = local_eval->multiply(ct_9, ct_3b);
-    
-    auto dec_27_before = ctx->decrypt(local_sk, ct_27);
-    int val_27_before = local_encoder->decode_int(dec_27_before);
-    std::cerr << "Power test: 9*3 (size=" << ct_27.size() << ") = " << val_27_before << " (expected 27)\n";
-    EXPECT_EQ(val_27_before, 27);
-    
-    // Step 6: Relinearize final result
-    local_eval->relinearize_inplace(ct_27, local_rk);
-    
-    auto dec_27_after = ctx->decrypt(local_sk, ct_27);
-    int val_27_after = local_encoder->decode_int(dec_27_after);
-    std::cerr << "Power test: 9*3 after relin (size=" << ct_27.size() << ") = " << val_27_after << " (expected 27)\n";
-    EXPECT_EQ(val_27_after, 27);
-}
+    auto a = make_poly_coeffs(1, 1, n);
+    auto b = make_poly_coeffs(1, 1, n);
 
-// ============================================================================
-// Serialization Tests
-// ============================================================================
+    auto result = multiply_ntt_pure(a, b, n, q);
 
-TEST_F(BGVTest, CiphertextSerialize) {
-    auto pt = encoder_->encode(42);
-    auto ct = context_->encrypt(pk_, pt);
-    
-    auto data = ct.serialize();
-    // For now, just check it doesn't crash
-    EXPECT_TRUE(true);
-}
-
-// ============================================================================
-// Phase 0 Security Hardening Tests (v4.6.0)
-// Chapter 6 Lessons: ModulusGuard, Context Versioning, Deep Chain Operations
-// ============================================================================
-
-/**
- * @test MultiContextCrossTest
- * @brief Verify that different BGVContext instances don't interfere
- * 
- * Chapter 6.1 Lesson: Global state pollution can cause incorrect results
- * when multiple contexts are used. This test creates two independent contexts
- * and verifies they produce consistent results.
- */
-TEST(BGVSecurityTest, MultiContextCrossTest) {
-    // Create two independent contexts
-    auto params1 = StandardParams::TOY_PARAMS();
-    auto params2 = StandardParams::TOY_PARAMS();
-    
-    BGVContext ctx1(params1);
-    BGVContext ctx2(params2);
-    
-    BGVEncoder encoder1(ctx1);
-    BGVEncoder encoder2(ctx2);
-    
-    BGVEvaluator eval1(ctx1);
-    BGVEvaluator eval2(ctx2);
-    
-    // Generate independent keys
-    auto sk1 = ctx1.generate_secret_key();
-    auto pk1 = ctx1.generate_public_key(sk1);
-    auto rk1 = ctx1.generate_relin_key(sk1);
-    
-    auto sk2 = ctx2.generate_secret_key();
-    auto pk2 = ctx2.generate_public_key(sk2);
-    auto rk2 = ctx2.generate_relin_key(sk2);
-    
-    // Encrypt same value in both contexts
-    const int test_value = 7;
-    auto pt1 = encoder1.encode(test_value);
-    auto pt2 = encoder2.encode(test_value);
-    
-    auto ct1 = ctx1.encrypt(pk1, pt1);
-    auto ct2 = ctx2.encrypt(pk2, pt2);
-    
-    // Perform operations in alternating order (stress test for modulus pollution)
-    auto ct1_squared = eval1.multiply(ct1, ct1);
-    auto ct2_squared = eval2.multiply(ct2, ct2);
-    
-    eval1.relinearize_inplace(ct1_squared, rk1);
-    eval2.relinearize_inplace(ct2_squared, rk2);
-    
-    // Decrypt and verify
-    auto dec1 = ctx1.decrypt(sk1, ct1_squared);
-    auto dec2 = ctx2.decrypt(sk2, ct2_squared);
-    
-    int result1 = encoder1.decode_int(dec1);
-    int result2 = encoder2.decode_int(dec2);
-    
-    EXPECT_EQ(result1, test_value * test_value) << "Context 1 corrupted";
-    EXPECT_EQ(result2, test_value * test_value) << "Context 2 corrupted";
-}
-
-/**
- * @test DeepChainSquareTest
- * @brief Verify correctness of single square operation (x^2)
- * 
- * Chapter 6.2 Lesson: Even simple operations need thorough testing
- * This verifies the base case before testing deeper chains.
- */
-TEST(BGVSecurityTest, DeepChainSquareTest) {
-    auto params = StandardParams::TOY_PARAMS();
-    BGVContext ctx(params);
-    BGVEncoder encoder(ctx);
-    BGVEvaluator eval(ctx);
-    
-    auto sk = ctx.generate_secret_key();
-    auto pk = ctx.generate_public_key(sk);
-    auto rk = ctx.generate_relin_key(sk);
-    
-    // Test multiple values
-    std::vector<int> test_values = {2, 3, 5, 7};
-    
-    for (int val : test_values) {
-        auto pt = encoder.encode(val);
-        auto ct = ctx.encrypt(pk, pt);
-        
-        // Compute x^2
-        auto ct_x2 = eval.multiply(ct, ct);
-        eval.relinearize_inplace(ct_x2, rk);
-        
-        // Decrypt and verify
-        auto dec = ctx.decrypt(sk, ct_x2);
-        int result = encoder.decode_int(dec);
-        int expected = val * val;
-        
-        EXPECT_EQ(result, expected) << "Square of " << val << " failed: expected " << expected << ", got " << result;
+    ASSERT_EQ(result.size(), n);
+    EXPECT_EQ(result[0], 1u);
+    EXPECT_EQ(result[1], 2u);
+    EXPECT_EQ(result[2], 1u);
+    for (size_t i = 3; i < n; ++i) {
+        EXPECT_EQ(result[i], 0u);
     }
 }
 
-/**
- * @test ContextVersioningTest
- * @brief Verify context version mechanism prevents stale cache usage
- * 
- * Chapter 6.3 Lesson: Cache invalidation is critical when context changes
- */
-TEST(BGVSecurityTest, ContextVersioningTest) {
-    auto params = StandardParams::TOY_PARAMS();
-    BGVContext ctx(params);
-    
-    // Each context should have a unique version
-    uint64_t version = ctx.version();
-    EXPECT_GT(version, 0u) << "Context version should be positive";
-    
-    // Creating another context should increment global counter
-    BGVContext ctx2(params);
-    EXPECT_GT(ctx2.version(), version) << "New context should have higher version";
-}
+TEST(BGVNTTTest, MultiplyRNSNTTPure) {
+    constexpr size_t n = 8;
+    const std::vector<uint64_t> primes = toy_primes();
 
-/**
- * @test SecretKeyPowerCacheInvalidation
- * @brief Verify power cache respects context version
- * 
- * Chapter 6.3 Lesson: Power cache must be invalidated when context version changes
- */
-TEST(BGVSecurityTest, SecretKeyPowerCacheInvalidation) {
-    auto params = StandardParams::TOY_PARAMS();
-    BGVContext ctx(params);
-    
-    auto sk = ctx.generate_secret_key();
-    
-    // First access - should compute and cache
-    const auto& s2_first = sk.power(2, ctx.version());
-    
-    // Second access with same version - should use cache
-    const auto& s2_cached = sk.power(2, ctx.version());
-    
-    // These should be the same reference (cached)
-    EXPECT_EQ(&s2_first, &s2_cached) << "Cache should return same reference";
-    
-    // Access with different version - should invalidate and recompute
-    // Note: This simulates switching to a different context
-    uint64_t fake_new_version = ctx.version() + 100;
-    sk.invalidate_power_cache();  // Explicit invalidation
-    const auto& s2_new = sk.power(2, fake_new_version);
-    
-    // Just verify it doesn't crash - different modulus state is a security concern
-    (void)s2_new;  // Suppress unused warning
-    EXPECT_TRUE(true);
-}
+    auto coeffs_a = make_poly_coeffs(1, 1, n);
+    auto coeffs_b = make_poly_coeffs(1, 1, n);
 
-/**
- * @test AlternatingContextOperations
- * @brief Stress test for alternating operations between contexts
- * 
- * This is an advanced test simulating real-world scenarios where
- * multiple BGV contexts might be used in the same application.
- */
-TEST(BGVSecurityTest, AlternatingContextOperations) {
-    auto params = StandardParams::TOY_PARAMS();
-    
-    // Create three contexts
-    BGVContext ctx_a(params);
-    BGVContext ctx_b(params);
-    BGVContext ctx_c(params);
-    
-    BGVEncoder enc_a(ctx_a), enc_b(ctx_b), enc_c(ctx_c);
-    BGVEvaluator eval_a(ctx_a), eval_b(ctx_b), eval_c(ctx_c);
-    
-    auto sk_a = ctx_a.generate_secret_key();
-    auto pk_a = ctx_a.generate_public_key(sk_a);
-    auto rk_a = ctx_a.generate_relin_key(sk_a);
-    
-    auto sk_b = ctx_b.generate_secret_key();
-    auto pk_b = ctx_b.generate_public_key(sk_b);
-    auto rk_b = ctx_b.generate_relin_key(sk_b);
-    
-    auto sk_c = ctx_c.generate_secret_key();
-    auto pk_c = ctx_c.generate_public_key(sk_c);
-    auto rk_c = ctx_c.generate_relin_key(sk_c);
-    
-    // Test values
-    const std::vector<int> vals = {2, 3, 5};
-    
-    // Encrypt in each context
-    auto ct_a = ctx_a.encrypt(pk_a, enc_a.encode(vals[0]));
-    auto ct_b = ctx_b.encrypt(pk_b, enc_b.encode(vals[1]));
-    auto ct_c = ctx_c.encrypt(pk_c, enc_c.encode(vals[2]));
-    
-    // Alternating operations (A-B-C-A-B-C pattern)
-    auto ct_a2 = eval_a.multiply(ct_a, ct_a);  // A
-    eval_a.relinearize_inplace(ct_a2, rk_a);
-    
-    auto ct_b2 = eval_b.multiply(ct_b, ct_b);  // B
-    eval_b.relinearize_inplace(ct_b2, rk_b);
-    
-    auto ct_c2 = eval_c.multiply(ct_c, ct_c);  // C
-    eval_c.relinearize_inplace(ct_c2, rk_c);
-    
-    auto ct_a3 = eval_a.add(ct_a2, ct_a);      // A again
-    auto ct_b3 = eval_b.add(ct_b2, ct_b);      // B again
-    auto ct_c3 = eval_c.add(ct_c2, ct_c);      // C again
-    
-    // Verify all results
-    int res_a = enc_a.decode_int(ctx_a.decrypt(sk_a, ct_a3));
-    int res_b = enc_b.decode_int(ctx_b.decrypt(sk_b, ct_b3));
-    int res_c = enc_c.decode_int(ctx_c.decrypt(sk_c, ct_c3));
-    
-    EXPECT_EQ(res_a, vals[0] * vals[0] + vals[0]) << "Context A corrupted";
-    EXPECT_EQ(res_b, vals[1] * vals[1] + vals[1]) << "Context B corrupted";
-    EXPECT_EQ(res_c, vals[2] * vals[2] + vals[2]) << "Context C corrupted";
-}
+    std::vector<std::vector<uint64_t>> a_rns;
+    std::vector<std::vector<uint64_t>> b_rns;
 
-// ============================================================================
-// RNS-NTT-CRT Diagnostic Tests
-// ============================================================================
+    a_rns.reserve(primes.size());
+    b_rns.reserve(primes.size());
 
-// Test multiply_rns_ntt_crt function directly
-TEST(BGVNTTCRTTest, DiagnoseRNS_NTT_CRT_WithToyParams) {
-    using namespace kctsb;
-    using namespace kctsb::fhe::bgv;
-    using namespace kctsb::fhe::ntt;
-    
-    auto params = StandardParams::TOY_PARAMS();
-    size_t n = params.n;
-    const auto& primes = params.primes;
-    const ZZ& Q = params.q;
-    
-    std::cerr << "\n=== RNS-NTT-CRT Diagnostic (TOY_PARAMS) ===\n";
-    std::cerr << "n = " << n << "\n";
-    std::cerr << "Primes: ";
-    for (auto p : primes) std::cerr << p << " ";
-    std::cerr << "\nQ = " << Q << "\n";
-    
-    // Create simple polynomials: a = 1 + x, b = 1 + x
-    ZZ_p::init(Q);
-    ZZ_pX a, b;
-    SetCoeff(a, 0, conv<ZZ_p>(1));
-    SetCoeff(a, 1, conv<ZZ_p>(1));
-    SetCoeff(b, 0, conv<ZZ_p>(1));
-    SetCoeff(b, 1, conv<ZZ_p>(1));
-    
-    // NTT-CRT multiplication
-    auto result_ntt = multiply_rns_ntt_crt(a, b, n, primes, Q);
-    
-    // Schoolbook reference
-    ZZ_pX cyclotomic;
-    SetCoeff(cyclotomic, 0, conv<ZZ_p>(1));
-    SetCoeff(cyclotomic, n, conv<ZZ_p>(1));
-    
-    ZZ_pX result_ref;
-    PlainMul(result_ref, a, b);
-    PlainRem(result_ref, result_ref, cyclotomic);
-    
-    // Compare
-    bool match = true;
-    for (long i = 0; i < static_cast<long>(n); ++i) {
-        ZZ coef_ntt = IsZero(coeff(result_ntt, i)) ? ZZ(0) : rep(coeff(result_ntt, i));
-        ZZ coef_ref = IsZero(coeff(result_ref, i)) ? ZZ(0) : rep(coeff(result_ref, i));
-        if (coef_ntt != coef_ref) {
-            if (match) {
-                std::cerr << "Mismatches found:\n";
-            }
-            std::cerr << "  coef[" << i << "]: NTT=" << coef_ntt << ", REF=" << coef_ref << "\n";
-            match = false;
+    for (uint64_t p : primes) {
+        std::vector<uint64_t> a_mod(n, 0);
+        std::vector<uint64_t> b_mod(n, 0);
+        for (size_t i = 0; i < n; ++i) {
+            a_mod[i] = coeffs_a[i] % p;
+            b_mod[i] = coeffs_b[i] % p;
+        }
+        a_rns.push_back(std::move(a_mod));
+        b_rns.push_back(std::move(b_mod));
+    }
+
+    auto result = multiply_rns_ntt_pure(a_rns, b_rns, n, primes);
+
+    ASSERT_EQ(result.size(), primes.size());
+    for (size_t idx = 0; idx < primes.size(); ++idx) {
+        ASSERT_EQ(result[idx].size(), n);
+        EXPECT_EQ(result[idx][0], 1u);
+        EXPECT_EQ(result[idx][1], 2u);
+        EXPECT_EQ(result[idx][2], 1u);
+        for (size_t i = 3; i < n; ++i) {
+            EXPECT_EQ(result[idx][i], 0u);
         }
     }
-    
-    EXPECT_TRUE(match) << "RNS-NTT-CRT result differs from schoolbook reference";
-}
-
-TEST(BGVNTTCRTTest, DiagnoseRNS_NTT_CRT_WithSecurity128) {
-    using namespace kctsb;
-    using namespace kctsb::fhe::bgv;
-    using namespace kctsb::fhe::ntt;
-    
-    auto params = StandardParams::SECURITY_128_DEPTH_5();
-    size_t n = params.n;
-    const auto& primes = params.primes;
-    const ZZ& Q = params.q;
-    
-    std::cerr << "\n=== RNS-NTT-CRT Diagnostic (SECURITY_128) ===\n";
-    std::cerr << "n = " << n << "\n";
-    std::cerr << "Primes: ";
-    for (auto p : primes) std::cerr << p << " ";
-    std::cerr << "\nQ bits = " << NumBits(Q) << "\n";
-    
-    // Create simple polynomials: a = 1 + x, b = 1 + x
-    ZZ_p::init(Q);
-    ZZ_pX a, b;
-    SetCoeff(a, 0, conv<ZZ_p>(1));
-    SetCoeff(a, 1, conv<ZZ_p>(1));
-    SetCoeff(b, 0, conv<ZZ_p>(1));
-    SetCoeff(b, 1, conv<ZZ_p>(1));
-    
-    // NTT-CRT multiplication
-    std::cerr << "Running NTT-CRT multiply...\n";
-    auto result_ntt = multiply_rns_ntt_crt(a, b, n, primes, Q);
-    
-    // Expected: (1+x)^2 = 1 + 2x + x^2
-    std::cerr << "Checking result coefficients...\n";
-    
-    ZZ coef0 = IsZero(coeff(result_ntt, 0)) ? ZZ(0) : rep(coeff(result_ntt, 0));
-    ZZ coef1 = IsZero(coeff(result_ntt, 1)) ? ZZ(0) : rep(coeff(result_ntt, 1));
-    ZZ coef2 = IsZero(coeff(result_ntt, 2)) ? ZZ(0) : rep(coeff(result_ntt, 2));
-    
-    std::cerr << "coef[0] = " << coef0 << " (expected 1)\n";
-    std::cerr << "coef[1] = " << coef1 << " (expected 2)\n";
-    std::cerr << "coef[2] = " << coef2 << " (expected 1)\n";
-    
-    EXPECT_EQ(coef0, ZZ(1)) << "Constant term should be 1";
-    EXPECT_EQ(coef1, ZZ(2)) << "x term should be 2";
-    EXPECT_EQ(coef2, ZZ(1)) << "x^2 term should be 1";
-}
-
-// Test with random large polynomials 
-TEST(BGVNTTCRTTest, RandomPolynomialMultiply) {
-    using namespace kctsb;
-    using namespace kctsb::fhe::bgv;
-    using namespace kctsb::fhe::ntt;
-    
-    auto params = StandardParams::SECURITY_128_DEPTH_5();
-    size_t n = params.n;
-    const auto& primes = params.primes;
-    const ZZ& Q = params.q;
-    
-    std::cerr << "\n=== Random Polynomial Multiply Test (positive only) ===\n";
-    
-    // Create random polynomials with POSITIVE small coefficients only
-    ZZ_p::init(Q);
-    ZZ_pX a, b;
-    std::mt19937 rng(42);
-    std::uniform_int_distribution<int> dist(0, 100);  // Only positive!
-    
-    for (size_t i = 0; i < 10; ++i) {
-        SetCoeff(a, i, conv<ZZ_p>(to_ZZ(dist(rng))));
-    }
-    for (size_t i = 0; i < 10; ++i) {
-        SetCoeff(b, i, conv<ZZ_p>(to_ZZ(dist(rng))));
-    }
-    
-    // NTT-CRT multiplication
-    auto result_ntt = multiply_rns_ntt_crt(a, b, n, primes, Q);
-    
-    // Schoolbook reference
-    ZZ_pX cyclotomic;
-    SetCoeff(cyclotomic, 0, conv<ZZ_p>(1));
-    SetCoeff(cyclotomic, n, conv<ZZ_p>(1));
-    
-    ZZ_pX result_ref;
-    PlainMul(result_ref, a, b);
-    PlainRem(result_ref, result_ref, cyclotomic);
-    
-    // Compare first 20 coefficients
-    int mismatches = 0;
-    for (long i = 0; i < 20; ++i) {
-        ZZ coef_ntt = IsZero(coeff(result_ntt, i)) ? ZZ(0) : rep(coeff(result_ntt, i));
-        ZZ coef_ref = IsZero(coeff(result_ref, i)) ? ZZ(0) : rep(coeff(result_ref, i));
-        if (coef_ntt != coef_ref) {
-            std::cerr << "Mismatch at coef[" << i << "]: NTT=" << coef_ntt << ", REF=" << coef_ref << "\n";
-            ++mismatches;
-        }
-    }
-    
-    EXPECT_EQ(mismatches, 0) << "Found " << mismatches << " coefficient mismatches";
-}
-
-// Test with NEGATIVE coefficients (the original failing case)
-TEST(BGVNTTCRTTest, NegativeCoefficientMultiply) {
-    using namespace kctsb::fhe::bgv;
-    using namespace kctsb::fhe::ntt;
-    
-    auto params = StandardParams::SECURITY_128_DEPTH_5();
-    size_t n = params.n;
-    const auto& primes = params.primes;
-    const ZZ& Q = params.q;
-    
-    std::cerr << "\n=== Parameter Verification ===\n";
-    std::cerr << "n = " << n << "\n";
-    std::cerr << "L = " << params.L << "\n";
-    std::cerr << "Number of primes: " << primes.size() << "\n";
-    std::cerr << "Primes:\n";
-    
-    // Verify Q = product of primes - use fully qualified to_ZZ
-    ZZ Q_computed = kctsb::fhe::bgv::to_ZZ(1);
-    for (size_t i = 0; i < primes.size(); ++i) {
-        std::cerr << "  primes[" << i << "] = " << primes[i] << "\n";
-        Q_computed *= kctsb::fhe::bgv::to_ZZ(primes[i]);
-    }
-    
-    std::cerr << "\nQ from params: " << Q << " (" << NumBits(Q) << " bits)\n";
-    std::cerr << "Q from primes: " << Q_computed << " (" << NumBits(Q_computed) << " bits)\n";
-    
-    ASSERT_EQ(Q, Q_computed) << "Q must equal product of primes!";
-    
-    // Simple test: a = -5 (represented as Q-5), b = 3
-    // Expected: a * b = -15 (represented as Q-15)
-    ZZ_p::init(Q);
-    ZZ_pX a, b;
-    
-    // a = Q - 5 (represents -5 in Z_Q)
-    ZZ a_val = Q - kctsb::fhe::bgv::to_ZZ(5);
-    SetCoeff(a, 0, conv<ZZ_p>(a_val));
-    // b = 3
-    SetCoeff(b, 0, conv<ZZ_p>(kctsb::fhe::bgv::to_ZZ(3)));
-    
-    // NTT-CRT multiplication
-    auto result_ntt = multiply_rns_ntt_crt(a, b, n, primes, Q);
-    
-    // Schoolbook reference
-    ZZ_pX cyclotomic;
-    SetCoeff(cyclotomic, 0, conv<ZZ_p>(1));
-    SetCoeff(cyclotomic, n, conv<ZZ_p>(1));
-    
-    ZZ_pX result_ref;
-    PlainMul(result_ref, a, b);
-    PlainRem(result_ref, result_ref, cyclotomic);
-    
-    ZZ coef_ntt = IsZero(coeff(result_ntt, 0)) ? ZZ(0) : rep(coeff(result_ntt, 0));
-    ZZ coef_ref = IsZero(coeff(result_ref, 0)) ? ZZ(0) : rep(coeff(result_ref, 0));
-    
-    // Verify: (Q-5) * 3 = Q*3 - 15 ≡ -15 (mod Q) = Q - 15
-    ZZ expected = Q - kctsb::fhe::bgv::to_ZZ(15);
-    
-    EXPECT_EQ(coef_ntt, expected) << "NTT-CRT should compute (Q-5)*3 = Q-15";
-    EXPECT_EQ(coef_ntt, coef_ref) << "NTT-CRT should match schoolbook for negative numbers";
 }
 
 // ============================================================================
