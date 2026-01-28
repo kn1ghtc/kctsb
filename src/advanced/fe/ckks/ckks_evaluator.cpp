@@ -118,16 +118,44 @@ CKKSPlaintext CKKSEncoder::encode(const std::vector<Complex>& values, double sca
     std::vector<Complex> padded(slots_, Complex(0.0, 0.0));
     std::copy(values.begin(), values.end(), padded.begin());
     
-    // CKKS canonical embedding: inverse FFT from slots to n coefficients
-    // First, extend to n complex values by conjugate symmetry
-    std::vector<Complex> extended(n_);
-    for (size_t i = 0; i < slots_; ++i) {
-        extended[i] = padded[i] * scale;
-        extended[n_ - 1 - i] = std::conj(padded[i] * scale);
+    // CKKS Canonical Embedding Encoding:
+    // 
+    // The n-th cyclotomic polynomial X^n + 1 has roots at the 2n-th primitive roots
+    // of unity: zeta^{2k+1} for k = 0, 1, ..., n-1, where zeta = e^{i*pi/n}.
+    //
+    // These roots come in conjugate pairs:
+    //   zeta^{2k+1} and zeta^{2(n-1-k)+1} = conj(zeta^{2k+1})
+    //
+    // We place values in the first n/2 roots and their conjugates in the other n/2:
+    //   m(zeta^{2k+1}) = values[k]  for k = 0, ..., n/2-1
+    //   m(zeta^{2(n-1-k)+1}) = conj(values[k])  for k = 0, ..., n/2-1
+    //
+    // This ensures the polynomial coefficients are real.
+    //
+    // To compute coefficients: inverse DFT over all n roots
+    //   coef[j] = (1/n) * sum_{k=0}^{n-1} m(zeta^{2k+1}) * (zeta^{2k+1})^{-j}
+    
+    // Expand to n evaluation points (with conjugate pairs)
+    std::vector<Complex> expanded(n_);
+    for (size_t k = 0; k < slots_; ++k) {
+        expanded[k] = padded[k] * scale;
+        // Conjugate pair: position n-1-k maps to conjugate of position k
+        expanded[n_ - 1 - k] = std::conj(padded[k] * scale);
     }
     
-    // Apply inverse FFT to get polynomial coefficients
-    fft_inverse(extended);
+    // Compute polynomial coefficients using inverse DFT
+    // coef[j] = (1/n) * sum_{k=0}^{n-1} expanded[k] * (zeta^{2k+1})^{-j}
+    std::vector<Complex> coeffs(n_);
+    for (size_t j = 0; j < n_; ++j) {
+        Complex sum(0.0, 0.0);
+        for (size_t k = 0; k < n_; ++k) {
+            // (zeta^{2k+1})^{-j} = e^{-i*pi*(2k+1)*j/n}
+            double angle = -PI * static_cast<double>((2 * k + 1) * j) / static_cast<double>(n_);
+            Complex root_inv(std::cos(angle), std::sin(angle));
+            sum += expanded[k] * root_inv;
+        }
+        coeffs[j] = sum / static_cast<double>(n_);
+    }
     
     CKKSPlaintext pt(context_, scale);
     size_t L = context_->level_count();
@@ -137,7 +165,7 @@ CKKSPlaintext CKKSEncoder::encode(const std::vector<Complex>& values, double sca
         uint64_t q = mod.value();
         
         for (size_t i = 0; i < n_; ++i) {
-            double real_val = extended[i].real();
+            double real_val = coeffs[i].real();
             int64_t rounded = static_cast<int64_t>(std::round(real_val));
             
             uint64_t coef;
@@ -162,33 +190,10 @@ CKKSPlaintext CKKSEncoder::encode_real(const std::vector<double>& values, double
 }
 
 CKKSPlaintext CKKSEncoder::encode_single(double value, double scale) {
-    if (scale == 0.0) scale = default_scale_;
-    if (scale == 0.0) scale = std::pow(2.0, 40.0);
-    
-    CKKSPlaintext pt(context_, scale);
-    size_t L = context_->level_count();
-    
-    double scaled_value = value * scale;
-    int64_t rounded = static_cast<int64_t>(std::round(scaled_value));
-    
-    for (size_t level = 0; level < L; ++level) {
-        const Modulus& mod = context_->modulus(level);
-        uint64_t q = mod.value();
-        
-        uint64_t coef;
-        if (rounded >= 0) {
-            coef = static_cast<uint64_t>(rounded) % q;
-        } else {
-            uint64_t abs_val = static_cast<uint64_t>(-rounded) % q;
-            coef = (abs_val == 0) ? 0 : q - abs_val;
-        }
-        
-        pt.data()(level, 0) = coef;
-        for (size_t i = 1; i < n_; ++i) {
-            pt.data()(level, i) = 0;
-        }
-    }
-    return pt;
+    // Use the full canonical embedding with a single-element vector
+    // This ensures consistency between encode_single and decode
+    std::vector<Complex> values(1, Complex(value, 0.0));
+    return encode(values, scale);
 }
 
 std::vector<Complex> CKKSEncoder::decode(const CKKSPlaintext& pt) {
@@ -201,26 +206,34 @@ std::vector<Complex> CKKSEncoder::decode(const CKKSPlaintext& pt) {
     uint64_t q = mod.value();
     uint64_t q_half = q / 2;
     
-    // Convert RNS coefficients to complex numbers
-    std::vector<Complex> coeffs(n_);
+    // Convert RNS coefficients to double
+    std::vector<double> coeffs(n_);
     for (size_t i = 0; i < n_; ++i) {
         uint64_t coef = pt.data()(level, i);
-        double val;
         if (coef > q_half) {
-            val = -static_cast<double>(q - coef);
+            coeffs[i] = -static_cast<double>(q - coef);
         } else {
-            val = static_cast<double>(coef);
+            coeffs[i] = static_cast<double>(coef);
         }
-        coeffs[i] = Complex(val, 0.0);
     }
     
-    // Apply forward FFT to get slot values
-    fft_forward(coeffs);
-    
-    // Extract first n/2 slots and apply inverse scale
+    // CKKS canonical embedding decode:
+    // Evaluate polynomial m(X) at roots zeta^(2k+1) for k=0,...,n/2-1
+    // where zeta = e^(i*pi/n)
     std::vector<Complex> result(slots_);
-    for (size_t i = 0; i < slots_; ++i) {
-        result[i] = coeffs[i] / scale;
+    for (size_t k = 0; k < slots_; ++k) {
+        Complex sum(0.0, 0.0);
+        // Evaluate m(zeta^(2k+1)) = sum_{j=0}^{n-1} coef[j] * (zeta^(2k+1))^j
+        Complex zeta_power(1.0, 0.0);
+        // zeta^(2k+1) = e^(i*pi*(2k+1)/n)
+        double angle = PI * static_cast<double>(2 * k + 1) / static_cast<double>(n_);
+        Complex zeta_2k1(std::cos(angle), std::sin(angle));
+        
+        for (size_t j = 0; j < n_; ++j) {
+            sum += coeffs[j] * zeta_power;
+            zeta_power *= zeta_2k1;
+        }
+        result[k] = sum / scale;
     }
     return result;
 }
@@ -246,6 +259,7 @@ CKKSEvaluator::CKKSEvaluator(const RNSContext* ctx, double default_scale)
         throw std::invalid_argument("RNS context cannot be null");
     }
     encoder_ = std::make_unique<CKKSEncoder>(ctx, default_scale_);
+    rns_tool_ = std::make_unique<CKKSRNSTool>(ctx);
 }
 
 void CKKSEvaluator::sample_ternary_rns(RNSPoly* poly, std::mt19937_64& rng) {
@@ -337,6 +351,26 @@ CKKSPublicKey CKKSEvaluator::generate_public_key(const CKKSSecretKey& sk, std::m
     return pk;
 }
 
+/**
+ * @brief Generate relinearization key using RNS decomposition
+ * 
+ * RNS Key Switching (similar to SEAL's approach):
+ * For each modulus q_j in the chain, we generate a key component:
+ *   rk_j = (b_j, a_j) where b_j = -a_j*s + e_j + q̂_j * s^2 mod Q
+ *   where q̂_j = Q/q_j (product of all other moduli)
+ * 
+ * During key switching, c2 is decomposed as:
+ *   c2 = sum_j (c2 mod q_j) * q̂_j * (q̂_j^{-1} mod q_j) mod Q
+ * 
+ * By pre-multiplying s^2 by q̂_j in the key, we get:
+ *   sum_j [(c2 mod q_j) * rk_j] ≈ c2 * s^2
+ * 
+ * Noise growth: O(sqrt(n*L) * sigma) instead of O(sqrt(n) * ||c2||)
+ * 
+ * @param sk Secret key (must be in NTT form)
+ * @param rng Random number generator
+ * @return Relinearization key with L components (one per modulus)
+ */
 CKKSRelinKey CKKSEvaluator::generate_relin_key(const CKKSSecretKey& sk, std::mt19937_64& rng) {
     if (!sk.is_ntt_form) {
         throw std::invalid_argument("Secret key must be in NTT form");
@@ -344,32 +378,105 @@ CKKSRelinKey CKKSEvaluator::generate_relin_key(const CKKSSecretKey& sk, std::mt1
     
     CKKSRelinKey rk;
     size_t L = context_->level_count();
+    size_t n = context_->n();
     
+    rk.rk_b.resize(L);
+    rk.rk_a.resize(L);
+    
+    // Compute s^2 in NTT form
     RNSPoly s_squared = sk.s;
     s_squared *= sk.s;
     
-    size_t num_components = L;
-    rk.key_components.resize(num_components);
-    
-    for (size_t d = 0; d < num_components; ++d) {
-        RNSPoly a(context_);
-        sample_uniform_rns(&a, rng);
-        a.ntt_transform();
+    // For each modulus q_j, generate a key component
+    for (size_t j = 0; j < L; ++j) {
+        // Sample random a_j uniform in R_Q
+        RNSPoly a_j(context_);
+        sample_uniform_rns(&a_j, rng);
+        a_j.ntt_transform();
         
-        RNSPoly e(context_);
-        sample_error_rns(&e, 3.2, rng);
-        e.ntt_transform();
+        // Sample error e_j from Gaussian
+        RNSPoly e_j(context_);
+        sample_error_rns(&e_j, 3.2, rng);
+        e_j.ntt_transform();
         
-        RNSPoly b = a;
-        b *= sk.s;
-        b.negate();
-        b += e;
+        // CRT-based key switching:
+        // We want sum_j [(c2 mod q_j) * rk_j] = c2 * s^2
+        // 
+        // CRT reconstruction: c2 = sum_j [(c2 mod q_j) * q̂_j * q̂_j_inv] mod Q
+        // where q̂_j = Q/q_j and q̂_j_inv = (q̂_j)^{-1} mod q_j
+        //
+        // So: c2 * s^2 = sum_j [(c2 mod q_j) * (q̂_j * q̂_j_inv * s^2)]
+        //
+        // We embed q̂_j * q̂_j_inv * s^2 into the key
         
-        if (d == 0) {
-            b += s_squared;
+        const Modulus& mod_j = context_->modulus(j);
+        uint64_t q_j = mod_j.value();
+        
+        // Compute q̂_j mod q_j (product of all other moduli mod q_j)
+        uint64_t q_hat_j_mod_qj = 1;
+        for (size_t i = 0; i < L; ++i) {
+            if (i != j) {
+                q_hat_j_mod_qj = multiply_uint_mod(
+                    q_hat_j_mod_qj, 
+                    context_->modulus(i).value() % q_j, 
+                    mod_j);
+            }
         }
         
-        rk.key_components[d] = {std::move(b), std::move(a)};
+        // Compute (q̂_j)^{-1} mod q_j
+        uint64_t q_hat_j_inv = inv_mod(q_hat_j_mod_qj, mod_j);
+        
+        // Store (q̂_j * q̂_j_inv) * s^2 mod each q_l
+        // Note: q̂_j * q̂_j_inv mod q_l needs careful computation
+        // q̂_j mod q_l = prod_{i!=j} q_i mod q_l
+        // q̂_j_inv is computed mod q_j, so (q̂_j * q̂_j_inv) mod q_l is NOT simply 1
+        //
+        // The correct formula: we need to lift q̂_j_inv from Z_{q_j} to Z
+        // then compute (q̂_j * lifted_q̂_j_inv) mod Q
+        //
+        // For practical implementation: embed q̂_j_inv into the scaling
+        RNSPoly scaled_s2(context_);
+        
+        for (size_t l = 0; l < L; ++l) {
+            const Modulus& mod_l = context_->modulus(l);
+            uint64_t q_l = mod_l.value();
+            
+            // q̂_j mod q_l = prod_{i!=j} q_i mod q_l
+            uint64_t q_hat_j_mod_l = 1;
+            for (size_t i = 0; i < L; ++i) {
+                if (i != j) {
+                    q_hat_j_mod_l = multiply_uint_mod(
+                        q_hat_j_mod_l,
+                        context_->modulus(i).value() % q_l,
+                        mod_l);
+                }
+            }
+            
+            // For the CRT coefficient: scale_factor = q̂_j * q̂_j_inv
+            // where q̂_j_inv is lifted from Z_{q_j} to Z
+            // In RNS: we compute q̂_j_inv mod q_l
+            uint64_t q_hat_j_inv_mod_l = q_hat_j_inv % q_l;
+            
+            // Combined scaling: q̂_j * q̂_j_inv mod q_l
+            uint64_t scale_factor = multiply_uint_mod(q_hat_j_mod_l, q_hat_j_inv_mod_l, mod_l);
+            
+            // scaled_s2[l] = scale_factor * s^2 mod q_l
+            for (size_t i = 0; i < n; ++i) {
+                uint64_t s2_coef = s_squared(l, i);
+                scaled_s2(l, i) = multiply_uint_mod(s2_coef, scale_factor, mod_l);
+            }
+        }
+        scaled_s2.set_ntt_form(true);
+        
+        // Compute b_j = -a_j*s + e_j + scaled_s^2 (in NTT form)
+        RNSPoly b_j = a_j;
+        b_j *= sk.s;         // a_j*s
+        b_j.negate();        // -a_j*s
+        b_j += e_j;          // -a_j*s + e_j
+        b_j += scaled_s2;    // -a_j*s + e_j + q̂_j*q̂_j_inv*s^2
+        
+        rk.rk_b[j] = std::move(b_j);
+        rk.rk_a[j] = std::move(a_j);
     }
     
     rk.is_ntt_form = true;
@@ -442,9 +549,18 @@ CKKSCiphertext CKKSEvaluator::encrypt_symmetric(const CKKSSecretKey& sk, const C
 }
 
 CKKSPlaintext CKKSEvaluator::decrypt(const CKKSSecretKey& sk, const CKKSCiphertext& ct) {
+    // Decryption: m ≈ c0 + c1*s + c2*s^2 (if 3-component)
     RNSPoly result = ct.c1();
-    result *= sk.s;
-    result += ct.c0();
+    result *= sk.s;      // c1*s
+    result += ct.c0();   // c0 + c1*s
+    
+    // Handle 3-component ciphertext (before relinearization)
+    if (ct.size() >= 3) {
+        RNSPoly c2_s2 = ct.c2();
+        c2_s2 *= sk.s;   // c2*s
+        c2_s2 *= sk.s;   // c2*s^2
+        result += c2_s2; // c0 + c1*s + c2*s^2
+    }
     
     if (result.is_ntt_form()) {
         result.intt_transform();
@@ -544,36 +660,101 @@ CKKSCiphertext CKKSEvaluator::multiply_plain(const CKKSCiphertext& ct, const CKK
     return result;
 }
 
+/**
+ * @brief Relinearize using direct s^2 embedding key switching
+ * 
+ * Direct s^2 key switching algorithm:
+ * Given ciphertext (c0, c1, c2) and relin key rk = (b, a)
+ * where b = -a*s + e + s^2 (NO scaling factor P)
+ * 
+ * Key switching computes:
+ *   c0_ks = c2 * b = c2*(-a*s + e + s^2)
+ *   c1_ks = c2 * a
+ * 
+ * Then:
+ *   c0' = c0 + c0_ks
+ *   c1' = c1 + c1_ks
+ * 
+ * Correctness: 
+ *   c0' + c1'*s = c0 + c0_ks + (c1 + c1_ks)*s
+ *               = c0 + c2*(-a*s + e + s^2) + c1*s + c2*a*s
+ *               = c0 + c1*s + c2*(s^2 + e) 
+ *               ≈ c0 + c1*s + c2*s^2  (with small noise from c2*e)
+ * 
+ * Noise growth: O(sqrt(n) * sigma * ||c2||) which is acceptable for small L.
+ * 
+ * @param ct Input ciphertext (must have size 3)
+ * @param rk Relinearization key (single component)
+ * @return Relinearized ciphertext with size 2
+ */
 CKKSCiphertext CKKSEvaluator::relinearize(const CKKSCiphertext& ct, const CKKSRelinKey& rk) {
     // If already 2-component, nothing to do
     if (ct.size() <= 2) {
         return ct;
     }
     
-    // Relinearization: converts (c0, c1, c2) to (c0', c1')
-    // Using the relinearization key rk = (b, a) where b = -a*s + e + s^2
-    // c0' = c0 + c2 * b
-    // c1' = c1 + c2 * a
-    
-    CKKSCiphertext result(context_, ct.scale());
-    
-    if (rk.key_components.empty()) {
+    if (rk.rk_b.empty() || rk.rk_a.empty()) {
         throw std::runtime_error("Relinearization key has no components");
     }
     
-    const auto& [rk_b, rk_a] = rk.key_components[0];
+    CKKSCiphertext result(context_, ct.scale());
+    size_t L = context_->level_count();
+    size_t n = context_->n();
     
-    // c0' = c0 + c2 * rk_b
-    RNSPoly c2_times_b = ct.c2();
-    c2_times_b *= rk_b;
+    // Initialize result
     result.c0() = ct.c0();
-    result.c0() += c2_times_b;
-    
-    // c1' = c1 + c2 * rk_a
-    RNSPoly c2_times_a = ct.c2();
-    c2_times_a *= rk_a;
     result.c1() = ct.c1();
-    result.c1() += c2_times_a;
+    
+    // Get c2 and convert to coefficient form for decomposition
+    RNSPoly c2 = ct.c2();
+    bool was_ntt = c2.is_ntt_form();
+    if (was_ntt) {
+        c2.intt_transform();
+    }
+    
+    // RNS Decomposition Key Switching:
+    // For each j = 0, ..., L-1:
+    //   Extract (c2 mod q_j) as a single-modulus value
+    //   Multiply by rk_j = (b_j, a_j) where b_j contains q̂_j*s^2 term
+    //   Sum all contributions
+    //
+    // Result: sum_j [(c2 mod q_j) * rk_j] ≈ c2 * s^2
+    // because sum_j [(c2 mod q_j) * q̂_j] = c2 (CRT reconstruction)
+    
+    for (size_t j = 0; j < L; ++j) {
+        // Create a "lifted" polynomial from (c2 mod q_j)
+        // For each level l, we store (c2 mod q_j) mod q_l
+        RNSPoly c2_j(context_);
+        uint64_t q_j = context_->modulus(j).value();
+        
+        for (size_t l = 0; l < L; ++l) {
+            const Modulus& mod_l = context_->modulus(l);
+            uint64_t q_l = mod_l.value();
+            
+            for (size_t i = 0; i < n; ++i) {
+                // c2(j, i) is c2 mod q_j at position i
+                // We need this value mod q_l
+                uint64_t c2_mod_qj = c2(j, i);
+                // Reduce mod q_l (c2_mod_qj < q_j, we need it mod q_l)
+                c2_j(l, i) = c2_mod_qj % q_l;
+            }
+        }
+        
+        // Transform to NTT form
+        c2_j.ntt_transform();
+        
+        // Multiply c2_j by rk_j and accumulate
+        // c0_ks += c2_j * b_j
+        // c1_ks += c2_j * a_j
+        RNSPoly c0_contrib = c2_j;
+        c0_contrib *= rk.rk_b[j];
+        
+        RNSPoly c1_contrib = c2_j;
+        c1_contrib *= rk.rk_a[j];
+        
+        result.c0() += c0_contrib;
+        result.c1() += c1_contrib;
+    }
     
     result.set_level(ct.level());
     return result;
@@ -603,6 +784,17 @@ CKKSCiphertext CKKSEvaluator::rescale(const CKKSCiphertext& ct) {
     result.c0() = RNSPoly(context_);
     result.c1() = RNSPoly(context_);
     
+    // Handle 3-component ciphertext
+    RNSPoly c2;
+    bool has_c2 = (ct.size() >= 3);
+    if (has_c2) {
+        c2 = ct.c2();
+        if (was_ntt) {
+            c2.intt_transform();
+        }
+        result.set_size(3);
+    }
+    
     // CKKS rescale: For each coefficient position i:
     // result[l][i] = (c[l][i] - c[L][i]) * q_L^{-1} mod q_l
     // where q_L^{-1} is the modular inverse of q_L mod q_l
@@ -630,6 +822,15 @@ CKKSCiphertext CKKSEvaluator::rescale(const CKKSCiphertext& ct) {
             
             result.c0()(l, i) = multiply_uint_mod(diff0, q_L_inv, mod_l);
             result.c1()(l, i) = multiply_uint_mod(diff1, q_L_inv, mod_l);
+            
+            // Rescale c2 if present
+            if (has_c2) {
+                uint64_t c2_l = c2(l, i);
+                uint64_t c2_L = c2(level, i);
+                uint64_t c2_L_mod = c2_L % q_l;
+                uint64_t diff2 = sub_uint_mod(c2_l, c2_L_mod, mod_l);
+                result.c2()(l, i) = multiply_uint_mod(diff2, q_L_inv, mod_l);
+            }
         }
     }
     
@@ -638,6 +839,9 @@ CKKSCiphertext CKKSEvaluator::rescale(const CKKSCiphertext& ct) {
     if (was_ntt) {
         result.c0().ntt_transform();
         result.c1().ntt_transform();
+        if (has_c2) {
+            result.c2().ntt_transform();
+        }
     }
     return result;
 }

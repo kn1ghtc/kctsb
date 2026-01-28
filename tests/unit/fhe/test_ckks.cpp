@@ -29,10 +29,32 @@ constexpr double kAddTolerance = 1.5;
 constexpr double kMultiplyTolerance = 2.0;
 
 std::vector<uint64_t> ckks_unit_primes() {
+    // CKKS modulus chain with 30-bit primes for proper rescaling:
+    // All primes satisfy 2048 | (q-1) for n=1024 NTT compatibility
+    // 
+    // Design rationale:
+    // - q_i ≈ 2^29 (~500M)
+    // - scale ≈ 2^25 (allows ~4 bits for noise)
+    // - After multiply: scale = 2^50
+    // - After rescale by q ≈ 2^29: scale ≈ 2^21
+    // 
+    // Encoding:
+    // - Coefficient magnitudes: scale * max_value ≈ 2^25 * 10 = 2^28
+    // - This fits in q ≈ 2^29 ✓
+    // - After multiply: n * (2^28)^2 = 2^66
+    // - We need Q > 2^66, with 3 primes of 2^29 each, Q ≈ 2^87 ✓
+    //
+    // Key switching noise:
+    // - c2 magnitude ≈ q/2 ≈ 2^28
+    // - e magnitude ≈ 20
+    // - c2*e ≈ n * 2^28 * 20 ≈ 2^42 << scale^2 = 2^50 ✓
+    //
+    // These primes satisfy: p ≡ 1 (mod 2048) for n=1024 NTT
+    // Verified: (p-1) % 2048 == 0 for all
     return {
-        549755860993ULL,
-        549755873281ULL,
-        549755904001ULL
+        536881153ULL,   // 2^29 + 6463489, NTT-friendly
+        536903681ULL,   // 2^29 + 6486017, NTT-friendly  
+        536924161ULL    // 2^29 + 6506497, NTT-friendly
     };
 }
 
@@ -40,7 +62,17 @@ CKKSParams create_unit_params() {
     CKKSParams params;
     params.n = 1024;
     params.L = 3;
-    params.log_scale = 20.0;  // Smaller scale for multiply+rescale to fit within moduli
+    // With 30-bit primes (q_i ≈ 2^30):
+    // - scale = 2^25 gives 5 bits noise budget per level
+    // - After multiply: scale = 2^50
+    // - After rescale by q ≈ 2^30: scale ≈ 2^20
+    // 
+    // Key switching noise analysis:
+    // - c2 magnitude ≈ q/2 ≈ 2^29
+    // - e magnitude ≈ 20 (6*sigma = 6*3.2 ≈ 20)
+    // - Convolution c2*e ≈ n * 2^29 * 20 ≈ 2^43
+    // - Acceptable if 2^43 << scale^2 = 2^50 ✓ (7 bits margin)
+    params.log_scale = 25.0;
     params.sigma = 3.2;
     return params;
 }
@@ -99,7 +131,6 @@ TEST(CKKSEncoderTest, EncodeDecodeSingleReal) {
 }
 
 TEST(CKKSEncoderTest, EncodeDecodeRealVector) {
-    GTEST_SKIP() << "Vector encoding requires canonical embedding fix (slot indexing)";
     auto params = create_unit_params();
     auto context = create_ckks_context(params);
     CKKSEncoder encoder(context.get(), params.scale());
@@ -185,7 +216,6 @@ TEST_F(CKKSTest, HomomorphicSub) {
 }
 
 TEST_F(CKKSTest, HomomorphicMultiplyRescale) {
-    GTEST_SKIP() << "Multiply+relin+rescale chain requires relinearization key generation fix";
     double a = 2.0;
     double b = 3.0;
     double expected = a * b;
@@ -220,7 +250,6 @@ TEST_F(CKKSTest, AddPlaintext) {
 }
 
 TEST_F(CKKSTest, MultiplyPlaintext) {
-    GTEST_SKIP() << "Plaintext multiply+rescale requires scale management fix";
     double a = 3.0;
     double b = 2.0;
     double expected = a * b;

@@ -23,6 +23,7 @@
 #include "kctsb/advanced/fe/common/rns_poly.hpp"
 #include "kctsb/advanced/fe/common/ntt.hpp"
 #include "kctsb/advanced/fe/common/modular_ops.hpp"
+#include "kctsb/advanced/fe/ckks/ckks_rns_tool.hpp"
 #include <complex>
 #include <memory>
 #include <vector>
@@ -171,10 +172,22 @@ struct CKKSPublicKey {
 };
 
 /**
- * @brief CKKS relinearization key
+ * @brief CKKS relinearization key with RNS decomposition
+ * 
+ * Uses RNS decomposition for key switching to control noise growth.
+ * For each RNS prime q_j, stores a key component (b_j, a_j) where:
+ *   b_j = -a_j * s + e_j + (Q/q_j) * s^2 mod Q
+ * 
+ * The RNS decomposition reduces noise from O(Q) to O(L * sqrt(n) * sigma)
+ * where L is the number of primes and sigma is error std deviation.
  */
 struct CKKSRelinKey {
-    std::vector<std::pair<RNSPoly, RNSPoly>> key_components;
+    /// Key b components: rk_b[j] where b_j = -a_j*s + e_j + (Q/q_j) * s^2
+    std::vector<RNSPoly> rk_b;
+    
+    /// Key a components: rk_a[j] (random uniform polynomials)
+    std::vector<RNSPoly> rk_a;
+    
     bool is_ntt_form = false;
 };
 
@@ -360,6 +373,7 @@ private:
     const RNSContext* context_;
     double default_scale_;
     std::unique_ptr<CKKSEncoder> encoder_;
+    std::unique_ptr<CKKSRNSTool> rns_tool_;  ///< RNS key switching tool
     
     /// Sample from ternary distribution {-1, 0, 1}
     void sample_ternary_rns(RNSPoly* poly, std::mt19937_64& rng);

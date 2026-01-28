@@ -277,6 +277,14 @@ public:
     const RNSContext* context() const noexcept { return context_; }
     
     /**
+     * @brief Set NTT form flag (use with caution)
+     * @param is_ntt Whether the polynomial is in NTT domain
+     * @note Only use this when you know the data is correctly in NTT form
+     *       (e.g., when computing from NTT-form coefficients)
+     */
+    void set_ntt_form(bool is_ntt) noexcept { is_ntt_form_ = is_ntt; }
+    
+    /**
      * @brief Access coefficients at given level
      * @param level RNS level index
      * @return Pointer to n coefficients for this level

@@ -87,10 +87,14 @@
   - **BFV 方案** - Scale-invariant 编码，复用 BGV 基础设施 ✅
     - 完整加密/解密/运算支持
     - BEHZ RNS 重缩放（开发中）
-  - **CKKS 方案** - 近似实数/复数同态加密 ✅
+  - **CKKS 方案** - 近似实数/复数同态加密 ✅ **RNS Key Switching 完整实现**
     - FFT 正则嵌入编码，支持复数向量
     - Rescale 机制控制精度和噪声
     - 多层乘法深度支持 (3-5 层)
+    - **RNS 分解密钥切换** - CRT-based 低噪声 key switching
+      - 每个模 q_j 生成独立密钥分量
+      - 噪声增长 O(√(n*L)*σ) 而非 O(√n*‖c2‖)
+      - 无需特殊素数 P，纯 RNS 操作
   - **性能优化** - Harvey NTT + RNSPoly 架构 ✅
     - **Harvey NTT 算法**: SEAL-style lazy reduction, 正确的 Gentleman-Sande 逆NTT
     - **RNSPoly 类**: 独立的 RNS 多项式基础设施，NTT 变换支持

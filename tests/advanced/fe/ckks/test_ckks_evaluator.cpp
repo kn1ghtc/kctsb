@@ -96,7 +96,9 @@ TEST_F(CKKSEvaluatorTest, RelinKeyGeneration) {
     CKKSRelinKey rk = evaluator_->generate_relin_key(sk, rng_);
     
     EXPECT_TRUE(rk.is_ntt_form);
-    EXPECT_GT(rk.key_components.size(), 0U);
+    EXPECT_GT(rk.rk_b.size(), 0U);
+    EXPECT_GT(rk.rk_a.size(), 0U);
+    EXPECT_EQ(rk.rk_b.size(), rk.rk_a.size());
 }
 
 // ============================================================================
