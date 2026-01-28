@@ -25,6 +25,7 @@
 #include "kctsb/core/common.h"
 #include "kctsb/core/security.h"
 #include "kctsb/core/zz.h"
+#include "kctsb/kctsb_api.h"
 #include "kctsb/crypto/sha256.h"
 
 #include <algorithm>
@@ -179,34 +180,59 @@ static ZZ modexp_fixed_window(const ZZ& base, const ZZ& exp, const ZZ& mod, int 
 	if (exp.is_zero()) {
 		return ZZ(1);
 	}
-	if (window_bits < 1) {
-		window_bits = 1;
-	}
+	int actual_bits = window_bits < 1 ? 1 : window_bits;
 
 	ZZ base_mod = base % mod;
 	if (base_mod.is_negative()) {
 		base_mod += mod;
 	}
 
-	int table_size = 1 << window_bits;
+	constexpr int kMaxFixedWindowBits = 6;
+	int table_size = 1 << actual_bits;
+
+	ZZ result(1);
+	long exp_bits = NumBits(exp);
+	long total_windows = (exp_bits + actual_bits - 1) / actual_bits;
+
+	if (actual_bits == kMaxFixedWindowBits) {
+		constexpr int kMaxFixedTableSize = 1 << kMaxFixedWindowBits;
+		std::array<ZZ, kMaxFixedTableSize> table;
+		table[0] = ZZ(1);
+		for (int i = 1; i < table_size; ++i) {
+			table[static_cast<size_t>(i)] = (table[static_cast<size_t>(i - 1)] * base_mod) % mod;
+		}
+
+		for (long w = total_windows - 1; w >= 0; --w) {
+			for (int i = 0; i < actual_bits; ++i) {
+				result = (result * result) % mod;
+			}
+
+			long window_val = 0;
+			for (int i = actual_bits - 1; i >= 0; --i) {
+				long bit_index = w * actual_bits + i;
+				int bit_val = (bit_index < exp_bits) ? bit(exp, bit_index) : 0;
+				window_val = (window_val << 1) | bit_val;
+			}
+			result = (result * table[static_cast<size_t>(window_val)]) % mod;
+		}
+
+		return result;
+	}
+
 	std::vector<ZZ> table(static_cast<size_t>(table_size));
 	table[0] = ZZ(1);
 	for (int i = 1; i < table_size; ++i) {
 		table[static_cast<size_t>(i)] = (table[static_cast<size_t>(i - 1)] * base_mod) % mod;
 	}
 
-	ZZ result(1);
-	long exp_bits = NumBits(exp);
-	long total_windows = (exp_bits + window_bits - 1) / window_bits;
-
 	for (long w = total_windows - 1; w >= 0; --w) {
-		for (int i = 0; i < window_bits; ++i) {
+		for (int i = 0; i < actual_bits; ++i) {
 			result = (result * result) % mod;
 		}
 
 		long window_val = 0;
-		for (int i = window_bits - 1; i >= 0; --i) {
-			long bit_index = w * window_bits + i;
+		for (int i = actual_bits - 1; i >= 0; --i) {
+			long bit_index = w * actual_bits + i;
 			int bit_val = (bit_index < exp_bits) ? bit(exp, bit_index) : 0;
 			window_val = (window_val << 1) | bit_val;
 		}
@@ -576,8 +602,9 @@ static bool is_probable_prime(const ZZ& n, int rounds) {
 		37, 41, 43, 47, 53, 59, 61, 67, 71, 73
 	};
 	for (uint32_t p : small_primes) {
-		if ((n % ZZ(p)) == ZZ(0)) {
-			return n == ZZ(p);
+		ZZ prime_val(static_cast<uint64_t>(p));
+		if ((n % prime_val) == ZZ(0)) {
+			return n == prime_val;
 		}
 	}
 
@@ -740,8 +767,8 @@ KCTSB_API kctsb_error_t kctsb_rsa_generate_keypair(
 
 	try {
 		using namespace kctsb::crypto::rsa;
-		ZZ e = ZZ(65537);
-		ZZ p, q, n, phi, d, dp, dq, qinv;
+		kctsb::ZZ e = kctsb::ZZ(65537);
+		kctsb::ZZ p, q, n, phi, d, dp, dq, qinv;
 		size_t prime_bits = static_cast<size_t>(bits / 2);
 
 		while (true) {
@@ -754,10 +781,10 @@ KCTSB_API kctsb_error_t kctsb_rsa_generate_keypair(
 			if (NumBits(n) != bits) {
 				continue;
 			}
-			ZZ p1 = p - ZZ(1);
-			ZZ q1 = q - ZZ(1);
+			kctsb::ZZ p1 = p - kctsb::ZZ(1);
+			kctsb::ZZ q1 = q - kctsb::ZZ(1);
 			phi = p1 * q1;
-			if (GCD(e, phi) != ZZ(1)) {
+			if (GCD(e, phi) != kctsb::ZZ(1)) {
 				continue;
 			}
 			d = InvMod(e, phi);
@@ -836,8 +863,8 @@ KCTSB_API kctsb_error_t kctsb_rsa_oaep_encrypt_sha256(
 			return rc;
 		}
 
-		ZZ m = os2ip(em.data(), em.size());
-		ZZ c = rsa_public_op(m, key);
+		kctsb::ZZ m = os2ip(em.data(), em.size());
+		kctsb::ZZ c = rsa_public_op(m, key);
 		rc = i2osp(c, ciphertext, pub->n_len);
 		if (rc != KCTSB_SUCCESS) {
 			return rc;
@@ -873,8 +900,8 @@ KCTSB_API kctsb_error_t kctsb_rsa_oaep_decrypt_sha256(
 			return rc;
 		}
 
-		ZZ c = os2ip(ciphertext, ciphertext_len);
-		ZZ m = rsa_private_op(c, key);
+		kctsb::ZZ c = os2ip(ciphertext, ciphertext_len);
+		kctsb::ZZ m = rsa_private_op(c, key);
 		std::vector<uint8_t> em(priv->n_len, 0);
 		rc = i2osp(m, em.data(), em.size());
 		if (rc != KCTSB_SUCCESS) {
@@ -943,8 +970,8 @@ KCTSB_API kctsb_error_t kctsb_rsa_pss_sign_sha256(
 			return rc;
 		}
 
-		ZZ m = os2ip(em.data(), em.size());
-		ZZ s = rsa_private_op(m, key);
+		kctsb::ZZ m = os2ip(em.data(), em.size());
+		kctsb::ZZ s = rsa_private_op(m, key);
 		rc = i2osp(s, signature, priv->n_len);
 		if (rc != KCTSB_SUCCESS) {
 			return rc;
@@ -978,8 +1005,8 @@ KCTSB_API kctsb_error_t kctsb_rsa_pss_verify_sha256(
 			return rc;
 		}
 
-		ZZ s = os2ip(signature, signature_len);
-		ZZ m = rsa_public_op(s, key);
+		kctsb::ZZ s = os2ip(signature, signature_len);
+		kctsb::ZZ m = rsa_public_op(s, key);
 		std::vector<uint8_t> em(signature_len, 0);
 		rc = i2osp(m, em.data(), em.size());
 		if (rc != KCTSB_SUCCESS) {
