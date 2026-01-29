@@ -549,37 +549,37 @@ void BFVEvaluator::multiply_inplace(
     // ========================================================================
     // Step 2: Apply BEHZ rescaling to each tensor component
     // ========================================================================
-    // For each tensor component:
-    // 1. Convert from NTT to coefficient domain
-    // 2. Apply BEHZ multiply_and_rescale: computes round(c * t / Q)
-    // 3. Convert back to NTT domain
-    //
+    // OPTIMIZATION: Pre-allocate buffers outside loop to avoid repeated allocations
     // The BEHZ algorithm internally:
     // - Extends Q → Bsk using SmMRq (Small Montgomery Reduction)
     // - Computes (c * t + Q/2) in both Q and Bsk
     // - Uses fast_floor for floor((c * t + Q/2) / Q) in Bsk
     // - Converts Bsk → Q using fastbconv_sk
     
+    // Pre-allocate reusable buffers for all tensor components
+    std::vector<uint64_t> input_q(L * n);
+    std::vector<uint64_t> output_q(L * n);
+    auto work_buf = behz_tool_->create_work_buffer();
+    
     for (size_t k = 0; k < tensor_size; ++k) {
         // Convert to coefficient domain
         tensor_ntt[k].intt_transform();
         
-        // Prepare Q representation
-        std::vector<uint64_t> input_q(L * n);
+        // Copy to flat buffer (using pointer arithmetic for efficiency)
         for (size_t level = 0; level < L; ++level) {
             const uint64_t* src = tensor_ntt[k].data(level);
-            std::copy(src, src + n, input_q.data() + level * n);
+            uint64_t* dst = input_q.data() + level * n;
+            std::copy(src, src + n, dst);
         }
         
-        // Apply BEHZ multiply_and_rescale
-        std::vector<uint64_t> output_q(L * n);
-        behz_tool_->multiply_and_rescale(input_q.data(), output_q.data());
+        // Apply BEHZ multiply_and_rescale with pre-allocated buffer
+        behz_tool_->multiply_and_rescale(input_q.data(), output_q.data(), work_buf);
         
         // Copy back to RNSPoly
         for (size_t level = 0; level < L; ++level) {
             uint64_t* dst = tensor_ntt[k].data(level);
-            std::copy(output_q.data() + level * n,
-                      output_q.data() + (level + 1) * n, dst);
+            const uint64_t* src = output_q.data() + level * n;
+            std::copy(src, src + n, dst);
         }
         
         // Transform back to NTT domain

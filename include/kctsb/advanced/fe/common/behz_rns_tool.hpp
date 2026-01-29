@@ -305,6 +305,47 @@ public:
      */
     void multiply_and_rescale(const uint64_t* input, uint64_t* output) const;
     
+    /**
+     * @brief Working buffer structure for multiply_and_rescale to avoid repeated allocations
+     * 
+     * Pre-allocate this structure once and reuse for multiple calls.
+     */
+    struct RescaleWorkBuffer {
+        std::vector<uint64_t> temp_bsk_m_tilde;  // Bsk ∪ {m_tilde}
+        std::vector<uint64_t> temp_bsk;          // Bsk
+        std::vector<uint64_t> temp_q_bsk;        // Q ∪ Bsk
+        std::vector<uint64_t> input_t;           // c * t + Q/2 in Q
+        std::vector<uint64_t> input_bsk_t;       // c * t + Q/2 in Bsk
+        
+        void resize(size_t L, size_t Bsk_size, size_t n) {
+            temp_bsk_m_tilde.resize((Bsk_size + 1) * n);
+            temp_bsk.resize(Bsk_size * n);
+            temp_q_bsk.resize((L + Bsk_size) * n);
+            input_t.resize(L * n);
+            input_bsk_t.resize(Bsk_size * n);
+        }
+    };
+    
+    /**
+     * @brief Create a pre-sized work buffer for multiply_and_rescale
+     * @return Properly sized work buffer
+     */
+    RescaleWorkBuffer create_work_buffer() const {
+        RescaleWorkBuffer buf;
+        buf.resize(q_base_.size(), bsk_base_.size(), n_);
+        return buf;
+    }
+    
+    /**
+     * @brief Compute round(c * t / Q) with pre-allocated buffer (faster for batches)
+     * 
+     * @param input Input polynomial in base Q
+     * @param output Output polynomial in base Q (rescaled result)
+     * @param buf Pre-allocated work buffer (from create_work_buffer)
+     */
+    void multiply_and_rescale(const uint64_t* input, uint64_t* output,
+                              RescaleWorkBuffer& buf) const;
+    
     // ========================================================================
     // Modulus Switching (for BGV/BFV level reduction)
     // ========================================================================

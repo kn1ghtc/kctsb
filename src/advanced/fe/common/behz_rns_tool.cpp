@@ -879,6 +879,14 @@ void BEHZRNSTool::fastbconv_sk(const uint64_t* input, uint64_t* output) const {
 }
 
 void BEHZRNSTool::multiply_and_rescale(const uint64_t* input, uint64_t* output) const {
+    // Create temporary buffer and call buffered version
+    RescaleWorkBuffer buf;
+    buf.resize(q_base_.size(), bsk_base_.size(), n_);
+    multiply_and_rescale(input, output, buf);
+}
+
+void BEHZRNSTool::multiply_and_rescale(const uint64_t* input, uint64_t* output,
+                                       RescaleWorkBuffer& buf) const {
     size_t L = q_base_.size();
     size_t Bsk_size = bsk_base_.size();
     
@@ -893,24 +901,17 @@ void BEHZRNSTool::multiply_and_rescale(const uint64_t* input, uint64_t* output) 
     // Rounding correction: round(x) = floor(x + 0.5) = floor((x + Q/2) / Q) when x is mod Q
     // So we add Q/2 before the floor operation.
     
-    // Allocate working memory
-    std::vector<uint64_t> temp_bsk_m_tilde((Bsk_size + 1) * n_);  // Bsk ∪ {m_tilde}
-    std::vector<uint64_t> temp_bsk(Bsk_size * n_);                 // Bsk
-    std::vector<uint64_t> temp_q_bsk((L + Bsk_size) * n_);        // Q ∪ Bsk
-    std::vector<uint64_t> input_t(L * n_);                         // c * t + Q/2 in Q
-    std::vector<uint64_t> input_bsk_t(Bsk_size * n_);             // c * t + Q/2 in Bsk
-    
     // Step 1: Extend input from Q to Bsk ∪ {m_tilde} using SmMRq
-    fastbconv_m_tilde(input, temp_bsk_m_tilde.data());
+    fastbconv_m_tilde(input, buf.temp_bsk_m_tilde.data());
     
     // Step 2: Montgomery reduction to get result in Bsk
-    sm_mrq(temp_bsk_m_tilde.data(), temp_bsk.data());
+    sm_mrq(buf.temp_bsk_m_tilde.data(), buf.temp_bsk.data());
     
     // Step 3: Compute (input * t + Q/2) in Q domain for rounding
     // Adding Q/2 converts floor(x/Q) to round(x/Q) = floor((x + Q/2)/Q)
     for (size_t i = 0; i < L; i++) {
         const uint64_t* src = input + i * n_;
-        uint64_t* dst = input_t.data() + i * n_;
+        uint64_t* dst = buf.input_t.data() + i * n_;
         const Modulus& qi = q_base_[i];
         uint64_t t_mod_qi = t_ % qi.value();
         uint64_t half_q_i = half_q_mod_q_[i];
@@ -924,8 +925,8 @@ void BEHZRNSTool::multiply_and_rescale(const uint64_t* input, uint64_t* output) 
     
     // Step 4: Compute (input * t + Q/2) in Bsk domain for rounding
     for (size_t i = 0; i < Bsk_size; i++) {
-        const uint64_t* src = temp_bsk.data() + i * n_;
-        uint64_t* dst = input_bsk_t.data() + i * n_;
+        const uint64_t* src = buf.temp_bsk.data() + i * n_;
+        uint64_t* dst = buf.input_bsk_t.data() + i * n_;
         const Modulus& bi = bsk_base_[i];
         uint64_t t_mod_bi = t_ % bi.value();
         uint64_t half_q_bi = half_q_mod_Bsk_[i];
@@ -938,15 +939,15 @@ void BEHZRNSTool::multiply_and_rescale(const uint64_t* input, uint64_t* output) 
     }
     
     // Step 5: Combine Q and Bsk representations for fast_floor
-    std::copy(input_t.data(), input_t.data() + L * n_, temp_q_bsk.data());
-    std::copy(input_bsk_t.data(), input_bsk_t.data() + Bsk_size * n_, 
-              temp_q_bsk.data() + L * n_);
+    std::copy(buf.input_t.data(), buf.input_t.data() + L * n_, buf.temp_q_bsk.data());
+    std::copy(buf.input_bsk_t.data(), buf.input_bsk_t.data() + Bsk_size * n_, 
+              buf.temp_q_bsk.data() + L * n_);
     
     // Step 6: Fast floor: floor((c * t + Q/2) / Q) in Bsk = round(c * t / Q)
-    fast_floor(temp_q_bsk.data(), temp_bsk.data());
+    fast_floor(buf.temp_q_bsk.data(), buf.temp_bsk.data());
     
     // Step 7: Convert back to Q
-    fastbconv_sk(temp_bsk.data(), output);
+    fastbconv_sk(buf.temp_bsk.data(), output);
 }
 
 void BEHZRNSTool::divide_and_round_q_last_inplace(uint64_t* data) const {

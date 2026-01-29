@@ -351,6 +351,19 @@ public:
     CKKSCiphertext rescale(const CKKSCiphertext& ct);
     
     /**
+     * @brief Rescale ciphertext in-place (modifies input)
+     * @param ct Ciphertext to rescale (modified in place)
+     */
+    void rescale_inplace(CKKSCiphertext& ct);
+    
+    /**
+     * @brief Add two ciphertexts in-place (ct1 += ct2)
+     * @param ct1 Target ciphertext (modified)
+     * @param ct2 Source ciphertext to add
+     */
+    void add_inplace(CKKSCiphertext& ct1, const CKKSCiphertext& ct2);
+    
+    /**
      * @brief Multiply + relinearize + rescale (common operation)
      */
     CKKSCiphertext multiply_relin_rescale(const CKKSCiphertext& ct1,

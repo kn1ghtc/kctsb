@@ -72,6 +72,14 @@ void CKKSEncoder::bit_reverse_permute(std::vector<Complex>& values) {
     }
 }
 
+/**
+ * @brief Optimized Cooley-Tukey FFT for standard DFT
+ * 
+ * Uses Cooley-Tukey radix-2 decimation-in-time with:
+ * - Bit-reversal permutation
+ * - Precomputed twiddle factors (if available)
+ * - O(n log n) complexity
+ */
 void CKKSEncoder::fft_forward(std::vector<Complex>& values) {
     size_t n = values.size();
     bit_reverse_permute(values);
@@ -106,6 +114,19 @@ void CKKSEncoder::fft_inverse(std::vector<Complex>& values) {
     }
 }
 
+/**
+ * @brief Canonical embedding encode using special-form IDFT
+ *
+ * CKKS uses roots zeta^(2k+1) where zeta = exp(i*pi/n).
+ * This is NOT a standard FFT problem, but we can still use FFT with correction.
+ *
+ * Key insight: zeta^(2k+1) = zeta * (zeta^2)^k = zeta * omega^k
+ * where omega = zeta^2 = exp(i*2*pi/n) is the standard n-th root of unity.
+ *
+ * Inverse canonical embedding: coef[j] = (1/n) * sum_k v[k] * (zeta^(2k+1))^(-j)
+ *                                       = (1/n) * zeta^(-j) * sum_k v[k] * omega^(-kj)
+ *                                       = zeta^(-j) * IDFT(v)[j]
+ */
 CKKSPlaintext CKKSEncoder::encode(const std::vector<Complex>& values, double scale) {
     if (scale == 0.0) scale = default_scale_;
     if (scale == 0.0) scale = std::pow(2.0, 40.0);
@@ -118,43 +139,27 @@ CKKSPlaintext CKKSEncoder::encode(const std::vector<Complex>& values, double sca
     std::vector<Complex> padded(slots_, Complex(0.0, 0.0));
     std::copy(values.begin(), values.end(), padded.begin());
     
-    // CKKS Canonical Embedding Encoding:
-    // 
-    // The n-th cyclotomic polynomial X^n + 1 has roots at the 2n-th primitive roots
-    // of unity: zeta^{2k+1} for k = 0, 1, ..., n-1, where zeta = e^{i*pi/n}.
-    //
-    // These roots come in conjugate pairs:
-    //   zeta^{2k+1} and zeta^{2(n-1-k)+1} = conj(zeta^{2k+1})
-    //
-    // We place values in the first n/2 roots and their conjugates in the other n/2:
-    //   m(zeta^{2k+1}) = values[k]  for k = 0, ..., n/2-1
-    //   m(zeta^{2(n-1-k)+1}) = conj(values[k])  for k = 0, ..., n/2-1
-    //
-    // This ensures the polynomial coefficients are real.
-    //
-    // To compute coefficients: inverse DFT over all n roots
-    //   coef[j] = (1/n) * sum_{k=0}^{n-1} m(zeta^{2k+1}) * (zeta^{2k+1})^{-j}
-    
     // Expand to n evaluation points (with conjugate pairs)
+    // m(zeta^{2k+1}) = values[k] for k = 0, ..., n/2-1
+    // m(zeta^{2(n-1-k)+1}) = conj(values[k]) for k = 0, ..., n/2-1
     std::vector<Complex> expanded(n_);
     for (size_t k = 0; k < slots_; ++k) {
         expanded[k] = padded[k] * scale;
-        // Conjugate pair: position n-1-k maps to conjugate of position k
         expanded[n_ - 1 - k] = std::conj(padded[k] * scale);
     }
     
-    // Compute polynomial coefficients using inverse DFT
-    // coef[j] = (1/n) * sum_{k=0}^{n-1} expanded[k] * (zeta^{2k+1})^{-j}
-    std::vector<Complex> coeffs(n_);
+    // OPTIMIZED O(n log n) encoding using FFT:
+    // coef[j] = zeta^(-j) * IDFT(expanded)[j]
+    
+    // Step 1: Apply IDFT (which is conjugate FFT with 1/n scaling)
+    std::vector<Complex> coeffs = expanded;
+    fft_inverse(coeffs);
+    
+    // Step 2: Post-multiply by zeta^(-j) where zeta = e^(i*pi/n)
     for (size_t j = 0; j < n_; ++j) {
-        Complex sum(0.0, 0.0);
-        for (size_t k = 0; k < n_; ++k) {
-            // (zeta^{2k+1})^{-j} = e^{-i*pi*(2k+1)*j/n}
-            double angle = -PI * static_cast<double>((2 * k + 1) * j) / static_cast<double>(n_);
-            Complex root_inv(std::cos(angle), std::sin(angle));
-            sum += expanded[k] * root_inv;
-        }
-        coeffs[j] = sum / static_cast<double>(n_);
+        double angle = -PI * static_cast<double>(j) / static_cast<double>(n_);
+        Complex zeta_neg_j(std::cos(angle), std::sin(angle));
+        coeffs[j] = coeffs[j] * zeta_neg_j;
     }
     
     CKKSPlaintext pt(context_, scale);
@@ -196,6 +201,15 @@ CKKSPlaintext CKKSEncoder::encode_single(double value, double scale) {
     return encode(values, scale);
 }
 
+/**
+ * @brief Canonical embedding decode using special-form DFT
+ *
+ * Evaluates polynomial at roots zeta^(2k+1):
+ * result[k] = sum_j coef[j] * (zeta^(2k+1))^j
+ *           = sum_j coef[j] * zeta^j * omega^(kj)
+ *           = sum_j (coef[j] * zeta^j) * omega^(kj)
+ *           = DFT(coef * zeta^j)[k]
+ */
 std::vector<Complex> CKKSEncoder::decode(const CKKSPlaintext& pt) {
     double scale = pt.scale();
     if (scale <= 0.0) scale = default_scale_;
@@ -206,34 +220,37 @@ std::vector<Complex> CKKSEncoder::decode(const CKKSPlaintext& pt) {
     uint64_t q = mod.value();
     uint64_t q_half = q / 2;
     
-    // Convert RNS coefficients to double
-    std::vector<double> coeffs(n_);
+    // Convert RNS coefficients to Complex
+    std::vector<Complex> coeffs(n_);
     for (size_t i = 0; i < n_; ++i) {
         uint64_t coef = pt.data()(level, i);
+        double val;
         if (coef > q_half) {
-            coeffs[i] = -static_cast<double>(q - coef);
+            val = -static_cast<double>(q - coef);
         } else {
-            coeffs[i] = static_cast<double>(coef);
+            val = static_cast<double>(coef);
         }
+        coeffs[i] = Complex(val, 0.0);
     }
     
-    // CKKS canonical embedding decode:
-    // Evaluate polynomial m(X) at roots zeta^(2k+1) for k=0,...,n/2-1
-    // where zeta = e^(i*pi/n)
+    // OPTIMIZED O(n log n) decoding using FFT:
+    // result[k] = DFT(coef[j] * zeta^j)[k]
+    
+    // Step 1: Pre-multiply by zeta^j where zeta = e^(i*pi/n)
+    std::vector<Complex> shifted(n_);
+    for (size_t j = 0; j < n_; ++j) {
+        double angle = PI * static_cast<double>(j) / static_cast<double>(n_);
+        Complex zeta_j(std::cos(angle), std::sin(angle));
+        shifted[j] = coeffs[j] * zeta_j;
+    }
+    
+    // Step 2: Apply forward FFT
+    fft_forward(shifted);
+    
+    // Step 3: Extract first n/2 slots and divide by scale
     std::vector<Complex> result(slots_);
     for (size_t k = 0; k < slots_; ++k) {
-        Complex sum(0.0, 0.0);
-        // Evaluate m(zeta^(2k+1)) = sum_{j=0}^{n-1} coef[j] * (zeta^(2k+1))^j
-        Complex zeta_power(1.0, 0.0);
-        // zeta^(2k+1) = e^(i*pi*(2k+1)/n)
-        double angle = PI * static_cast<double>(2 * k + 1) / static_cast<double>(n_);
-        Complex zeta_2k1(std::cos(angle), std::sin(angle));
-        
-        for (size_t j = 0; j < n_; ++j) {
-            sum += coeffs[j] * zeta_power;
-            zeta_power *= zeta_2k1;
-        }
-        result[k] = sum / scale;
+        result[k] = shifted[k] / scale;
     }
     return result;
 }
@@ -844,6 +861,87 @@ CKKSCiphertext CKKSEvaluator::rescale(const CKKSCiphertext& ct) {
         }
     }
     return result;
+}
+
+void CKKSEvaluator::rescale_inplace(CKKSCiphertext& ct) {
+    if (ct.level() == 0) {
+        throw std::runtime_error("Cannot rescale: already at level 0");
+    }
+    
+    size_t level = ct.level();
+    uint64_t q_L = context_->modulus(level).value();
+    double new_scale = ct.scale() / static_cast<double>(q_L);
+    
+    RNSPoly& c0 = ct.c0();
+    RNSPoly& c1 = ct.c1();
+    
+    bool was_ntt = c0.is_ntt_form();
+    if (was_ntt) {
+        c0.intt_transform();
+        c1.intt_transform();
+    }
+    
+    size_t n = context_->n();
+    
+    // Handle 3-component ciphertext
+    bool has_c2 = (ct.size() >= 3);
+    if (has_c2 && was_ntt) {
+        ct.c2().intt_transform();
+    }
+    
+    // CKKS rescale in-place: For each coefficient position i:
+    // c[l][i] = (c[l][i] - c[L][i]) * q_L^{-1} mod q_l
+    
+    for (size_t l = 0; l < level; ++l) {
+        const Modulus& mod_l = context_->modulus(l);
+        uint64_t q_l = mod_l.value();
+        uint64_t q_L_inv = inv_mod(q_L % q_l, mod_l);
+        
+        for (size_t i = 0; i < n; ++i) {
+            uint64_t c0_l = c0(l, i);
+            uint64_t c1_l = c1(l, i);
+            uint64_t c0_L = c0(level, i);
+            uint64_t c1_L = c1(level, i);
+            
+            uint64_t c0_L_mod = c0_L % q_l;
+            uint64_t c1_L_mod = c1_L % q_l;
+            
+            uint64_t diff0 = sub_uint_mod(c0_l, c0_L_mod, mod_l);
+            uint64_t diff1 = sub_uint_mod(c1_l, c1_L_mod, mod_l);
+            
+            c0(l, i) = multiply_uint_mod(diff0, q_L_inv, mod_l);
+            c1(l, i) = multiply_uint_mod(diff1, q_L_inv, mod_l);
+            
+            if (has_c2) {
+                uint64_t c2_l = ct.c2()(l, i);
+                uint64_t c2_L = ct.c2()(level, i);
+                uint64_t c2_L_mod = c2_L % q_l;
+                uint64_t diff2 = sub_uint_mod(c2_l, c2_L_mod, mod_l);
+                ct.c2()(l, i) = multiply_uint_mod(diff2, q_L_inv, mod_l);
+            }
+        }
+    }
+    
+    ct.set_level(level - 1);
+    ct.set_scale(new_scale);
+    
+    if (was_ntt) {
+        c0.ntt_transform();
+        c1.ntt_transform();
+        if (has_c2) {
+            ct.c2().ntt_transform();
+        }
+    }
+}
+
+void CKKSEvaluator::add_inplace(CKKSCiphertext& ct1, const CKKSCiphertext& ct2) {
+    if (!scales_match(ct1, ct2)) {
+        throw std::invalid_argument("Scales must match for addition");
+    }
+    
+    ct1.c0() += ct2.c0();
+    ct1.c1() += ct2.c1();
+    ct1.set_level(std::min(ct1.level(), ct2.level()));
 }
 
 CKKSCiphertext CKKSEvaluator::multiply_relin_rescale(const CKKSCiphertext& ct1, const CKKSCiphertext& ct2, const CKKSRelinKey& rk) {
