@@ -1,18 +1,25 @@
 # Tests CMake configuration for kctsb
 # Builds unit/integration/performance tests with GoogleTest.
 #
-# Note: tests/benchmark/ has its own independent build system for single-algorithm
-# performance optimization. See tests/benchmark/AGENTS.md for details.
+# Directory Structure (v5.1.0):
+# - benchmark/: Independent build system for single-algorithm performance optimization
+# - integration/: Integration tests for full system verification
+# - unit/: Unit tests organized by module:
+#   - unit/crypto/: Cryptographic primitive tests (AES, SHA, MAC, ECC, RSA, etc.)
+#   - unit/fhe/: Homomorphic encryption tests (BFV, BGV, CKKS, NTT, RNS)
+#   - unit/math/: Mathematical operation tests
+#   - unit/security/: Security-related tests
+#   - unit/advanced/: Advanced feature tests:
+#     - unit/advanced/fhe/: FHE evaluator tests (bfv/, bgv/, ckks/, common/)
+#     - unit/advanced/test_psi_pir.cpp: PSI/PIR protocol tests
 
 find_package(GTest REQUIRED)
 
-# Collect test sources from unit, integration, performance, advanced directories
+# Collect test sources from unit, integration directories
 # Excludes benchmark/ which has independent build system
 file(GLOB_RECURSE KCTSB_TEST_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/unit/**/test_*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/integration/**/test_*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/performance/**/test_*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/advanced/**/test_*.cpp"
 )
 
 # Exclude incompatible tests (temporarily)
@@ -32,12 +39,12 @@ set(KCTSB_TESTS_WITH_MAIN
     "${CMAKE_CURRENT_SOURCE_DIR}/unit/fhe/test_ntt_harvey.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/unit/fhe/test_rns.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/unit/fhe/test_bgv_evaluator.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/advanced/fe/common/test_behz_rns_tool.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/advanced/fe/bgv/test_bgv_relin_debug.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/advanced/fe/bgv/test_multiply_isolated.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/advanced/fe/bfv/test_behz_bfv_integration.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/advanced/fe/bfv/test_bfv_evaluator.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/advanced/fe/ckks/test_ckks_evaluator.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/unit/advanced/fhe/common/test_behz_rns_tool.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/unit/advanced/fhe/bgv/test_bgv_relin_debug.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/unit/advanced/fhe/bgv/test_multiply_isolated.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/unit/advanced/fhe/bfv/test_behz_bfv_integration.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/unit/advanced/fhe/bfv/test_bfv_evaluator.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/unit/advanced/fhe/ckks/test_ckks_evaluator.cpp"
 )
 
 list(REMOVE_ITEM KCTSB_TEST_SOURCES ${KCTSB_TESTS_WITH_MAIN})

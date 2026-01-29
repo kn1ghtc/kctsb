@@ -94,12 +94,12 @@ set(DEPS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../deps")
 # 查找 kctsb 静态库
 # ============================================================================
 
-# 优先使用 release 目录，其次 build 目录
+# 优先使用 build 目录（最新编译产物），其次 release 目录（发布产物）
 find_library(KCTSB_LIBRARY
     NAMES kctsb libkctsb
     PATHS
-        "${KCTSB_RELEASE_DIR}/lib"
         "${KCTSB_BUILD_DIR}/lib"
+        "${KCTSB_RELEASE_DIR}/lib"
     NO_DEFAULT_PATH
 )
 
