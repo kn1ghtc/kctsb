@@ -1,15 +1,6 @@
 # ============================================================================
 # kctsb - Knight's Cryptographic Trusted Security Base
 # Cross-platform cryptographic algorithms library
-#
-# Version: 4.10.0 (defined in include/kctsb/version.h - single source of truth)
-# Copyright (c) 2019-2026 knightc. All rights reserved.
-# Licensed under Apache License 2.0
-#
-# v4.10.0 Architecture Changes:
-# - BGV EvaluatorV2: Pure RNS implementation with __int128 CRT
-# - Harvey NTT: 28/28 tests passing, 22μs performance
-# - Multiply+Relin: <20ms target achieved (0ms for n=256)
 # ============================================================================
 
 cmake_minimum_required(VERSION 3.20)
@@ -158,7 +149,7 @@ endif()
 
 message(STATUS "Platform suffix: ${KCTSB_PLATFORM_SUFFIX}")
 
-# v5.0: Self-contained architecture - no thirdparty dependencies
+# Self-contained architecture - no thirdparty dependencies
 set(KCTSB_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 set(KCTSB_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
@@ -385,13 +376,7 @@ if(KCTSB_BUILD_TESTS AND NOT KCTSB_BUILD_STATIC)
     set(KCTSB_BUILD_STATIC ON CACHE BOOL "Build static library (required for tests)" FORCE)
 endif()
 
-# v5.0: Self-Contained Architecture - NO external math dependencies required
-# GMP, gf2x, OpenSSL, SEAL options REMOVED - all operations use native ZZ/BigInt
-# Benchmark comparisons now use hardcoded baseline data from benchmarks/baseline_data.hpp
 
-# DEPRECATED options (kept for compatibility, no effect)
-# option(KCTSB_ENABLE_SEAL "REMOVED in v5.0 - use baseline_data.hpp" OFF)
-# option(KCTSB_ENABLE_OPENSSL "REMOVED in v5.0 - use baseline_data.hpp" OFF)
 
 # ============================================================================
 # Output Directories
@@ -401,47 +386,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-# ============================================================================
-# v5.0: SELF-CONTAINED ARCHITECTURE - All external dependencies REMOVED
-# ============================================================================
-# SEAL and OpenSSL sections removed - benchmark uses hardcoded baseline_data.hpp
-# GMP, gf2x, NTL - all replaced with native kctsb::ZZ, kctsb::GF2X implementation
-# -----------------------------------------------------------------------------
-message(STATUS "✓ v5.0 Self-Contained: Native ZZ/BigInt implementation (no external deps)")
-message(STATUS "  Benchmark baselines: hardcoded from OpenSSL 3.6.0 measurements")
 
-# Optional SEAL support (disabled by default, use -DKCTSB_ENABLE_SEAL=ON to enable)
-option(KCTSB_ENABLE_SEAL "Enable Microsoft SEAL integration for FHE comparison" OFF)
-set(SEAL_FOUND FALSE)
-
-if(KCTSB_ENABLE_SEAL)
-    # Check for SEAL in deps directory
-    set(SEAL_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/deps/SEAL)
-    if(EXISTS ${SEAL_SOURCE_DIR}/native/src/seal/seal.h)
-        message(STATUS "✓ SEAL source found at: ${SEAL_SOURCE_DIR}")
-        # SEAL headers are at deps/SEAL/native/src/
-        set(SEAL_INCLUDE_DIR ${SEAL_SOURCE_DIR}/native/src)
-        set(SEAL_FOUND TRUE)
-        add_compile_definitions(KCTSB_HAS_SEAL=1)
-        include_directories(${SEAL_INCLUDE_DIR})
-        message(STATUS "  SEAL include path: ${SEAL_INCLUDE_DIR}")
-    else()
-        message(WARNING "SEAL enabled but not found at ${SEAL_SOURCE_DIR}")
-        message(STATUS "  Expected: ${SEAL_SOURCE_DIR}/native/src/seal/seal.h")
-        message(STATUS "  Run: git submodule update --init --recursive")
-        set(KCTSB_ENABLE_SEAL OFF)
-    endif()
-endif()
-
-set(OPENSSL_FOUND FALSE)
-set(KCTSB_ENABLE_OPENSSL OFF)
-# OpenSSL Detection REMOVED in v5.0
-# Benchmark comparison now uses hardcoded baseline data in baseline_data.hpp
-# Historical measurements captured from OpenSSL 3.6.0 on Windows x64
-# See benchmarks/baseline_data.hpp for performance baselines
-# -----------------------------------------------------------------------------
-set(OPENSSL_FOUND FALSE)
-set(KCTSB_ENABLE_OPENSSL OFF)
 
 # ============================================================================
 # SIMD Optimization Support (v5.0.0 Performance Enhancement)
@@ -568,15 +513,11 @@ set(KCTSB_ALL_INCLUDE_DIRS
 
 # Unified library configuration function
 function(kctsb_configure_library_target TARGET_NAME)
-    # v5.0: Self-contained - only internal headers needed
     target_include_directories(${TARGET_NAME} PUBLIC
         $<BUILD_INTERFACE:${KCTSB_INCLUDE_DIR}>
         $<INSTALL_INTERFACE:include>)
 
-    # v5.0: All external dependencies REMOVED
-    # SEAL, OpenSSL, GMP, gf2x, NTL - all replaced with native implementation
-
-    # v5.0.0: SIMD optimization file-specific compiler flags
+    # SIMD optimization file-specific compiler flags
     if(KCTSB_ENABLE_SIMD AND NOT MSVC)
         # AVX2 flags for SM3 acceleration
         set_source_files_properties(
@@ -638,16 +579,12 @@ if(KCTSB_CUDA_ENABLED AND KCTSB_CUDA_SOURCES)
     # which is used in the FHE modules. The CUDA kernels are self-contained.
 endif()
 
-# v5.0: No DLL copy function needed - fully self-contained
-
 if(KCTSB_BUILD_SHARED)
     add_library(kctsb_shared SHARED ${KCTSB_ALL_SOURCES})
     target_compile_definitions(kctsb_shared PRIVATE KCTSB_BUILDING KCTSB_SHARED_LIBRARY)
     set_target_properties(kctsb_shared PROPERTIES
         OUTPUT_NAME kctsb VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR})
     kctsb_configure_library_target(kctsb_shared)
-
-    # v5.0: Self-contained - no DLL dependencies to copy
 endif()
 
 # Aliases
