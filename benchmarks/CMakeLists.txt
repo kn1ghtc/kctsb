@@ -164,8 +164,10 @@ if(BENCHMARK_SEAL)
 
     if(SEAL_LIBRARY)
         set(SEAL_FOUND TRUE)
-        set(SEAL_INCLUDE_DIR "${DEPS_DIR}/SEAL/native/src")
+        # SEAL头文件安装在thirdparty/win-x64/include/SEAL-4.1
+        set(SEAL_INCLUDE_DIR "${THIRDPARTY_DIR}/include/SEAL-4.1")
         message(STATUS "✓ SEAL found: ${SEAL_LIBRARY}")
+        message(STATUS "  SEAL include: ${SEAL_INCLUDE_DIR}")
     else()
         message(STATUS "⚠ SEAL not found - benchmark_seal will be skipped")
         set(BENCHMARK_SEAL OFF)
@@ -289,8 +291,24 @@ endif()
 
 if(BENCHMARK_SEAL)
     target_compile_definitions(benchmark_suite PRIVATE BENCHMARK_HAS_SEAL=1)
-    target_include_directories(benchmark_suite PRIVATE ${SEAL_INCLUDE_DIR})
+    target_include_directories(benchmark_suite PRIVATE
+        ${SEAL_INCLUDE_DIR}
+        "${THIRDPARTY_DIR}/include"  # For GSL headers
+    )
     target_link_libraries(benchmark_suite PRIVATE ${SEAL_LIBRARY})
+    # SEAL dependencies: zlib, zstd, bcrypt (Windows)
+    find_library(ZLIB_STATIC_LIB NAMES zlibstatic libzlibstatic z libz PATHS "${THIRDPARTY_LIB_DIR}" NO_DEFAULT_PATH)
+    find_library(ZSTD_STATIC_LIB NAMES zstd libzstd PATHS "${THIRDPARTY_LIB_DIR}" NO_DEFAULT_PATH)
+    if(ZLIB_STATIC_LIB)
+        target_link_libraries(benchmark_suite PRIVATE ${ZLIB_STATIC_LIB})
+    endif()
+    if(ZSTD_STATIC_LIB)
+        target_link_libraries(benchmark_suite PRIVATE ${ZSTD_STATIC_LIB})
+    endif()
+    # SEAL uses BCryptGenRandom on Windows
+    if(WIN32)
+        target_link_libraries(benchmark_suite PRIVATE bcrypt)
+    endif()
 endif()
 
 if(BENCHMARK_GMSSL)

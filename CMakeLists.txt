@@ -6,9 +6,9 @@
 cmake_minimum_required(VERSION 3.20)
 
 # ============================================================================
-# Ninja 和并行构建配置
+# Ninja and Parallel Build Support
 # ============================================================================
-# 推荐使用 Ninja: cmake -B build -G Ninja
+# Ninja: cmake -B build -G Ninja
 set(CMAKE_BUILD_PARALLEL_LEVEL 8 CACHE STRING "Default parallel build level")
 
 project(kctsb
@@ -214,7 +214,6 @@ else()
     )
 
     # LTO flags - Use parallel/incremental LTO for faster builds
-    # Target: 30s incremental vs 2min full rebuild
     if(KCTSB_LTO_SUPPORTED)
         # Detect if using GCC, Clang or AppleClang for appropriate LTO options
         if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
@@ -256,7 +255,7 @@ else()
         endif()
     endif()
 
-    # v5.0: Release mode optimizations
+    # Release mode optimizations
     if(CMAKE_BUILD_TYPE STREQUAL "Release")
         # Strip debug symbols to reduce binary size
         if(APPLE)
@@ -277,10 +276,10 @@ else()
 endif()
 
 # ============================================================================
-# Bignum Source Code Defines (KCTSB v5.0 Self-Contained)
+# Bignum Source Code Defines
 # ============================================================================
 
-# v5.0: Bignum is now fully self-contained - NO external GMP/gf2x dependencies
+# Bignum is now fully self-contained within kctsb - no external dependencies
 # All bignum operations use internal kctsb::ZZ, kctsb::ZZ_p implementations
 add_definitions(
     -DKCTSB_THREADS           # Enable threading
@@ -288,7 +287,7 @@ add_definitions(
     -DKCTSB_EXCEPTIONS        # Enable exceptions
 )
 
-# Hardware feature defines (编译器自动检测，不需要 HAVE_*.h 文件)
+# Hardware feature defines
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
     add_definitions(
         -DKCTSB_HAVE_LL_TYPE
@@ -357,26 +356,14 @@ endif()
 # Build Options (faster incremental builds)
 # ============================================================================
 
-# 默认构建共享库，不构建静态库（减小体积）
 option(KCTSB_BUILD_SHARED "Build shared library" ON)
-option(KCTSB_BUILD_STATIC "Build static library" OFF)
+option(KCTSB_BUILD_STATIC "Build static library" ON)
 
 # Homomorphic encryption modules (BGV/BFV/CKKS)
 option(KCTSB_ENABLE_BGV "Enable native BGV/BFV/CKKS modules" ON)
 
-# v5.1: 默认启用所有构建选项以确保完整性验证
-# 注意: Benchmarks 已迁移到独立编译系统 (benchmarks/CMakeLists.txt)
 option(KCTSB_BUILD_TESTS "Build unit tests (default ON)" ON)
 option(KCTSB_BUILD_CLI "Build kctsb.exe CLI tool" ON)
-
-# 测试需要静态库以确保所有bignum符号可用
-# 共享库无法导出所有底层GMP包装函数
-if(KCTSB_BUILD_TESTS AND NOT KCTSB_BUILD_STATIC)
-    message(STATUS "Tests enabled - forcing static library build for complete symbol access")
-    set(KCTSB_BUILD_STATIC ON CACHE BOOL "Build static library (required for tests)" FORCE)
-endif()
-
-
 
 # ============================================================================
 # Output Directories
@@ -386,10 +373,8 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-
-
 # ============================================================================
-# SIMD Optimization Support (v5.0.0 Performance Enhancement)
+# SIMD Optimization Support (Performance Enhancement)
 # ============================================================================
 
 option(KCTSB_ENABLE_SIMD "Enable SIMD optimizations (AVX2, AES-NI)" ON)
@@ -417,7 +402,7 @@ set(KCTSB_ALL_SOURCES ${KCTSB_ALL_CPP_SOURCES} ${KCTSB_ALL_C_SOURCES})
 list(FILTER KCTSB_ALL_SOURCES EXCLUDE REGEX ".*/cli/.*")
 message(STATUS "✓ CLI sources excluded from library (separate executable)")
 
-# Conditional SIMD optimizations (v5.0.0)
+# Conditional SIMD optimizations
 if(NOT KCTSB_ENABLE_SIMD)
     list(FILTER KCTSB_ALL_SOURCES EXCLUDE REGEX ".*/sm3_avx2\\.cpp")
     list(FILTER KCTSB_ALL_SOURCES EXCLUDE REGEX ".*/sm4_aesni\\.cpp")
@@ -425,12 +410,6 @@ if(NOT KCTSB_ENABLE_SIMD)
 else()
     message(STATUS "✓ SIMD optimizations enabled (AVX2, AES-NI)")
 endif()
-
-# Exclude incomplete modules with missing headers (fuzzy, whitebox)
-list(FILTER KCTSB_ALL_SOURCES EXCLUDE REGEX ".*/advanced/fuzzy/.*")
-list(FILTER KCTSB_ALL_SOURCES EXCLUDE REGEX ".*/advanced/whitebox/.*")
-# v5.0: RSA/DH are now header-only templates - no .cpp files needed
-message(STATUS "✓ All crypto modules enabled (RSA/DH now header-only templates)")
 
 # Conditionally exclude files based on build options
 if(NOT KCTSB_ENABLE_BGV)

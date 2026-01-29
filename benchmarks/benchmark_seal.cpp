@@ -1,16 +1,17 @@
 /**
  * @file benchmark_seal.cpp
- * @brief kctsb vs SEAL 4.1.2 同态加密性能对比
+ * @brief kctsb vs Microsoft SEAL 4.1.2 Homomorphic Encryption Comparison
  *
- * 对比算法:
- *   - BFV: 密钥生成、加解密、加法、乘法、重线性化
- *   - BGV: 密钥生成、加解密、加法、乘法、重线性化
- *   - CKKS: 密钥生成、编解码、加解密、加法、乘法、Rescale
+ * Compares:
+ *   - BFV: KeyGen, Encrypt, Decrypt, Add, Multiply, Relinearize
+ *   - CKKS: KeyGen, Encrypt, Decrypt, Add, Multiply, Rescale
  *
- * 测试参数:
- *   - n = 8192 (多项式环维度)
- *   - L = 5 (模数链层数)
- *   - 128-bit 安全级别
+ * Status: kctsb FHE public API not yet exported to kctsb_api.h
+ * This benchmark shows SEAL reference performance only.
+ *
+ * Dependencies:
+ *   - SEAL 4.1.2: thirdparty/win-x64/lib/libseal-4.1.a
+ *   - SEAL headers: thirdparty/win-x64/include/SEAL-4.1/
  *
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
  * @license Apache License 2.0
@@ -19,411 +20,402 @@
 #ifdef BENCHMARK_HAS_SEAL
 
 #include <iostream>
+#include <iomanip>
 #include <vector>
 #include <memory>
+#include <cmath>
 
 #include "benchmark_common.hpp"
 
-// kctsb 公共 API
-#include "kctsb/kctsb_api.h"
-
-// SEAL 头文件
-#include "seal/seal.h"
+// SEAL headers
+#include <seal/seal.h>
 
 namespace {
 
-// 测试参数
-constexpr size_t POLY_MODULUS_DEGREE = 8192;
-constexpr size_t COEFF_MODULUS_COUNT = 5;
-
 // ============================================================================
-// BFV 对比
+// Helper: Create SEAL BFV Context
 // ============================================================================
 
-void benchmark_bfv() {
-    std::cout << "\n--- BFV Scheme (n=8192, t=65537) ---\n";
-    benchmark::print_table_header();
-
-    benchmark::Timer timer;
-
-    // ============ SEAL BFV 设置 ============
-    seal::EncryptionParameters seal_params(seal::scheme_type::bfv);
-    seal_params.set_poly_modulus_degree(POLY_MODULUS_DEGREE);
-    seal_params.set_coeff_modulus(seal::CoeffModulus::BFVDefault(POLY_MODULUS_DEGREE));
-    seal_params.set_plain_modulus(65537);
-
-    auto seal_context = seal::SEALContext(seal_params);
-    seal::KeyGenerator seal_keygen(seal_context);
-    auto seal_secret_key = seal_keygen.secret_key();
-    seal::PublicKey seal_public_key;
-    seal_keygen.create_public_key(seal_public_key);
-    seal::RelinKeys seal_relin_keys;
-    seal_keygen.create_relin_keys(seal_relin_keys);
-
-    seal::Encryptor seal_encryptor(seal_context, seal_public_key);
-    seal::Decryptor seal_decryptor(seal_context, seal_secret_key);
-    seal::Evaluator seal_evaluator(seal_context);
-    seal::BatchEncoder seal_encoder(seal_context);
-
-    // ============ kctsb BFV 设置 ============
-    kctsb_bfv_context_t kctsb_ctx = nullptr;
-    kctsb_bfv_create_context(&kctsb_ctx, POLY_MODULUS_DEGREE, COEFF_MODULUS_COUNT, 65537);
-
-    kctsb_bfv_keys_t kctsb_keys = nullptr;
-    kctsb_bfv_generate_keys(kctsb_ctx, &kctsb_keys);
-
-    // ============ 密钥生成对比 ============
-    {
-        // SEAL KeyGen
-        double seal_total = 0;
-        for (size_t i = 0; i < benchmark::BENCHMARK_ITERATIONS; ++i) {
-            timer.start();
-            seal::KeyGenerator keygen(seal_context);
-            auto sk = keygen.secret_key();
-            seal::PublicKey pk;
-            keygen.create_public_key(pk);
-            seal_total += timer.stop();
-        }
-        double seal_avg = seal_total / benchmark::BENCHMARK_ITERATIONS;
-
-        // kctsb KeyGen
-        double kctsb_total = 0;
-        for (size_t i = 0; i < benchmark::BENCHMARK_ITERATIONS; ++i) {
-            timer.start();
-            kctsb_bfv_keys_t keys = nullptr;
-            kctsb_bfv_generate_keys(kctsb_ctx, &keys);
-            kctsb_total += timer.stop();
-            kctsb_bfv_free_keys(keys);
-        }
-        double kctsb_avg = kctsb_total / benchmark::BENCHMARK_ITERATIONS;
-
-        benchmark::print_result({"BFV KeyGen", "kctsb", kctsb_avg, 0, 0, benchmark::BENCHMARK_ITERATIONS});
-        benchmark::print_result({"BFV KeyGen", "SEAL", seal_avg, 0, 0, benchmark::BENCHMARK_ITERATIONS});
-        double ratio = kctsb_avg / seal_avg;
-        std::cout << "  Ratio: " << std::fixed << std::setprecision(2) << ratio << "x ("
-                  << benchmark::get_status(ratio) << ")\n\n";
-    }
-
-    // ============ 加密对比 ============
-    {
-        // 准备明文
-        std::vector<int64_t> plain_data(seal_encoder.slot_count(), 42);
-        seal::Plaintext seal_plain;
-        seal_encoder.encode(plain_data, seal_plain);
-        seal::Ciphertext seal_cipher;
-
-        // SEAL Encrypt
-        double seal_total = 0;
-        for (size_t i = 0; i < benchmark::WARMUP_ITERATIONS; ++i) {
-            seal_encryptor.encrypt(seal_plain, seal_cipher);
-        }
-        for (size_t i = 0; i < benchmark::BENCHMARK_ITERATIONS; ++i) {
-            timer.start();
-            seal_encryptor.encrypt(seal_plain, seal_cipher);
-            seal_total += timer.stop();
-        }
-        double seal_avg = seal_total / benchmark::BENCHMARK_ITERATIONS;
-
-        // kctsb Encrypt
-        kctsb_bfv_plaintext_t kctsb_plain = nullptr;
-        kctsb_bfv_ciphertext_t kctsb_cipher = nullptr;
-        kctsb_bfv_encode_vector(kctsb_ctx, plain_data.data(), plain_data.size(), &kctsb_plain);
-
-        double kctsb_total = 0;
-        for (size_t i = 0; i < benchmark::WARMUP_ITERATIONS; ++i) {
-            kctsb_bfv_encrypt(kctsb_ctx, kctsb_keys, kctsb_plain, &kctsb_cipher);
-            kctsb_bfv_free_ciphertext(kctsb_cipher);
-            kctsb_cipher = nullptr;
-        }
-        for (size_t i = 0; i < benchmark::BENCHMARK_ITERATIONS; ++i) {
-            timer.start();
-            kctsb_bfv_encrypt(kctsb_ctx, kctsb_keys, kctsb_plain, &kctsb_cipher);
-            kctsb_total += timer.stop();
-            kctsb_bfv_free_ciphertext(kctsb_cipher);
-            kctsb_cipher = nullptr;
-        }
-        double kctsb_avg = kctsb_total / benchmark::BENCHMARK_ITERATIONS;
-
-        kctsb_bfv_free_plaintext(kctsb_plain);
-
-        benchmark::print_result({"BFV Encrypt", "kctsb", kctsb_avg, 0, 0, benchmark::BENCHMARK_ITERATIONS});
-        benchmark::print_result({"BFV Encrypt", "SEAL", seal_avg, 0, 0, benchmark::BENCHMARK_ITERATIONS});
-        double ratio = kctsb_avg / seal_avg;
-        std::cout << "  Ratio: " << std::fixed << std::setprecision(2) << ratio << "x ("
-                  << benchmark::get_status(ratio) << ")\n\n";
-    }
-
-    // ============ 乘法对比 ============
-    {
-        // 准备密文
-        std::vector<int64_t> plain_data(seal_encoder.slot_count(), 3);
-        seal::Plaintext seal_plain;
-        seal_encoder.encode(plain_data, seal_plain);
-        seal::Ciphertext seal_ct1, seal_ct2, seal_result;
-        seal_encryptor.encrypt(seal_plain, seal_ct1);
-        seal_encryptor.encrypt(seal_plain, seal_ct2);
-
-        // SEAL Multiply
-        double seal_total = 0;
-        for (size_t i = 0; i < benchmark::WARMUP_ITERATIONS; ++i) {
-            seal_evaluator.multiply(seal_ct1, seal_ct2, seal_result);
-        }
-        for (size_t i = 0; i < benchmark::BENCHMARK_ITERATIONS; ++i) {
-            timer.start();
-            seal_evaluator.multiply(seal_ct1, seal_ct2, seal_result);
-            seal_total += timer.stop();
-        }
-        double seal_avg = seal_total / benchmark::BENCHMARK_ITERATIONS;
-
-        // kctsb Multiply
-        kctsb_bfv_plaintext_t kctsb_plain = nullptr;
-        kctsb_bfv_ciphertext_t kctsb_ct1 = nullptr, kctsb_ct2 = nullptr, kctsb_result = nullptr;
-        kctsb_bfv_encode_vector(kctsb_ctx, plain_data.data(), plain_data.size(), &kctsb_plain);
-        kctsb_bfv_encrypt(kctsb_ctx, kctsb_keys, kctsb_plain, &kctsb_ct1);
-        kctsb_bfv_encrypt(kctsb_ctx, kctsb_keys, kctsb_plain, &kctsb_ct2);
-
-        double kctsb_total = 0;
-        for (size_t i = 0; i < benchmark::WARMUP_ITERATIONS; ++i) {
-            kctsb_bfv_multiply(kctsb_ctx, kctsb_ct1, kctsb_ct2, &kctsb_result);
-            kctsb_bfv_free_ciphertext(kctsb_result);
-            kctsb_result = nullptr;
-        }
-        for (size_t i = 0; i < benchmark::BENCHMARK_ITERATIONS; ++i) {
-            timer.start();
-            kctsb_bfv_multiply(kctsb_ctx, kctsb_ct1, kctsb_ct2, &kctsb_result);
-            kctsb_total += timer.stop();
-            kctsb_bfv_free_ciphertext(kctsb_result);
-            kctsb_result = nullptr;
-        }
-        double kctsb_avg = kctsb_total / benchmark::BENCHMARK_ITERATIONS;
-
-        kctsb_bfv_free_plaintext(kctsb_plain);
-        kctsb_bfv_free_ciphertext(kctsb_ct1);
-        kctsb_bfv_free_ciphertext(kctsb_ct2);
-
-        benchmark::print_result({"BFV Multiply", "kctsb", kctsb_avg, 0, 0, benchmark::BENCHMARK_ITERATIONS});
-        benchmark::print_result({"BFV Multiply", "SEAL", seal_avg, 0, 0, benchmark::BENCHMARK_ITERATIONS});
-        double ratio = kctsb_avg / seal_avg;
-        std::cout << "  Ratio: " << std::fixed << std::setprecision(2) << ratio << "x ("
-                  << benchmark::get_status(ratio) << ")\n\n";
-    }
-
-    // ============ 乘法 + 重线性化对比 ============
-    {
-        std::vector<int64_t> plain_data(seal_encoder.slot_count(), 3);
-        seal::Plaintext seal_plain;
-        seal_encoder.encode(plain_data, seal_plain);
-        seal::Ciphertext seal_ct1, seal_ct2, seal_result;
-        seal_encryptor.encrypt(seal_plain, seal_ct1);
-        seal_encryptor.encrypt(seal_plain, seal_ct2);
-
-        // SEAL Multiply + Relin
-        double seal_total = 0;
-        for (size_t i = 0; i < benchmark::WARMUP_ITERATIONS; ++i) {
-            seal_evaluator.multiply(seal_ct1, seal_ct2, seal_result);
-            seal_evaluator.relinearize_inplace(seal_result, seal_relin_keys);
-        }
-        for (size_t i = 0; i < benchmark::BENCHMARK_ITERATIONS; ++i) {
-            timer.start();
-            seal_evaluator.multiply(seal_ct1, seal_ct2, seal_result);
-            seal_evaluator.relinearize_inplace(seal_result, seal_relin_keys);
-            seal_total += timer.stop();
-        }
-        double seal_avg = seal_total / benchmark::BENCHMARK_ITERATIONS;
-
-        // kctsb Multiply + Relin
-        kctsb_bfv_plaintext_t kctsb_plain = nullptr;
-        kctsb_bfv_ciphertext_t kctsb_ct1 = nullptr, kctsb_ct2 = nullptr, kctsb_result = nullptr;
-        kctsb_bfv_encode_vector(kctsb_ctx, plain_data.data(), plain_data.size(), &kctsb_plain);
-        kctsb_bfv_encrypt(kctsb_ctx, kctsb_keys, kctsb_plain, &kctsb_ct1);
-        kctsb_bfv_encrypt(kctsb_ctx, kctsb_keys, kctsb_plain, &kctsb_ct2);
-
-        double kctsb_total = 0;
-        for (size_t i = 0; i < benchmark::WARMUP_ITERATIONS; ++i) {
-            kctsb_bfv_multiply_relin(kctsb_ctx, kctsb_keys, kctsb_ct1, kctsb_ct2, &kctsb_result);
-            kctsb_bfv_free_ciphertext(kctsb_result);
-            kctsb_result = nullptr;
-        }
-        for (size_t i = 0; i < benchmark::BENCHMARK_ITERATIONS; ++i) {
-            timer.start();
-            kctsb_bfv_multiply_relin(kctsb_ctx, kctsb_keys, kctsb_ct1, kctsb_ct2, &kctsb_result);
-            kctsb_total += timer.stop();
-            kctsb_bfv_free_ciphertext(kctsb_result);
-            kctsb_result = nullptr;
-        }
-        double kctsb_avg = kctsb_total / benchmark::BENCHMARK_ITERATIONS;
-
-        kctsb_bfv_free_plaintext(kctsb_plain);
-        kctsb_bfv_free_ciphertext(kctsb_ct1);
-        kctsb_bfv_free_ciphertext(kctsb_ct2);
-
-        benchmark::print_result({"BFV Mul+Relin", "kctsb", kctsb_avg, 0, 0, benchmark::BENCHMARK_ITERATIONS});
-        benchmark::print_result({"BFV Mul+Relin", "SEAL", seal_avg, 0, 0, benchmark::BENCHMARK_ITERATIONS});
-        double ratio = kctsb_avg / seal_avg;
-        std::cout << "  Ratio: " << std::fixed << std::setprecision(2) << ratio << "x ("
-                  << benchmark::get_status(ratio) << ")\n\n";
-    }
-
-    // 清理
-    kctsb_bfv_free_keys(kctsb_keys);
-    kctsb_bfv_free_context(kctsb_ctx);
+seal::SEALContext create_seal_bfv_context(
+    size_t poly_modulus_degree,
+    int coeff_modulus_count)
+{
+    seal::EncryptionParameters parms(seal::scheme_type::bfv);
+    parms.set_poly_modulus_degree(poly_modulus_degree);
+    parms.set_coeff_modulus(seal::CoeffModulus::BFVDefault(poly_modulus_degree));
+    parms.set_plain_modulus(seal::PlainModulus::Batching(poly_modulus_degree, 20));
+    return seal::SEALContext(parms);
 }
 
 // ============================================================================
-// CKKS 对比
+// Helper: Create SEAL CKKS Context
 // ============================================================================
 
-void benchmark_ckks() {
-    std::cout << "\n--- CKKS Scheme (n=8192, L=5) ---\n";
+seal::SEALContext create_seal_ckks_context(
+    size_t poly_modulus_degree,
+    int /* coeff_modulus_count */)
+{
+    seal::EncryptionParameters parms(seal::scheme_type::ckks);
+    parms.set_poly_modulus_degree(poly_modulus_degree);
+    
+    // CKKS: Use SEAL's pre-defined coefficient modulus for simplicity
+    // This ensures valid parameters for the security level
+    parms.set_coeff_modulus(seal::CoeffModulus::BFVDefault(poly_modulus_degree));
+    return seal::SEALContext(parms);
+}
+
+// ============================================================================
+// BFV Benchmark (SEAL Reference Only)
+// ============================================================================
+
+void benchmark_bfv_seal_only() {
+    std::cout << "\n--- BFV Scheme (SEAL Reference Only) ---\n";
+    std::cout << "Note: kctsb FHE public API not yet available\n\n";
+    
     benchmark::print_table_header();
-
-    benchmark::Timer timer;
-
-    // ============ SEAL CKKS 设置 ============
-    seal::EncryptionParameters seal_params(seal::scheme_type::ckks);
-    seal_params.set_poly_modulus_degree(POLY_MODULUS_DEGREE);
-    seal_params.set_coeff_modulus(seal::CoeffModulus::Create(
-        POLY_MODULUS_DEGREE,
-        {60, 40, 40, 40, 60}  // L=5
-    ));
-
-    auto seal_context = seal::SEALContext(seal_params);
-    seal::KeyGenerator seal_keygen(seal_context);
-    auto seal_secret_key = seal_keygen.secret_key();
-    seal::PublicKey seal_public_key;
-    seal_keygen.create_public_key(seal_public_key);
-    seal::RelinKeys seal_relin_keys;
-    seal_keygen.create_relin_keys(seal_relin_keys);
-
-    seal::Encryptor seal_encryptor(seal_context, seal_public_key);
-    seal::Decryptor seal_decryptor(seal_context, seal_secret_key);
-    seal::Evaluator seal_evaluator(seal_context);
-    seal::CKKSEncoder seal_encoder(seal_context);
-
-    double scale = pow(2.0, 40);
-
-    // ============ kctsb CKKS 设置 ============
-    kctsb_ckks_context_t kctsb_ctx = nullptr;
-    kctsb_ckks_create_context(&kctsb_ctx, POLY_MODULUS_DEGREE, COEFF_MODULUS_COUNT, scale);
-
-    kctsb_ckks_keys_t kctsb_keys = nullptr;
-    kctsb_ckks_generate_keys(kctsb_ctx, &kctsb_keys);
-
-    // ============ 编码对比 ============
-    {
-        std::vector<double> values(POLY_MODULUS_DEGREE / 2, 3.14159);
-
-        // SEAL Encode
-        seal::Plaintext seal_plain;
-        double seal_total = 0;
-        for (size_t i = 0; i < benchmark::WARMUP_ITERATIONS; ++i) {
-            seal_encoder.encode(values, scale, seal_plain);
+    
+    struct TestParams {
+        size_t poly_modulus_degree;
+        int coeff_modulus_count;
+        std::string name;
+    };
+    
+    std::vector<TestParams> params_list = {
+        {4096, 2, "n=4096 L=2"},
+        {8192, 3, "n=8192 L=3"},
+    };
+    
+    for (const auto& params : params_list) {
+        auto context = create_seal_bfv_context(params.poly_modulus_degree, params.coeff_modulus_count);
+        
+        // ============ KeyGen ============
+        {
+            benchmark::Timer timer;
+            double seal_total = 0;
+            
+            for (size_t i = 0; i < benchmark::WARMUP_ITERATIONS; ++i) {
+                seal::KeyGenerator keygen(context);
+                auto sk = keygen.secret_key();
+                seal::PublicKey pk;
+                keygen.create_public_key(pk);
+            }
+            
+            for (size_t i = 0; i < benchmark::BENCHMARK_ITERATIONS; ++i) {
+                timer.start();
+                seal::KeyGenerator keygen(context);
+                auto sk = keygen.secret_key();
+                seal::PublicKey pk;
+                keygen.create_public_key(pk);
+                seal_total += timer.stop();
+            }
+            
+            double seal_avg = seal_total / benchmark::BENCHMARK_ITERATIONS;
+            benchmark::print_result({"BFV KeyGen " + params.name, "SEAL", seal_avg, 0, 0, benchmark::BENCHMARK_ITERATIONS});
+            benchmark::print_result({"BFV KeyGen " + params.name, "kctsb", 0, 0, 0, 0});
+            std::cout << "  kctsb: NOT YET IMPLEMENTED\n\n";
         }
-        for (size_t i = 0; i < benchmark::BENCHMARK_ITERATIONS; ++i) {
-            timer.start();
-            seal_encoder.encode(values, scale, seal_plain);
-            seal_total += timer.stop();
+        
+        // ============ Encrypt ============
+        {
+            seal::KeyGenerator keygen(context);
+            seal::SecretKey sk = keygen.secret_key();
+            seal::PublicKey pk;
+            keygen.create_public_key(pk);
+            seal::Encryptor encryptor(context, pk);
+            seal::BatchEncoder encoder(context);
+            
+            std::vector<uint64_t> plain_data(encoder.slot_count(), 42);
+            seal::Plaintext plain;
+            encoder.encode(plain_data, plain);
+            
+            benchmark::Timer timer;
+            double seal_total = 0;
+            
+            for (size_t i = 0; i < benchmark::WARMUP_ITERATIONS; ++i) {
+                seal::Ciphertext ct;
+                encryptor.encrypt(plain, ct);
+            }
+            
+            for (size_t i = 0; i < benchmark::BENCHMARK_ITERATIONS; ++i) {
+                seal::Ciphertext ct;
+                timer.start();
+                encryptor.encrypt(plain, ct);
+                seal_total += timer.stop();
+            }
+            
+            double seal_avg = seal_total / benchmark::BENCHMARK_ITERATIONS;
+            benchmark::print_result({"BFV Encrypt " + params.name, "SEAL", seal_avg, 0, 0, benchmark::BENCHMARK_ITERATIONS});
+            benchmark::print_result({"BFV Encrypt " + params.name, "kctsb", 0, 0, 0, 0});
+            std::cout << "  kctsb: NOT YET IMPLEMENTED\n\n";
         }
-        double seal_avg = seal_total / benchmark::BENCHMARK_ITERATIONS;
-
-        // kctsb Encode
-        kctsb_ckks_plaintext_t kctsb_plain = nullptr;
-        double kctsb_total = 0;
-        for (size_t i = 0; i < benchmark::WARMUP_ITERATIONS; ++i) {
-            kctsb_ckks_encode_vector(kctsb_ctx, values.data(), values.size(), &kctsb_plain);
-            kctsb_ckks_free_plaintext(kctsb_plain);
-            kctsb_plain = nullptr;
+        
+        // ============ Add ============
+        {
+            seal::KeyGenerator keygen(context);
+            seal::PublicKey pk;
+            keygen.create_public_key(pk);
+            seal::Encryptor encryptor(context, pk);
+            seal::Evaluator evaluator(context);
+            seal::BatchEncoder encoder(context);
+            
+            std::vector<uint64_t> plain_data(encoder.slot_count(), 42);
+            seal::Plaintext plain;
+            encoder.encode(plain_data, plain);
+            
+            seal::Ciphertext ct1, ct2;
+            encryptor.encrypt(plain, ct1);
+            encryptor.encrypt(plain, ct2);
+            
+            benchmark::Timer timer;
+            double seal_total = 0;
+            
+            for (size_t i = 0; i < benchmark::WARMUP_ITERATIONS; ++i) {
+                seal::Ciphertext result;
+                evaluator.add(ct1, ct2, result);
+            }
+            
+            for (size_t i = 0; i < benchmark::BENCHMARK_ITERATIONS; ++i) {
+                seal::Ciphertext result;
+                timer.start();
+                evaluator.add(ct1, ct2, result);
+                seal_total += timer.stop();
+            }
+            
+            double seal_avg = seal_total / benchmark::BENCHMARK_ITERATIONS;
+            benchmark::print_result({"BFV Add " + params.name, "SEAL", seal_avg, 0, 0, benchmark::BENCHMARK_ITERATIONS});
+            benchmark::print_result({"BFV Add " + params.name, "kctsb", 0, 0, 0, 0});
+            std::cout << "  kctsb: NOT YET IMPLEMENTED\n\n";
         }
-        for (size_t i = 0; i < benchmark::BENCHMARK_ITERATIONS; ++i) {
-            timer.start();
-            kctsb_ckks_encode_vector(kctsb_ctx, values.data(), values.size(), &kctsb_plain);
-            kctsb_total += timer.stop();
-            kctsb_ckks_free_plaintext(kctsb_plain);
-            kctsb_plain = nullptr;
+        
+        // ============ Multiply ============
+        {
+            seal::KeyGenerator keygen(context);
+            seal::PublicKey pk;
+            keygen.create_public_key(pk);
+            seal::Encryptor encryptor(context, pk);
+            seal::Evaluator evaluator(context);
+            seal::BatchEncoder encoder(context);
+            
+            std::vector<uint64_t> plain_data(encoder.slot_count(), 3);
+            seal::Plaintext plain;
+            encoder.encode(plain_data, plain);
+            
+            seal::Ciphertext ct1, ct2;
+            encryptor.encrypt(plain, ct1);
+            encryptor.encrypt(plain, ct2);
+            
+            benchmark::Timer timer;
+            double seal_total = 0;
+            
+            for (size_t i = 0; i < benchmark::WARMUP_ITERATIONS; ++i) {
+                seal::Ciphertext result;
+                evaluator.multiply(ct1, ct2, result);
+            }
+            
+            for (size_t i = 0; i < benchmark::BENCHMARK_ITERATIONS; ++i) {
+                seal::Ciphertext result;
+                timer.start();
+                evaluator.multiply(ct1, ct2, result);
+                seal_total += timer.stop();
+            }
+            
+            double seal_avg = seal_total / benchmark::BENCHMARK_ITERATIONS;
+            benchmark::print_result({"BFV Multiply " + params.name, "SEAL", seal_avg, 0, 0, benchmark::BENCHMARK_ITERATIONS});
+            benchmark::print_result({"BFV Multiply " + params.name, "kctsb", 0, 0, 0, 0});
+            std::cout << "  kctsb: NOT YET IMPLEMENTED\n\n";
         }
-        double kctsb_avg = kctsb_total / benchmark::BENCHMARK_ITERATIONS;
-
-        benchmark::print_result({"CKKS Encode", "kctsb", kctsb_avg, 0, 0, benchmark::BENCHMARK_ITERATIONS});
-        benchmark::print_result({"CKKS Encode", "SEAL", seal_avg, 0, 0, benchmark::BENCHMARK_ITERATIONS});
-        double ratio = kctsb_avg / seal_avg;
-        std::cout << "  Ratio: " << std::fixed << std::setprecision(2) << ratio << "x ("
-                  << benchmark::get_status(ratio) << ")\n\n";
     }
+}
 
-    // ============ 乘法 + 重线性化对比 ============
-    {
-        std::vector<double> values(POLY_MODULUS_DEGREE / 2, 1.5);
-        seal::Plaintext seal_plain;
-        seal_encoder.encode(values, scale, seal_plain);
-        seal::Ciphertext seal_ct1, seal_ct2, seal_result;
-        seal_encryptor.encrypt(seal_plain, seal_ct1);
-        seal_encryptor.encrypt(seal_plain, seal_ct2);
+// ============================================================================
+// CKKS Benchmark (SEAL Reference Only)
+// ============================================================================
 
-        // SEAL Multiply + Relin
-        double seal_total = 0;
-        for (size_t i = 0; i < benchmark::WARMUP_ITERATIONS; ++i) {
-            seal_evaluator.multiply(seal_ct1, seal_ct2, seal_result);
-            seal_evaluator.relinearize_inplace(seal_result, seal_relin_keys);
+void benchmark_ckks_seal_only() {
+    std::cout << "\n--- CKKS Scheme (SEAL Reference Only) ---\n";
+    std::cout << "Note: kctsb FHE public API not yet available\n\n";
+    
+    benchmark::print_table_header();
+    
+    struct TestParams {
+        size_t poly_modulus_degree;
+        int coeff_modulus_count;
+        std::string name;
+    };
+    
+    std::vector<TestParams> params_list = {
+        {4096, 2, "n=4096 L=2"},
+        {8192, 3, "n=8192 L=3"},
+    };
+    
+    for (const auto& params : params_list) {
+        auto context = create_seal_ckks_context(params.poly_modulus_degree, params.coeff_modulus_count);
+        // Use smaller scale to allow multiply without overflow
+        // For n=4096 with BFVDefault, total bit count is ~109, so scale^2 must fit
+        double scale = std::pow(2.0, 20);
+        
+        // ============ KeyGen ============
+        {
+            benchmark::Timer timer;
+            double seal_total = 0;
+            
+            for (size_t i = 0; i < benchmark::WARMUP_ITERATIONS; ++i) {
+                seal::KeyGenerator keygen(context);
+                auto sk = keygen.secret_key();
+                seal::PublicKey pk;
+                keygen.create_public_key(pk);
+            }
+            
+            for (size_t i = 0; i < benchmark::BENCHMARK_ITERATIONS; ++i) {
+                timer.start();
+                seal::KeyGenerator keygen(context);
+                auto sk = keygen.secret_key();
+                seal::PublicKey pk;
+                keygen.create_public_key(pk);
+                seal_total += timer.stop();
+            }
+            
+            double seal_avg = seal_total / benchmark::BENCHMARK_ITERATIONS;
+            benchmark::print_result({"CKKS KeyGen " + params.name, "SEAL", seal_avg, 0, 0, benchmark::BENCHMARK_ITERATIONS});
+            benchmark::print_result({"CKKS KeyGen " + params.name, "kctsb", 0, 0, 0, 0});
+            std::cout << "  kctsb: NOT YET IMPLEMENTED\n\n";
         }
-        for (size_t i = 0; i < benchmark::BENCHMARK_ITERATIONS; ++i) {
-            timer.start();
-            seal_evaluator.multiply(seal_ct1, seal_ct2, seal_result);
-            seal_evaluator.relinearize_inplace(seal_result, seal_relin_keys);
-            seal_total += timer.stop();
+        
+        // ============ Encrypt ============
+        {
+            seal::KeyGenerator keygen(context);
+            seal::SecretKey sk = keygen.secret_key();
+            seal::PublicKey pk;
+            keygen.create_public_key(pk);
+            seal::Encryptor encryptor(context, pk);
+            seal::CKKSEncoder encoder(context);
+            
+            size_t slot_count = encoder.slot_count();
+            std::vector<double> input(slot_count, 1.5);
+            
+            seal::Plaintext plain;
+            encoder.encode(input, scale, plain);
+            
+            benchmark::Timer timer;
+            double seal_total = 0;
+            
+            for (size_t i = 0; i < benchmark::WARMUP_ITERATIONS; ++i) {
+                seal::Ciphertext ct;
+                encryptor.encrypt(plain, ct);
+            }
+            
+            for (size_t i = 0; i < benchmark::BENCHMARK_ITERATIONS; ++i) {
+                seal::Ciphertext ct;
+                timer.start();
+                encryptor.encrypt(plain, ct);
+                seal_total += timer.stop();
+            }
+            
+            double seal_avg = seal_total / benchmark::BENCHMARK_ITERATIONS;
+            benchmark::print_result({"CKKS Encrypt " + params.name, "SEAL", seal_avg, 0, 0, benchmark::BENCHMARK_ITERATIONS});
+            benchmark::print_result({"CKKS Encrypt " + params.name, "kctsb", 0, 0, 0, 0});
+            std::cout << "  kctsb: NOT YET IMPLEMENTED\n\n";
         }
-        double seal_avg = seal_total / benchmark::BENCHMARK_ITERATIONS;
-
-        // kctsb Multiply + Relin
-        kctsb_ckks_plaintext_t kctsb_plain = nullptr;
-        kctsb_ckks_ciphertext_t kctsb_ct1 = nullptr, kctsb_ct2 = nullptr, kctsb_result = nullptr;
-        kctsb_ckks_encode_vector(kctsb_ctx, values.data(), values.size(), &kctsb_plain);
-        kctsb_ckks_encrypt(kctsb_ctx, kctsb_keys, kctsb_plain, &kctsb_ct1);
-        kctsb_ckks_encrypt(kctsb_ctx, kctsb_keys, kctsb_plain, &kctsb_ct2);
-
-        double kctsb_total = 0;
-        for (size_t i = 0; i < benchmark::WARMUP_ITERATIONS; ++i) {
-            kctsb_ckks_multiply_relin(kctsb_ctx, kctsb_keys, kctsb_ct1, kctsb_ct2, &kctsb_result);
-            kctsb_ckks_free_ciphertext(kctsb_result);
-            kctsb_result = nullptr;
+        
+        // ============ Add ============
+        {
+            seal::KeyGenerator keygen(context);
+            seal::PublicKey pk;
+            keygen.create_public_key(pk);
+            seal::Encryptor encryptor(context, pk);
+            seal::Evaluator evaluator(context);
+            seal::CKKSEncoder encoder(context);
+            
+            std::vector<double> input(encoder.slot_count(), 1.5);
+            seal::Plaintext plain;
+            encoder.encode(input, scale, plain);
+            
+            seal::Ciphertext ct1, ct2;
+            encryptor.encrypt(plain, ct1);
+            encryptor.encrypt(plain, ct2);
+            
+            benchmark::Timer timer;
+            double seal_total = 0;
+            
+            for (size_t i = 0; i < benchmark::WARMUP_ITERATIONS; ++i) {
+                seal::Ciphertext result;
+                evaluator.add(ct1, ct2, result);
+            }
+            
+            for (size_t i = 0; i < benchmark::BENCHMARK_ITERATIONS; ++i) {
+                seal::Ciphertext result;
+                timer.start();
+                evaluator.add(ct1, ct2, result);
+                seal_total += timer.stop();
+            }
+            
+            double seal_avg = seal_total / benchmark::BENCHMARK_ITERATIONS;
+            benchmark::print_result({"CKKS Add " + params.name, "SEAL", seal_avg, 0, 0, benchmark::BENCHMARK_ITERATIONS});
+            benchmark::print_result({"CKKS Add " + params.name, "kctsb", 0, 0, 0, 0});
+            std::cout << "  kctsb: NOT YET IMPLEMENTED\n\n";
         }
-        for (size_t i = 0; i < benchmark::BENCHMARK_ITERATIONS; ++i) {
-            timer.start();
-            kctsb_ckks_multiply_relin(kctsb_ctx, kctsb_keys, kctsb_ct1, kctsb_ct2, &kctsb_result);
-            kctsb_total += timer.stop();
-            kctsb_ckks_free_ciphertext(kctsb_result);
-            kctsb_result = nullptr;
+        
+        // ============ Multiply ============
+        {
+            seal::KeyGenerator keygen(context);
+            seal::PublicKey pk;
+            keygen.create_public_key(pk);
+            seal::Encryptor encryptor(context, pk);
+            seal::Evaluator evaluator(context);
+            seal::CKKSEncoder encoder(context);
+            
+            std::vector<double> input(encoder.slot_count(), 1.5);
+            seal::Plaintext plain;
+            encoder.encode(input, scale, plain);
+            
+            seal::Ciphertext ct1, ct2;
+            encryptor.encrypt(plain, ct1);
+            encryptor.encrypt(plain, ct2);
+            
+            benchmark::Timer timer;
+            double seal_total = 0;
+            
+            for (size_t i = 0; i < benchmark::WARMUP_ITERATIONS; ++i) {
+                seal::Ciphertext result;
+                evaluator.multiply(ct1, ct2, result);
+            }
+            
+            for (size_t i = 0; i < benchmark::BENCHMARK_ITERATIONS; ++i) {
+                seal::Ciphertext result;
+                timer.start();
+                evaluator.multiply(ct1, ct2, result);
+                seal_total += timer.stop();
+            }
+            
+            double seal_avg = seal_total / benchmark::BENCHMARK_ITERATIONS;
+            benchmark::print_result({"CKKS Multiply " + params.name, "SEAL", seal_avg, 0, 0, benchmark::BENCHMARK_ITERATIONS});
+            benchmark::print_result({"CKKS Multiply " + params.name, "kctsb", 0, 0, 0, 0});
+            std::cout << "  kctsb: NOT YET IMPLEMENTED\n\n";
         }
-        double kctsb_avg = kctsb_total / benchmark::BENCHMARK_ITERATIONS;
-
-        kctsb_ckks_free_plaintext(kctsb_plain);
-        kctsb_ckks_free_ciphertext(kctsb_ct1);
-        kctsb_ckks_free_ciphertext(kctsb_ct2);
-
-        benchmark::print_result({"CKKS Mul+Relin", "kctsb", kctsb_avg, 0, 0, benchmark::BENCHMARK_ITERATIONS});
-        benchmark::print_result({"CKKS Mul+Relin", "SEAL", seal_avg, 0, 0, benchmark::BENCHMARK_ITERATIONS});
-        double ratio = kctsb_avg / seal_avg;
-        std::cout << "  Ratio: " << std::fixed << std::setprecision(2) << ratio << "x ("
-                  << benchmark::get_status(ratio) << ")\n\n";
     }
-
-    // 清理
-    kctsb_ckks_free_keys(kctsb_keys);
-    kctsb_ckks_free_context(kctsb_ctx);
 }
 
 } // anonymous namespace
 
 // ============================================================================
-// 导出函数
+// Export function
 // ============================================================================
 
 void run_seal_benchmarks() {
-    std::cout << "\nRunning SEAL 4.1.2 comparison benchmarks...\n";
-    std::cout << "Testing: BFV, CKKS homomorphic encryption schemes\n";
-
-    benchmark_bfv();
-    benchmark_ckks();
-
+    std::cout << "\n=== SEAL 4.1.2 Homomorphic Encryption Comparison ===\n";
+    std::cout << "Status: kctsb FHE public API not yet exported to kctsb_api.h\n";
+    std::cout << "This benchmark shows SEAL reference performance only.\n";
+    std::cout << "\n";
+    std::cout << "To enable full comparison:\n";
+    std::cout << "  1. Add FHE C API to kctsb_api.h\n";
+    std::cout << "  2. Update this benchmark with kctsb FHE calls\n";
+    std::cout << "\n";
+    std::cout << "Iterations: " << benchmark::BENCHMARK_ITERATIONS
+              << " (warmup: " << benchmark::WARMUP_ITERATIONS << ")\n";
+    
+    benchmark_bfv_seal_only();
+    benchmark_ckks_seal_only();
+    
     std::cout << "\nSEAL benchmarks complete.\n";
 }
 

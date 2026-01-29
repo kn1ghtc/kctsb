@@ -1,11 +1,16 @@
 /**
  * @file benchmark_gmssl.cpp
- * @brief kctsb vs GmSSL 国密算法性能对比
+ * @brief kctsb vs GmSSL Chinese Cryptography Performance Comparison
  *
- * 对比算法:
- *   - SM2: 签名/验签/密钥交换
- *   - SM3: 哈希吞吐量
- *   - SM4-GCM: AEAD 加解密吞吐量
+ * Compares:
+ *   - SM2: Signature/Verification (GM/T 0003-2012)
+ *   - SM3: Hash throughput
+ *   - SM4-GCM: AEAD encryption throughput
+ *
+ * Follows AGENTS.md specification:
+ *   - Uses only public API (kctsb_api.h + crypto/sm/sm2.h)
+ *   - Library-level comparison, no internal dependencies
+ *   - 10 warmup, 100 benchmark iterations
  *
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
  * @license Apache License 2.0
@@ -16,13 +21,15 @@
 #include <iostream>
 #include <vector>
 #include <cstring>
+#include <iomanip>
 
 #include "benchmark_common.hpp"
 
-// kctsb 公共 API
+// kctsb public API
 #include "kctsb/kctsb_api.h"
+#include "kctsb/crypto/sm/sm2.h"
 
-// GmSSL 头文件
+// GmSSL headers
 extern "C" {
 #include <gmssl/sm2.h>
 #include <gmssl/sm3.h>
@@ -32,15 +39,19 @@ extern "C" {
 
 namespace {
 
-// 测试数据大小
+// Test data sizes
 const std::vector<size_t> TEST_SIZES = {
     benchmark::SIZE_1KB,
     benchmark::SIZE_1MB,
     benchmark::SIZE_10MB
 };
 
+// Default user ID (SM2 standard)
+constexpr const char* DEFAULT_USER_ID = "1234567812345678";
+constexpr size_t DEFAULT_USER_ID_LEN = 16;
+
 // ============================================================================
-// SM3 哈希对比
+// SM3 Hash Comparison
 // ============================================================================
 
 void benchmark_sm3() {
@@ -52,7 +63,7 @@ void benchmark_sm3() {
         uint8_t hash_kctsb[32];
         uint8_t hash_gmssl[32];
 
-        // kctsb 性能
+        // kctsb performance
         benchmark::Timer timer;
         double kctsb_total = 0;
 
@@ -69,7 +80,7 @@ void benchmark_sm3() {
         double kctsb_avg = kctsb_total / benchmark::BENCHMARK_ITERATIONS;
         double kctsb_throughput = benchmark::calculate_throughput(data_size, kctsb_avg);
 
-        // GmSSL 性能
+        // GmSSL performance
         double gmssl_total = 0;
         SM3_CTX ctx;
 
@@ -90,7 +101,7 @@ void benchmark_sm3() {
         double gmssl_avg = gmssl_total / benchmark::BENCHMARK_ITERATIONS;
         double gmssl_throughput = benchmark::calculate_throughput(data_size, gmssl_avg);
 
-        // 打印结果
+        // Print results
         std::string size_name = (data_size == benchmark::SIZE_1KB) ? "1KB" :
                                (data_size == benchmark::SIZE_1MB) ? "1MB" : "10MB";
 
@@ -113,7 +124,7 @@ void benchmark_sm3() {
 }
 
 // ============================================================================
-// SM4-GCM 对比
+// SM4-GCM Comparison
 // ============================================================================
 
 void benchmark_sm4_gcm() {
@@ -132,30 +143,26 @@ void benchmark_sm4_gcm() {
         std::vector<uint8_t> ciphertext(data_size + TAG_SIZE);
         std::vector<uint8_t> tag(TAG_SIZE);
 
-        // kctsb 性能
+        // kctsb performance (using oneshot API)
         benchmark::Timer timer;
         double kctsb_total = 0;
 
         for (size_t i = 0; i < benchmark::WARMUP_ITERATIONS; ++i) {
-            size_t ct_len = ciphertext.size();
-            kctsb_sm4_gcm_encrypt(
-                key.data(), iv.data(), IV_SIZE,
+            kctsb_sm4_gcm_encrypt_oneshot(
+                key.data(), iv.data(),
                 nullptr, 0,
                 plaintext.data(), data_size,
-                ciphertext.data(), &ct_len,
-                tag.data()
+                ciphertext.data(), tag.data()
             );
         }
 
         for (size_t i = 0; i < benchmark::BENCHMARK_ITERATIONS; ++i) {
-            size_t ct_len = ciphertext.size();
             timer.start();
-            kctsb_sm4_gcm_encrypt(
-                key.data(), iv.data(), IV_SIZE,
+            kctsb_sm4_gcm_encrypt_oneshot(
+                key.data(), iv.data(),
                 nullptr, 0,
                 plaintext.data(), data_size,
-                ciphertext.data(), &ct_len,
-                tag.data()
+                ciphertext.data(), tag.data()
             );
             kctsb_total += timer.stop();
         }
@@ -163,13 +170,12 @@ void benchmark_sm4_gcm() {
         double kctsb_avg = kctsb_total / benchmark::BENCHMARK_ITERATIONS;
         double kctsb_throughput = benchmark::calculate_throughput(data_size, kctsb_avg);
 
-        // GmSSL 性能
+        // GmSSL performance
         double gmssl_total = 0;
         SM4_KEY sm4_key;
         sm4_set_encrypt_key(&sm4_key, key.data());
 
         for (size_t i = 0; i < benchmark::WARMUP_ITERATIONS; ++i) {
-            size_t ct_len = 0;
             sm4_gcm_encrypt(&sm4_key, iv.data(), IV_SIZE,
                            nullptr, 0,
                            plaintext.data(), data_size,
@@ -188,7 +194,7 @@ void benchmark_sm4_gcm() {
         double gmssl_avg = gmssl_total / benchmark::BENCHMARK_ITERATIONS;
         double gmssl_throughput = benchmark::calculate_throughput(data_size, gmssl_avg);
 
-        // 打印结果
+        // Print results
         std::string size_name = (data_size == benchmark::SIZE_1KB) ? "1KB" :
                                (data_size == benchmark::SIZE_1MB) ? "1MB" : "10MB";
 
@@ -211,45 +217,105 @@ void benchmark_sm4_gcm() {
 }
 
 // ============================================================================
-// SM2 签名/验签对比
+// SM2 Signature Comparison
 // ============================================================================
 
 void benchmark_sm2() {
-    std::cout << "\n--- SM2 Signature ---\n";
+    std::cout << "\n--- SM2 Signature (GM/T 0003-2012) ---\n";
     benchmark::print_table_header();
 
-    // 准备测试数据
+    // Prepare test message
     auto message = benchmark::generate_random_data(32);
 
-    // ============ 签名对比 ============
+    // ============ KeyGen Comparison ============
     {
-        // kctsb SM2
-        kctsb_sm2_keypair_t kctsb_kp = nullptr;
-        kctsb_sm2_generate_keypair(&kctsb_kp);
-
-        uint8_t kctsb_sig[128];
-        size_t kctsb_sig_len = sizeof(kctsb_sig);
+        std::cout << "=== SM2 KeyGen ===\n";
 
         benchmark::Timer timer;
         double kctsb_total = 0;
 
+        // kctsb key generation
         for (size_t i = 0; i < benchmark::WARMUP_ITERATIONS; ++i) {
-            kctsb_sig_len = sizeof(kctsb_sig);
-            kctsb_sm2_sign(kctsb_kp, message.data(), message.size(),
-                          kctsb_sig, &kctsb_sig_len);
+            kctsb_sm2_keypair_t keypair;
+            kctsb_sm2_generate_keypair(&keypair);
         }
 
         for (size_t i = 0; i < benchmark::BENCHMARK_ITERATIONS; ++i) {
-            kctsb_sig_len = sizeof(kctsb_sig);
+            kctsb_sm2_keypair_t keypair;
             timer.start();
-            kctsb_sm2_sign(kctsb_kp, message.data(), message.size(),
-                          kctsb_sig, &kctsb_sig_len);
+            kctsb_sm2_generate_keypair(&keypair);
             kctsb_total += timer.stop();
         }
 
         double kctsb_avg = kctsb_total / benchmark::BENCHMARK_ITERATIONS;
 
-        // GmSSL SM2
+        // GmSSL key generation
+        double gmssl_total = 0;
+
+        for (size_t i = 0; i < benchmark::WARMUP_ITERATIONS; ++i) {
+            SM2_KEY gmssl_key;
+            sm2_key_generate(&gmssl_key);
+        }
+
+        for (size_t i = 0; i < benchmark::BENCHMARK_ITERATIONS; ++i) {
+            SM2_KEY gmssl_key;
+            timer.start();
+            sm2_key_generate(&gmssl_key);
+            gmssl_total += timer.stop();
+        }
+
+        double gmssl_avg = gmssl_total / benchmark::BENCHMARK_ITERATIONS;
+
+        benchmark::print_result({"SM2 KeyGen", "kctsb", kctsb_avg, 0, 0, benchmark::BENCHMARK_ITERATIONS});
+        benchmark::print_result({"SM2 KeyGen", "GmSSL", gmssl_avg, 0, 0, benchmark::BENCHMARK_ITERATIONS});
+
+        double ratio = kctsb_avg / gmssl_avg;
+        std::cout << "  Ratio: " << std::fixed << std::setprecision(2) << ratio << "x ("
+                  << benchmark::get_status(ratio) << ")\n\n";
+    }
+
+    // ============ Sign Comparison ============
+    {
+        std::cout << "=== SM2 Sign ===\n";
+
+        // Prepare kctsb keypair
+        kctsb_sm2_keypair_t kctsb_keypair;
+        kctsb_sm2_generate_keypair(&kctsb_keypair);
+
+        kctsb_sm2_signature_t kctsb_sig;
+
+        benchmark::Timer timer;
+        double kctsb_total = 0;
+
+        // kctsb sign warmup
+        for (size_t i = 0; i < benchmark::WARMUP_ITERATIONS; ++i) {
+            kctsb_sm2_sign(
+                kctsb_keypair.private_key,
+                kctsb_keypair.public_key,
+                reinterpret_cast<const uint8_t*>(DEFAULT_USER_ID),
+                DEFAULT_USER_ID_LEN,
+                message.data(), message.size(),
+                &kctsb_sig
+            );
+        }
+
+        // kctsb sign benchmark
+        for (size_t i = 0; i < benchmark::BENCHMARK_ITERATIONS; ++i) {
+            timer.start();
+            kctsb_sm2_sign(
+                kctsb_keypair.private_key,
+                kctsb_keypair.public_key,
+                reinterpret_cast<const uint8_t*>(DEFAULT_USER_ID),
+                DEFAULT_USER_ID_LEN,
+                message.data(), message.size(),
+                &kctsb_sig
+            );
+            kctsb_total += timer.stop();
+        }
+
+        double kctsb_avg = kctsb_total / benchmark::BENCHMARK_ITERATIONS;
+
+        // GmSSL sign
         SM2_KEY gmssl_key;
         sm2_key_generate(&gmssl_key);
 
@@ -274,41 +340,60 @@ void benchmark_sm2() {
 
         benchmark::print_result({"SM2 Sign", "kctsb", kctsb_avg, 0, 32, benchmark::BENCHMARK_ITERATIONS});
         benchmark::print_result({"SM2 Sign", "GmSSL", gmssl_avg, 0, 32, benchmark::BENCHMARK_ITERATIONS});
+
         double ratio = kctsb_avg / gmssl_avg;
         std::cout << "  Ratio: " << std::fixed << std::setprecision(2) << ratio << "x ("
                   << benchmark::get_status(ratio) << ")\n\n";
-
-        kctsb_sm2_free_keypair(kctsb_kp);
     }
 
-    // ============ 验签对比 ============
+    // ============ Verify Comparison ============
     {
-        // 准备签名
-        kctsb_sm2_keypair_t kctsb_kp = nullptr;
-        kctsb_sm2_generate_keypair(&kctsb_kp);
+        std::cout << "=== SM2 Verify ===\n";
 
-        uint8_t kctsb_sig[128];
-        size_t kctsb_sig_len = sizeof(kctsb_sig);
-        kctsb_sm2_sign(kctsb_kp, message.data(), message.size(), kctsb_sig, &kctsb_sig_len);
+        // Prepare kctsb keypair and signature
+        kctsb_sm2_keypair_t kctsb_keypair;
+        kctsb_sm2_generate_keypair(&kctsb_keypair);
+
+        kctsb_sm2_signature_t kctsb_sig;
+        kctsb_sm2_sign(
+            kctsb_keypair.private_key,
+            kctsb_keypair.public_key,
+            reinterpret_cast<const uint8_t*>(DEFAULT_USER_ID),
+            DEFAULT_USER_ID_LEN,
+            message.data(), message.size(),
+            &kctsb_sig
+        );
 
         benchmark::Timer timer;
         double kctsb_total = 0;
 
+        // kctsb verify warmup
         for (size_t i = 0; i < benchmark::WARMUP_ITERATIONS; ++i) {
-            kctsb_sm2_verify(kctsb_kp, message.data(), message.size(),
-                            kctsb_sig, kctsb_sig_len);
+            kctsb_sm2_verify(
+                kctsb_keypair.public_key,
+                reinterpret_cast<const uint8_t*>(DEFAULT_USER_ID),
+                DEFAULT_USER_ID_LEN,
+                message.data(), message.size(),
+                &kctsb_sig
+            );
         }
 
+        // kctsb verify benchmark
         for (size_t i = 0; i < benchmark::BENCHMARK_ITERATIONS; ++i) {
             timer.start();
-            kctsb_sm2_verify(kctsb_kp, message.data(), message.size(),
-                            kctsb_sig, kctsb_sig_len);
+            kctsb_sm2_verify(
+                kctsb_keypair.public_key,
+                reinterpret_cast<const uint8_t*>(DEFAULT_USER_ID),
+                DEFAULT_USER_ID_LEN,
+                message.data(), message.size(),
+                &kctsb_sig
+            );
             kctsb_total += timer.stop();
         }
 
         double kctsb_avg = kctsb_total / benchmark::BENCHMARK_ITERATIONS;
 
-        // GmSSL SM2
+        // GmSSL verify
         SM2_KEY gmssl_key;
         sm2_key_generate(&gmssl_key);
 
@@ -332,23 +417,24 @@ void benchmark_sm2() {
 
         benchmark::print_result({"SM2 Verify", "kctsb", kctsb_avg, 0, 32, benchmark::BENCHMARK_ITERATIONS});
         benchmark::print_result({"SM2 Verify", "GmSSL", gmssl_avg, 0, 32, benchmark::BENCHMARK_ITERATIONS});
+
         double ratio = kctsb_avg / gmssl_avg;
         std::cout << "  Ratio: " << std::fixed << std::setprecision(2) << ratio << "x ("
                   << benchmark::get_status(ratio) << ")\n\n";
-
-        kctsb_sm2_free_keypair(kctsb_kp);
     }
 }
 
 } // anonymous namespace
 
 // ============================================================================
-// 导出函数
+// Export function
 // ============================================================================
 
 void run_gmssl_benchmarks() {
-    std::cout << "\nRunning GmSSL comparison benchmarks...\n";
-    std::cout << "Testing: SM2, SM3, SM4-GCM Chinese cryptography standards\n";
+    std::cout << "\n=== GmSSL Chinese Cryptography Comparison ===\n";
+    std::cout << "Testing: SM2, SM3, SM4-GCM (GM/T standards)\n";
+    std::cout << "Iterations: " << benchmark::BENCHMARK_ITERATIONS
+              << " (warmup: " << benchmark::WARMUP_ITERATIONS << ")\n";
 
     benchmark_sm3();
     benchmark_sm4_gcm();
