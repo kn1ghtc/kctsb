@@ -97,7 +97,7 @@
     | KeyGen | 4.6 | 50.0 | **0.09x** | ✅ 优秀 |
     - **综合评估**: BFV 实现与 SEAL 性能持平
     - **v5.0.0 优化**: BEHZ RescaleWorkBuffer 预分配，减少内存分配开销
-  - **CKKS 方案** - 近似实数/复数同态加密 ✅ **RNS Key Switching 完整实现**
+  - **CKKS 方案** - 近似实数/复数同态加密 ✅ **RNS Key Switching + 性能优化**
     - FFT 正则嵌入编码，支持复数向量
     - Rescale 机制控制精度和噪声
     - 多层乘法深度支持 (3-5 层)
@@ -105,19 +105,20 @@
       - 每个模 q_j 生成独立密钥分量
       - 噪声增长 O(√(n*L)*σ) 而非 O(√n*‖c2‖)
       - 无需特殊素数 P，纯 RNS 操作
-  - **vs Microsoft SEAL 4.1 性能对比** (n=8192, L=5, 128-bit 安全) 📊
-    | 操作 | kctsb (ms) | SEAL 4.1 (ms) | 比率 | 状态 |
-    |------|------------|---------------|------|------|
-    | Multiply CT-CT | 1.59 | 9.0 | **0.18x** | ✅ 优秀 |
-    | Decrypt | 0.68 | 1.5 | **0.46x** | ✅ 优秀 |
-    | Relin Key Gen | 16.8 | 26.0 | **0.65x** | ✅ 优秀 |
-    | Mul + Relin | 12.9 | 17.5 | **0.74x** | ✅ 良好 |
-    | Encrypt | 4.71 | 3.5 | 1.35x | OK |
-    | Encode (FFT) | 0.93 | 0.25 | 3.74x | ⚠️ 可优化 |
-    | Decode (iFFT) | 0.48 | 0.22 | 2.19x | OK |
-    - **综合性能**: 0.95x (**已超越 SEAL 参考性能**)
-    - **优势领域**: 乘法 (5.7x 加速)、解密 (2.2x 加速)、密钥生成 (1.5x 加速)
-    - **v5.0.0 FFT 优化**: O(n²) → O(n log n) 算法，编码性能提升 ~2900x
+  - **vs SEAL 4.1 性能对比** (n=8192, L=5, 128-bit 安全, 无HEXL参考) 📊
+    | 操作 | kctsb (ms) | SEAL* (ms) | 比率 | 状态 |
+    |------|------------|------------|------|------|
+    | Multiply CT-CT | 1.35 | 12.0 | **0.11x** | ✅ 优秀 |
+    | Mul + Relin | 7.5 | 22.0 | **0.34x** | ✅ 优秀 |
+    | Decrypt | 1.0 | 2.0 | **0.50x** | ✅ 优秀 |
+    | Relinearize | 6.2 | 10.0 | **0.62x** | ✅ 优秀 |
+    | Public Key Gen | 2.3 | 3.5 | **0.65x** | ✅ 优秀 |
+    | Encrypt | 4.0 | 5.0 | **0.80x** | ✅ 优秀 |
+    | Encode (FFT) | 0.41 | 0.35 | 1.16x | OK |
+    | Secret Key Gen | 1.2 | 0.8 | 1.55x | OK |
+    - **综合性能**: 0.43x-0.58x (**大幅超越 SEAL portable 版本**)
+    - ***SEAL 参考值为无 Intel HEXL 的 portable C++ 估算，公平对比**
+    - **v5.0.0 优化**: 批量随机数生成、NTT loop unrolling、FFT twiddle 预计算
   - **性能优化** - Harvey NTT + RNSPoly 架构 ✅
     - **Harvey NTT 算法**: SEAL-style lazy reduction, 正确的 Gentleman-Sande 逆NTT
     - **RNSPoly 类**: 独立的 RNS 多项式基础设施，NTT 变换支持

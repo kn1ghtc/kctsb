@@ -204,7 +204,7 @@ void ntt_negacyclic_harvey_lazy(uint64_t* operand, const NTTTables& tables) {
     uint64_t two_q = tables.two_times_modulus();
     const MultiplyUIntModOperand* root_powers = tables.root_powers();
     
-    // Cooley-Tukey butterfly NTT
+    // Cooley-Tukey butterfly NTT with loop unrolling
     // Process from small butterflies to large
     
     size_t t = n;  // Butterfly width
@@ -213,59 +213,131 @@ void ntt_negacyclic_harvey_lazy(uint64_t* operand, const NTTTables& tables) {
     for (size_t m = 1; m < n; m <<= 1) {
         t >>= 1;  // t = n / (2 * m)
         
-        for (size_t i = 0; i < m; ++i) {
-            // Get twiddle factor for this butterfly group
-            const MultiplyUIntModOperand& w = root_powers[root_index];
-            root_index++;
-            
-            size_t j1 = 2 * i * t;
-            size_t j2 = j1 + t;
-            
-            for (size_t j = j1; j < j2; ++j) {
-                // Butterfly operation
-                // x' = x + w * y
-                // y' = x - w * y
+        if (t >= 4) {
+            // Unrolled version for larger butterflies
+            for (size_t i = 0; i < m; ++i) {
+                const MultiplyUIntModOperand& w = root_powers[root_index++];
+                uint64_t w_op = w.operand;
+                uint64_t w_quo = w.quotient;
                 
-                uint64_t x = operand[j];
-                uint64_t y = operand[j + t];
+                size_t j1 = 2 * i * t;
+                size_t j2 = j1 + t;
                 
-                // Guard x to [0, 2q) if needed
-                x = guard(x, two_q);
+                // Process 4 butterflies at a time
+                size_t j;
+                for (j = 0; j + 4 <= t; j += 4) {
+                    // Load all values
+                    uint64_t x0 = operand[j1 + j];
+                    uint64_t x1 = operand[j1 + j + 1];
+                    uint64_t x2 = operand[j1 + j + 2];
+                    uint64_t x3 = operand[j1 + j + 3];
+                    uint64_t y0 = operand[j2 + j];
+                    uint64_t y1 = operand[j2 + j + 1];
+                    uint64_t y2 = operand[j2 + j + 2];
+                    uint64_t y3 = operand[j2 + j + 3];
+                    
+                    // Guard x values
+                    x0 = (x0 >= two_q) ? x0 - two_q : x0;
+                    x1 = (x1 >= two_q) ? x1 - two_q : x1;
+                    x2 = (x2 >= two_q) ? x2 - two_q : x2;
+                    x3 = (x3 >= two_q) ? x3 - two_q : x3;
+                    
+                    // Compute w * y (lazy modular multiply)
+                    // Using __uint128_t for 64x64->128 multiply
+                    uint64_t wt0 = y0 * w_op - static_cast<uint64_t>((static_cast<__uint128_t>(y0) * w_quo) >> 64) * q;
+                    uint64_t wt1 = y1 * w_op - static_cast<uint64_t>((static_cast<__uint128_t>(y1) * w_quo) >> 64) * q;
+                    uint64_t wt2 = y2 * w_op - static_cast<uint64_t>((static_cast<__uint128_t>(y2) * w_quo) >> 64) * q;
+                    uint64_t wt3 = y3 * w_op - static_cast<uint64_t>((static_cast<__uint128_t>(y3) * w_quo) >> 64) * q;
+                    
+                    // Butterfly: x' = x + wt, y' = x - wt + 2q
+                    operand[j1 + j]     = x0 + wt0;
+                    operand[j1 + j + 1] = x1 + wt1;
+                    operand[j1 + j + 2] = x2 + wt2;
+                    operand[j1 + j + 3] = x3 + wt3;
+                    
+                    operand[j2 + j]     = x0 + two_q - wt0;
+                    operand[j2 + j + 1] = x1 + two_q - wt1;
+                    operand[j2 + j + 2] = x2 + two_q - wt2;
+                    operand[j2 + j + 3] = x3 + two_q - wt3;
+                }
                 
-                // t = w * y (lazy, result in [0, 2q))
-                uint64_t wt = multiply_uint_mod_lazy(y, w, tables.modulus());
+                // Handle remaining elements
+                for (; j < t; ++j) {
+                    uint64_t x = operand[j1 + j];
+                    uint64_t y = operand[j2 + j];
+                    x = (x >= two_q) ? x - two_q : x;
+                    uint64_t wt = y * w_op - static_cast<uint64_t>((static_cast<__uint128_t>(y) * w_quo) >> 64) * q;
+                    operand[j1 + j] = x + wt;
+                    operand[j2 + j] = x + two_q - wt;
+                }
+            }
+        } else {
+            // Small butterflies: use original loop
+            for (size_t i = 0; i < m; ++i) {
+                const MultiplyUIntModOperand& w = root_powers[root_index++];
                 
-                // x' = x + t (result in [0, 4q), guard later)
-                operand[j] = x + wt;
+                size_t j1 = 2 * i * t;
+                size_t j2 = j1 + t;
                 
-                // y' = x - t + 2q (ensure non-negative, result in [0, 4q))
-                operand[j + t] = x + two_q - wt;
+                for (size_t j = j1; j < j2; ++j) {
+                    uint64_t x = operand[j];
+                    uint64_t y = operand[j + t];
+                    
+                    x = guard(x, two_q);
+                    uint64_t wt = multiply_uint_mod_lazy(y, w, tables.modulus());
+                    
+                    operand[j] = x + wt;
+                    operand[j + t] = x + two_q - wt;
+                }
             }
         }
     }
     
     // Final guard to ensure all values in [0, 2q)
-    for (size_t i = 0; i < n; ++i) {
+    size_t i = 0;
+    for (; i + 4 <= n; i += 4) {
+        uint64_t v0 = operand[i];
+        uint64_t v1 = operand[i + 1];
+        uint64_t v2 = operand[i + 2];
+        uint64_t v3 = operand[i + 3];
+        
+        operand[i]     = (v0 >= two_q) ? v0 - two_q : v0;
+        operand[i + 1] = (v1 >= two_q) ? v1 - two_q : v1;
+        operand[i + 2] = (v2 >= two_q) ? v2 - two_q : v2;
+        operand[i + 3] = (v3 >= two_q) ? v3 - two_q : v3;
+    }
+    for (; i < n; ++i) {
         operand[i] = guard(operand[i], two_q);
     }
 }
 
 void ntt_negacyclic_harvey(uint64_t* operand, const NTTTables& tables) {
-#if defined(__AVX512F__) && defined(__AVX512VL__)
-    // Prefer AVX-512 implementation for best performance
+#if defined(__AVX512F__) && defined(__AVX512VL__) && defined(__AVX512IFMA__)
+    // Prefer AVX-512 IFMA implementation for best performance (Ice Lake+, Zen4+)
     ntt_negacyclic_harvey_avx512(operand, tables);
-#elif defined(__AVX2__)
-    // Fall back to AVX2 implementation
-    ntt_negacyclic_harvey_avx2(operand, tables);
 #else
-    // First do lazy NTT
+    // Use optimized scalar implementation with lazy reduction
+    // Note: AVX2 mod-multiply fallback was slower than pure scalar
     ntt_negacyclic_harvey_lazy(operand, tables);
     
-    // Then reduce all values to [0, q)
+    // Final reduction to [0, q)
     size_t n = tables.coeff_count();
     uint64_t q = tables.modulus().value();
     
-    for (size_t i = 0; i < n; ++i) {
+    // Unrolled loop for better instruction-level parallelism
+    size_t i = 0;
+    for (; i + 4 <= n; i += 4) {
+        uint64_t v0 = operand[i];
+        uint64_t v1 = operand[i + 1];
+        uint64_t v2 = operand[i + 2];
+        uint64_t v3 = operand[i + 3];
+        
+        operand[i]     = (v0 >= q) ? v0 - q : v0;
+        operand[i + 1] = (v1 >= q) ? v1 - q : v1;
+        operand[i + 2] = (v2 >= q) ? v2 - q : v2;
+        operand[i + 3] = (v3 >= q) ? v3 - q : v3;
+    }
+    for (; i < n; ++i) {
         if (operand[i] >= q) {
             operand[i] -= q;
         }
@@ -294,25 +366,81 @@ void inverse_ntt_negacyclic_harvey_lazy(uint64_t* operand, const NTTTables& tabl
     for (; m > 1; m >>= 1) {
         size_t offset = 0;
         
-        for (size_t i = 0; i < m; ++i) {
-            const MultiplyUIntModOperand& w = inv_root_powers[root_index++];
-            
-            uint64_t* x = operand + offset;
-            uint64_t* y = x + gap;
-            
-            for (size_t j = 0; j < gap; ++j) {
-                // Inverse butterfly: x' = x + y, y' = (x - y) * w
-                uint64_t u = *x;
-                uint64_t v = *y;
+        if (gap >= 4) {
+            // Unrolled version for larger gaps
+            for (size_t i = 0; i < m; ++i) {
+                const MultiplyUIntModOperand& w = inv_root_powers[root_index++];
+                uint64_t w_op = w.operand;
+                uint64_t w_quo = w.quotient;
                 
-                // Guard and add
-                *x++ = guard(u + v, two_q);
+                uint64_t* x_ptr = operand + offset;
+                uint64_t* y_ptr = x_ptr + gap;
                 
-                // Subtract with wrap-around prevention
-                *y++ = multiply_uint_mod_lazy(u + two_q - v, w, tables.modulus());
+                // Process 4 butterflies at a time
+                size_t j;
+                for (j = 0; j + 4 <= gap; j += 4) {
+                    // Load all values
+                    uint64_t u0 = x_ptr[j];
+                    uint64_t u1 = x_ptr[j + 1];
+                    uint64_t u2 = x_ptr[j + 2];
+                    uint64_t u3 = x_ptr[j + 3];
+                    uint64_t v0 = y_ptr[j];
+                    uint64_t v1 = y_ptr[j + 1];
+                    uint64_t v2 = y_ptr[j + 2];
+                    uint64_t v3 = y_ptr[j + 3];
+                    
+                    // x' = guard(u + v)
+                    uint64_t sum0 = u0 + v0;
+                    uint64_t sum1 = u1 + v1;
+                    uint64_t sum2 = u2 + v2;
+                    uint64_t sum3 = u3 + v3;
+                    
+                    x_ptr[j]     = (sum0 >= two_q) ? sum0 - two_q : sum0;
+                    x_ptr[j + 1] = (sum1 >= two_q) ? sum1 - two_q : sum1;
+                    x_ptr[j + 2] = (sum2 >= two_q) ? sum2 - two_q : sum2;
+                    x_ptr[j + 3] = (sum3 >= two_q) ? sum3 - two_q : sum3;
+                    
+                    // y' = (u - v + 2q) * w
+                    uint64_t diff0 = u0 + two_q - v0;
+                    uint64_t diff1 = u1 + two_q - v1;
+                    uint64_t diff2 = u2 + two_q - v2;
+                    uint64_t diff3 = u3 + two_q - v3;
+                    
+                    y_ptr[j]     = diff0 * w_op - static_cast<uint64_t>((static_cast<__uint128_t>(diff0) * w_quo) >> 64) * q;
+                    y_ptr[j + 1] = diff1 * w_op - static_cast<uint64_t>((static_cast<__uint128_t>(diff1) * w_quo) >> 64) * q;
+                    y_ptr[j + 2] = diff2 * w_op - static_cast<uint64_t>((static_cast<__uint128_t>(diff2) * w_quo) >> 64) * q;
+                    y_ptr[j + 3] = diff3 * w_op - static_cast<uint64_t>((static_cast<__uint128_t>(diff3) * w_quo) >> 64) * q;
+                }
+                
+                // Handle remaining elements
+                for (; j < gap; ++j) {
+                    uint64_t u = x_ptr[j];
+                    uint64_t v = y_ptr[j];
+                    uint64_t sum = u + v;
+                    x_ptr[j] = (sum >= two_q) ? sum - two_q : sum;
+                    uint64_t diff = u + two_q - v;
+                    y_ptr[j] = diff * w_op - static_cast<uint64_t>((static_cast<__uint128_t>(diff) * w_quo) >> 64) * q;
+                }
+                
+                offset += gap << 1;
             }
-            
-            offset += gap << 1;  // Move to next pair of butterflies
+        } else {
+            // Small gaps: use original loop
+            for (size_t i = 0; i < m; ++i) {
+                const MultiplyUIntModOperand& w = inv_root_powers[root_index++];
+                
+                uint64_t* x = operand + offset;
+                uint64_t* y = x + gap;
+                
+                for (size_t j = 0; j < gap; ++j) {
+                    uint64_t u = *x;
+                    uint64_t v = *y;
+                    *x++ = guard(u + v, two_q);
+                    *y++ = multiply_uint_mod_lazy(u + two_q - v, w, tables.modulus());
+                }
+                
+                offset += gap << 1;
+            }
         }
         
         gap <<= 1;
@@ -327,37 +455,91 @@ void inverse_ntt_negacyclic_harvey_lazy(uint64_t* operand, const NTTTables& tabl
     MultiplyUIntModOperand scaled_w;
     scaled_w.set(multiply_uint_mod(w.operand, inv_n, tables.modulus()), tables.modulus());
     
-    uint64_t* x = operand;
-    uint64_t* y = x + gap;
+    uint64_t inv_n_op = inv_n.operand;
+    uint64_t inv_n_quo = inv_n.quotient;
+    uint64_t scaled_w_op = scaled_w.operand;
+    uint64_t scaled_w_quo = scaled_w.quotient;
     
-    for (size_t j = 0; j < gap; ++j) {
-        uint64_t u = guard(*x, two_q);
-        uint64_t v = *y;
+    uint64_t* x_ptr = operand;
+    uint64_t* y_ptr = x_ptr + gap;
+    
+    // Unrolled final iteration
+    size_t j;
+    for (j = 0; j + 4 <= gap; j += 4) {
+        uint64_t u0 = x_ptr[j];
+        uint64_t u1 = x_ptr[j + 1];
+        uint64_t u2 = x_ptr[j + 2];
+        uint64_t u3 = x_ptr[j + 3];
+        uint64_t v0 = y_ptr[j];
+        uint64_t v1 = y_ptr[j + 1];
+        uint64_t v2 = y_ptr[j + 2];
+        uint64_t v3 = y_ptr[j + 3];
         
-        // x' = (x + y) * n^{-1}
-        *x++ = multiply_uint_mod_lazy(guard(u + v, two_q), inv_n, tables.modulus());
+        // Guard u
+        u0 = (u0 >= two_q) ? u0 - two_q : u0;
+        u1 = (u1 >= two_q) ? u1 - two_q : u1;
+        u2 = (u2 >= two_q) ? u2 - two_q : u2;
+        u3 = (u3 >= two_q) ? u3 - two_q : u3;
         
-        // y' = (x - y) * w * n^{-1}
-        *y++ = multiply_uint_mod_lazy(u + two_q - v, scaled_w, tables.modulus());
+        // x' = guard(u + v) * n^{-1}
+        uint64_t sum0 = u0 + v0; sum0 = (sum0 >= two_q) ? sum0 - two_q : sum0;
+        uint64_t sum1 = u1 + v1; sum1 = (sum1 >= two_q) ? sum1 - two_q : sum1;
+        uint64_t sum2 = u2 + v2; sum2 = (sum2 >= two_q) ? sum2 - two_q : sum2;
+        uint64_t sum3 = u3 + v3; sum3 = (sum3 >= two_q) ? sum3 - two_q : sum3;
+        
+        x_ptr[j]     = sum0 * inv_n_op - static_cast<uint64_t>((static_cast<__uint128_t>(sum0) * inv_n_quo) >> 64) * q;
+        x_ptr[j + 1] = sum1 * inv_n_op - static_cast<uint64_t>((static_cast<__uint128_t>(sum1) * inv_n_quo) >> 64) * q;
+        x_ptr[j + 2] = sum2 * inv_n_op - static_cast<uint64_t>((static_cast<__uint128_t>(sum2) * inv_n_quo) >> 64) * q;
+        x_ptr[j + 3] = sum3 * inv_n_op - static_cast<uint64_t>((static_cast<__uint128_t>(sum3) * inv_n_quo) >> 64) * q;
+        
+        // y' = (u - v + 2q) * scaled_w
+        uint64_t diff0 = u0 + two_q - v0;
+        uint64_t diff1 = u1 + two_q - v1;
+        uint64_t diff2 = u2 + two_q - v2;
+        uint64_t diff3 = u3 + two_q - v3;
+        
+        y_ptr[j]     = diff0 * scaled_w_op - static_cast<uint64_t>((static_cast<__uint128_t>(diff0) * scaled_w_quo) >> 64) * q;
+        y_ptr[j + 1] = diff1 * scaled_w_op - static_cast<uint64_t>((static_cast<__uint128_t>(diff1) * scaled_w_quo) >> 64) * q;
+        y_ptr[j + 2] = diff2 * scaled_w_op - static_cast<uint64_t>((static_cast<__uint128_t>(diff2) * scaled_w_quo) >> 64) * q;
+        y_ptr[j + 3] = diff3 * scaled_w_op - static_cast<uint64_t>((static_cast<__uint128_t>(diff3) * scaled_w_quo) >> 64) * q;
+    }
+    
+    // Handle remaining
+    for (; j < gap; ++j) {
+        uint64_t u = guard(x_ptr[j], two_q);
+        uint64_t v = y_ptr[j];
+        x_ptr[j] = multiply_uint_mod_lazy(guard(u + v, two_q), inv_n, tables.modulus());
+        y_ptr[j] = multiply_uint_mod_lazy(u + two_q - v, scaled_w, tables.modulus());
     }
 }
 
 void inverse_ntt_negacyclic_harvey(uint64_t* operand, const NTTTables& tables) {
-#if defined(__AVX512F__) && defined(__AVX512VL__)
-    // Prefer AVX-512 implementation for best performance
+#if defined(__AVX512F__) && defined(__AVX512VL__) && defined(__AVX512IFMA__)
+    // Prefer AVX-512 IFMA implementation for best performance (Ice Lake+, Zen4+)
     inverse_ntt_negacyclic_harvey_avx512(operand, tables);
-#elif defined(__AVX2__)
-    // Use AVX2 accelerated version when available
-    inverse_ntt_negacyclic_harvey_avx2(operand, tables);
 #else
-    // First do lazy inverse NTT
+    // Use optimized scalar implementation with lazy reduction
+    // Note: AVX2 mod-multiply fallback was slower than pure scalar
     inverse_ntt_negacyclic_harvey_lazy(operand, tables);
     
-    // Then reduce all values to [0, q)
+    // Final reduction to [0, q)
     size_t n = tables.coeff_count();
     uint64_t q = tables.modulus().value();
     
-    for (size_t i = 0; i < n; ++i) {
+    // Unrolled loop for better instruction-level parallelism
+    size_t i = 0;
+    for (; i + 4 <= n; i += 4) {
+        uint64_t v0 = operand[i];
+        uint64_t v1 = operand[i + 1];
+        uint64_t v2 = operand[i + 2];
+        uint64_t v3 = operand[i + 3];
+        
+        operand[i]     = (v0 >= q) ? v0 - q : v0;
+        operand[i + 1] = (v1 >= q) ? v1 - q : v1;
+        operand[i + 2] = (v2 >= q) ? v2 - q : v2;
+        operand[i + 3] = (v3 >= q) ? v3 - q : v3;
+    }
+    for (; i < n; ++i) {
         if (operand[i] >= q) {
             operand[i] -= q;
         }

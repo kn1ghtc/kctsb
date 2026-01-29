@@ -244,6 +244,10 @@ private:
     
     std::vector<Complex> roots_;       ///< Precomputed roots of unity
     std::vector<Complex> roots_inv_;   ///< Inverse roots
+    std::vector<Complex> zeta_neg_;    ///< Precomputed zeta^(-j) for encode post-multiply
+    std::vector<Complex> zeta_pos_;    ///< Precomputed zeta^j for decode pre-multiply
+    std::vector<Complex> fft_twiddles_; ///< Precomputed FFT twiddle factors
+    std::vector<size_t> bit_rev_table_; ///< Precomputed bit-reversal table
     
     void precompute_roots();
     
@@ -362,6 +366,13 @@ public:
      * @param ct2 Source ciphertext to add
      */
     void add_inplace(CKKSCiphertext& ct1, const CKKSCiphertext& ct2);
+    
+    /**
+     * @brief Subtract two ciphertexts in-place (ct1 -= ct2)
+     * @param ct1 Target ciphertext (modified)
+     * @param ct2 Source ciphertext to subtract
+     */
+    void sub_inplace(CKKSCiphertext& ct1, const CKKSCiphertext& ct2);
     
     /**
      * @brief Multiply + relinearize + rescale (common operation)
