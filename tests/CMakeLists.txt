@@ -1,14 +1,18 @@
 # Tests CMake configuration for kctsb
 # Builds unit/integration/performance tests with GoogleTest.
+#
+# Note: tests/benchmark/ has its own independent build system for single-algorithm
+# performance optimization. See tests/benchmark/AGENTS.md for details.
 
 find_package(GTest REQUIRED)
 
+# Collect test sources from unit, integration, performance, advanced directories
+# Excludes benchmark/ which has independent build system
 file(GLOB_RECURSE KCTSB_TEST_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/unit/**/test_*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/integration/**/test_*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/performance/**/test_*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/advanced/**/test_*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/benchmark/**/test_*.cpp"
 )
 
 # Exclude incompatible tests (temporarily)
@@ -34,8 +38,6 @@ set(KCTSB_TESTS_WITH_MAIN
     "${CMAKE_CURRENT_SOURCE_DIR}/advanced/fe/bfv/test_behz_bfv_integration.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/advanced/fe/bfv/test_bfv_evaluator.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/advanced/fe/ckks/test_ckks_evaluator.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/benchmark/test_bfv_benchmark.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/benchmark/test_ckks_benchmark.cpp"
 )
 
 list(REMOVE_ITEM KCTSB_TEST_SOURCES ${KCTSB_TESTS_WITH_MAIN})

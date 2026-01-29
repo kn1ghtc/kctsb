@@ -373,9 +373,9 @@ option(KCTSB_BUILD_STATIC "Build static library" OFF)
 # Homomorphic encryption modules (BGV/BFV/CKKS)
 option(KCTSB_ENABLE_BGV "Enable native BGV/BFV/CKKS modules" ON)
 
-# v5.0: 默认启用所有构建选项以确保完整性验证
-option(KCTSB_BUILD_TESTS "Build unit tests (default ON in v5.0)" ON)
-option(KCTSB_BUILD_BENCHMARKS "Build benchmarks (default ON in v5.0)" ON)
+# v5.1: 默认启用所有构建选项以确保完整性验证
+# 注意: Benchmarks 已迁移到独立编译系统 (benchmarks/CMakeLists.txt)
+option(KCTSB_BUILD_TESTS "Build unit tests (default ON)" ON)
 option(KCTSB_BUILD_CLI "Build kctsb.exe CLI tool" ON)
 
 # 测试需要静态库以确保所有bignum符号可用
@@ -662,7 +662,7 @@ if(KCTSB_BUILD_CLI)
 endif()
 
 # ============================================================================
-# Tests & Benchmarks
+# Tests (Unit tests only - benchmarks have independent build system)
 # ============================================================================
 
 if(KCTSB_BUILD_TESTS)
@@ -671,32 +671,31 @@ if(KCTSB_BUILD_TESTS)
     message(STATUS "✓ Tests enabled")
 endif()
 
-if(KCTSB_BUILD_BENCHMARKS)
-    add_subdirectory(benchmarks)
-    message(STATUS "✓ Benchmarks enabled")
-endif()
+# Note: Benchmarks have been moved to an independent build system
+# To build benchmarks:
+#   cd benchmarks && cmake -B build -G Ninja && cmake --build build
+# See benchmarks/README.md for details
 
 # ============================================================================
 # Summary
 # ============================================================================
 
 message(STATUS "")
-message(STATUS "=== kctsb v5.0 Configuration Summary ===")
+message(STATUS "=== kctsb v5.1 Configuration Summary ===")
 message(STATUS "")
 message(STATUS "Architecture: Fully Self-Contained Cryptographic Library")
 message(STATUS "  - V5 Core: Native ZZ, BigInt, Fe256 (NO external dependencies)")
 message(STATUS "  - V5 Crypto: RSA, ECC, SM2/SM3/SM4, DH (fully self-contained)")
 message(STATUS "")
 message(STATUS "External Dependencies: NONE (fully self-contained)")
-message(STATUS "  - Benchmark baselines: hardcoded in baseline_data.hpp")
-message(STATUS "  - OpenSSL 3.6.0 measurements captured for comparison")
-message(STATUS "  - SEAL 4.1.2 measurements captured for FHE comparison")
 message(STATUS "")
 message(STATUS "Build Options:")
 message(STATUS "  Static lib:  ${KCTSB_BUILD_STATIC}")
 message(STATUS "  Shared lib:  ${KCTSB_BUILD_SHARED}")
 message(STATUS "  CLI tool:    ${KCTSB_BUILD_CLI}")
 message(STATUS "  Tests:       ${KCTSB_BUILD_TESTS}")
-message(STATUS "  Benchmarks:  ${KCTSB_BUILD_BENCHMARKS}")
 message(STATUS "  LTO:         ${KCTSB_LTO_SUPPORTED}")
+message(STATUS "")
+message(STATUS "Independent Build Targets:")
+message(STATUS "  Benchmarks:  cd benchmarks && cmake -B build && cmake --build build")
 message(STATUS "")

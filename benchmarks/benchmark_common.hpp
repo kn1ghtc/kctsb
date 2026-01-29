@@ -1,12 +1,10 @@
 /**
  * @file benchmark_common.hpp
- * @brief Common utilities for kctsb benchmarks with ratio comparison
- * 
- * Provides unified benchmark output format with:
- * - Performance metrics (avg, min, throughput)
- * - OpenSSL vs kctsb ratio comparison
- * - Consistent formatting across all benchmark modules
- * 
+ * @brief 通用 benchmark 工具函数和类型定义
+ *
+ * 提供统一的计时器、结果格式化、数据生成等基础设施
+ * 供所有 benchmark 程序共享使用
+ *
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
  * @license Apache License 2.0
  */
@@ -14,206 +12,267 @@
 #ifndef KCTSB_BENCHMARK_COMMON_HPP
 #define KCTSB_BENCHMARK_COMMON_HPP
 
-#include <iostream>
-#include <iomanip>
-#include <string>
-#include <functional>
-#include <vector>
-#include <algorithm>
-#include <numeric>
 #include <chrono>
+#include <cstdint>
+#include <cstdlib>
+#include <iomanip>
+#include <iostream>
+#include <random>
+#include <sstream>
+#include <string>
+#include <vector>
 
-namespace kctsb_bench {
+namespace benchmark {
+
+// ============================================================================
+// 常量定义
+// ============================================================================
+
+/// 预热迭代次数
+constexpr size_t WARMUP_ITERATIONS = 10;
+
+/// 基准测试迭代次数
+constexpr size_t BENCHMARK_ITERATIONS = 100;
+
+/// 测试数据大小
+constexpr size_t SIZE_1KB = 1024;
+constexpr size_t SIZE_1MB = 1024 * 1024;
+constexpr size_t SIZE_10MB = 10 * 1024 * 1024;
+
+// ============================================================================
+// 高精度计时器
+// ============================================================================
 
 /**
- * @brief High-resolution timer types
+ * @brief 高精度计时器类
  */
-using Clock = std::chrono::high_resolution_clock;
-using Duration = std::chrono::duration<double, std::milli>;
+class Timer {
+public:
+    using Clock = std::chrono::high_resolution_clock;
+    using TimePoint = std::chrono::time_point<Clock>;
+    using Duration = std::chrono::duration<double, std::milli>;
+
+    /// 开始计时
+    void start() {
+        m_start = Clock::now();
+    }
+
+    /// 停止计时并返回经过时间（毫秒）
+    double stop() {
+        auto end = Clock::now();
+        Duration elapsed = end - m_start;
+        return elapsed.count();
+    }
+
+    /// 获取经过时间（毫秒）但不停止计时
+    double elapsed() const {
+        auto now = Clock::now();
+        Duration elapsed = now - m_start;
+        return elapsed.count();
+    }
+
+private:
+    TimePoint m_start;
+};
+
+// ============================================================================
+// 测试结果结构
+// ============================================================================
 
 /**
- * @brief Benchmark result containing timing and throughput data
+ * @brief 单项测试结果
  */
-struct BenchmarkResult {
-    double avg_ms;          ///< Average time in milliseconds
-    double min_ms;          ///< Minimum time in milliseconds
-    double throughput;      ///< Throughput in ops/s or MB/s
-    bool valid;             ///< Whether benchmark completed successfully
-    
-    BenchmarkResult() : avg_ms(0), min_ms(0), throughput(0), valid(false) {}
-    BenchmarkResult(double avg, double min_t, double tp) 
-        : avg_ms(avg), min_ms(min_t), throughput(tp), valid(true) {}
+struct Result {
+    std::string name;           ///< 算法名称
+    std::string impl;           ///< 实现名称 (kctsb/openssl/seal/gmssl)
+    double time_ms;             ///< 平均时间（毫秒）
+    double throughput_mbps;     ///< 吞吐量（MB/s）
+    size_t data_size;           ///< 数据大小（字节）
+    size_t iterations;          ///< 迭代次数
 };
 
 /**
- * @brief Print ratio comparison between kctsb and OpenSSL
- * 
- * For time-based metrics (lower is better):
- *   ratio = openssl_time / kctsb_time
- *   ratio > 1.0 means kctsb is FASTER
- * 
- * For throughput-based metrics (higher is better):
- *   ratio = kctsb_throughput / openssl_throughput
- *   ratio > 1.0 means kctsb is FASTER
- * 
- * @param kctsb_value kctsb metric value
- * @param openssl_value OpenSSL metric value
- * @param is_time If true, lower is better; if false, higher is better
+ * @brief 对比结果
  */
-inline void print_ratio(double kctsb_value, double openssl_value, bool is_time = true) {
-    if (openssl_value <= 0 || kctsb_value <= 0) {
-        std::cout << std::left << std::setw(25) << "  ==> Ratio"
-                  << std::setw(12) << ""
-                  << "  (comparison not available)" << std::endl;
-        return;
-    }
-    
-    double ratio;
-    if (is_time) {
-        // For time: lower is better, so ratio = openssl/kctsb
-        ratio = openssl_value / kctsb_value;
+struct Comparison {
+    std::string algorithm;
+    Result kctsb_result;
+    Result reference_result;
+    double ratio;               ///< kctsb / reference (< 1.0 表示 kctsb 更快)
+    std::string status;         ///< EXCELLENT / GOOD / OK / SLOW
+};
+
+// ============================================================================
+// 输出格式化
+// ============================================================================
+
+/**
+ * @brief 打印分隔线
+ */
+inline void print_separator(char c = '=', int width = 80) {
+    std::cout << std::string(width, c) << '\n';
+}
+
+/**
+ * @brief 打印标题
+ */
+inline void print_header(const std::string& title) {
+    std::cout << '\n';
+    print_separator('=');
+    std::cout << "  " << title << '\n';
+    print_separator('=');
+}
+
+/**
+ * @brief 打印表格头
+ */
+inline void print_table_header() {
+    std::cout << std::left
+              << std::setw(30) << "Algorithm"
+              << std::setw(12) << "Impl"
+              << std::right
+              << std::setw(12) << "Time (ms)"
+              << std::setw(15) << "Throughput"
+              << '\n';
+    print_separator('-', 70);
+}
+
+/**
+ * @brief 打印单项结果
+ */
+inline void print_result(const Result& r) {
+    std::cout << std::left
+              << std::setw(30) << r.name
+              << std::setw(12) << r.impl
+              << std::right << std::fixed << std::setprecision(3)
+              << std::setw(12) << r.time_ms;
+
+    if (r.throughput_mbps > 0) {
+        std::cout << std::setw(12) << r.throughput_mbps << " MB/s";
     } else {
-        // For throughput: higher is better, so ratio = kctsb/openssl
-        ratio = kctsb_value / openssl_value;
+        std::cout << std::setw(15) << "N/A";
     }
-    
-    const char* status = ratio >= 1.0 ? "FASTER" : "SLOWER";
-    const char* symbol = ratio >= 1.0 ? "+" : "";
-    double diff_percent = (ratio - 1.0) * 100.0;
-    
-    std::cout << std::left << std::setw(25) << "  ==> Ratio"
-              << std::setw(12) << ""
+    std::cout << '\n';
+}
+
+/**
+ * @brief 打印对比结果
+ */
+inline void print_comparison(const Comparison& cmp) {
+    std::cout << std::left << std::setw(30) << cmp.algorithm
               << std::right << std::fixed << std::setprecision(2)
-              << std::setw(10) << ratio << "x"
-              << "    (" << symbol << std::setprecision(1) << diff_percent << "% " << status << ")"
-              << std::endl;
+              << std::setw(10) << cmp.ratio << "x"
+              << std::setw(15) << cmp.status
+              << '\n';
 }
 
 /**
- * @brief Print ratio with percentage of OpenSSL performance
- * 
- * @param kctsb_time kctsb execution time in ms
- * @param openssl_time OpenSSL execution time in ms
+ * @brief 根据比率确定状态
  */
-inline void print_time_ratio(double kctsb_time, double openssl_time) {
-    if (openssl_time <= 0 || kctsb_time <= 0) {
-        std::cout << std::left << std::setw(25) << "  ==> Ratio"
-                  << std::setw(12) << ""
-                  << "  (comparison not available)" << std::endl;
-        return;
-    }
-    
-    // Percentage of OpenSSL performance: (openssl_time / kctsb_time) * 100%
-    double ratio = openssl_time / kctsb_time;
-    double percent_of_openssl = ratio * 100.0;
-    const char* status = ratio >= 1.0 ? "FASTER" : "SLOWER";
-    
-    std::cout << std::left << std::setw(25) << "  ==> Ratio"
-              << std::setw(12) << ""
-              << std::right << std::fixed << std::setprecision(2)
-              << std::setw(8) << percent_of_openssl << "%"
-              << " of OpenSSL (" << ratio << "x " << status << ")"
-              << std::endl;
+inline std::string get_status(double ratio) {
+    if (ratio <= 0.8) return "EXCELLENT";
+    if (ratio <= 1.0) return "GOOD";
+    if (ratio <= 1.2) return "OK";
+    return "SLOW";
 }
 
 /**
- * @brief Run benchmark and return result with statistics
- * 
- * @param warmup_iters Number of warmup iterations
- * @param bench_iters Number of benchmark iterations
- * @param benchmark_func Function returning execution time in ms
- * @return BenchmarkResult with statistics
+ * @brief 计算吞吐量 (MB/s)
  */
-inline BenchmarkResult run_benchmark_ex(
-    size_t warmup_iters,
-    size_t bench_iters,
-    std::function<double()> benchmark_func
-) {
-    std::vector<double> times;
-    times.reserve(bench_iters);
-    
-    // Warmup
-    for (size_t i = 0; i < warmup_iters; ++i) {
-        double t = benchmark_func();
-        if (t < 0) return BenchmarkResult();  // Error during warmup
+inline double calculate_throughput(size_t bytes, double time_ms) {
+    if (time_ms <= 0) return 0;
+    double mb = static_cast<double>(bytes) / (1024.0 * 1024.0);
+    double seconds = time_ms / 1000.0;
+    return mb / seconds;
+}
+
+// ============================================================================
+// 数据生成
+// ============================================================================
+
+/**
+ * @brief 生成随机数据
+ */
+inline std::vector<uint8_t> generate_random_data(size_t size) {
+    std::vector<uint8_t> data(size);
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> dis(0, 255);
+    for (size_t i = 0; i < size; ++i) {
+        data[i] = static_cast<uint8_t>(dis(gen));
     }
-    
-    // Benchmark
-    for (size_t i = 0; i < bench_iters; ++i) {
-        double t = benchmark_func();
-        if (t < 0) return BenchmarkResult();  // Error during benchmark
-        times.push_back(t);
-    }
-    
-    // Calculate statistics
-    double avg = std::accumulate(times.begin(), times.end(), 0.0) /
-                 static_cast<double>(times.size());
-    double min_t = *std::min_element(times.begin(), times.end());
-    double ops_per_sec = 1000.0 / avg;
-    
-    return BenchmarkResult(avg, min_t, ops_per_sec);
+    return data;
 }
 
 /**
- * @brief Print benchmark result line
- * 
- * @param name Operation name
- * @param impl Implementation name (OpenSSL/kctsb)
- * @param result Benchmark result
- * @param show_throughput If true, show throughput in op/s
+ * @brief 生成固定模式数据（用于可重复测试）
  */
-inline void print_result(
-    const std::string& name,
-    const std::string& impl,
-    const BenchmarkResult& result,
-    bool show_throughput = true
-) {
-    if (!result.valid) {
-        std::cout << std::left << std::setw(25) << name
-                  << std::setw(12) << impl
-                  << "  (benchmark failed)" << std::endl;
-        return;
+inline std::vector<uint8_t> generate_pattern_data(size_t size, uint8_t seed = 0x42) {
+    std::vector<uint8_t> data(size);
+    for (size_t i = 0; i < size; ++i) {
+        data[i] = static_cast<uint8_t>((seed + i) & 0xFF);
     }
-    
-    std::cout << std::left << std::setw(25) << name
-              << std::setw(12) << impl
-              << std::right << std::fixed << std::setprecision(3)
-              << std::setw(10) << result.avg_ms << " ms"
-              << std::setw(10) << result.min_ms << " ms";
-    
-    if (show_throughput) {
-        std::cout << std::setw(10) << std::setprecision(1) << result.throughput << " op/s";
-    }
-    std::cout << std::endl;
+    return data;
 }
+
+// ============================================================================
+// 命令行参数解析
+// ============================================================================
 
 /**
- * @brief Print benchmark result with throughput in MB/s
- * 
- * @param name Operation name
- * @param impl Implementation name
- * @param avg_ms Average time in ms
- * @param min_ms Minimum time in ms
- * @param data_size Data size in bytes
+ * @brief 解析命令行参数
  */
-inline void print_throughput_result(
-    const std::string& name,
-    const std::string& impl,
-    double avg_ms,
-    double min_ms,
-    size_t data_size
-) {
-    double throughput = (static_cast<double>(data_size) / (1024.0 * 1024.0)) / (avg_ms / 1000.0);
-    
-    std::cout << std::left << std::setw(25) << name
-              << std::setw(12) << impl
-              << std::right << std::fixed << std::setprecision(3)
-              << std::setw(10) << avg_ms << " ms"
-              << std::setw(10) << min_ms << " ms"
-              << std::setw(10) << std::setprecision(2) << throughput << " MB/s"
-              << std::endl;
+struct BenchmarkOptions {
+    bool run_openssl = false;
+    bool run_seal = false;
+    bool run_gmssl = false;
+    bool run_cuda = false;
+    bool run_all = true;
+    bool verbose = false;
+};
+
+inline BenchmarkOptions parse_args(int argc, char* argv[]) {
+    BenchmarkOptions opts;
+
+    if (argc < 2) {
+        opts.run_all = true;
+        return opts;
+    }
+
+    opts.run_all = false;
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "openssl") opts.run_openssl = true;
+        else if (arg == "seal") opts.run_seal = true;
+        else if (arg == "gmssl") opts.run_gmssl = true;
+        else if (arg == "cuda") opts.run_cuda = true;
+        else if (arg == "all") opts.run_all = true;
+        else if (arg == "-v" || arg == "--verbose") opts.verbose = true;
+        else if (arg == "-h" || arg == "--help") {
+            std::cout << "Usage: " << argv[0] << " [options] [targets]\n\n"
+                      << "Targets:\n"
+                      << "  openssl  Run OpenSSL comparison benchmarks\n"
+                      << "  seal     Run SEAL comparison benchmarks\n"
+                      << "  gmssl    Run GmSSL comparison benchmarks\n"
+                      << "  cuda     Run CUDA comparison benchmarks\n"
+                      << "  all      Run all benchmarks (default)\n\n"
+                      << "Options:\n"
+                      << "  -v, --verbose  Enable verbose output\n"
+                      << "  -h, --help     Show this help\n";
+            std::exit(0);
+        }
+    }
+
+    if (opts.run_all) {
+        opts.run_openssl = true;
+        opts.run_seal = true;
+        opts.run_gmssl = true;
+        opts.run_cuda = true;
+    }
+
+    return opts;
 }
 
-} // namespace kctsb_bench
+} // namespace benchmark
 
 #endif // KCTSB_BENCHMARK_COMMON_HPP

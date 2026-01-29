@@ -4,9 +4,19 @@
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](.)
 [![C++](https://img.shields.io/badge/C++-17-blue.svg)](.)
 [![CMake](https://img.shields.io/badge/CMake-3.20+-green.svg)](.)
-[![Version](https://img.shields.io/badge/Version-5.0.0-brightgreen.svg)](.)
+[![Version](https://img.shields.io/badge/Version-5.1.0-brightgreen.svg)](.)
 
 **kctsb** 是一个跨平台的 C/C++ 密码学和安全算法库，专为生产环境和安全研究设计。目标是成为 **OpenSSL/SEAL 的工业级现代替代品，并支持最前沿的安全与AI方向高效算法实践**。
+
+## 🎉 v5.1.0 架构优化 (2026-01-26)
+
+**Benchmark 独立编译架构**：
+- ✅ `benchmarks/` - 第三方库对比测试，完全独立编译系统
+- ✅ `tests/benchmark/` - 单算法性能优化测试，硬编码基线
+- ✅ 主编译不再包含 benchmark 目录
+- ✅ 支持 OpenSSL 3.6.0 / SEAL 4.1.2 / GmSSL / CUDA 对比
+
+📖 **完整Release Notes**: [v5.1.0 Release](docs/releases/v5.1.0-release.md)
 
 ## 🎉 v5.0.0 重大发布 (2026-01-26)
 
@@ -259,7 +269,8 @@ kctsb/
 │   └── math/                   # 数学库
 │
 ├── tests/                      # GoogleTest测试代码
-├── benchmarks/                 # 性能对比测试 (vs OpenSSL)
+│   └── benchmark/              # 单算法性能优化测试 (硬编码基线，独立编译)
+├── benchmarks/                 # 第三方库对比测试 (OpenSSL/SEAL/GmSSL，独立编译)
 ├── thirdparty/                 # ★第三方库统一目录★
 │   ├── win-x64/                # Windows x64 平台特定库 (可选)
 │   ├── linux-x64/              # Linux x64 平台特定库 (可选)
@@ -319,23 +330,19 @@ cmake -B build -G Ninja `
     -DKCTSB_BUILD_TESTS=ON
 
 # 构建
-cmake --build build-release --parallel
-#或者
-ninja.exe -C build-release -j8 2>&1
+cmake --build build --parallel
 
-#或直接一句话：
-$env:PATH="C:\msys64\mingw64\bin;$env:PATH"; cmake -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DKCTSB_BUILD_BENCHMARKS=ON
-$env:PATH="C:\msys64\mingw64\bin;$env:PATH"; cmake --build build-release --parallel; .\build-release\bin\kctsb_benchmark.exe aes
+# 或直接一句话（Debug 模式）：
+$env:PATH="C:\msys64\mingw64\bin;$env:PATH"; cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug; cmake --build build --parallel
 ```
 
 # 运行测试
 $env:PATH="C:\msys64\mingw64\bin;$env:PATH"; ctest --test-dir build --output-on-failure
-$env:PATH="C:\msys64\mingw64\bin;$env:PATH"; ctest --test-dir build-release --output-on-failure
 
 # 使用CLI工具
 ```shell
-.\build-release\bin\kctsb.exe version
-.\build-release\bin\kctsb.exe hash --sha3-256 "Hello, World!"
+.\build\bin\kctsb.exe version
+.\build\bin\kctsb.exe hash --sha3-256 "Hello, World!"
 ```
 
 **Windows 环境变量统一（MSYS2）**
@@ -536,17 +543,53 @@ endif()
 |------|--------|------|
 | `KCTSB_BUILD_SHARED` | ON | 构建共享库 |
 | `KCTSB_BUILD_STATIC` | ON | 构建静态库 |
-| `KCTSB_BUILD_TESTS` | ON | 构建测试 |
+| `KCTSB_BUILD_TESTS` | ON | 构建测试 (unit/integration/advanced) |
 | `KCTSB_BUILD_EXAMPLES` | ON | 构建示例 |
-| `KCTSB_BUILD_BENCHMARKS` | ON | 构建性能对比测试 |
-| `KCTSB_ENABLE_NTL` | **ON** | 使用NTL库 (ECC/RSA/格密码) |
-| `KCTSB_ENABLE_GMP` | **ON** | 使用GMP库 (高精度运算) |
-| `KCTSB_ENABLE_OPENSSL` | **ON** | 使用OpenSSL (性能对比) |
-| `KCTSB_ENABLE_SEAL` | **ON** | 使用Microsoft SEAL (同态加密) |
-| `KCTSB_ENABLE_HELIB` | **ON** | 使用HElib (函数加密) |
+| `KCTSB_BUILD_CLI` | ON | 构建 CLI 工具 |
+
+> **Note**: Benchmarks 已迁移到独立编译系统，不再作为主构建选项。详见下方 [性能对比测试](#性能对比测试) 部分。
 
 ```powershell
 ninja.exe -C build -j8 2>&1
+```
+
+### 📊 性能对比测试 (独立编译)
+
+v5.1.0 架构优化：benchmark 目录采用独立编译系统，与主构建完全分离。
+
+**1. 第三方库对比测试** (`benchmarks/`)
+
+```powershell
+# 首先确保主项目已编译
+cd D:\pyproject\kctsb
+cmake -B build -G Ninja -DKCTSB_BUILD_STATIC=ON
+cmake --build build --parallel
+
+# 进入 benchmarks 目录独立编译
+cd benchmarks
+cmake -B build -G Ninja
+cmake --build build --parallel
+
+# 运行基准测试
+./build/bin/benchmark_suite all      # 全部对比
+./build/bin/benchmark_suite openssl  # vs OpenSSL 3.6.0
+./build/bin/benchmark_suite seal     # vs SEAL 4.1.2
+./build/bin/benchmark_suite gmssl    # vs GmSSL (国密)
+./build/bin/benchmark_suite cuda     # CPU vs GPU
+```
+
+**2. 单算法性能优化测试** (`tests/benchmark/`)
+
+```powershell
+# 独立编译
+cd D:\pyproject\kctsb\tests\benchmark
+cmake -B build -G Ninja
+cmake --build build --parallel
+
+# 运行单个 benchmark
+./build/bin/test_bfv_benchmark
+./build/bin/test_bgv_benchmark
+./build/bin/test_ckks_benchmark
 ```
 
 ### 🚀 CUDA GPU 加速构建 (v4.14.0+)
