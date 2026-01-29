@@ -410,8 +410,29 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 message(STATUS "✓ v5.0 Self-Contained: Native ZZ/BigInt implementation (no external deps)")
 message(STATUS "  Benchmark baselines: hardcoded from OpenSSL 3.6.0 measurements")
 
+# Optional SEAL support (disabled by default, use -DKCTSB_ENABLE_SEAL=ON to enable)
+option(KCTSB_ENABLE_SEAL "Enable Microsoft SEAL integration for FHE comparison" OFF)
 set(SEAL_FOUND FALSE)
-set(KCTSB_ENABLE_SEAL OFF)
+
+if(KCTSB_ENABLE_SEAL)
+    # Check for SEAL in deps directory
+    set(SEAL_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/deps/SEAL)
+    if(EXISTS ${SEAL_SOURCE_DIR}/native/src/seal/seal.h)
+        message(STATUS "✓ SEAL source found at: ${SEAL_SOURCE_DIR}")
+        # SEAL headers are at deps/SEAL/native/src/
+        set(SEAL_INCLUDE_DIR ${SEAL_SOURCE_DIR}/native/src)
+        set(SEAL_FOUND TRUE)
+        add_compile_definitions(KCTSB_HAS_SEAL=1)
+        include_directories(${SEAL_INCLUDE_DIR})
+        message(STATUS "  SEAL include path: ${SEAL_INCLUDE_DIR}")
+    else()
+        message(WARNING "SEAL enabled but not found at ${SEAL_SOURCE_DIR}")
+        message(STATUS "  Expected: ${SEAL_SOURCE_DIR}/native/src/seal/seal.h")
+        message(STATUS "  Run: git submodule update --init --recursive")
+        set(KCTSB_ENABLE_SEAL OFF)
+    endif()
+endif()
+
 set(OPENSSL_FOUND FALSE)
 set(KCTSB_ENABLE_OPENSSL OFF)
 # OpenSSL Detection REMOVED in v5.0

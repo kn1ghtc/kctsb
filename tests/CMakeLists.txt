@@ -6,11 +6,13 @@
 # - integration/: Integration tests for full system verification
 # - unit/: Unit tests organized by module:
 #   - unit/crypto/: Cryptographic primitive tests (AES, SHA, MAC, ECC, RSA, etc.)
-#   - unit/fhe/: Homomorphic encryption tests (BFV, BGV, CKKS, NTT, RNS)
 #   - unit/math/: Mathematical operation tests
 #   - unit/security/: Security-related tests
 #   - unit/advanced/: Advanced feature tests:
-#     - unit/advanced/fhe/: FHE evaluator tests (bfv/, bgv/, ckks/, common/)
+#     - unit/advanced/fhe/bfv/: BFV scheme tests
+#     - unit/advanced/fhe/bgv/: BGV scheme tests  
+#     - unit/advanced/fhe/ckks/: CKKS scheme tests
+#     - unit/advanced/fhe/common/: Shared FHE components (NTT, RNS, etc.)
 #     - unit/advanced/test_psi_pir.cpp: PSI/PIR protocol tests
 
 find_package(GTest REQUIRED)
@@ -32,13 +34,13 @@ set(KCTSB_TESTS_WITH_MAIN
     "${CMAKE_CURRENT_SOURCE_DIR}/unit/crypto/test_ecc.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/unit/crypto/test_ecc_debug.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/unit/crypto/test_sha.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/unit/fhe/test_bgv.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/unit/fhe/test_bfv.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/unit/fhe/test_ckks.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/unit/fhe/test_ntt.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/unit/fhe/test_ntt_harvey.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/unit/fhe/test_rns.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/unit/fhe/test_bgv_evaluator.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/unit/advanced/fhe/bgv/test_bgv.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/unit/advanced/fhe/bgv/test_bgv_evaluator.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/unit/advanced/fhe/bfv/test_bfv.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/unit/advanced/fhe/ckks/test_ckks.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/unit/advanced/fhe/common/test_ntt.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/unit/advanced/fhe/common/test_ntt_harvey.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/unit/advanced/fhe/common/test_rns.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/unit/advanced/fhe/common/test_behz_rns_tool.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/unit/advanced/fhe/bgv/test_bgv_relin_debug.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/unit/advanced/fhe/bgv/test_multiply_isolated.cpp"
