@@ -12,7 +12,7 @@ cmake_minimum_required(VERSION 3.20)
 set(CMAKE_BUILD_PARALLEL_LEVEL 8 CACHE STRING "Default parallel build level")
 
 project(kctsb
-    VERSION 5.0.0
+    VERSION 5.1.0
     DESCRIPTION "Production-grade self-contained cryptographic library"
     LANGUAGES C CXX
 )
@@ -309,8 +309,6 @@ if(NOT MSVC)
     add_compile_options(
         -Wall -Wextra -Wpedantic
         -Werror=return-type
-        -Wno-unused-parameter
-        -Wno-sign-conversion
         -Wno-conversion
         -finput-charset=UTF-8
     )
@@ -411,15 +409,6 @@ else()
     message(STATUS "✓ SIMD optimizations enabled (AVX2, AES-NI)")
 endif()
 
-# Conditionally exclude files based on build options
-if(NOT KCTSB_ENABLE_BGV)
-    # Exclude all FE modules if BGV disabled
-    list(FILTER KCTSB_ALL_SOURCES EXCLUDE REGEX ".*/advanced/fe/.*")
-    message(STATUS "⚠ Native BGV/BFV disabled - excluding FE modules")
-else()
-    message(STATUS "✓ BGV/BFV Pure RNS homomorphic encryption enabled (CKKS pending migration)")
-endif()
-
 # ============================================================================
 # Assembly Files - Conditional platform-specific inclusion
 # ============================================================================
@@ -474,18 +463,11 @@ add_definitions(-DKCTSB_HAS_BIGNUM_MODULES)
 message(STATUS "✓ Core modules: crypto, math, bignum, utils")
 message(STATUS "✓ Advanced modules: zk, lattice, sss, otp, psi")
 
-# Bignum module breakdown (for reference)
-file(GLOB_RECURSE BIGNUM_SOURCE_COUNT ${KCTSB_SRC_DIR}/math/bignum/*.cpp)
-list(LENGTH BIGNUM_SOURCE_COUNT BIGNUM_FILE_COUNT)
-message(STATUS "  - Bignum sources: ${BIGNUM_FILE_COUNT} files")
-message(STATUS "    (core, ring, vector, matrix, poly, fft, precision, lattice)")
-message(STATUS "")
-
 # ============================================================================
 # Library Targets
 # ============================================================================
 
-# Include directories (v5.0: self-contained - no external dependencies)
+# Include directories
 set(KCTSB_ALL_INCLUDE_DIRS
     ${KCTSB_INCLUDE_DIR}
 )
@@ -618,13 +600,10 @@ endif()
 # ============================================================================
 
 message(STATUS "")
-message(STATUS "=== kctsb v5.1 Configuration Summary ===")
+message(STATUS "=== kctsb ${PROJECT_VERSION} Configuration Summary ===")
 message(STATUS "")
 message(STATUS "Architecture: Fully Self-Contained Cryptographic Library")
-message(STATUS "  - V5 Core: Native ZZ, BigInt, Fe256 (NO external dependencies)")
-message(STATUS "  - V5 Crypto: RSA, ECC, SM2/SM3/SM4, DH (fully self-contained)")
 message(STATUS "")
-message(STATUS "External Dependencies: NONE (fully self-contained)")
 message(STATUS "")
 message(STATUS "Build Options:")
 message(STATUS "  Static lib:  ${KCTSB_BUILD_STATIC}")

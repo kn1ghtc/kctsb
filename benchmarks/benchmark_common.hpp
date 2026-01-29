@@ -86,8 +86,8 @@ struct Result {
     std::string name;           ///< 算法名称
     std::string impl;           ///< 实现名称 (kctsb/openssl/seal/gmssl)
     double time_ms;             ///< 平均时间（毫秒）
-    double throughput_mbps;     ///< 吞吐量（MB/s）
-    size_t data_size;           ///< 数据大小（字节）
+    double throughput_mbps;     ///< 吞吐量（MB/s，无数据量时为op/s）
+    size_t data_size;           ///< 数据大小（字节，0表示按操作计数）
     size_t iterations;          ///< 迭代次数
 };
 
@@ -147,8 +147,13 @@ inline void print_result(const Result& r) {
               << std::right << std::fixed << std::setprecision(3)
               << std::setw(12) << r.time_ms;
 
-    if (r.throughput_mbps > 0) {
+    if (r.data_size > 0 && r.throughput_mbps > 0) {
+        // 数据吞吐量测试：显示 MB/s
         std::cout << std::setw(12) << r.throughput_mbps << " MB/s";
+    } else if (r.time_ms > 0) {
+        // 操作计数测试：显示 op/s
+        double ops_per_sec = 1000.0 / r.time_ms;  // 单次操作的 op/s
+        std::cout << std::setw(12) << std::setprecision(1) << ops_per_sec << " op/s";
     } else {
         std::cout << std::setw(15) << "N/A";
     }

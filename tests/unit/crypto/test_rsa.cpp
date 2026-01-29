@@ -307,3 +307,74 @@ TEST_F(RsaWycheproofTest, PssVerifyVectors) {
         }
     }
 }
+// ============================================================================
+// RSA Round-Trip Test (Key Generation, Sign/Verify, Encrypt/Decrypt)
+// ============================================================================
+
+TEST(RsaRoundTripTest, PssSignVerify3072) {
+    // Generate RSA-3072 key pair
+    kctsb_rsa_public_key_t pub{};
+    kctsb_rsa_private_key_t priv{};
+    
+    kctsb_error_t rc = kctsb_rsa_generate_keypair(3072, &pub, &priv);
+    ASSERT_EQ(rc, KCTSB_SUCCESS) << "RSA-3072 keygen failed";
+    ASSERT_EQ(pub.bits, 3072u);
+    
+    // Sign a message
+    const uint8_t message[] = "Hello, RSA-PSS Test!";
+    std::array<uint8_t, KCTSB_SHA256_DIGEST_SIZE> hash{};
+    kctsb_sha256(message, sizeof(message) - 1, hash.data());
+    
+    std::vector<uint8_t> signature(pub.n_len);
+    size_t sig_len = signature.size();
+    
+    rc = kctsb_rsa_pss_sign_sha256(
+        &priv, hash.data(), hash.size(), nullptr, 0,
+        signature.data(), &sig_len);
+    ASSERT_EQ(rc, KCTSB_SUCCESS) << "PSS sign failed";
+    ASSERT_EQ(sig_len, pub.n_len);
+    
+    // Verify the signature
+    rc = kctsb_rsa_pss_verify_sha256(
+        &pub, hash.data(), hash.size(), signature.data(), sig_len);
+    EXPECT_EQ(rc, KCTSB_SUCCESS) << "PSS verify failed";
+    
+    // Tamper with signature - should fail
+    signature[10] ^= 0xFF;
+    rc = kctsb_rsa_pss_verify_sha256(
+        &pub, hash.data(), hash.size(), signature.data(), sig_len);
+    EXPECT_NE(rc, KCTSB_SUCCESS) << "Tampered signature should fail";
+}
+
+TEST(RsaRoundTripTest, OaepEncryptDecrypt3072) {
+    // Generate RSA-3072 key pair
+    kctsb_rsa_public_key_t pub{};
+    kctsb_rsa_private_key_t priv{};
+    
+    kctsb_error_t rc = kctsb_rsa_generate_keypair(3072, &pub, &priv);
+    ASSERT_EQ(rc, KCTSB_SUCCESS) << "RSA-3072 keygen failed";
+    
+    // Encrypt a message
+    const uint8_t plaintext[] = "Secret OAEP message!";
+    std::vector<uint8_t> ciphertext(pub.n_len);
+    size_t ct_len = ciphertext.size();
+    
+    rc = kctsb_rsa_oaep_encrypt_sha256(
+        &pub, plaintext, sizeof(plaintext) - 1,
+        nullptr, 0, ciphertext.data(), &ct_len);
+    ASSERT_EQ(rc, KCTSB_SUCCESS) << "OAEP encrypt failed";
+    ASSERT_EQ(ct_len, pub.n_len);
+    
+    // Decrypt the message
+    std::vector<uint8_t> decrypted(pub.n_len);
+    size_t dec_len = decrypted.size();
+    
+    rc = kctsb_rsa_oaep_decrypt_sha256(
+        &priv, ciphertext.data(), ct_len,
+        nullptr, 0, decrypted.data(), &dec_len);
+    ASSERT_EQ(rc, KCTSB_SUCCESS) << "OAEP decrypt failed";
+    
+    // Verify decryption
+    ASSERT_EQ(dec_len, sizeof(plaintext) - 1);
+    EXPECT_EQ(0, std::memcmp(decrypted.data(), plaintext, dec_len));
+}

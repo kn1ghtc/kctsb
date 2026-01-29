@@ -6,6 +6,7 @@
  * - RSASSA-PSS (SHA-256) signature/verification
  * - RSAES-OAEP (SHA-256) encryption/decryption
  * - Key sizes: 3072/4096 only
+ * - Montgomery multiplication for fast modular exponentiation
  * - Optional CRT acceleration if p/q provided
  *
  * Design goals:
@@ -13,9 +14,15 @@
  * - C ABI for stable integration
  * - Constant-time primitives where applicable (hash compare)
  *
+ * Performance Optimizations (v5.1.0):
+ * - Montgomery modular multiplication (avoids expensive division)
+ * - Sliding window exponentiation with configurable window size
+ * - CRT-based private key operations (~4x speedup)
+ *
  * References:
  * - RFC 8017 (PKCS#1 v2.2)
  * - NIST CAVP RSA PSS vectors (FIPS 186-3)
+ * - "Handbook of Applied Cryptography", Chapter 14 - Montgomery Multiplication
  *
  * @author knightc
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
@@ -41,9 +48,348 @@ using kctsb::InvMod;
 using kctsb::IsOdd;
 using kctsb::NumBits;
 using kctsb::bit;
+using kctsb::ZZ;
 
 constexpr size_t kHashLen = KCTSB_SHA256_DIGEST_SIZE;
 constexpr size_t kPssSaltLen = KCTSB_SHA256_DIGEST_SIZE;
+
+// ============================================================================
+// High-Performance Montgomery Multiplication (Limb-Level)
+// ============================================================================
+
+using limb_t = uint64_t;
+using dlimb_t = unsigned __int128;  // 128-bit for intermediate products
+constexpr size_t LIMB_BITS = 64;
+
+/**
+ * @brief Compute n0' = -n^(-1) mod 2^64 using Newton iteration
+ * 
+ * For CIOS Montgomery, we need n0' such that n * n0' ≡ -1 (mod 2^64)
+ * This is equivalent to n0' = -n^(-1) mod 2^64
+ * 
+ * Newton iteration for modular inverse:
+ *   If x * n ≡ 1 (mod 2^k), then x' = x * (2 - n*x) satisfies x' * n ≡ 1 (mod 2^(2k))
+ */
+static limb_t compute_n0_prime(limb_t n0) {
+    // n0 must be odd for inverse to exist
+    // Initial: x * n ≡ 1 (mod 2), for odd n, x = 1 works
+    limb_t x = 1;
+    
+    // Each iteration doubles the precision: 1 -> 2 -> 4 -> 8 -> 16 -> 32 -> 64 bits
+    for (int i = 0; i < 6; ++i) {
+        x = x * (2 - n0 * x);  // x = x * (2 - n0 * x) mod 2^64
+    }
+    
+    // x is now n^(-1) mod 2^64, we need -n^(-1) = -x mod 2^64
+    return static_cast<limb_t>(0) - x;
+}
+
+/**
+ * @brief High-performance Montgomery context using limb arrays
+ */
+class FastMontContext {
+public:
+    std::vector<limb_t> n;      ///< Modulus limbs
+    std::vector<limb_t> r2;     ///< R^2 mod n (for to_mont conversion)
+    limb_t n0_prime;            ///< -n^(-1) mod 2^64
+    size_t num_limbs;
+    
+    explicit FastMontContext(const ZZ& modulus) {
+        num_limbs = modulus.num_limbs();
+        n.resize(num_limbs);
+        for (size_t i = 0; i < num_limbs; ++i) {
+            n[i] = modulus.limb(i);
+        }
+        
+        // Compute n0' = -n^(-1) mod 2^64
+        n0_prime = compute_n0_prime(n[0]);
+        
+        // Compute R^2 mod n using repeated doubling
+        // R = 2^(num_limbs * 64), so R^2 = 2^(2 * num_limbs * 64)
+        r2 = compute_r2_mod_n();
+    }
+    
+    /**
+     * @brief Convert to Montgomery form: a -> a*R mod n
+     */
+    std::vector<limb_t> to_mont(const std::vector<limb_t>& a) const {
+        return mont_mul(a, r2);
+    }
+    
+    /**
+     * @brief Convert from Montgomery form: a*R -> a mod n
+     */
+    std::vector<limb_t> from_mont(const std::vector<limb_t>& a_mont) const {
+        std::vector<limb_t> one(num_limbs, 0);
+        one[0] = 1;
+        return mont_mul(a_mont, one);
+    }
+    
+    /**
+     * @brief Montgomery multiplication: (a*R * b*R) * R^(-1) = a*b*R mod n
+     * 
+     * Uses CIOS (Coarsely Integrated Operand Scanning) method.
+     * Reference: Analyzing and Comparing Montgomery Multiplication Algorithms
+     *            by Koç, Acar, and Kaliski (IEEE Micro, 1996)
+     */
+    std::vector<limb_t> mont_mul(const std::vector<limb_t>& a, 
+                                  const std::vector<limb_t>& b) const {
+        std::vector<limb_t> t(num_limbs + 2, 0);
+        
+        for (size_t i = 0; i < num_limbs; ++i) {
+            // Step 1: (C, S) = t[0] + a[i]*b[0]
+            dlimb_t uv = static_cast<dlimb_t>(a[i]) * b[0] + t[0];
+            limb_t C = static_cast<limb_t>(uv >> LIMB_BITS);
+            t[0] = static_cast<limb_t>(uv);
+            
+            // for j = 1 to n-1: (C, t[j]) = t[j] + a[i]*b[j] + C
+            for (size_t j = 1; j < num_limbs; ++j) {
+                uv = static_cast<dlimb_t>(a[i]) * b[j] + t[j] + C;
+                t[j] = static_cast<limb_t>(uv);
+                C = static_cast<limb_t>(uv >> LIMB_BITS);
+            }
+            // (C, t[n]) = t[n] + C
+            uv = static_cast<dlimb_t>(t[num_limbs]) + C;
+            t[num_limbs] = static_cast<limb_t>(uv);
+            limb_t C2 = static_cast<limb_t>(uv >> LIMB_BITS);
+            // t[n+1] = t[n+1] + C2
+            t[num_limbs + 1] += C2;
+            
+            // Step 2: m = t[0] * n0' mod 2^64
+            limb_t m = t[0] * n0_prime;
+            
+            // Step 3: (C, _) = t[0] + m*n[0]  (low 64 bits are discarded)
+            uv = static_cast<dlimb_t>(m) * n[0] + t[0];
+            C = static_cast<limb_t>(uv >> LIMB_BITS);
+            
+            // for j = 1 to n-1: (C, t[j-1]) = t[j] + m*n[j] + C
+            for (size_t j = 1; j < num_limbs; ++j) {
+                uv = static_cast<dlimb_t>(m) * n[j] + t[j] + C;
+                t[j - 1] = static_cast<limb_t>(uv);
+                C = static_cast<limb_t>(uv >> LIMB_BITS);
+            }
+            // (C, t[n-1]) = t[n] + C
+            uv = static_cast<dlimb_t>(t[num_limbs]) + C;
+            t[num_limbs - 1] = static_cast<limb_t>(uv);
+            C = static_cast<limb_t>(uv >> LIMB_BITS);
+            // t[n] = t[n+1] + C
+            t[num_limbs] = t[num_limbs + 1] + C;
+            t[num_limbs + 1] = 0;
+        }
+        
+        // Conditional subtraction: if t >= n, compute t - n
+        std::vector<limb_t> result(num_limbs);
+        bool need_sub = (t[num_limbs] != 0) || !less_than(t, n);
+        
+        if (need_sub) {
+            limb_t borrow = 0;
+            for (size_t i = 0; i < num_limbs; ++i) {
+                limb_t ti = t[i];
+                limb_t ni = n[i];
+                // Use 128-bit to handle borrow correctly
+                dlimb_t diff = static_cast<dlimb_t>(ti) - ni - borrow;
+                result[i] = static_cast<limb_t>(diff);
+                // If diff wrapped (high bits set), we need to borrow
+                borrow = (diff >> LIMB_BITS) ? 1 : 0;
+            }
+        } else {
+            for (size_t i = 0; i < num_limbs; ++i) {
+                result[i] = t[i];
+            }
+        }
+        
+        return result;
+    }
+    
+    /**
+     * @brief Montgomery squaring (uses same algorithm as mul for now)
+     */
+    std::vector<limb_t> mont_sqr(const std::vector<limb_t>& a) const {
+        return mont_mul(a, a);
+    }
+    
+private:
+    /**
+     * @brief Check if a < n (limb arrays)
+     */
+    bool less_than(const std::vector<limb_t>& a, const std::vector<limb_t>& b) const {
+        for (size_t i = num_limbs; i > 0; --i) {
+            limb_t ai = (i - 1 < a.size()) ? a[i - 1] : 0;
+            limb_t bi = (i - 1 < b.size()) ? b[i - 1] : 0;
+            if (ai < bi) return true;
+            if (ai > bi) return false;
+        }
+        return false;  // Equal
+    }
+    
+    /**
+     * @brief Compute R^2 mod n using repeated left shifts
+     */
+    std::vector<limb_t> compute_r2_mod_n() const {
+        // Start with 1
+        std::vector<limb_t> result(num_limbs, 0);
+        result[0] = 1;
+        
+        // Compute 2^(2 * num_limbs * 64) mod n by repeated doubling
+        size_t total_shifts = 2 * num_limbs * LIMB_BITS;
+        for (size_t i = 0; i < total_shifts; ++i) {
+            // result = (result * 2) mod n
+            limb_t carry = 0;
+            for (size_t j = 0; j < num_limbs; ++j) {
+                limb_t new_val = (result[j] << 1) | carry;
+                carry = result[j] >> (LIMB_BITS - 1);
+                result[j] = new_val;
+            }
+            
+            // If result >= n, subtract n
+            if (carry || !less_than(result, n)) {
+                limb_t borrow = 0;
+                for (size_t j = 0; j < num_limbs; ++j) {
+                    dlimb_t diff = static_cast<dlimb_t>(result[j]) - n[j] - borrow;
+                    result[j] = static_cast<limb_t>(diff);
+                    borrow = (diff >> LIMB_BITS) ? 1 : 0;
+                }
+            }
+        }
+        
+        return result;
+    }
+};
+
+/**
+ * @brief Convert ZZ to limb array
+ */
+static std::vector<limb_t> zz_to_limbs(const ZZ& z, size_t num_limbs) {
+    std::vector<limb_t> result(num_limbs, 0);
+    size_t n = std::min(z.num_limbs(), num_limbs);
+    for (size_t i = 0; i < n; ++i) {
+        result[i] = z.limb(i);
+    }
+    return result;
+}
+
+/**
+ * @brief Convert limb array to ZZ
+ */
+static ZZ limbs_to_zz(const std::vector<limb_t>& limbs) {
+    ZZ result(0);
+    for (size_t i = limbs.size(); i > 0; --i) {
+        result <<= static_cast<long>(LIMB_BITS);
+        result += ZZ(limbs[i - 1]);
+    }
+    return result;
+}
+
+/**
+ * @brief Fast Montgomery modular exponentiation: base^exp mod n
+ */
+static ZZ fast_modexp(const ZZ& base, const ZZ& exp, const ZZ& mod) {
+    if (mod <= ZZ(0) || !IsOdd(mod)) {
+        throw std::domain_error("modexp: modulus must be positive and odd");
+    }
+    if (exp.is_zero()) {
+        return ZZ(1);
+    }
+    
+    FastMontContext ctx(mod);
+    
+    // Convert base to Montgomery form
+    ZZ base_mod = base % mod;
+    if (base_mod.is_negative()) base_mod += mod;
+    std::vector<limb_t> base_limbs = zz_to_limbs(base_mod, ctx.num_limbs);
+    std::vector<limb_t> base_mont = ctx.to_mont(base_limbs);
+    
+    // Sliding window exponentiation
+    long exp_bits = NumBits(exp);
+    int window_bits = 5;
+    if (exp_bits >= 2048) window_bits = 5;
+    if (exp_bits >= 4096) window_bits = 6;
+    
+    int table_size = 1 << window_bits;
+    std::vector<std::vector<limb_t>> table(static_cast<size_t>(table_size));
+    
+    // Precompute: table[i] = base^i in Montgomery form
+    table[0].resize(ctx.num_limbs, 0);
+    table[0][0] = 1;
+    table[0] = ctx.to_mont(table[0]);  // 1 in Montgomery form = R mod n
+    table[1] = base_mont;
+    
+    for (int i = 2; i < table_size; ++i) {
+        table[static_cast<size_t>(i)] = ctx.mont_mul(table[static_cast<size_t>(i - 1)], base_mont);
+    }
+    
+    // Exponentiation using sliding window
+    std::vector<limb_t> result = table[0];  // Start with 1 in Montgomery form
+    
+    long i = exp_bits - 1;
+    while (i >= 0) {
+        if (bit(exp, i) == 0) {
+            result = ctx.mont_sqr(result);
+            --i;
+            continue;
+        }
+        
+        // Find window
+        long j = std::max<long>(0, i - window_bits + 1);
+        while (j <= i && bit(exp, j) == 0) {
+            ++j;
+        }
+        
+        long window_len = i - j + 1;
+        long window_val = 0;
+        for (long k = i; k >= j; --k) {
+            window_val = (window_val << 1) | bit(exp, k);
+        }
+        
+        // Square window_len times
+        for (long k = 0; k < window_len; ++k) {
+            result = ctx.mont_sqr(result);
+        }
+        
+        // Multiply by precomputed value
+        result = ctx.mont_mul(result, table[static_cast<size_t>(window_val)]);
+        
+        i = j - 1;
+    }
+    
+    // Convert back from Montgomery form
+    std::vector<limb_t> final_result = ctx.from_mont(result);
+    return limbs_to_zz(final_result);
+}
+
+/**
+ * @brief Optimized modexp for e = 65537
+ */
+static ZZ fast_modexp_65537(const ZZ& base, const ZZ& mod) {
+    if (mod <= ZZ(0) || !IsOdd(mod)) {
+        throw std::domain_error("modexp: modulus must be positive and odd");
+    }
+    
+    FastMontContext ctx(mod);
+    
+    ZZ base_mod = base % mod;
+    if (base_mod.is_negative()) base_mod += mod;
+    std::vector<limb_t> base_limbs = zz_to_limbs(base_mod, ctx.num_limbs);
+    std::vector<limb_t> acc = ctx.to_mont(base_limbs);
+    
+    // 65537 = 2^16 + 1
+    // acc = base^(2^16) in Montgomery form
+    for (int i = 0; i < 16; ++i) {
+        acc = ctx.mont_sqr(acc);
+    }
+    
+    // acc = acc * base = base^(2^16 + 1)
+    std::vector<limb_t> base_mont = ctx.to_mont(base_limbs);
+    acc = ctx.mont_mul(acc, base_mont);
+    
+    // Convert back
+    std::vector<limb_t> final_result = ctx.from_mont(acc);
+    return limbs_to_zz(final_result);
+}
+
+// ============================================================================
+// Utility Functions
+// ============================================================================
 
 static bool is_supported_modulus_bytes(size_t len) {
 	return len == KCTSB_RSA_3072_BYTES || len == KCTSB_RSA_4096_BYTES;
@@ -110,154 +456,9 @@ static void mgf1_sha256(const uint8_t* seed, size_t seed_len, uint8_t* mask, siz
 	}
 }
 
-static ZZ modexp_window(const ZZ& base, const ZZ& exp, const ZZ& mod) {
-	if (mod <= ZZ(0)) {
-		throw std::domain_error("modexp: modulus must be positive");
-	}
-
-	if (exp.is_zero()) {
-		return ZZ(1);
-	}
-
-	constexpr int window_bits = 5;
-	constexpr int table_size = 1 << window_bits;
-
-	ZZ base_mod = base % mod;
-	if (base_mod.is_negative()) {
-		base_mod += mod;
-	}
-
-	std::array<ZZ, table_size> table;
-	table[0] = ZZ(1);
-	table[1] = base_mod;
-	for (int i = 2; i < table_size; ++i) {
-		table[i] = (table[i - 1] * base_mod) % mod;
-	}
-
-	ZZ result(1);
-	long exp_bits = NumBits(exp);
-	long i = exp_bits - 1;
-
-	while (i >= 0) {
-		if (bit(exp, i) == 0) {
-			result = (result * result) % mod;
-			--i;
-			continue;
-		}
-
-		long width = std::min<long>(window_bits, i + 1);
-		long window_val = 0;
-		long j = i - width + 1;
-		while (bit(exp, j) == 0 && width > 1) {
-			++j;
-			--width;
-		}
-		for (long k = 0; k < width; ++k) {
-			window_val = (window_val << 1) | bit(exp, j + k);
-		}
-
-		for (long k = 0; k < width; ++k) {
-			result = (result * result) % mod;
-		}
-		result = (result * table[window_val]) % mod;
-		i = j - 1;
-	}
-
-	return result;
-}
-
-static int select_window_bits(size_t bits) {
-	if (bits >= KCTSB_RSA_4096_BITS) {
-		return 6;
-	}
-	return 5;
-}
-
-static ZZ modexp_fixed_window(const ZZ& base, const ZZ& exp, const ZZ& mod, int window_bits) {
-	if (mod <= ZZ(0)) {
-		throw std::domain_error("modexp: modulus must be positive");
-	}
-	if (exp.is_zero()) {
-		return ZZ(1);
-	}
-	int actual_bits = window_bits < 1 ? 1 : window_bits;
-
-	ZZ base_mod = base % mod;
-	if (base_mod.is_negative()) {
-		base_mod += mod;
-	}
-
-	constexpr int kMaxFixedWindowBits = 6;
-	int table_size = 1 << actual_bits;
-
-	ZZ result(1);
-	long exp_bits = NumBits(exp);
-	long total_windows = (exp_bits + actual_bits - 1) / actual_bits;
-
-	if (actual_bits == kMaxFixedWindowBits) {
-		constexpr int kMaxFixedTableSize = 1 << kMaxFixedWindowBits;
-		std::array<ZZ, kMaxFixedTableSize> table;
-		table[0] = ZZ(1);
-		for (int i = 1; i < table_size; ++i) {
-			table[static_cast<size_t>(i)] = (table[static_cast<size_t>(i - 1)] * base_mod) % mod;
-		}
-
-		for (long w = total_windows - 1; w >= 0; --w) {
-			for (int i = 0; i < actual_bits; ++i) {
-				result = (result * result) % mod;
-			}
-
-			long window_val = 0;
-			for (int i = actual_bits - 1; i >= 0; --i) {
-				long bit_index = w * actual_bits + i;
-				int bit_val = (bit_index < exp_bits) ? bit(exp, bit_index) : 0;
-				window_val = (window_val << 1) | bit_val;
-			}
-			result = (result * table[static_cast<size_t>(window_val)]) % mod;
-		}
-
-		return result;
-	}
-
-	std::vector<ZZ> table(static_cast<size_t>(table_size));
-	table[0] = ZZ(1);
-	for (int i = 1; i < table_size; ++i) {
-		table[static_cast<size_t>(i)] = (table[static_cast<size_t>(i - 1)] * base_mod) % mod;
-	}
-
-	for (long w = total_windows - 1; w >= 0; --w) {
-		for (int i = 0; i < actual_bits; ++i) {
-			result = (result * result) % mod;
-		}
-
-		long window_val = 0;
-		for (int i = actual_bits - 1; i >= 0; --i) {
-			long bit_index = w * actual_bits + i;
-			int bit_val = (bit_index < exp_bits) ? bit(exp, bit_index) : 0;
-			window_val = (window_val << 1) | bit_val;
-		}
-		result = (result * table[static_cast<size_t>(window_val)]) % mod;
-	}
-
-	return result;
-}
-
-static ZZ modexp_65537(const ZZ& base, const ZZ& mod) {
-	if (mod <= ZZ(0)) {
-		throw std::domain_error("modexp: modulus must be positive");
-	}
-
-	ZZ base_mod = base % mod;
-	if (base_mod.is_negative()) {
-		base_mod += mod;
-	}
-
-	ZZ acc = base_mod;
-	for (int i = 0; i < 16; ++i) {
-		acc = (acc * acc) % mod;
-	}
-	return (acc * base_mod) % mod;
-}
+// ============================================================================
+// Key Structures
+// ============================================================================
 
 struct PublicKey {
 	ZZ n;
@@ -335,10 +536,11 @@ static ZZ rsa_public_op(const ZZ& m, const PublicKey& key) {
 	if (m < ZZ(0) || m >= key.n) {
 		throw std::domain_error("RSAEP message representative out of range");
 	}
+	// Use high-performance limb-level Montgomery exponentiation
 	if (key.e == ZZ(65537)) {
-		return modexp_65537(m, key.n);
+		return fast_modexp_65537(m, key.n);
 	}
-	return modexp_fixed_window(m, key.e, key.n, select_window_bits(key.bits));
+	return fast_modexp(m, key.e, key.n);
 }
 
 static ZZ rsa_private_op(const ZZ& c, const PrivateKey& key) {
@@ -347,11 +549,11 @@ static ZZ rsa_private_op(const ZZ& c, const PrivateKey& key) {
 	}
 
 	if (!key.has_crt) {
-		return modexp_fixed_window(c, key.d, key.n, select_window_bits(key.bits));
+		return fast_modexp(c, key.d, key.n);
 	}
-	int window_bits = select_window_bits(key.bits / 2);
-	ZZ m1 = modexp_fixed_window(c, key.dp, key.p, window_bits);
-	ZZ m2 = modexp_fixed_window(c, key.dq, key.q, window_bits);
+	// CRT acceleration: compute m1 = c^dp mod p, m2 = c^dq mod q
+	ZZ m1 = fast_modexp(c, key.dp, key.p);
+	ZZ m2 = fast_modexp(c, key.dq, key.q);
 	ZZ h = (key.qinv * (m1 - m2)) % key.p;
 	if (h.is_negative()) {
 		h += key.p;
@@ -623,14 +825,14 @@ static bool is_probable_prime(const ZZ& n, int rounds) {
 		ZZ a = ZZ::from_bytes(rand_buf.data(), rand_buf.size());
 		a = (a % (n - ZZ(3))) + ZZ(2);
 
-		ZZ x = modexp_window(a, d, n);
+		ZZ x = fast_modexp(a, d, n);
 		if (x == ZZ(1) || x == n - ZZ(1)) {
 			continue;
 		}
 
 		bool witness = true;
 		for (long j = 1; j < r; ++j) {
-			x = (x * x) % n;
+			x = fast_modexp(x, ZZ(2), n);
 			if (x == n - ZZ(1)) {
 				witness = false;
 				break;
@@ -1016,6 +1218,283 @@ KCTSB_API kctsb_error_t kctsb_rsa_pss_verify_sha256(
 	} catch (...) {
 		return KCTSB_ERROR_VERIFICATION_FAILED;
 	}
+}
+
+/**
+ * @brief Test Montgomery arithmetic internals
+ * @return 0 on success, negative on failure
+ */
+int kctsb_test_montgomery_internal() {
+    using namespace kctsb::crypto::rsa;
+    
+    // Use ZZ::from_string for a 128-bit test prime
+    // Or construct it from bytes
+    // Let's use a simpler approach: construct a small 2-limb value
+    
+    // Test modulus: 2^64 + 13 = 18446744073709551629 (this is prime)
+    // Actually let's use from_bytes for a proper 128-bit value
+    
+    // 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFC5 = 340282366920938463463374607431768211397
+    // This is 2^128 - 59 which is prime
+    uint8_t n_bytes[] = {
+        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xC5
+    };
+    kctsb::ZZ test_n = kctsb::ZZ::from_bytes(n_bytes, sizeof(n_bytes));
+    
+    // Verify n is odd
+    if (!IsOdd(test_n)) {
+        std::cerr << "Test modulus is not odd!" << std::endl;
+        return -1;
+    }
+    
+    FastMontContext ctx(test_n);
+    
+    // Print basic info
+    std::cerr << "=== Montgomery Internal Test ===" << std::endl;
+    std::cerr << "num_limbs: " << ctx.num_limbs << std::endl;
+    std::cerr << "n[0]: " << std::hex << ctx.n[0] << std::dec << std::endl;
+    std::cerr << "n0_prime: " << std::hex << ctx.n0_prime << std::dec << std::endl;
+    
+    // Verify: n[0] * n0_prime ≡ -1 (mod 2^64)
+    uint64_t product = ctx.n[0] * ctx.n0_prime;
+    std::cerr << "n[0] * n0_prime (mod 2^64): " << std::hex << product << std::dec << std::endl;
+    if (product != static_cast<uint64_t>(-1)) {
+        std::cerr << "ERROR: n0_prime verification failed!" << std::endl;
+        std::cerr << "Expected: " << std::hex << static_cast<uint64_t>(-1) << std::dec << std::endl;
+        return -2;
+    }
+    std::cerr << "n0_prime verification: PASS" << std::endl;
+    
+    // Test 1: to_mont then from_mont should return original value
+    kctsb::ZZ test_val(12345);
+    std::vector<limb_t> val_limbs = zz_to_limbs(test_val, ctx.num_limbs);
+    std::vector<limb_t> val_mont = ctx.to_mont(val_limbs);
+    std::vector<limb_t> val_back = ctx.from_mont(val_mont);
+    kctsb::ZZ val_result = limbs_to_zz(val_back);
+    
+    std::cerr << "Test value: " << test_val << std::endl;
+    std::cerr << "After to_mont/from_mont: " << val_result << std::endl;
+    
+    if (val_result != test_val) {
+        std::cerr << "ERROR: to_mont/from_mont roundtrip failed!" << std::endl;
+        return -3;
+    }
+    std::cerr << "Roundtrip test: PASS" << std::endl;
+    
+    // Test 2: mont_mul(a_mont, b_mont) then from_mont should equal (a*b) mod n
+    kctsb::ZZ a(1234567890);
+    kctsb::ZZ b(9876543210ULL);
+    kctsb::ZZ expected = (a * b) % test_n;
+    
+    std::vector<limb_t> a_limbs = zz_to_limbs(a, ctx.num_limbs);
+    std::vector<limb_t> b_limbs = zz_to_limbs(b, ctx.num_limbs);
+    std::vector<limb_t> a_mont = ctx.to_mont(a_limbs);
+    std::vector<limb_t> b_mont = ctx.to_mont(b_limbs);
+    std::vector<limb_t> prod_mont = ctx.mont_mul(a_mont, b_mont);
+    std::vector<limb_t> prod_limbs = ctx.from_mont(prod_mont);
+    kctsb::ZZ prod_result = limbs_to_zz(prod_limbs);
+    
+    std::cerr << "a * b mod n expected: " << expected << std::endl;
+    std::cerr << "Montgomery result: " << prod_result << std::endl;
+    
+    if (prod_result != expected) {
+        std::cerr << "ERROR: Montgomery multiplication failed!" << std::endl;
+        return -4;
+    }
+    std::cerr << "Multiplication test: PASS" << std::endl;
+    
+    // Test 3: Modular exponentiation 3^17 mod test_n
+    kctsb::ZZ base(3);
+    kctsb::ZZ exp(17);
+    kctsb::ZZ expected_exp(1);
+    for (int i = 0; i < 17; ++i) {
+        expected_exp = (expected_exp * base) % test_n;
+    }
+    
+    kctsb::ZZ modexp_result = fast_modexp(base, exp, test_n);
+    std::cerr << "3^17 mod n expected: " << expected_exp << std::endl;
+    std::cerr << "fast_modexp result: " << modexp_result << std::endl;
+    
+    if (modexp_result != expected_exp) {
+        std::cerr << "ERROR: fast_modexp failed!" << std::endl;
+        return -5;
+    }
+    std::cerr << "Modexp test: PASS" << std::endl;
+    
+    std::cerr << "=== All Montgomery tests PASSED ===" << std::endl;
+    return 0;
+}
+
+/**
+ * @brief Test RSA sign/verify core operations (no PSS encoding)
+ * @return 0 on success, negative on failure
+ */
+int kctsb_test_rsa_core_internal() {
+    using namespace kctsb::crypto::rsa;
+    
+    std::cerr << "\n=== RSA Core Test ===" << std::endl;
+    
+    // Generate a keypair
+    kctsb_rsa_public_key_t pub{};
+    kctsb_rsa_private_key_t priv{};
+    int rc = kctsb_rsa_generate_keypair(3072, &pub, &priv);
+    if (rc != KCTSB_SUCCESS) {
+        std::cerr << "Keygen failed: " << rc << std::endl;
+        return -1;
+    }
+    
+    // Load keys
+    PublicKey pub_key;
+    PrivateKey priv_key;
+    if (load_public_key(&pub, pub_key) != KCTSB_SUCCESS ||
+        load_private_key(&priv, priv_key) != KCTSB_SUCCESS) {
+        std::cerr << "Key loading failed" << std::endl;
+        return -2;
+    }
+    
+    // Test: m^d^e mod n should equal m
+    // And: m^e^d mod n should equal m
+    kctsb::ZZ test_msg(42);
+    
+    // Encrypt then decrypt: c = m^e, m' = c^d
+    std::cerr << "Test message: " << test_msg << std::endl;
+    kctsb::ZZ c = rsa_public_op(test_msg, pub_key);
+    std::cerr << "After public op (encrypt): " << c << std::endl;
+    kctsb::ZZ m_prime = rsa_private_op(c, priv_key);
+    std::cerr << "After private op (decrypt): " << m_prime << std::endl;
+    
+    if (m_prime != test_msg) {
+        std::cerr << "ERROR: encrypt/decrypt roundtrip failed!" << std::endl;
+        return -3;
+    }
+    std::cerr << "Encrypt/Decrypt roundtrip: PASS" << std::endl;
+    
+    // Sign then verify: s = m^d, m'' = s^e
+    kctsb::ZZ s = rsa_private_op(test_msg, priv_key);
+    std::cerr << "After private op (sign): " << s << std::endl;
+    kctsb::ZZ m_double_prime = rsa_public_op(s, pub_key);
+    std::cerr << "After public op (verify): " << m_double_prime << std::endl;
+    
+    if (m_double_prime != test_msg) {
+        std::cerr << "ERROR: sign/verify roundtrip failed!" << std::endl;
+        std::cerr << "Expected: " << test_msg << std::endl;
+        std::cerr << "Got: " << m_double_prime << std::endl;
+        return -4;
+    }
+    std::cerr << "Sign/Verify roundtrip: PASS" << std::endl;
+    
+    std::cerr << "=== RSA Core tests PASSED ===" << std::endl;
+    return 0;
+}
+
+/**
+ * @brief Test PSS encoding/decoding
+ * @return 0 on success, negative on failure
+ */
+int kctsb_test_pss_internal() {
+    using namespace kctsb::crypto::rsa;
+    
+    std::cerr << "\n=== PSS Internal Test ===" << std::endl;
+    
+    // Generate a keypair
+    kctsb_rsa_public_key_t pub{};
+    kctsb_rsa_private_key_t priv{};
+    int rc = kctsb_rsa_generate_keypair(3072, &pub, &priv);
+    if (rc != KCTSB_SUCCESS) {
+        std::cerr << "Keygen failed: " << rc << std::endl;
+        return -1;
+    }
+    
+    PublicKey pub_key;
+    PrivateKey priv_key;
+    load_public_key(&pub, pub_key);
+    load_private_key(&priv, priv_key);
+    
+    // Create a message hash
+    uint8_t msg[] = "Test message for PSS";
+    uint8_t mhash[32];
+    kctsb_sha256(msg, sizeof(msg) - 1, mhash);
+    
+    // Create salt
+    uint8_t salt[32];
+    random_bytes(salt, 32);
+    
+    // PSS encode
+    size_t em_bits = pub_key.bits - 1;  // 3072 - 1 = 3071
+    size_t em_len = (em_bits + 7) / 8;  // 384 bytes
+    std::vector<uint8_t> em(em_len, 0);
+    
+    std::cerr << "em_bits: " << em_bits << ", em_len: " << em_len << std::endl;
+    
+    rc = pss_encode(mhash, 32, salt, 32, em_bits, em.data());
+    if (rc != KCTSB_SUCCESS) {
+        std::cerr << "PSS encode failed: " << rc << std::endl;
+        return -2;
+    }
+    std::cerr << "PSS encode: OK" << std::endl;
+    std::cerr << "em[0]: " << std::hex << (int)em[0] << ", em[last]: " << (int)em[em_len-1] << std::dec << std::endl;
+    
+    // Verify the encoded message directly (no RSA operation)
+    rc = pss_verify(mhash, 32, em.data(), em_len, em_bits);
+    if (rc != KCTSB_SUCCESS) {
+        std::cerr << "PSS verify (direct) failed: " << rc << std::endl;
+        return -3;
+    }
+    std::cerr << "PSS verify (direct): PASS" << std::endl;
+    
+    // Now do the full sign/verify with RSA
+    kctsb::ZZ m = os2ip(em.data(), em.size());
+    std::cerr << "EM as integer, num_bytes: " << m.num_bytes() << std::endl;
+    
+    // Check if m < n
+    if (m >= pub_key.n) {
+        std::cerr << "ERROR: m >= n (message too large)" << std::endl;
+        return -4;
+    }
+    std::cerr << "m < n: OK" << std::endl;
+    
+    // Sign
+    kctsb::ZZ s = rsa_private_op(m, priv_key);
+    std::cerr << "Signature computed" << std::endl;
+    
+    // Verify: compute m' = s^e mod n
+    kctsb::ZZ m_prime = rsa_public_op(s, pub_key);
+    
+    if (m_prime != m) {
+        std::cerr << "ERROR: m' != m after RSA ops" << std::endl;
+        std::cerr << "m.num_bytes: " << m.num_bytes() << std::endl;
+        std::cerr << "m_prime.num_bytes: " << m_prime.num_bytes() << std::endl;
+        return -5;
+    }
+    std::cerr << "RSA sign/verify core: PASS" << std::endl;
+    
+    // Convert back to bytes
+    std::vector<uint8_t> em_recovered(em_len, 0);
+    rc = i2osp(m_prime, em_recovered.data(), em_len);
+    if (rc != KCTSB_SUCCESS) {
+        std::cerr << "i2osp failed: " << rc << std::endl;
+        return -6;
+    }
+    
+    // Check if em_recovered == em
+    if (memcmp(em.data(), em_recovered.data(), em_len) != 0) {
+        std::cerr << "ERROR: em_recovered != em" << std::endl;
+        std::cerr << "em[0]: " << std::hex << (int)em[0] << ", recovered[0]: " << (int)em_recovered[0] << std::dec << std::endl;
+        return -7;
+    }
+    std::cerr << "EM roundtrip: PASS" << std::endl;
+    
+    // Now verify PSS on recovered EM
+    rc = pss_verify(mhash, 32, em_recovered.data(), em_len, em_bits);
+    if (rc != KCTSB_SUCCESS) {
+        std::cerr << "PSS verify (after RSA) failed: " << rc << std::endl;
+        return -8;
+    }
+    std::cerr << "PSS verify (after RSA): PASS" << std::endl;
+    
+    std::cerr << "=== PSS tests PASSED ===" << std::endl;
+    return 0;
 }
 
 } // extern "C"

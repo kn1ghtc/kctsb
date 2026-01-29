@@ -70,26 +70,3 @@ void wbox_aes_cleanup(wbox_aes_ctx_t *ctx);
 #endif
 
 #endif  // KCTSB_WHITEBOX_AES_H
- * @param output 16-byte ciphertext block
- * @return 0 on success, negative on error
- */
-int wbox_aes_encrypt(const wbox_aes_ctx_t *ctx, const u8 input[16], u8 output[16]);
-
-/**
- * @brief Clean up white-box AES context
- * @param ctx Context to clean up
- */
-void wbox_aes_cleanup(wbox_aes_ctx_t *ctx);
-
-/**
- * @brief Generate white-box tables from a key (internal use)
- * @param ctx Context to store generated tables
- * @param key 128-bit AES key
- */
-void wbox_generate_tables(wbox_aes_ctx_t *ctx, const u8 key[16]);
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif /* KCTSB_WHITEBOX_AES_H */

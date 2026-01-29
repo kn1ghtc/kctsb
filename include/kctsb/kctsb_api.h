@@ -26,7 +26,6 @@
  * @endcode
  *
  * @author knightc
- * @version 5.0.0
  * @copyright Copyright (c) 2019-2026 knightc. All rights reserved.
  * @license Apache License 2.0
  */
@@ -78,9 +77,9 @@ extern "C" {
 
 #ifndef KCTSB_VERSION_MAJOR
 #define KCTSB_VERSION_MAJOR 5
-#define KCTSB_VERSION_MINOR 0
+#define KCTSB_VERSION_MINOR 1
 #define KCTSB_VERSION_PATCH 0
-#define KCTSB_VERSION_STRING "5.0.0"
+#define KCTSB_VERSION_STRING "5.1.0"
 #endif
 
 /* ============================================================================
@@ -247,20 +246,6 @@ typedef struct kctsb_blake2b_ctx_s {
 } kctsb_blake2b_ctx_t;
 #endif
 
-/**
- * @brief BLAKE2s context
- */
-#ifndef KCTSB_BLAKE2S_CTX_DEFINED
-#define KCTSB_BLAKE2S_CTX_DEFINED
-typedef struct kctsb_blake2s_ctx_s {
-    uint32_t h[8];
-    uint32_t t[2];
-    uint32_t f[2];
-    uint8_t buf[64];
-    size_t buflen;
-    size_t outlen;
-} kctsb_blake2s_ctx_t;
-#endif
 
 /**
  * @brief SM3 context
@@ -1025,28 +1010,6 @@ KCTSB_API void kctsb_blake2b(const uint8_t* data, size_t len,
  */
 KCTSB_API void kctsb_blake2b_clear(kctsb_blake2b_ctx_t* ctx);
 
-/**
- * @brief Initialize BLAKE2s context
- * @param ctx Context to initialize
- * @param outlen Output length (1-32 bytes)
- */
-KCTSB_API void kctsb_blake2s_init(kctsb_blake2s_ctx_t* ctx, size_t outlen);
-
-/**
- * @brief Compute BLAKE2s hash in one call
- * @param data Input data
- * @param len Input length
- * @param digest Output buffer
- * @param outlen Output length (1-32 bytes)
- */
-KCTSB_API void kctsb_blake2s(const uint8_t* data, size_t len,
-                              uint8_t* digest, size_t outlen);
-
-/**
- * @brief Clear BLAKE2s context
- * @param ctx Context to clear
- */
-KCTSB_API void kctsb_blake2s_clear(kctsb_blake2s_ctx_t* ctx);
 
 /* ============================================================================
  * SM3 (Chinese National Standard Hash)
@@ -1368,6 +1331,218 @@ KCTSB_API void kctsb_gmac(const uint8_t key[16],
                            const uint8_t* iv, size_t iv_len,
                            const uint8_t* aad, size_t aad_len,
                            uint8_t tag[16]);
+
+/* ============================================================================
+ * SM2 Digital Signature (GM/T 0003-2012)
+ * ============================================================================ */
+
+/* SM2 key and signature sizes */
+#define KCTSB_SM2_PRIVATE_KEY_SIZE  32
+#define KCTSB_SM2_PUBLIC_KEY_SIZE   64   /**< x || y (without 04 prefix) */
+#define KCTSB_SM2_SIGNATURE_SIZE    64   /**< r || s */
+
+/**
+ * @brief SM2 key pair container
+ */
+#ifndef KCTSB_SM2_KEYPAIR_DEFINED
+#define KCTSB_SM2_KEYPAIR_DEFINED
+typedef struct {
+    uint8_t private_key[KCTSB_SM2_PRIVATE_KEY_SIZE];
+    uint8_t public_key[KCTSB_SM2_PUBLIC_KEY_SIZE];
+} kctsb_sm2_keypair_t;
+#endif
+
+/**
+ * @brief SM2 signature container
+ */
+#ifndef KCTSB_SM2_SIGNATURE_DEFINED
+#define KCTSB_SM2_SIGNATURE_DEFINED
+typedef struct {
+    uint8_t r[32];
+    uint8_t s[32];
+} kctsb_sm2_signature_t;
+#endif
+
+/**
+ * @brief Generate SM2 key pair
+ * @param keypair Output key pair structure
+ * @return KCTSB_SUCCESS or error code
+ */
+KCTSB_API kctsb_error_t kctsb_sm2_generate_keypair(kctsb_sm2_keypair_t* keypair);
+
+/**
+ * @brief Sign message with SM2 (GM/T 0003-2012)
+ * @param private_key 32-byte private key
+ * @param public_key 64-byte public key (for ZA calculation)
+ * @param user_id User ID for ZA (NULL for default "1234567812345678")
+ * @param user_id_len User ID length
+ * @param message Message to sign
+ * @param message_len Message length
+ * @param signature Output signature (r || s)
+ * @return KCTSB_SUCCESS or error code
+ */
+KCTSB_API kctsb_error_t kctsb_sm2_sign(
+    const uint8_t private_key[KCTSB_SM2_PRIVATE_KEY_SIZE],
+    const uint8_t public_key[KCTSB_SM2_PUBLIC_KEY_SIZE],
+    const uint8_t* user_id, size_t user_id_len,
+    const uint8_t* message, size_t message_len,
+    kctsb_sm2_signature_t* signature);
+
+/**
+ * @brief Verify SM2 signature
+ * @param public_key 64-byte public key (x || y)
+ * @param user_id User ID for ZA (NULL for default)
+ * @param user_id_len User ID length
+ * @param message Original message
+ * @param message_len Message length
+ * @param signature Signature to verify
+ * @return KCTSB_SUCCESS if valid, KCTSB_ERROR_VERIFICATION_FAILED if invalid
+ */
+KCTSB_API kctsb_error_t kctsb_sm2_verify(
+    const uint8_t public_key[KCTSB_SM2_PUBLIC_KEY_SIZE],
+    const uint8_t* user_id, size_t user_id_len,
+    const uint8_t* message, size_t message_len,
+    const kctsb_sm2_signature_t* signature);
+
+/* ============================================================================
+ * BFV Homomorphic Encryption (Benchmark API)
+ * ============================================================================ */
+
+/**
+ * @brief BFV context handle (opaque)
+ */
+typedef struct kctsb_bfv_context_s* kctsb_bfv_context_t;
+
+/**
+ * @brief BFV secret key handle (opaque)
+ */
+typedef struct kctsb_bfv_secret_key_s* kctsb_bfv_secret_key_t;
+
+/**
+ * @brief BFV public key handle (opaque)
+ */
+typedef struct kctsb_bfv_public_key_s* kctsb_bfv_public_key_t;
+
+/**
+ * @brief BFV ciphertext handle (opaque)
+ */
+typedef struct kctsb_bfv_ciphertext_s* kctsb_bfv_ciphertext_t;
+
+/**
+ * @brief BFV plaintext handle (opaque)
+ */
+typedef struct kctsb_bfv_plaintext_s* kctsb_bfv_plaintext_t;
+
+/**
+ * @brief Create BFV context with standard parameters
+ * @param log_n Polynomial degree (log2): 13=8192, 14=16384, 15=32768
+ * @param num_primes Number of RNS primes (L+1)
+ * @return Context handle or NULL on error
+ */
+KCTSB_API kctsb_bfv_context_t kctsb_bfv_create_context(
+    uint32_t log_n, uint32_t num_primes);
+
+/**
+ * @brief Destroy BFV context
+ */
+KCTSB_API void kctsb_bfv_destroy_context(kctsb_bfv_context_t ctx);
+
+/**
+ * @brief Generate BFV key pair
+ * @param ctx BFV context
+ * @param sk Output secret key
+ * @param pk Output public key
+ * @return KCTSB_SUCCESS or error code
+ */
+KCTSB_API kctsb_error_t kctsb_bfv_keygen(
+    kctsb_bfv_context_t ctx,
+    kctsb_bfv_secret_key_t* sk,
+    kctsb_bfv_public_key_t* pk);
+
+/**
+ * @brief Destroy BFV secret key
+ */
+KCTSB_API void kctsb_bfv_destroy_secret_key(kctsb_bfv_secret_key_t sk);
+
+/**
+ * @brief Destroy BFV public key
+ */
+KCTSB_API void kctsb_bfv_destroy_public_key(kctsb_bfv_public_key_t pk);
+
+/**
+ * @brief Create BFV plaintext from integer
+ * @param ctx BFV context
+ * @param value Integer value
+ * @return Plaintext handle or NULL
+ */
+KCTSB_API kctsb_bfv_plaintext_t kctsb_bfv_create_plaintext(
+    kctsb_bfv_context_t ctx, int64_t value);
+
+/**
+ * @brief Destroy BFV plaintext
+ */
+KCTSB_API void kctsb_bfv_destroy_plaintext(kctsb_bfv_plaintext_t pt);
+
+/**
+ * @brief Encrypt plaintext to ciphertext
+ * @param ctx BFV context
+ * @param pk Public key
+ * @param pt Plaintext
+ * @param ct Output ciphertext
+ * @return KCTSB_SUCCESS or error code
+ */
+KCTSB_API kctsb_error_t kctsb_bfv_encrypt(
+    kctsb_bfv_context_t ctx,
+    kctsb_bfv_public_key_t pk,
+    kctsb_bfv_plaintext_t pt,
+    kctsb_bfv_ciphertext_t* ct);
+
+/**
+ * @brief Decrypt ciphertext to plaintext
+ * @param ctx BFV context
+ * @param sk Secret key
+ * @param ct Ciphertext
+ * @param pt Output plaintext
+ * @return KCTSB_SUCCESS or error code
+ */
+KCTSB_API kctsb_error_t kctsb_bfv_decrypt(
+    kctsb_bfv_context_t ctx,
+    kctsb_bfv_secret_key_t sk,
+    kctsb_bfv_ciphertext_t ct,
+    kctsb_bfv_plaintext_t* pt);
+
+/**
+ * @brief Add two ciphertexts
+ * @param ctx BFV context
+ * @param ct1 First ciphertext
+ * @param ct2 Second ciphertext
+ * @param result Output ciphertext
+ * @return KCTSB_SUCCESS or error code
+ */
+KCTSB_API kctsb_error_t kctsb_bfv_add(
+    kctsb_bfv_context_t ctx,
+    kctsb_bfv_ciphertext_t ct1,
+    kctsb_bfv_ciphertext_t ct2,
+    kctsb_bfv_ciphertext_t* result);
+
+/**
+ * @brief Multiply two ciphertexts
+ * @param ctx BFV context
+ * @param ct1 First ciphertext
+ * @param ct2 Second ciphertext
+ * @param result Output ciphertext
+ * @return KCTSB_SUCCESS or error code
+ */
+KCTSB_API kctsb_error_t kctsb_bfv_multiply(
+    kctsb_bfv_context_t ctx,
+    kctsb_bfv_ciphertext_t ct1,
+    kctsb_bfv_ciphertext_t ct2,
+    kctsb_bfv_ciphertext_t* result);
+
+/**
+ * @brief Destroy BFV ciphertext
+ */
+KCTSB_API void kctsb_bfv_destroy_ciphertext(kctsb_bfv_ciphertext_t ct);
 
 #ifdef __cplusplus
 } /* extern "C" */

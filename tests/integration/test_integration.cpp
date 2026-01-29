@@ -19,7 +19,7 @@
 #include <string>
 
 #include "kctsb/kctsb_api.h"
-#include "kctsb/version.h"
+#include "kctsb/kctsb.h"
 
 // ============================================================================
 // Library Lifecycle Tests

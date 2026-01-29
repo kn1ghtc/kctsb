@@ -42,25 +42,37 @@ extern "C" {
 #endif
 
 // SM2 key and signature sizes
+#ifndef KCTSB_SM2_PRIVATE_KEY_SIZE
 #define KCTSB_SM2_PRIVATE_KEY_SIZE  32
+#endif
+#ifndef KCTSB_SM2_PUBLIC_KEY_SIZE
 #define KCTSB_SM2_PUBLIC_KEY_SIZE   64   // x || y (without 04 prefix)
+#endif
+#ifndef KCTSB_SM2_SIGNATURE_SIZE
 #define KCTSB_SM2_SIGNATURE_SIZE    64   // r || s
+#endif
 
 /**
  * @brief SM2 key pair structure for C API
  */
+#ifndef KCTSB_SM2_KEYPAIR_DEFINED
+#define KCTSB_SM2_KEYPAIR_DEFINED
 typedef struct {
     uint8_t private_key[KCTSB_SM2_PRIVATE_KEY_SIZE];
     uint8_t public_key[KCTSB_SM2_PUBLIC_KEY_SIZE];
 } kctsb_sm2_keypair_t;
+#endif
 
 /**
  * @brief SM2 signature structure for C API
  */
+#ifndef KCTSB_SM2_SIGNATURE_DEFINED
+#define KCTSB_SM2_SIGNATURE_DEFINED
 typedef struct {
     uint8_t r[32];
     uint8_t s[32];
 } kctsb_sm2_signature_t;
+#endif
 
 // ============================================================================
 // SM2 C API Functions

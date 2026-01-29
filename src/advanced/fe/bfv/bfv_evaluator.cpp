@@ -822,3 +822,166 @@ int BFVEvaluator::noise_budget_after_multiply() const {
 } // namespace bfv
 } // namespace fhe
 } // namespace kctsb
+// ============================================================================
+// C ABI Wrappers for External Use
+// ============================================================================
+
+#include "kctsb/kctsb_api.h"
+#include <memory>
+#include <random>
+#include <cstring>
+
+// Internal structures for opaque handles
+struct kctsb_bfv_context_s {
+    std::unique_ptr<kctsb::fhe::RNSContext> rns_ctx;
+    std::unique_ptr<kctsb::fhe::bfv::BFVEvaluator> evaluator;
+    uint64_t plaintext_modulus;
+    std::mt19937_64 rng;
+    
+    kctsb_bfv_context_s() : plaintext_modulus(256), rng(std::random_device{}()) {}
+};
+
+struct kctsb_bfv_secret_key_s {
+    kctsb::fhe::bfv::BFVSecretKey key;
+};
+
+struct kctsb_bfv_public_key_s {
+    kctsb::fhe::bfv::BFVPublicKey key;
+};
+
+struct kctsb_bfv_ciphertext_s {
+    kctsb::fhe::bfv::BFVCiphertext ct;
+};
+
+struct kctsb_bfv_plaintext_s {
+    kctsb::fhe::bfv::BFVPlaintext pt;
+};
+
+namespace {
+
+// Standard 60-bit NTT-friendly primes for 128-bit security
+static const std::vector<uint64_t> PRIMES_60BIT = {
+    0x0FFFFFFFEE001ULL, 0x0FFFFFFFC4001ULL, 0x0FFFFFFFA4001ULL,
+    0x0FFFFFFF94001ULL, 0x0FFFFFFF74001ULL, 0x0FFFFFFF54001ULL,
+    0x0FFFFFFF34001ULL, 0x0FFFFFFF14001ULL, 0x0FFFFFFEF4001ULL,
+    0x0FFFFFFED4001ULL, 0x0FFFFFFEB4001ULL, 0x0FFFFFFE94001ULL,
+};
+
+std::unique_ptr<kctsb::fhe::RNSContext> create_standard_context(
+    uint32_t log_n, uint32_t num_primes)
+{
+    if (log_n < 13 || log_n > 15) return nullptr;
+    if (num_primes < 2 || num_primes > PRIMES_60BIT.size()) return nullptr;
+    
+    std::vector<uint64_t> primes(PRIMES_60BIT.begin(),
+                                  PRIMES_60BIT.begin() + num_primes);
+    return std::make_unique<kctsb::fhe::RNSContext>(static_cast<int>(log_n), primes);
+}
+
+}  // anonymous namespace
+
+extern "C" {
+
+KCTSB_API kctsb_bfv_context_t kctsb_bfv_create_context(uint32_t log_n, uint32_t num_primes)
+{
+    try {
+        auto ctx = new kctsb_bfv_context_s();
+        ctx->rns_ctx = create_standard_context(log_n, num_primes);
+        if (!ctx->rns_ctx) { delete ctx; return nullptr; }
+        
+        ctx->plaintext_modulus = 256;
+        ctx->evaluator = std::make_unique<kctsb::fhe::bfv::BFVEvaluator>(
+            ctx->rns_ctx.get(), ctx->plaintext_modulus);
+        return ctx;
+    } catch (...) { return nullptr; }
+}
+
+KCTSB_API void kctsb_bfv_destroy_context(kctsb_bfv_context_t ctx) { delete ctx; }
+
+KCTSB_API kctsb_error_t kctsb_bfv_keygen(
+    kctsb_bfv_context_t ctx, kctsb_bfv_secret_key_t* sk, kctsb_bfv_public_key_t* pk)
+{
+    if (!ctx || !sk || !pk) return KCTSB_ERROR_INVALID_PARAM;
+    try {
+        auto sk_obj = new kctsb_bfv_secret_key_s();
+        auto pk_obj = new kctsb_bfv_public_key_s();
+        sk_obj->key = ctx->evaluator->generate_secret_key(ctx->rng);
+        pk_obj->key = ctx->evaluator->generate_public_key(sk_obj->key, ctx->rng);
+        *sk = sk_obj; *pk = pk_obj;
+        return KCTSB_SUCCESS;
+    } catch (...) { return KCTSB_ERROR_INTERNAL; }
+}
+
+KCTSB_API void kctsb_bfv_destroy_secret_key(kctsb_bfv_secret_key_t sk) { delete sk; }
+KCTSB_API void kctsb_bfv_destroy_public_key(kctsb_bfv_public_key_t pk) { delete pk; }
+
+KCTSB_API kctsb_bfv_plaintext_t kctsb_bfv_create_plaintext(
+    kctsb_bfv_context_t ctx, int64_t value)
+{
+    if (!ctx) return nullptr;
+    try {
+        auto pt = new kctsb_bfv_plaintext_s();
+        size_t n = ctx->rns_ctx->n();
+        pt->pt.resize(n, 0);
+        pt->pt[0] = static_cast<uint64_t>(value >= 0 ? value : -value);
+        return pt;
+    } catch (...) { return nullptr; }
+}
+
+KCTSB_API void kctsb_bfv_destroy_plaintext(kctsb_bfv_plaintext_t pt) { delete pt; }
+
+KCTSB_API kctsb_error_t kctsb_bfv_encrypt(
+    kctsb_bfv_context_t ctx, kctsb_bfv_public_key_t pk,
+    kctsb_bfv_plaintext_t pt, kctsb_bfv_ciphertext_t* ct)
+{
+    if (!ctx || !pk || !pt || !ct) return KCTSB_ERROR_INVALID_PARAM;
+    try {
+        auto ct_obj = new kctsb_bfv_ciphertext_s();
+        ct_obj->ct = ctx->evaluator->encrypt(pt->pt, pk->key, ctx->rng);
+        *ct = ct_obj;
+        return KCTSB_SUCCESS;
+    } catch (...) { return KCTSB_ERROR_ENCRYPTION_FAILED; }
+}
+
+KCTSB_API void kctsb_bfv_destroy_ciphertext(kctsb_bfv_ciphertext_t ct) { delete ct; }
+
+KCTSB_API kctsb_error_t kctsb_bfv_decrypt(
+    kctsb_bfv_context_t ctx, kctsb_bfv_secret_key_t sk,
+    kctsb_bfv_ciphertext_t ct, kctsb_bfv_plaintext_t* pt)
+{
+    if (!ctx || !sk || !ct || !pt) return KCTSB_ERROR_INVALID_PARAM;
+    try {
+        auto pt_obj = new kctsb_bfv_plaintext_s();
+        pt_obj->pt = ctx->evaluator->decrypt(ct->ct, sk->key);
+        *pt = pt_obj;
+        return KCTSB_SUCCESS;
+    } catch (...) { return KCTSB_ERROR_DECRYPTION_FAILED; }
+}
+
+KCTSB_API kctsb_error_t kctsb_bfv_add(
+    kctsb_bfv_context_t ctx, kctsb_bfv_ciphertext_t ct1,
+    kctsb_bfv_ciphertext_t ct2, kctsb_bfv_ciphertext_t* result)
+{
+    if (!ctx || !ct1 || !ct2 || !result) return KCTSB_ERROR_INVALID_PARAM;
+    try {
+        auto res = new kctsb_bfv_ciphertext_s();
+        res->ct = ctx->evaluator->add(ct1->ct, ct2->ct);
+        *result = res;
+        return KCTSB_SUCCESS;
+    } catch (...) { return KCTSB_ERROR_INTERNAL; }
+}
+
+KCTSB_API kctsb_error_t kctsb_bfv_multiply(
+    kctsb_bfv_context_t ctx, kctsb_bfv_ciphertext_t ct1,
+    kctsb_bfv_ciphertext_t ct2, kctsb_bfv_ciphertext_t* result)
+{
+    if (!ctx || !ct1 || !ct2 || !result) return KCTSB_ERROR_INVALID_PARAM;
+    try {
+        auto res = new kctsb_bfv_ciphertext_s();
+        res->ct = ctx->evaluator->multiply(ct1->ct, ct2->ct);
+        *result = res;
+        return KCTSB_SUCCESS;
+    } catch (...) { return KCTSB_ERROR_INTERNAL; }
+}
+
+}  // extern "C"

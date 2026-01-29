@@ -41,7 +41,7 @@ constexpr std::array<uint64_t, 8> BLAKE2B_IV = {
 
 
 /**
- * @brief BLAKE2b/s sigma table
+ * @brief BLAKE2b sigma table
  */
 constexpr std::array<std::array<uint8_t, 16>, 12> SIGMA = {{
     {{ 0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15}},
@@ -122,20 +122,6 @@ static inline void store32(uint8_t* dst, uint32_t w) noexcept {
     d = rotr64(d ^ a, 16);      \
     c = c + d;                  \
     b = rotr64(b ^ c, 63);      \
-} while(0)
-
-/**
- * @brief BLAKE2s G mixing function
- */
-#define G_S(a, b, c, d, x, y) do { \
-    a = a + b + x;              \
-    d = rotr32(d ^ a, 16);      \
-    c = c + d;                  \
-    b = rotr32(b ^ c, 12);      \
-    a = a + b + y;              \
-    d = rotr32(d ^ a, 8);       \
-    c = c + d;                  \
-    b = rotr32(b ^ c, 7);       \
 } while(0)
 
 /**

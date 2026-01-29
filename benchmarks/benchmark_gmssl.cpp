@@ -8,7 +8,7 @@
  *   - SM4-GCM: AEAD encryption throughput
  *
  * Follows AGENTS.md specification:
- *   - Uses only public API (kctsb_api.h + crypto/sm/sm2.h)
+ *   - Uses only public API (kctsb_api.h)
  *   - Library-level comparison, no internal dependencies
  *   - 10 warmup, 100 benchmark iterations
  *
@@ -25,9 +25,8 @@
 
 #include "benchmark_common.hpp"
 
-// kctsb public API
+// kctsb public API ONLY - no internal headers
 #include "kctsb/kctsb_api.h"
-#include "kctsb/crypto/sm/sm2.h"
 
 // GmSSL headers
 extern "C" {
